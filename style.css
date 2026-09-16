@@ -384,7 +384,11 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .hexmap-wrap {
   overflow: auto;
   margin: 14px 0;
-  background: #10141c;
+  background-color: #0a0d13;
+  background-image:
+    radial-gradient(ellipse at center, #1b222f 0%, #0e121a 60%, #07080c 100%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 24px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 24px);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 20px;
@@ -398,22 +402,39 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
   background: #263042;
   border: 2px solid var(--border);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 2px 5px rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.12s, filter 0.12s;
 }
-.hex-loc { cursor: pointer; transition: transform 0.12s, filter 0.12s; }
+.hex-loc { cursor: pointer; }
 .hex-loc:hover { transform: scale(1.08); filter: brightness(1.15); z-index: 5; }
 
 .hex-school {
-  background: #3a4a6b;
+  background: radial-gradient(circle at 50% 38%, #52709e 0%, #354765 75%);
   border-color: var(--accent, #4caf7d);
+  box-shadow: 0 0 16px rgba(76, 175, 125, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   z-index: 2;
 }
 .hex-easy { background: #24422e; border-color: #3f7a52; }
 .hex-medium { background: #4a3f22; border-color: #b08a2e; }
 .hex-hard { background: #4a2424; border-color: #a03d3d; }
 .hex-assigned { outline: 2px solid #d9d9d9; outline-offset: 2px; }
+
+.hex-fog {
+  background: repeating-linear-gradient(135deg, #1b202a 0px, #1b202a 6px, #171b23 6px, #171b23 12px);
+  border-color: #262b35;
+  cursor: pointer;
+}
+.hex-fog:hover { filter: brightness(1.35); transform: scale(1.06); z-index: 5; }
+.hex-fog-icon { font-size: 15px; font-weight: 700; color: #4b5568; }
+
+.hex-explored-empty {
+  background: #171b23;
+  border-color: #232833;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
 
 .hex-inner {
   display: flex;
@@ -448,6 +469,9 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .hex-tooltip b { display: block; margin-bottom: 2px; }
 .hex-tooltip p { margin: 2px 0; }
 .hex:hover .hex-tooltip { opacity: 1; }
+.hex-tooltip-fog { width: 150px; }
+
+.scout-row { justify-content: space-between; cursor: default; }
 
 .mission-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .mission-chip {

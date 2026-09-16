@@ -10,6 +10,7 @@ import {
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
+  isHexExplored,
 } from "./game.js";
 import { characterSprite } from "./sprite.js";
 
@@ -40,6 +41,20 @@ function hexCenter(q, r) {
 }
 function hexDistance(q, r) {
   return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+}
+
+// All axial hexes within `radius` of the school (excluding the school's own tile), for a full
+// fog-of-war field rather than just the sparse curated LOCATIONS.
+const HEX_RADIUS = 5;
+function hexesInRadius(radius) {
+  const hexes = [];
+  for (let q = -radius; q <= radius; q++) {
+    for (let r = -radius; r <= radius; r++) {
+      if (q === 0 && r === 0) continue;
+      if (hexDistance(q, r) <= radius) hexes.push({ q, r });
+    }
+  }
+  return hexes;
 }
 
 function esc(s) {
@@ -305,28 +320,35 @@ function renderTurn2Overview(state) {
 }
 
 function renderExplorationMap(state) {
-  const points = [{ id: "school", q: 0, r: 0 }, ...LOCATIONS.map((l) => ({ id: l.id, q: l.hex.q, r: l.hex.r }))];
-  const centers = points.map((p) => ({ ...p, ...hexCenter(p.q, p.r) }));
-  const xs = centers.map((c) => c.x);
-  const ys = centers.map((c) => c.y);
-  const minX = Math.min(...xs) - HEX_W / 2 - 10;
-  const maxX = Math.max(...xs) + HEX_W / 2 + 10;
-  const minY = Math.min(...ys) - HEX_H / 2 - 10;
-  const maxY = Math.max(...ys) + HEX_H / 2 + 10;
-  const width = maxX - minX;
-  const height = maxY - minY;
-  const toPos = (x, y) => ({ left: x - minX - HEX_W / 2, top: y - minY - HEX_H / 2 });
+  const width = 1.5 * HEX_SIZE * HEX_RADIUS * 2 + HEX_W + 20;
+  const height = Math.sqrt(3) * HEX_SIZE * HEX_RADIUS * 2 + HEX_H + 20;
+  const toPos = (x, y) => ({ left: x + width / 2 - HEX_W / 2, top: y + height / 2 - HEX_H / 2 });
 
-  const schoolCenter = centers.find((c) => c.id === "school");
-  const schoolPos = toPos(schoolCenter.x, schoolCenter.y);
+  const schoolPos = toPos(0, 0);
   let hexesHtml = `<div class="hex hex-school" style="left:${schoolPos.left}px;top:${schoolPos.top}px;" title="Your school">
     <div class="hex-inner"><span class="hex-icon">🏫</span><span class="hex-label">School</span></div>
   </div>`;
 
-  for (const loc of LOCATIONS) {
-    const center = centers.find((c) => c.id === loc.id);
-    const pos = toPos(center.x, center.y);
-    const dist = hexDistance(loc.hex.q, loc.hex.r);
+  for (const { q, r } of hexesInRadius(HEX_RADIUS)) {
+    const { x, y } = hexCenter(q, r);
+    const pos = toPos(x, y);
+    const loc = LOCATIONS.find((l) => l.hex.q === q && l.hex.r === r);
+    const explored = isHexExplored(state, q, r);
+
+    if (!explored) {
+      hexesHtml += `<div class="hex hex-fog" data-action="open-scout" data-q="${q}" data-r="${r}" style="left:${pos.left}px;top:${pos.top}px;">
+        <div class="hex-inner"><span class="hex-icon hex-fog-icon">?</span></div>
+        <div class="hex-tooltip hex-tooltip-fog"><b>Unexplored</b><p class="muted">Click to send a scout (5 stamina).</p></div>
+      </div>`;
+      continue;
+    }
+
+    if (!loc) {
+      hexesHtml += `<div class="hex hex-explored-empty" style="left:${pos.left}px;top:${pos.top}px;"></div>`;
+      continue;
+    }
+
+    const dist = hexDistance(q, r);
     const diffClass = dist <= 2 ? "hex-easy" : dist <= 4 ? "hex-medium" : "hex-hard";
     const teamIndex = state.teamLocations.indexOf(loc.id);
     const assigned = teamIndex !== -1;
@@ -351,6 +373,29 @@ function renderExplorationMap(state) {
   }
 
   return `<div class="hexmap-wrap"><div class="hexmap" style="width:${width}px;height:${height}px;">${hexesHtml}</div></div>`;
+}
+
+export function renderScoutModal(state, q, r) {
+  const eligible = state.characters.filter((c) => c.role === "student" && c.alive && c.stamina >= 5);
+  const rows = eligible
+    .map(
+      (s) => `<div class="check-row scout-row">
+        <span>${nameTag(s)} ${staminaBar(s)} ${statusTag(s)}</span>
+        <button class="btn btn-sm btn-primary" data-action="confirm-scout" data-id="${s.id}" data-q="${q}" data-r="${r}">Send (−5 stamina)</button>
+      </div>`
+    )
+    .join("");
+
+  return `
+  <div class="modal-overlay" data-action="close-scout">
+    <div class="char-card mission-card" data-action="noop">
+      <button class="cc-close" data-action="close-scout" title="Close">✕</button>
+      <h3>🌫 Unexplored Territory</h3>
+      <p class="muted">Send a student to scout this hex. Most turn up nothing, but it's the only way to find loot.</p>
+      <div class="mini-label">Send a scout</div>
+      <div class="check-list">${rows || '<p class="muted">No student has enough stamina to scout right now.</p>'}</div>
+    </div>
+  </div>`;
 }
 
 export function renderMissionModal(state, locationId) {

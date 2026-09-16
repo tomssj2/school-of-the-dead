@@ -46,6 +46,7 @@ export function createInitialState() {
     pendingAssault: false, // true once an Assault opportunity triggers post-battle, until resolved
     raidDefenders: [],
     eventLog: [], // most recent random events, newest first
+    exploredHexes: [], // "q,r" keys the fog of war has been lifted from
     characters: [],
     rooms: {
       classrooms: Object.fromEntries(
@@ -1014,6 +1015,37 @@ export function setTeamLocation(state, teamIndex, locationId) {
   if (locationId && usedElsewhere) return false;
   state.teamLocations[teamIndex] = locationId || null;
   return true;
+}
+
+// ---------- fog of war ----------
+
+export function hexKey(q, r) {
+  return `${q},${r}`;
+}
+
+export function isHexExplored(state, q, r) {
+  return state.exploredHexes.includes(hexKey(q, r));
+}
+
+// A cheap, instant scouting errand — separate from committing a full team to loot a location.
+// Reveals whatever's on a fogged hex; only a discovered LOCATIONS hex becomes lootable via the
+// normal setTeamLocation/setExploreTeam flow afterward.
+export function scoutHex(state, studentId, q, r) {
+  const c = getChar(state, studentId);
+  if (!c || c.role !== "student" || !c.alive) return null;
+  if (c.stamina < 5) return null;
+  if (isHexExplored(state, q, r)) return null;
+
+  c.stamina -= 5;
+  state.exploredHexes.push(hexKey(q, r));
+  const location = LOCATIONS.find((l) => l.hex.q === q && l.hex.r === r) || null;
+
+  if (location) {
+    addLog(state, `${c.name} discovered ${location.name} while scouting.`);
+  } else {
+    addLog(state, `${c.name} scouted the area and found nothing of interest.`);
+  }
+  return location;
 }
 
 export function setDefending(state, charId, value) {

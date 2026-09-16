@@ -1,5 +1,5 @@
 import * as G from "./game.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
@@ -17,6 +17,7 @@ let cardTab = "stats";
 let rosterFilter = "all";
 let mobileView = false;
 let openMissionLocationId = null;
+let openScoutHex = null; // { q, r } or null
 
 const root = document.getElementById("app");
 
@@ -56,6 +57,7 @@ function migrateState(s) {
   if (s.pendingAssault === undefined) s.pendingAssault = false;
   if (!s.raidDefenders) s.raidDefenders = [];
   if (!s.eventLog) s.eventLog = [];
+  if (!s.exploredHexes) s.exploredHexes = [];
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -108,11 +110,14 @@ function render() {
   const card = openCardId ? G.getCharAnywhere(state, openCardId) : null;
   if (openCardId && !card) openCardId = null; // e.g. expelled while card was open
   if (openMissionLocationId && !state.teamLocations.includes(openMissionLocationId)) openMissionLocationId = null;
+  if (openScoutHex && G.isHexExplored(state, openScoutHex.q, openScoutHex.r)) openScoutHex = null;
   root.classList.toggle("mobile-forced", mobileView);
   const modalHtml = card
     ? renderCharacterCard(state, card, cardTab)
     : openMissionLocationId
     ? renderMissionModal(state, openMissionLocationId)
+    : openScoutHex
+    ? renderScoutModal(state, openScoutHex.q, openScoutHex.r)
     : state.pendingAssault
     ? renderAssaultModal()
     : "";
@@ -262,6 +267,7 @@ root.addEventListener("click", (e) => {
     case "open-card":
       e.preventDefault(); // stop a click inside a <label> from also toggling its checkbox
       closeMissionModal();
+      openScoutHex = null;
       openCardId = el.dataset.id;
       cardTab = "stats";
       render();
@@ -282,6 +288,7 @@ root.addEventListener("click", (e) => {
         G.setTeamLocation(state, teamIndex, locationId);
       }
       openCardId = null;
+      openScoutHex = null;
       openMissionLocationId = locationId;
       render();
       break;
@@ -290,6 +297,28 @@ root.addEventListener("click", (e) => {
       closeMissionModal();
       render();
       break;
+    case "open-scout": {
+      const q = Number(el.dataset.q);
+      const r = Number(el.dataset.r);
+      if (G.isHexExplored(state, q, r)) break;
+      openCardId = null;
+      openMissionLocationId = null;
+      openScoutHex = { q, r };
+      render();
+      break;
+    }
+    case "close-scout":
+      openScoutHex = null;
+      render();
+      break;
+    case "confirm-scout": {
+      if (!openScoutHex) break;
+      const location = G.scoutHex(state, el.dataset.id, openScoutHex.q, openScoutHex.r);
+      flash(location ? `Discovered ${location.name}!` : "Scouted the area — nothing there.");
+      openScoutHex = null;
+      render();
+      break;
+    }
     case "clear-mission": {
       const teamIndex = Number(el.dataset.team);
       state.characters.filter((c) => c.exploreTeam === teamIndex).forEach((c) => G.setExploreTeam(state, c.id, null));
