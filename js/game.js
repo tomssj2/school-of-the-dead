@@ -31,6 +31,7 @@ export function adjustHappiness(state, amount) {
 function killCharacter(state, c) {
   c.alive = false;
   c.hp = 0;
+  c.diedOnDay = state.day;
   adjustHappiness(state, -HAPPINESS_LOSS_DEATH);
 }
 

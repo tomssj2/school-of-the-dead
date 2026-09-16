@@ -1,5 +1,5 @@
 import * as G from "./game.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
@@ -31,6 +31,7 @@ let lastHappiness = null;
 let lastDay = state.day; // for the day-rollover chime, however the advance happened
 let floaties = [];
 let floatyClearTimer = null;
+let dayRecap = null; // { day, entries } shown once right after a day rolls over
 
 const root = document.getElementById("app");
 
@@ -156,7 +157,10 @@ function render() {
   lastResources = { ...state.resources };
   lastHappiness = state.happiness;
 
-  if (state.day !== lastDay) playChime(); // covers every path a new day can start from
+  if (state.day !== lastDay) {
+    playChime(); // covers every path a new day can start from
+    dayRecap = { day: lastDay, entries: state.log.filter((e) => e.day === lastDay) };
+  }
   lastDay = state.day;
 
   root.classList.toggle("mobile-forced", mobileView);
@@ -164,6 +168,8 @@ function render() {
     ? renderBattleAnimation(state, battleAnimation)
     : fightAnimation
     ? renderFightAnimation(state, fightAnimation)
+    : dayRecap
+    ? renderDayRecap(dayRecap)
     : card
     ? renderCharacterCard(state, card, cardTab)
     : openMissionLocationId
@@ -310,10 +316,23 @@ root.addEventListener("click", (e) => {
       render();
       break;
     case "assault-chase": {
-      playHit();
       const result = G.resolveAssault(state, true);
-      if (result) (result.won ? playSuccess : playFail)();
+      if (!result) {
+        render();
+        break;
+      }
+      battleAnimation = { kind: "assault", summary: result, phase: "clash" };
+      playHit();
       render();
+      setTimeout(() => {
+        battleAnimation.phase = "result";
+        (result.won ? playSuccess : playFail)();
+        render();
+        setTimeout(() => {
+          battleAnimation = null;
+          render();
+        }, 1200);
+      }, 1300);
       break;
     }
     case "assault-decline":
@@ -451,6 +470,10 @@ root.addEventListener("click", (e) => {
     }
     case "close-picker":
       openPicker = null;
+      render();
+      break;
+    case "close-day-recap":
+      dayRecap = null;
       render();
       break;
     case "buy-tech":

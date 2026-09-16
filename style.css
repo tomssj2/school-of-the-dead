@@ -15,7 +15,11 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(76, 175, 125, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 100%, rgba(214, 69, 69, 0.05) 0%, transparent 55%);
+  background-attachment: fixed;
   color: var(--text);
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   font-size: 14px;
@@ -374,9 +378,44 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .recruit-card { margin: 0; }
 .row-actions { display: flex; gap: 6px; margin-top: 8px; }
 
+.memorial-card { background: #1a1516; border-color: #3a2a2a; }
+.memorial-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.memorial-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px 4px 4px;
+}
+.memorial-name { font-size: 12.5px; }
+.memorial-day { font-size: 11px; }
+
+.armory-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.armory-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.armory-item.armory-legendary { border-color: #f4c430; background: rgba(244, 196, 48, 0.08); }
+.armory-icon { font-size: 16px; }
+.armory-name { flex: 1; }
+.armory-bonus { color: var(--muted); font-size: 12px; }
+
 .log-list { list-style: none; padding: 0; margin: 0; max-height: 70vh; overflow-y: auto; }
-.log-list li { padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.day-recap-list { max-height: 320px; margin: 10px 0; }
+.log-list li { padding: 5px 0 5px 8px; border-bottom: 1px solid var(--border); border-left: 2px solid transparent; font-size: 13px; }
 .log-tag { color: var(--muted); font-size: 11px; margin-right: 6px; }
+.log-combat { border-left-color: #d64545; }
+.log-explore { border-left-color: #3fa7d6; }
+.log-social { border-left-color: #a03d5c; }
+.log-economy { border-left-color: #4caf7d; }
 
 #flash {
   position: fixed;

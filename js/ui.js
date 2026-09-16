@@ -273,6 +273,7 @@ export function renderTabs(state, activeTab, mobileView) {
     </div>
     <div class="tabs-right">
       <button class="tab-btn ${activeTab === "roster" ? "active" : ""}" data-action="set-tab" data-tab="roster">📋 Roster</button>
+      <button class="tab-btn ${activeTab === "armory" ? "active" : ""}" data-action="set-tab" data-tab="armory">🗡 Armory</button>
       <button class="tab-btn ${activeTab === "research" ? "active" : ""}" data-action="set-tab" data-tab="research">🧠 Research</button>
       <button class="tab-btn ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
       <details class="options-dropdown">
@@ -503,28 +504,55 @@ export function renderBattleAnimation(state, anim) {
     </div>`;
   }
 
-  // kind === "exploration"
-  if (anim.phase === "clash") {
+  if (anim.kind === "exploration") {
+    if (anim.phase === "clash") {
+      return `
+      <div class="modal-overlay fight-overlay">
+        <div class="fight-scene battle-lineup">
+          <div class="battle-side"><div class="fight-combatant fight-scout">🧳</div></div>
+          <div class="fight-impact">💥</div>
+          <div class="fight-combatant fight-zombie">🧟</div>
+        </div>
+        <div class="fight-caption">Your teams reach the city…</div>
+      </div>`;
+    }
+
+    const { teamsSent, successes } = anim.summary;
+    const none = successes === 0;
+    const icon = successes === teamsSent ? "🧳" : none ? "😬" : "⚖️";
+    const text = `${successes}/${teamsSent} expedition${teamsSent === 1 ? "" : "s"} succeeded`;
     return `
     <div class="modal-overlay fight-overlay">
-      <div class="fight-scene battle-lineup">
-        <div class="battle-side"><div class="fight-combatant fight-scout">🧳</div></div>
-        <div class="fight-impact">💥</div>
-        <div class="fight-combatant fight-zombie">🧟</div>
+      <div class="fight-result ${none ? "fight-lose" : "fight-win"}">
+        <div class="fight-result-icon">${icon}</div>
+        <div class="fight-result-text">${text}</div>
       </div>
-      <div class="fight-caption">Your teams reach the city…</div>
     </div>`;
   }
 
-  const { teamsSent, successes } = anim.summary;
-  const none = successes === 0;
-  const icon = successes === teamsSent ? "🧳" : none ? "😬" : "⚖️";
-  const text = `${successes}/${teamsSent} expedition${teamsSent === 1 ? "" : "s"} succeeded`;
+  // kind === "assault" — the squad (whoever defended tonight) chasing the horde's leader
+  if (anim.phase === "clash") {
+    const squad = state.characters.filter((c) => c.defending && c.alive);
+    const shown = squad.slice(0, 4);
+    const extra = squad.length - shown.length;
+    const sprites = shown.map((c) => `<div class="fight-combatant fight-scout">${characterSprite(c, 72)}</div>`).join("");
+    return `
+    <div class="modal-overlay fight-overlay">
+      <div class="fight-scene battle-lineup">
+        <div class="battle-side">${sprites || '<div class="fight-combatant fight-scout">🧍</div>'}${extra > 0 ? `<div class="battle-extra">+${extra}</div>` : ""}</div>
+        <div class="fight-impact">💥</div>
+        <div class="fight-combatant fight-zombie">🧟‍♂️</div>
+      </div>
+      <div class="fight-caption">The squad chases the horde's leader into the dark…</div>
+    </div>`;
+  }
+
+  const won = anim.summary.won;
   return `
   <div class="modal-overlay fight-overlay">
-    <div class="fight-result ${none ? "fight-lose" : "fight-win"}">
-      <div class="fight-result-icon">${icon}</div>
-      <div class="fight-result-text">${text}</div>
+    <div class="fight-result ${won ? "fight-win" : "fight-lose"}">
+      <div class="fight-result-icon">${won ? "🏆" : "💨"}</div>
+      <div class="fight-result-text">${won ? "Struck it rich!" : "The chase came up empty."}</div>
     </div>
   </div>`;
 }
@@ -1142,6 +1170,40 @@ export function renderResearch(state) {
   </div>`;
 }
 
+// ---------- armory ----------
+
+const ARMORY_SLOT_LABEL = { weapon: "⚔ Weapons", armor: "🛡 Armor", accessory: "💍 Accessories" };
+
+export function renderArmory(state) {
+  const bySlot = { weapon: [], armor: [], accessory: [] };
+  for (const it of state.armory) (bySlot[it.slot] || (bySlot[it.slot] = [])).push(it);
+
+  const section = (slotKey) => {
+    const items = bySlot[slotKey] || [];
+    const rows = items
+      .map(
+        (it) => `<div class="armory-item ${it.legendary ? "armory-legendary" : ""}">
+          <span class="armory-icon">${it.icon}</span>
+          <span class="armory-name">${it.legendary ? "✨ " : ""}${esc(it.name)}</span>
+          <span class="armory-bonus">${formatBonuses(it.bonuses)}</span>
+        </div>`
+      )
+      .join("");
+    return `<div class="subcard">
+      <h3>${ARMORY_SLOT_LABEL[slotKey]} <span class="muted">(${items.length})</span></h3>
+      <div class="armory-list">${rows || '<p class="muted">Nothing in storage right now.</p>'}</div>
+    </div>`;
+  };
+
+  return `<div class="card">
+    <h2>🗡 Armory</h2>
+    <p class="muted">Unequipped gear sitting in the shared armory — equip it on a student from their card's Inventory tab.</p>
+    ${section("weapon")}
+    ${section("armor")}
+    ${section("accessory")}
+  </div>`;
+}
+
 // ---------- roster ----------
 
 const ROSTER_SORT_FIELDS = [
@@ -1215,6 +1277,24 @@ export function renderRoster(state, filter = "all", sortKey = "name", sortDir = 
 
   const sortOptions = fields.map((f) => `<option value="${f.key}" ${f.key === effectiveSortKey ? "selected" : ""}>${f.label}</option>`).join("");
 
+  const fallen = state.characters.filter((c) => !c.alive);
+  const memorial = fallen.length
+    ? `<div class="subcard memorial-card">
+        <h3>🕯 In Memoriam</h3>
+        <div class="memorial-list">
+          ${fallen
+            .map(
+              (c) => `<div class="memorial-row" title="${esc(c.name)}">
+                <span class="mini-portrait cc-dead">${characterSprite(c, 32)}</span>
+                <span class="memorial-name">${esc(c.name)}</span>
+                <span class="muted memorial-day">Day ${c.diedOnDay || "?"}</span>
+              </div>`
+            )
+            .join("")}
+        </div>
+      </div>`
+    : "";
+
   return `<div class="card">
     <h2>Roster</h2>
     ${filterBar}
@@ -1230,16 +1310,47 @@ export function renderRoster(state, filter = "all", sortKey = "name", sortDir = 
         <tbody>${rows || '<tr><td colspan="9" class="muted">Nobody here.</td></tr>'}</tbody>
       </table>
     </div>
+    ${memorial}
   </div>`;
 }
 
 // ---------- log ----------
 
+// Cheap keyword sniff so the log reads at a glance instead of as a wall of uniform text — no
+// new bookkeeping needed at each addLog() call site.
+function logCategory(msg) {
+  const m = msg.toLowerCase();
+  if (/fell|wounded|ambushed|attack|horde|defend|fought off|routed|breached|hurt|chase/.test(m)) return "log-combat";
+  if (/discovered|scouted|expedition/.test(m)) return "log-explore";
+  if (/joined|couple|survivor|wants to join/.test(m)) return "log-social";
+  if (/food|materials|medicine|research|salvage|upgrad|fortif|stockpile/.test(m)) return "log-economy";
+  return "";
+}
+
 export function renderLog(state) {
   const items = state.log
-    .map((e) => `<li><span class="log-tag">D${e.day}T${e.turn}</span> ${esc(e.msg)}</li>`)
+    .map((e) => `<li class="${logCategory(e.msg)}"><span class="log-tag">D${e.day}T${e.turn}</span> ${esc(e.msg)}</li>`)
     .join("");
   return `<div class="card"><h2>Log</h2><ul class="log-list">${items || '<li class="muted">Nothing yet.</li>'}</ul></div>`;
+}
+
+// A short recap shown once right after a day rolls over (whichever path triggered it — see
+// main.js's render()) — the same log entries as the Log tab, just curated to that one day and
+// framed as a "here's what happened" beat instead of scrolling the full history.
+export function renderDayRecap(recap) {
+  const items = recap.entries
+    .filter((e) => !/resolved\.$|begins\.$/.test(e.msg))
+    .map((e) => `<li class="${logCategory(e.msg)}">${esc(e.msg)}</li>`)
+    .join("");
+  return `
+  <div class="modal-overlay" data-action="close-day-recap">
+    <div class="char-card mission-card" data-action="noop">
+      <button class="cc-close" data-action="close-day-recap" title="Close">✕</button>
+      <h3>📰 Day ${recap.day} Recap</h3>
+      <ul class="log-list day-recap-list">${items || '<li class="muted">A quiet day.</li>'}</ul>
+      <button class="btn btn-primary" data-action="close-day-recap">Continue to Day ${recap.day + 1}</button>
+    </div>
+  </div>`;
 }
 
 // ---------- character card ----------
@@ -1535,6 +1646,7 @@ export function renderApp(state, activeTab, rosterFilter = "all", mobileView = f
   else if (activeTab === "event") content = renderEventTab(state);
   else if (activeTab === "roster") content = renderRoster(state, rosterFilter, rosterSortKey, rosterSortDir);
   else if (activeTab === "research") content = renderResearch(state);
+  else if (activeTab === "armory") content = renderArmory(state);
   else if (activeTab === "log") content = renderLog(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 
