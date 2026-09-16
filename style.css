@@ -516,6 +516,52 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .mission-success.mission-ok { background: rgba(224, 165, 54, 0.15); color: #e0a536; }
 .mission-success.mission-bad { background: rgba(214, 69, 69, 0.15); color: #d64545; }
 
+/* ---------- Scout fight animation ---------- */
+
+.fight-overlay { flex-direction: column; gap: 22px; background: rgba(0, 0, 0, 0.82); }
+
+.fight-scene { display: flex; align-items: center; justify-content: center; gap: 26px; }
+.fight-combatant {
+  animation-duration: 0.4s;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-timing-function: ease-in-out;
+}
+.fight-scout { animation-name: fight-lunge-right; }
+.fight-zombie { font-size: 72px; animation-name: fight-lunge-left; }
+.fight-impact { font-size: 42px; animation: fight-impact-flash 0.4s ease-in-out infinite; }
+.fight-caption { color: var(--muted); font-size: 14px; letter-spacing: 0.02em; }
+
+@keyframes fight-lunge-right {
+  from { transform: translateX(0) rotate(0); }
+  to { transform: translateX(14px) rotate(-6deg); }
+}
+@keyframes fight-lunge-left {
+  from { transform: translateX(0) rotate(0); }
+  to { transform: translateX(-14px) rotate(6deg); }
+}
+@keyframes fight-impact-flash {
+  0%, 100% { opacity: 0.35; transform: scale(0.75); }
+  50% { opacity: 1; transform: scale(1.35); }
+}
+
+.fight-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: fight-pop-in 0.35s ease-out;
+}
+.fight-result-icon { font-size: 56px; }
+.fight-result-text { font-size: 20px; font-weight: 700; }
+.fight-win .fight-result-text { color: #4caf7d; }
+.fight-lose .fight-result-text { color: #d64545; }
+
+@keyframes fight-pop-in {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
 .cc-left {
   flex-shrink: 0;
   width: 150px;

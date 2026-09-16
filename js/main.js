@@ -1,5 +1,5 @@
 import * as G from "./game.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
@@ -18,6 +18,7 @@ let rosterFilter = "all";
 let mobileView = false;
 let openMissionLocationId = null;
 let openScoutHex = null; // { q, r } or null
+let fightAnimation = null; // { studentId, ambushed, phase: "clash" | "result" } or null
 
 const root = document.getElementById("app");
 
@@ -112,7 +113,9 @@ function render() {
   if (openMissionLocationId && !state.teamLocations.includes(openMissionLocationId)) openMissionLocationId = null;
   if (openScoutHex && G.isHexExplored(state, openScoutHex.q, openScoutHex.r)) openScoutHex = null;
   root.classList.toggle("mobile-forced", mobileView);
-  const modalHtml = card
+  const modalHtml = fightAnimation
+    ? renderFightAnimation(state, fightAnimation)
+    : card
     ? renderCharacterCard(state, card, cardTab)
     : openMissionLocationId
     ? renderMissionModal(state, openMissionLocationId)
@@ -313,13 +316,34 @@ root.addEventListener("click", (e) => {
       break;
     case "confirm-scout": {
       if (!openScoutHex) break;
-      const result = G.scoutHex(state, el.dataset.id, openScoutHex.q, openScoutHex.r);
-      if (!result) flash("Can't scout that hex.");
-      else if (result.ambushed) flash("Ambushed! The scout fled back to the school.");
-      else if (result.location) flash(`Discovered ${result.location.name}!`);
-      else flash("Scouted the area — nothing there.");
+      const studentId = el.dataset.id;
+      const result = G.scoutHex(state, studentId, openScoutHex.q, openScoutHex.r);
       openScoutHex = null;
-      render();
+      if (!result) {
+        flash("Can't scout that hex.");
+        render();
+        break;
+      }
+      const finish = () => {
+        if (result.ambushed) flash("Ambushed! The scout fled back to the school.");
+        else if (result.location) flash(`Discovered ${result.location.name}!`);
+        else flash("Scouted the area — nothing there.");
+        render();
+      };
+      if (result.encountered) {
+        fightAnimation = { studentId, ambushed: result.ambushed, phase: "clash" };
+        render();
+        setTimeout(() => {
+          fightAnimation.phase = "result";
+          render();
+          setTimeout(() => {
+            fightAnimation = null;
+            finish();
+          }, 900);
+        }, 1100);
+      } else {
+        finish();
+      }
       break;
     }
     case "clear-mission": {

@@ -399,6 +399,35 @@ export function renderScoutModal(state, q, r) {
   </div>`;
 }
 
+// A short, non-interactive cinematic shown over everything else while a scout's zombie
+// encounter plays out — main.js drives it through two timed phases ("clash" then "result")
+// before applying the flash message and letting the player continue.
+export function renderFightAnimation(state, anim) {
+  const c = getChar(state, anim.studentId);
+  const sprite = c ? characterSprite(c, 96) : "";
+
+  if (anim.phase === "clash") {
+    return `
+    <div class="modal-overlay fight-overlay">
+      <div class="fight-scene">
+        <div class="fight-combatant fight-scout">${sprite}</div>
+        <div class="fight-impact">💥</div>
+        <div class="fight-combatant fight-zombie">🧟</div>
+      </div>
+      <div class="fight-caption">${c ? esc(c.name) : "Your scout"} runs into a zombie…</div>
+    </div>`;
+  }
+
+  const won = !anim.ambushed;
+  return `
+  <div class="modal-overlay fight-overlay">
+    <div class="fight-result ${won ? "fight-win" : "fight-lose"}">
+      <div class="fight-result-icon">${won ? "✅" : "☠"}</div>
+      <div class="fight-result-text">${won ? "Fought them off!" : "Ambushed!"}</div>
+    </div>
+  </div>`;
+}
+
 export function renderMissionModal(state, locationId) {
   const loc = LOCATIONS.find((l) => l.id === locationId);
   const teamIndex = state.teamLocations.indexOf(locationId);

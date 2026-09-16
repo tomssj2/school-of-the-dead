@@ -1057,14 +1057,15 @@ export function scoutHex(state, studentId, q, r) {
   c.stamina -= SCOUT_STAMINA_COST;
 
   const encounterChance = clamp01(hexDistance(q, r) * SCOUT_ENCOUNTER_CHANCE_PER_HEX);
-  if (Math.random() < encounterChance) {
+  const encountered = Math.random() < encounterChance;
+  if (encountered) {
     const power = (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2;
     const winChance = clamp01(0.5 + (power - 40) / 100);
     if (Math.random() >= winChance) {
       c.hp = Math.max(1, c.hp - SCOUT_ENCOUNTER_HP_LOSS);
       c.injured = c.hp < c.maxHp * 0.5;
       addLog(state, `${c.name} was ambushed by a zombie while scouting and fled back to the school (-${SCOUT_ENCOUNTER_HP_LOSS} HP).`);
-      return { ambushed: true, location: null };
+      return { ambushed: true, encountered: true, location: null };
     }
     const lootKey = pick(["food", "materials", "medicine"]);
     const amt = randInt(5, 15);
@@ -1082,7 +1083,7 @@ export function scoutHex(state, studentId, q, r) {
   } else {
     addLog(state, `${c.name} scouted the area and found nothing of interest.`);
   }
-  return { ambushed: false, location };
+  return { ambushed: false, encountered, location };
 }
 
 export function setDefending(state, charId, value) {
