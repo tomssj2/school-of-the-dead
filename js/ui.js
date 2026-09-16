@@ -222,7 +222,7 @@ export function renderTopbar(state, floaties = []) {
     </div>
     <div class="topbar-right">
       <div class="tb-stats">
-        <span class="${tbItemClass(floaties, "food")} ${state.resources.food < pop ? "tb-warn" : ""}" title="${state.resources.food} on hand, ${pop} needed to feed everyone tonight">🍞 <b>${state.resources.food}</b><span class="tb-sub">/${pop}</span>${floatyFor(floaties, "food")}</span>
+        <span class="${tbItemClass(floaties, "food")} ${state.resources.food < pop ? "tb-warn" : ""}" title="${state.resources.food} on hand, ${pop} needed to feed everyone tonight">🍞 <b>${state.resources.food}</b><span class="tb-sub">-${pop}</span>${floatyFor(floaties, "food")}</span>
         <span class="${tbItemClass(floaties, "materials")}">🔧 <b>${state.resources.materials}</b>${floatyFor(floaties, "materials")}</span>
         <span class="${tbItemClass(floaties, "medicine")}">💊 <b>${state.resources.medicine}</b>${floatyFor(floaties, "medicine")}</span>
         <span class="${tbItemClass(floaties, "research")}">🧠 <b>${state.resources.research}</b>${floatyFor(floaties, "research")}</span>
