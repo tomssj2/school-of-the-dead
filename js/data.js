@@ -247,6 +247,19 @@ export const EVENTS = [
   { id: "sickness", kind: "bad", title: "A Sickness Spreads", desc: "Something is going around the dorms. One student doesn't pull through.", effect: { kill: true } },
 ];
 
+// ===== Research tech tree =====
+// One-time purchases spending banked Research (from staffing the Lab) on an instant, permanent
+// effect — interpreted the same generic way as EVENTS' `effect` (applyEffect() in game.js), so
+// this stays data-only. Two loose tiers: `requires` gates a node behind owning another one first.
+export const TECH_TREE = [
+  { id: "fortify_walls", name: "Fortify Walls", icon: "🧱", desc: "Reinforce the main entrance.", cost: 15, requires: null, effect: { fortification: 15 } },
+  { id: "stockpile", name: "Stockpile", icon: "📦", desc: "Organize the storerooms.", cost: 15, requires: null, effect: { materials: 30 } },
+  { id: "field_rations", name: "Field Rations", icon: "🍱", desc: "Better food preservation.", cost: 15, requires: null, effect: { food: 40 } },
+  { id: "reinforced_gates", name: "Reinforced Gates", icon: "🚪", desc: "A second line of defense at the entrance.", cost: 30, requires: "fortify_walls", effect: { fortification: 25 } },
+  { id: "grain_silos", name: "Grain Silos", icon: "🌾", desc: "Bulk food storage.", cost: 30, requires: "field_rations", effect: { food: 60 } },
+  { id: "surplus_trade", name: "Surplus Trade", icon: "💰", desc: "Trade excess supplies with other survivors.", cost: 30, requires: "stockpile", effect: { materials: 50, medicine: 15 } },
+];
+
 // ===== Exploration locations =====
 export const LOCATIONS = [
   {

@@ -10,7 +10,7 @@ import {
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE,
-  EVENT_CHANCE, EVENTS,
+  EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
 } from "./data.js";
 import {
@@ -48,6 +48,7 @@ export function createInitialState() {
     raidDefenders: [],
     eventLog: [], // most recent random events, newest first
     exploredHexes: [], // "q,r" keys the fog of war has been lifted from
+    techUnlocked: [], // TECH_TREE ids purchased with banked Research
     characters: [],
     rooms: {
       classrooms: Object.fromEntries(
@@ -508,11 +509,14 @@ export function resolveTraining(state) {
 // ---------- TURN 2: exploration ----------
 
 export function resolveExploration(state) {
+  let teamsSent = 0;
+  let successes = 0;
   for (let teamIndex = 0; teamIndex < 3; teamIndex++) {
     const locationId = state.teamLocations[teamIndex];
     const location = LOCATIONS.find((l) => l.id === locationId);
     const members = state.characters.filter((c) => c.exploreTeam === teamIndex && c.alive);
     if (!location || !members.length) continue;
+    teamsSent++;
 
     const avg = (statKey) => members.reduce((sum, c) => sum + effectiveGrade(state, c, statKey), 0) / members.length;
     const power = (avg("PE") + avg("Gymnastics")) / 2;
@@ -529,6 +533,7 @@ export function resolveExploration(state) {
     const baseCasualty = clamp01(0.05 + (dangerReq - safety) / 150) * (success ? 0.5 : 1.2);
 
     if (success) {
+      successes++;
       for (const key of Object.keys(location.rewards)) {
         const amt = Math.round(location.rewards[key] * lootMult * (0.8 + Math.random() * 0.4));
         state.resources[key] += amt;
@@ -597,6 +602,7 @@ export function resolveExploration(state) {
   }
 
   addLog(state, `Turn 2 (Exploration) resolved.`);
+  return { teamsSent, successes };
 }
 
 // ---------- TURN 3: defense ----------
@@ -668,6 +674,7 @@ export function resolveDefense(state) {
   }
 
   addLog(state, `Turn 3 (Defense) resolved.`);
+  return { ratio, defenderCount: defenders.length };
 }
 
 // ---------- facility raid ----------
@@ -719,12 +726,12 @@ export function resolveFacilityRaid(state) {
 // ---------- assault (boss fight) ----------
 
 export function resolveAssault(state, chase) {
-  if (!state.pendingAssault) return;
+  if (!state.pendingAssault) return null;
   state.pendingAssault = false;
   if (!chase) {
     addLog(state, `You let the horde go and secured the school for the night.`);
     advanceTurn(state);
-    return;
+    return { chased: false, won: null };
   }
 
   const squad = state.characters.filter((c) => c.defending && c.alive);
@@ -770,6 +777,7 @@ export function resolveAssault(state, chase) {
   }
 
   advanceTurn(state);
+  return { chased: true, won: success };
 }
 
 // ---------- turn advance / reset ----------
@@ -808,12 +816,15 @@ function rollRandomEvent(state) {
   applyEvent(state, pick(pool));
 }
 
-function applyEvent(state, event) {
-  const e = event.effect || {};
+// Generic interpreter for the small effect shape shared by random EVENTS and TECH_TREE
+// purchases: plain resource/happiness deltas plus a few special one-off actions.
+function applyEffect(state, e) {
+  if (!e) return;
   if (e.food) state.resources.food = Math.max(0, state.resources.food + e.food);
   if (e.materials) state.resources.materials = Math.max(0, state.resources.materials + e.materials);
   if (e.medicine) state.resources.medicine = Math.max(0, state.resources.medicine + e.medicine);
   if (e.research) state.resources.research = Math.max(0, state.resources.research + e.research);
+  if (e.fortification) state.fortification = Math.min(60, state.fortification + e.fortification);
   if (e.happiness) adjustHappiness(state, e.happiness);
 
   if (e.recruit) {
@@ -839,10 +850,29 @@ function applyEvent(state, event) {
       addLog(state, `${victim.name} was hurt in the incident (-${dmg} HP).`);
     }
   }
+}
 
+function applyEvent(state, event) {
+  applyEffect(state, event.effect);
   addLog(state, `${event.kind === "good" ? "📈" : "📉"} Event: ${event.title} — ${event.desc}`);
   state.eventLog.unshift({ day: state.day, id: event.id, kind: event.kind, title: event.title, desc: event.desc });
   if (state.eventLog.length > 10) state.eventLog.length = 10;
+}
+
+// ---------- research tech tree ----------
+
+export function buyTech(state, techId) {
+  const node = TECH_TREE.find((t) => t.id === techId);
+  if (!node) return false;
+  if (state.techUnlocked.includes(techId)) return false;
+  if (node.requires && !state.techUnlocked.includes(node.requires)) return false;
+  if (state.resources.research < node.cost) return false;
+
+  state.resources.research -= node.cost;
+  state.techUnlocked.push(techId);
+  applyEffect(state, node.effect);
+  addLog(state, `Research complete: ${node.name} (-${node.cost} research).`);
+  return true;
 }
 
 function checkGameOver(state) {

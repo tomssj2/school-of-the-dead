@@ -2,7 +2,7 @@ import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
   CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, LOCATIONS,
   BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_UPGRADE_MAX_LEVEL,
-  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, SCOUT_STAMINA_COST,
+  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, SCOUT_STAMINA_COST, TECH_TREE,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -13,6 +13,7 @@ import {
   isHexExplored, canScoutHex,
 } from "./game.js";
 import { characterSprite } from "./sprite.js";
+import { isSoundEnabled } from "./sound.js";
 
 const TURN_NAMES = { 1: "Classes (Morning)", 2: "Exploration (Afternoon)", 3: "Defense (Night)" };
 const TURN_NAMES_SHORT = { 1: "Classes", 2: "Exploration", 3: "Defense" };
@@ -155,7 +156,7 @@ function occupationLabel(state, c) {
 // Like nameTag, but swaps the role emoji for a mini version of the character's own card portrait.
 function rosterNameTag(c) {
   const couple = c.coupleId ? " 💞" : "";
-  const portrait = characterSprite(c, 24);
+  const portrait = characterSprite(c, 40);
   return `<span class="roster-name unit-link" data-action="open-card" data-id="${c.id}">
     <span class="mini-portrait ${!c.alive ? "cc-dead" : ""}">${portrait}</span>
     <span>${c.legendary ? "✨ " : ""}${esc(c.name)}${couple}</span>
@@ -171,7 +172,19 @@ function happinessFace(v) {
   return "😢";
 }
 
-export function renderTopbar(state) {
+// Small "+5"/"-3" pop that floats up out of a topbar stat when it changes between renders —
+// see the `floaties` computation in main.js's render().
+function floatyFor(floaties, key) {
+  const f = floaties.find((x) => x.key === key);
+  if (!f) return "";
+  const cls = f.delta > 0 ? "floaty-pos" : "floaty-neg";
+  return `<span class="floaty ${cls}">${f.delta > 0 ? "+" : ""}${f.delta}</span>`;
+}
+function tbItemClass(floaties, key) {
+  return floaties.some((f) => f.key === key) ? "tb-item tb-pulse" : "tb-item";
+}
+
+export function renderTopbar(state, floaties = []) {
   const pop = aliveChars(state).length;
   return `
   <div class="topbar">
@@ -179,7 +192,7 @@ export function renderTopbar(state) {
       <div class="tb-stats">
         <span class="tb-item">👥 <b>${pop}</b></span>
         <span class="tb-item">🎓 <b>${teacherCount(state)}</b></span>
-        <span class="tb-item" title="Happiness">${happinessFace(state.happiness)} <b>${state.happiness}</b></span>
+        <span class="${tbItemClass(floaties, "happiness")}" title="Happiness">${happinessFace(state.happiness)} <b>${state.happiness}</b>${floatyFor(floaties, "happiness")}</span>
       </div>
     </div>
     <div class="topbar-center">
@@ -189,10 +202,10 @@ export function renderTopbar(state) {
     </div>
     <div class="topbar-right">
       <div class="tb-stats">
-        <span class="tb-item">🍞 <b>${state.resources.food}</b></span>
-        <span class="tb-item">🔧 <b>${state.resources.materials}</b></span>
-        <span class="tb-item">💊 <b>${state.resources.medicine}</b></span>
-        <span class="tb-item">🧠 <b>${state.resources.research}</b></span>
+        <span class="${tbItemClass(floaties, "food")}">🍞 <b>${state.resources.food}</b>${floatyFor(floaties, "food")}</span>
+        <span class="${tbItemClass(floaties, "materials")}">🔧 <b>${state.resources.materials}</b>${floatyFor(floaties, "materials")}</span>
+        <span class="${tbItemClass(floaties, "medicine")}">💊 <b>${state.resources.medicine}</b>${floatyFor(floaties, "medicine")}</span>
+        <span class="${tbItemClass(floaties, "research")}">🧠 <b>${state.resources.research}</b>${floatyFor(floaties, "research")}</span>
       </div>
     </div>
   </div>`;
@@ -250,6 +263,10 @@ export function renderTabs(state, activeTab, mobileView) {
           <label class="options-item options-toggle">
             <input type="checkbox" data-action="toggle-mobile-view" ${mobileView ? "checked" : ""}/>
             📱 Mobile View
+          </label>
+          <label class="options-item options-toggle">
+            <input type="checkbox" data-action="toggle-sound" ${isSoundEnabled() ? "checked" : ""}/>
+            🔊 Sound
           </label>
         </div>
       </details>
@@ -427,6 +444,67 @@ export function renderFightAnimation(state, anim) {
     <div class="fight-result ${won ? "fight-win" : "fight-lose"}">
       <div class="fight-result-icon">${won ? "✅" : "☠"}</div>
       <div class="fight-result-text">${won ? "Fought them off!" : "Ambushed!"}</div>
+    </div>
+  </div>`;
+}
+
+// The same clash -> result cinematic as renderFightAnimation, generalized to a squad (Turn 3's
+// defenders vs the horde) or an away-teams summary (Turn 2's expeditions) instead of one scout.
+export function renderBattleAnimation(state, anim) {
+  if (anim.kind === "defense") {
+    if (anim.phase === "clash") {
+      const defenders = state.characters.filter((c) => c.defending && c.alive);
+      const shown = defenders.slice(0, 4);
+      const extra = defenders.length - shown.length;
+      const sprites = shown.map((c) => `<div class="fight-combatant fight-scout">${characterSprite(c, 72)}</div>`).join("");
+      return `
+      <div class="modal-overlay fight-overlay">
+        <div class="fight-scene battle-lineup">
+          <div class="battle-side">${sprites || '<div class="fight-combatant fight-scout">🧍</div>'}${extra > 0 ? `<div class="battle-extra">+${extra}</div>` : ""}</div>
+          <div class="fight-impact">💥</div>
+          <div class="fight-combatant fight-zombie">🧟🧟🧟</div>
+        </div>
+        <div class="fight-caption">The horde attacks the entrance…</div>
+      </div>`;
+    }
+
+    const { ratio } = anim.summary;
+    const won = ratio >= 1.0;
+    const overwhelming = ratio >= 1.3;
+    const breached = ratio < 0.7;
+    const icon = overwhelming ? "🛡️" : won ? "✅" : breached ? "⚠️" : "🩸";
+    const text = overwhelming ? "The horde was routed!" : won ? "The entrance held!" : "The horde broke through!";
+    return `
+    <div class="modal-overlay fight-overlay">
+      <div class="fight-result ${won ? "fight-win" : "fight-lose"}">
+        <div class="fight-result-icon">${icon}</div>
+        <div class="fight-result-text">${text}</div>
+      </div>
+    </div>`;
+  }
+
+  // kind === "exploration"
+  if (anim.phase === "clash") {
+    return `
+    <div class="modal-overlay fight-overlay">
+      <div class="fight-scene battle-lineup">
+        <div class="battle-side"><div class="fight-combatant fight-scout">🧳</div></div>
+        <div class="fight-impact">💥</div>
+        <div class="fight-combatant fight-zombie">🧟</div>
+      </div>
+      <div class="fight-caption">Your teams reach the city…</div>
+    </div>`;
+  }
+
+  const { teamsSent, successes } = anim.summary;
+  const none = successes === 0;
+  const icon = successes === teamsSent ? "🧳" : none ? "😬" : "⚖️";
+  const text = `${successes}/${teamsSent} expedition${teamsSent === 1 ? "" : "s"} succeeded`;
+  return `
+  <div class="modal-overlay fight-overlay">
+    <div class="fight-result ${none ? "fight-lose" : "fight-win"}">
+      <div class="fight-result-icon">${icon}</div>
+      <div class="fight-result-text">${text}</div>
     </div>
   </div>`;
 }
@@ -997,14 +1075,50 @@ export function renderEventTab(state) {
 
 // ---------- research ----------
 
+const TECH_EFFECT_ICON = { food: "🍞", materials: "🔧", medicine: "💊", research: "🧠", fortification: "🛡", happiness: "🙂" };
+function techEffectSummary(effect) {
+  return Object.keys(effect)
+    .filter((k) => TECH_EFFECT_ICON[k])
+    .map((k) => `${TECH_EFFECT_ICON[k]} +${effect[k]}`)
+    .join("  ");
+}
+
+function renderTechNode(state, node) {
+  const owned = state.techUnlocked;
+  const isOwned = owned.includes(node.id);
+  const lockedBy = node.requires && !owned.includes(node.requires) ? TECH_TREE.find((t) => t.id === node.requires) : null;
+  const affordable = state.resources.research >= node.cost;
+
+  let action;
+  if (isOwned) action = `<span class="tag tag-ok">✓ Owned</span>`;
+  else if (lockedBy) action = `<span class="tag tag-injured">🔒 Needs ${esc(lockedBy.name)}</span>`;
+  else action = `<button class="btn btn-sm btn-primary" data-action="buy-tech" data-id="${node.id}" ${affordable ? "" : "disabled"}>🧠 Buy (${node.cost})</button>`;
+
+  return `<div class="subcard tech-node ${isOwned ? "tech-owned" : ""}">
+    <div class="tech-node-main">
+      <div><span class="tech-icon">${node.icon}</span> <b>${esc(node.name)}</b></div>
+      ${action}
+    </div>
+    <p class="muted">${esc(node.desc)}</p>
+    <div class="tech-effect">${techEffectSummary(node.effect)}</div>
+  </div>`;
+}
+
 export function renderResearch(state) {
+  const tier1 = TECH_TREE.filter((t) => !t.requires).map((t) => renderTechNode(state, t)).join("");
+  const tier2 = TECH_TREE.filter((t) => t.requires).map((t) => renderTechNode(state, t)).join("");
+
   return `
   <div class="card">
     <h2>🧠 Research</h2>
-    <p class="muted">Earned by staffing the Lab during Turn 2. A skill tree to spend it on is coming soon.</p>
+    <p class="muted">Earned by staffing the Lab during Turn 2. Spend it below on permanent, one-time upgrades.</p>
     <div class="summary-list">
       <div>Research banked: <b>${state.resources.research}</b></div>
     </div>
+    <div class="mini-label">Tier 1</div>
+    <div class="tech-grid">${tier1}</div>
+    <div class="mini-label">Tier 2</div>
+    <div class="tech-grid">${tier2}</div>
   </div>`;
 }
 
@@ -1279,7 +1393,7 @@ function renderSocialTab(state, c) {
 }
 
 export function renderCharacterCard(state, c, cardTab = "stats") {
-  const sprite = characterSprite(c, 132);
+  const sprite = characterSprite(c, 150);
   const isTeacher = c.role === "teacher";
   const points = availableSkillPoints(c);
 
@@ -1348,7 +1462,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
 
 // ---------- root ----------
 
-export function renderApp(state, activeTab, rosterFilter = "all", mobileView = false) {
+export function renderApp(state, activeTab, rosterFilter = "all", mobileView = false, floaties = []) {
   let content;
   if (activeTab === "floor1") content = renderFloor1(state);
   else if (activeTab === "floor2") content = renderFloor2(state);
@@ -1364,5 +1478,5 @@ export function renderApp(state, activeTab, rosterFilter = "all", mobileView = f
   else if (activeTab === "log") content = renderLog(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 
-  return `${renderTopbar(state)}${renderTabs(state, activeTab, mobileView)}<div class="content">${content}</div>`;
+  return `${renderTopbar(state, floaties)}${renderTabs(state, activeTab, mobileView)}<div class="content">${content}</div>`;
 }

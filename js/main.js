@@ -1,6 +1,7 @@
 import * as G from "./game.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
+import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
@@ -19,9 +20,15 @@ let mobileView = false;
 let openMissionLocationId = null;
 let openScoutHex = null; // { q, r } or null
 let fightAnimation = null; // { studentId, ambushed, phase: "clash" | "result" } or null
+let battleAnimation = null; // { kind: "defense" | "exploration", summary, phase: "clash" | "result" } or null
 let openPicker = null; // { kind, roomId, seatIndex, postKey } or null
 let pickerSortKey = "level";
 let pickerSortDir = "desc";
+let lastResources = null; // resources/happiness snapshot from the previous render(), for floaties
+let lastHappiness = null;
+let lastDay = state.day; // for the day-rollover chime, however the advance happened
+let floaties = [];
+let floatyClearTimer = null;
 
 const root = document.getElementById("app");
 
@@ -62,6 +69,7 @@ function migrateState(s) {
   if (!s.raidDefenders) s.raidDefenders = [];
   if (!s.eventLog) s.eventLog = [];
   if (!s.exploredHexes) s.exploredHexes = [];
+  if (!s.techUnlocked) s.techUnlocked = [];
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -110,13 +118,49 @@ function closeMissionModal() {
   openMissionLocationId = null;
 }
 
+// Diffs resources/happiness against the previous render() so a floaty can pop up over whichever
+// topbar stat changed — catches every source of change (turn resolution, upgrades, scouting,
+// events, tech) in one place instead of instrumenting each action individually.
+function computeFloaties() {
+  const result = [];
+  if (lastResources) {
+    for (const key of ["food", "materials", "medicine", "research"]) {
+      const delta = state.resources[key] - lastResources[key];
+      if (delta !== 0) result.push({ key, delta });
+    }
+  }
+  if (lastHappiness !== null) {
+    const delta = state.happiness - lastHappiness;
+    if (delta !== 0) result.push({ key: "happiness", delta });
+  }
+  return result;
+}
+
 function render() {
   const card = openCardId ? G.getCharAnywhere(state, openCardId) : null;
   if (openCardId && !card) openCardId = null; // e.g. expelled while card was open
   if (openMissionLocationId && !state.teamLocations.includes(openMissionLocationId)) openMissionLocationId = null;
   if (openScoutHex && G.isHexExplored(state, openScoutHex.q, openScoutHex.r)) openScoutHex = null;
+
+  const newFloaties = computeFloaties();
+  if (newFloaties.length) {
+    floaties = newFloaties;
+    clearTimeout(floatyClearTimer);
+    floatyClearTimer = setTimeout(() => {
+      floaties = [];
+      render();
+    }, 1300);
+  }
+  lastResources = { ...state.resources };
+  lastHappiness = state.happiness;
+
+  if (state.day !== lastDay) playChime(); // covers every path a new day can start from
+  lastDay = state.day;
+
   root.classList.toggle("mobile-forced", mobileView);
-  const modalHtml = fightAnimation
+  const modalHtml = battleAnimation
+    ? renderBattleAnimation(state, battleAnimation)
+    : fightAnimation
     ? renderFightAnimation(state, fightAnimation)
     : card
     ? renderCharacterCard(state, card, cardTab)
@@ -129,7 +173,7 @@ function render() {
     : state.pendingAssault
     ? renderAssaultModal()
     : "";
-  root.innerHTML = renderApp(state, activeTab, rosterFilter, mobileView) + modalHtml;
+  root.innerHTML = renderApp(state, activeTab, rosterFilter, mobileView, floaties) + modalHtml;
 }
 
 function loadGame() {
@@ -164,17 +208,50 @@ function flash(msg) {
   flashTimer = setTimeout(() => el.classList.remove("show"), 1800);
 }
 
+// Stages a clash -> result cinematic (same two-step timing as the scout fight animation) before
+// running `afterResult`, which finishes resolving the turn. `afterResult` runs even if the
+// player has moved on by the time the timers fire — it only ever touches `state`/`render`.
+function playBattleAnimation(kind, summary, won, afterResult) {
+  battleAnimation = { kind, summary, phase: "clash" };
+  playHit();
+  render();
+  setTimeout(() => {
+    battleAnimation.phase = "result";
+    won ? playSuccess() : playFail();
+    render();
+    setTimeout(() => {
+      battleAnimation = null;
+      afterResult();
+    }, 1200);
+  }, 1300);
+}
+
 function resolveCurrentTurn() {
-  if (state.turn === 1) G.resolveTraining(state);
-  else if (state.turn === 2) G.resolveExploration(state);
-  else {
-    G.resolveDefense(state);
-    // A won battle can roll a facility raid or an Assault opportunity that must be handled
-    // (assigning raid defenders, or answering the Assault popup) before the day advances —
-    // resolveFacilityRaid/resolveAssault call advanceTurn themselves once that happens.
-    if (state.pendingRaid || state.pendingAssault) return;
+  if (state.turn === 1) {
+    G.resolveTraining(state);
+    G.advanceTurn(state);
+    render();
+  } else if (state.turn === 2) {
+    const summary = G.resolveExploration(state);
+    if (summary.teamsSent > 0) {
+      playBattleAnimation("exploration", summary, summary.successes > 0, () => {
+        G.advanceTurn(state);
+        render();
+      });
+    } else {
+      G.advanceTurn(state);
+      render();
+    }
+  } else {
+    const summary = G.resolveDefense(state);
+    playBattleAnimation("defense", summary, summary.ratio >= 1.0, () => {
+      // A won battle can roll a facility raid or an Assault opportunity that must be handled
+      // (assigning raid defenders, or answering the Assault popup) before the day advances —
+      // resolveFacilityRaid/resolveAssault call advanceTurn themselves once that happens.
+      if (!state.pendingRaid && !state.pendingAssault) G.advanceTurn(state);
+      render();
+    });
   }
-  G.advanceTurn(state);
 }
 
 // ---------- event delegation ----------
@@ -195,7 +272,6 @@ root.addEventListener("click", (e) => {
       break;
     case "resolve-turn":
       resolveCurrentTurn();
-      render();
       break;
     case "save-game":
       saveGame();
@@ -231,10 +307,13 @@ root.addEventListener("click", (e) => {
       G.resolveFacilityRaid(state);
       render();
       break;
-    case "assault-chase":
-      G.resolveAssault(state, true);
+    case "assault-chase": {
+      playHit();
+      const result = G.resolveAssault(state, true);
+      if (result) (result.won ? playSuccess : playFail)();
       render();
       break;
+    }
     case "assault-decline":
       G.resolveAssault(state, false);
       render();
@@ -340,9 +419,11 @@ root.addEventListener("click", (e) => {
       };
       if (result.encountered) {
         fightAnimation = { studentId, ambushed: result.ambushed, phase: "clash" };
+        playHit();
         render();
         setTimeout(() => {
           fightAnimation.phase = "result";
+          (result.ambushed ? playFail : playSuccess)();
           render();
           setTimeout(() => {
             fightAnimation = null;
@@ -368,6 +449,10 @@ root.addEventListener("click", (e) => {
     }
     case "close-picker":
       openPicker = null;
+      render();
+      break;
+    case "buy-tech":
+      if (!G.buyTech(state, el.dataset.id)) flash("Can't buy that yet.");
       render();
       break;
     case "confirm-picker": {
@@ -488,6 +573,12 @@ root.addEventListener("change", (e) => {
     }
     case "toggle-mobile-view": {
       mobileView = el.checked;
+      render();
+      break;
+    }
+    case "toggle-sound": {
+      setSoundEnabled(el.checked);
+      if (el.checked) playSuccess();
       render();
       break;
     }
