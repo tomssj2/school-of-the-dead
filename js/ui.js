@@ -99,7 +99,8 @@ function statusTag(c) {
 function nameTag(c) {
   const couple = c.coupleId ? " 💞" : "";
   const role = c.role === "teacher" ? "🎓" : "🧳";
-  return `<span class="unit-link" data-action="open-card" data-id="${c.id}">${role} ${esc(c.name)}${couple}</span>`;
+  const legendary = c.legendary ? "✨ " : "";
+  return `<span class="unit-link" data-action="open-card" data-id="${c.id}">${legendary}${role} ${esc(c.name)}${couple}</span>`;
 }
 
 // A generic classroom shows as "Classroom N" until a teacher claims it, then as its subject.
@@ -139,11 +140,18 @@ function rosterNameTag(c) {
   const portrait = characterSprite(c, 24);
   return `<span class="roster-name unit-link" data-action="open-card" data-id="${c.id}">
     <span class="mini-portrait ${!c.alive ? "cc-dead" : ""}">${portrait}</span>
-    <span>${esc(c.name)}${couple}</span>
+    <span>${c.legendary ? "✨ " : ""}${esc(c.name)}${couple}</span>
   </span>`;
 }
 
 // ---------- topbar ----------
+
+function happinessFace(v) {
+  if (v >= 75) return "😄";
+  if (v >= 50) return "🙂";
+  if (v >= 25) return "😐";
+  return "😢";
+}
 
 export function renderTopbar(state) {
   const pop = aliveChars(state).length;
@@ -163,6 +171,7 @@ export function renderTopbar(state) {
         <span class="tb-item">🔧 <b>${state.resources.materials}</b></span>
         <span class="tb-item">💊 <b>${state.resources.medicine}</b></span>
         <span class="tb-item">🧠 <b>${state.resources.research}</b></span>
+        <span class="tb-item" title="Happiness">${happinessFace(state.happiness)} <b>${state.happiness}</b></span>
         <span class="tb-item">👥 <b>${pop}</b> alive</span>
         <span class="tb-item">🎓 <b>${teacherCount(state)}</b>/${MAX_TEACHERS} teachers</span>
       </div>
@@ -400,7 +409,12 @@ export function renderMissionModal(state, locationId) {
   </div>`;
 }
 
+const FACILITY_LABEL = { farm: "Farm", scrapyard: "Scrapyard", lab: "Lab" };
+const FACILITY_ICON = { farm: "🌾", scrapyard: "🔩", lab: "🧪" };
+
 function renderTurn3Overview(state) {
+  if (state.pendingRaid) return renderFacilityRaidPanel(state);
+
   const defenders = state.characters.filter((c) => c.defending && c.alive);
   const available = state.characters.filter((c) => c.role === "student" && c.alive && c.exploreTeam === null);
   const power = defenders.length
@@ -435,6 +449,50 @@ function renderTurn3Overview(state) {
     <div class="mini-label">Assign defenders</div>
     <div class="check-list">${rows || '<p class="muted">Nobody available.</p>'}</div>
     <button class="btn btn-primary btn-big" data-action="resolve-turn">🛡 Defend the Entrance &amp; Advance to Next Day</button>
+  </div>`;
+}
+
+// A won main battle can peel off part of the horde toward one of the outside facilities — this
+// replaces the normal Night Watch panel until it's resolved, since it's the same slot in the
+// turn flow (there's no skipping past it; it *is* what advancing the day now requires).
+function renderFacilityRaidPanel(state) {
+  const facility = state.pendingRaid.facility;
+  const available = state.characters.filter((c) => c.role === "student" && c.alive && c.exploreTeam === null);
+  const rows = available
+    .map((c) => {
+      const checked = state.raidDefenders.includes(c.id) ? "checked" : "";
+      return `<label class="check-row">
+        <input type="checkbox" data-action="toggle-raid-defender" data-id="${c.id}" ${checked}/>
+        ${nameTag(c)} — STR ${c.grades.PE} DEX ${c.grades.Gymnastics} ${statusTag(c)}
+      </label>`;
+    })
+    .join("");
+
+  return `
+  <div class="card">
+    <h2>${FACILITY_ICON[facility]} The ${FACILITY_LABEL[facility]} is Under Attack!</h2>
+    <p>While the entrance held, part of the horde broke off toward the ${FACILITY_LABEL[facility]}. Send students to
+    defend it before the night is over — high STR/DEX repels them.</p>
+    <div class="mini-label">Assign defenders (${state.raidDefenders.length})</div>
+    <div class="check-list">${rows || '<p class="muted">Nobody available.</p>'}</div>
+    <button class="btn btn-primary btn-big" data-action="resolve-raid">⚔ Repel the Raid &amp; Advance to Next Day</button>
+  </div>`;
+}
+
+// The Assault popup — shown automatically (see main.js render()) whenever state.pendingAssault
+// is true. Resolves immediately on "Chase" using whoever defended that night, no team-picker.
+export function renderAssaultModal() {
+  return `
+  <div class="modal-overlay" data-action="assault-decline">
+    <div class="char-card mission-card" data-action="noop">
+      <h3>⚔ The Horde is Retreating</h3>
+      <p class="muted">Your squad broke the attack and the horde is falling back. Chase them down for a chance at
+      extra loot, XP, and — if you're lucky — a legendary survivor? Whoever defended tonight will make the run.</p>
+      <div class="row-actions">
+        <button class="btn btn-sm" data-action="assault-decline">🏠 Let them go</button>
+        <button class="btn btn-primary" data-action="assault-chase">⚔ Chase the horde</button>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -605,7 +663,7 @@ export function renderFloor3(state) {
     .map((r, i) => {
       const blocked = r.role === "teacher" && atTeacherCap;
       return `<div class="subcard recruit-card">
-      <b class="unit-link" data-action="open-card" data-id="${r.id}">${r.gender === "F" ? "👧" : "👦"} ${esc(r.name)}</b> — ${r.role}${r.role === "teacher" ? ` (teaches ${SUBJECT_LABEL[r.teachSubject]})` : ""}
+      <b class="unit-link" data-action="open-card" data-id="${r.id}">${r.legendary ? "✨ " : ""}${r.gender === "F" ? "👧" : "👦"} ${esc(r.name)}</b> — ${r.role}${r.role === "teacher" ? ` (teaches ${SUBJECT_LABEL[r.teachSubject]})` : ""}
       ${statChips(r)}
       ${blocked ? `<p class="muted">No room — already at the ${MAX_TEACHERS}-teacher cap.</p>` : ""}
       <div class="row-actions">
@@ -702,22 +760,39 @@ export function renderLab(state) {
   );
 }
 
-// ---------- Turn 3 side screens (placeholders — behavior defined later) ----------
+// ---------- Turn 3 side screens ----------
 
 function renderComingSoon(icon, title, desc) {
   return `<div class="card"><h2>${icon} ${title}</h2><p class="muted">${desc}</p></div>`;
 }
 
-export function renderDefenseTab() {
-  return renderComingSoon("🛡", "Defense", "Fortification and defender-loadout options will live here. For now, assign defenders from the Night Watch panel.");
+export function renderDefenseTab(state) {
+  if (state.pendingRaid) {
+    return renderComingSoon("🛡", "Defense", `The ${FACILITY_LABEL[state.pendingRaid.facility]} is under attack right now — assign defenders from the Night Watch panel.`);
+  }
+  return renderComingSoon("🛡", "Defense", "Fortification and defender-loadout options will live here. A facility raid (10% chance after a won battle) will show up as an alert here and on the Night Watch panel.");
 }
 
-export function renderAssaultTab() {
-  return renderComingSoon("⚔", "Assault", "A future option to send a team out on the offensive at night. Not yet implemented.");
+export function renderAssaultTab(state) {
+  if (state.pendingAssault) {
+    return renderComingSoon("⚔", "Assault", "The horde is retreating and there may be time to chase them down — answer the popup on screen.");
+  }
+  return renderComingSoon("⚔", "Assault", "Winning a battle has a 20% chance to open a chance to chase the horde for a boss fight — extra loot, XP, and a shot at a legendary survivor.");
 }
 
-export function renderEventTab() {
-  return renderComingSoon("🎲", "Event", "Random night events will show up here. Not yet implemented.");
+export function renderEventTab(state) {
+  if (!state.eventLog.length) {
+    return renderComingSoon("🎲", "Event", "Random events roll once per day and can help or hurt the school — happiness tips the odds toward good or bad. None have happened yet.");
+  }
+  const rows = state.eventLog
+    .map((e) => `<li><span class="tag ${e.kind === "good" ? "tag-ok" : "tag-injured"}">${e.kind === "good" ? "📈" : "📉"}</span> Day ${e.day} — <b>${esc(e.title)}</b>: ${esc(e.desc)}</li>`)
+    .join("");
+  return `
+  <div class="card">
+    <h2>🎲 Event Log</h2>
+    <p class="muted">Random events roll once per day. Happiness tips the odds toward good or bad.</p>
+    <ul class="summary-list">${rows}</ul>
+  </div>`;
 }
 
 // ---------- research ----------
@@ -1043,7 +1118,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
           <button class="cc-reroll-btn" data-action="reroll-portrait" data-id="${c.id}" title="Randomize appearance">🎲</button>
           <button class="cc-rename-btn" data-action="rename-char" data-id="${c.id}" title="Rename">✏️</button>
         </div>
-        <div class="cc-name">${esc(c.name)}</div>
+        <div class="cc-name">${c.legendary ? "✨ " : ""}${esc(c.name)}</div>
         <div class="cc-role-row">
           <span class="cc-role-tag">${isTeacher ? "🎓 Teacher" : "🧳 Student"}</span>
           ${statusTag(c)}
@@ -1081,9 +1156,9 @@ export function renderApp(state, activeTab, rosterFilter = "all", mobileView = f
   else if (activeTab === "farm") content = renderFarm(state);
   else if (activeTab === "scrapyard") content = renderScrapyard(state);
   else if (activeTab === "lab") content = renderLab(state);
-  else if (activeTab === "defense") content = renderDefenseTab();
-  else if (activeTab === "assault") content = renderAssaultTab();
-  else if (activeTab === "event") content = renderEventTab();
+  else if (activeTab === "defense") content = renderDefenseTab(state);
+  else if (activeTab === "assault") content = renderAssaultTab(state);
+  else if (activeTab === "event") content = renderEventTab(state);
   else if (activeTab === "roster") content = renderRoster(state, rosterFilter);
   else if (activeTab === "research") content = renderResearch(state);
   else if (activeTab === "log") content = renderLog(state);

@@ -2,7 +2,7 @@ import {
   SUBJECTS, MALE_NAMES, FEMALE_NAMES, LAST_NAMES, GRADE_TIERS, GRADE_RANGES,
   STUDENT_TIER_WEIGHTS, TEACHER_SECONDARY_TIERS, TEACHER_SECONDARY_WEIGHTS, TRAITS,
   STAT_OF_SUBJECT, TEACH_BONUS_BY_TIER, ITEM_TEMPLATES, STARTER_ARMORY_IDS, CLASSROOM_SUBJECTS,
-  MAX_STAMINA,
+  MAX_STAMINA, LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES,
 } from "./data.js";
 
 let _idCounter = 1;
@@ -230,6 +230,27 @@ export function makeCharacter(role, gender) {
     defending: false, // this turn's defense assignment (students only)
     log: [],
   };
+}
+
+// A named, rare survivor found by winning a Turn 3 Assault boss fight — every grade is a tier
+// stronger than a normal roll, and they arrive already carrying one legendary item.
+export function makeLegendaryCharacter(role, gender) {
+  const c = makeCharacter(role, gender);
+  for (const s of SUBJECTS) c.grades[s] = bumpTier(c.grades[s]);
+  c.maxHp = maxHpFor(c.grades);
+  c.hp = c.maxHp;
+  c.legendary = true;
+
+  const title = pick(LEGENDARY_TITLES);
+  const baseName = role === "teacher" ? stripHonorific(c.name) : c.name;
+  c.name = role === "teacher" ? withTeacherHonorific(`${baseName} ${title}`, gender) : `${baseName} ${title}`;
+
+  const template = pick(LEGENDARY_ITEM_TEMPLATES);
+  const item = { ...template, bonuses: { ...template.bonuses }, uid: nextItemUid() };
+  if (item.slot === "weapon" || item.slot === "armor") c.equipment[item.slot] = item;
+  else c.equipment.accessories[0] = item;
+
+  return c;
 }
 
 export function overallLevel(c) {

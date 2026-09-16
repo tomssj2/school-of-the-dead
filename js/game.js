@@ -7,15 +7,31 @@ import {
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
   ROOM_UPGRADE_MAX_LEVEL, ROOM_UPGRADE_INCREMENT, roomUpgradeCost,
   MAX_STAMINA, STAMINA_COST_GYM, STAMINA_COST_EXPLORE, STAMINA_COST_TEACH, STAMINA_RECHARGE_CAFETERIA,
+  HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
+  HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
+  FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE,
+  EVENT_CHANCE, EVENTS,
 } from "./data.js";
 import {
-  makeCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
+  makeCharacter, makeLegendaryCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, teachingBonus,
-  bestClassroomSubjectFor,
+  bestClassroomSubjectFor, emptyEquipment,
 } from "./characters.js";
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+
+export function adjustHappiness(state, amount) {
+  state.happiness = clamp(state.happiness + amount, HAPPINESS_MIN, HAPPINESS_MAX);
+}
+
+// A character dying affects happiness no matter which turn/system caused it, so every death
+// goes through this instead of setting c.alive directly.
+function killCharacter(state, c) {
+  c.alive = false;
+  c.hp = 0;
+  adjustHappiness(state, -HAPPINESS_LOSS_DEATH);
+}
 
 // ---------- state creation ----------
 
@@ -25,6 +41,11 @@ export function createInitialState() {
     turn: 1, // 1=training, 2=exploration, 3=defense
     resources: { food: 60, materials: 30, medicine: 20, research: 0 },
     fortification: 0,
+    happiness: HAPPINESS_START,
+    pendingRaid: null, // { facility } once a facility raid triggers post-battle, until resolved
+    pendingAssault: false, // true once an Assault opportunity triggers post-battle, until resolved
+    raidDefenders: [],
+    eventLog: [], // most recent random events, newest first
     characters: [],
     rooms: {
       classrooms: Object.fromEntries(
@@ -517,6 +538,7 @@ export function resolveExploration(state) {
         state.resources[key] += amt;
       }
       addLog(state, `${location.name}: expedition struggled and barely scraped by.`);
+      adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL);
     }
 
     for (const c of members) {
@@ -525,8 +547,7 @@ export function resolveExploration(state) {
       const personalCasualty = clamp01(baseCasualty - (effectiveGrade(state, c, "Biology") - 40) / 400);
       if (roll < personalCasualty) {
         if (Math.random() < 0.25) {
-          c.alive = false;
-          c.hp = 0;
+          killCharacter(state, c);
           addLog(state, `${c.name} was lost during the ${location.name} run.`);
         } else {
           const dmg = randInt(15, 40);
@@ -603,8 +624,7 @@ export function resolveDefense(state) {
     const personal = clamp01(severity - (effectiveGrade(state, c, "Biology") - 40) / 400);
     if (Math.random() < personal) {
       if (Math.random() < 0.2) {
-        c.alive = false;
-        c.hp = 0;
+        killCharacter(state, c);
         addLog(state, `${c.name} fell defending the entrance.`);
       } else {
         const dmg = randInt(10, 35);
@@ -631,7 +651,123 @@ export function resolveDefense(state) {
 
   teamBondBumps(state, defenders.map((c) => c.id));
 
+  // A won battle can lead into one (never both) follow-up: a facility raid demanding an
+  // immediate response, or a chance to chase the horde down for a bigger prize.
+  if (ratio >= 1.0) {
+    adjustHappiness(state, HAPPINESS_GAIN_WIN);
+    if (Math.random() < FACILITY_RAID_CHANCE) {
+      const facility = pick(RAIDABLE_FACILITIES);
+      state.pendingRaid = { facility };
+      addLog(state, `While the entrance held, the horde peeled off toward the ${facility}!`);
+    } else if (Math.random() < ASSAULT_CHANCE) {
+      state.pendingAssault = true;
+      addLog(state, `The horde is retreating — there may be time to chase them down.`);
+    }
+  }
+
   addLog(state, `Turn 3 (Defense) resolved.`);
+}
+
+// ---------- facility raid ----------
+
+export function setRaidDefender(state, charId, value) {
+  const c = getChar(state, charId);
+  if (!c || c.role !== "student" || !c.alive) return false;
+  if (value) {
+    if (!state.raidDefenders.includes(charId)) state.raidDefenders.push(charId);
+  } else {
+    state.raidDefenders = state.raidDefenders.filter((id) => id !== charId);
+  }
+  return true;
+}
+
+export function resolveFacilityRaid(state) {
+  const raid = state.pendingRaid;
+  if (!raid) return;
+  const defenders = state.raidDefenders.map((id) => getChar(state, id)).filter((c) => c && c.alive);
+  const power = defenders.length
+    ? defenders.reduce((sum, c) => sum + (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2, 0) / defenders.length
+    : 0;
+  const successChance = clamp01(0.25 + (power - 40) / 100) * (defenders.length ? 1 : 0.1);
+  const success = Math.random() < successChance;
+  const room = state.rooms[raid.facility];
+
+  if (success) {
+    addLog(state, `The team beat back the raid on the ${raid.facility}.`);
+    for (const c of defenders) grantXp(state, c.id, "PE", 2 + randInt(0, 2));
+  } else {
+    adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL);
+    if (room && room.studentCapacity > 1) room.studentCapacity -= 1;
+    addLog(state, `The raid on the ${raid.facility} got through — its capacity is damaged until repaired.`);
+    for (const c of defenders) {
+      if (Math.random() < 0.3) {
+        const dmg = randInt(10, 30);
+        c.hp = Math.max(1, c.hp - dmg);
+        c.injured = c.hp < c.maxHp * 0.5;
+        addLog(state, `${c.name} was hurt defending the ${raid.facility} (-${dmg} HP).`);
+      }
+    }
+  }
+
+  state.pendingRaid = null;
+  state.raidDefenders = [];
+  advanceTurn(state);
+}
+
+// ---------- assault (boss fight) ----------
+
+export function resolveAssault(state, chase) {
+  if (!state.pendingAssault) return;
+  state.pendingAssault = false;
+  if (!chase) {
+    addLog(state, `You let the horde go and secured the school for the night.`);
+    advanceTurn(state);
+    return;
+  }
+
+  const squad = state.characters.filter((c) => c.defending && c.alive);
+  const power = squad.length
+    ? squad.reduce((sum, c) => sum + (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2, 0) / squad.length
+    : 0;
+  const successChance = clamp01(0.3 + (power - 45) / 100) * (squad.length ? 1 : 0.1);
+  const success = Math.random() < successChance;
+
+  if (success) {
+    for (const key of ["food", "materials", "medicine"]) {
+      const amt = randInt(15, 35);
+      state.resources[key] += amt;
+    }
+    for (const c of squad) grantXp(state, c.id, "PE", 4 + randInt(0, 3));
+    addLog(state, `The squad ran down the horde's leader and looted its trail — a big haul.`);
+
+    if (Math.random() < LEGENDARY_CHANCE) {
+      const role = rollRecruitRole(state);
+      const recruit = makeLegendaryCharacter(role, pick(["M", "F"]));
+      // Teachers never fight and have no Inventory tab to manage gear from — hand the item to
+      // the shared armory instead of leaving it permanently stuck, unusable, on their sheet.
+      if (role === "teacher") {
+        const { weapon, armor, accessories } = recruit.equipment;
+        for (const item of [weapon, armor, ...accessories]) {
+          if (item) state.armory.push(item);
+        }
+        recruit.equipment = emptyEquipment();
+      }
+      state.recruitPool.push(recruit);
+      addLog(state, `Among the dead, a survivor: ${recruit.name} wants to join the school.`);
+    }
+  } else {
+    for (const c of squad) {
+      if (Math.random() < 0.4) {
+        const dmg = randInt(10, 30);
+        c.hp = Math.max(1, c.hp - dmg);
+        c.injured = c.hp < c.maxHp * 0.5;
+        addLog(state, `${c.name} was hurt chasing the horde (-${dmg} HP).`);
+      }
+    }
+    addLog(state, `The chase went badly — the squad pulled back empty-handed.`);
+  }
+
+  advanceTurn(state);
 }
 
 // ---------- turn advance / reset ----------
@@ -642,6 +778,7 @@ export function advanceTurn(state) {
     state.turn = 1;
     state.day++;
     addLog(state, `Day ${state.day} begins.`);
+    rollRandomEvent(state);
   }
   for (const c of state.characters) {
     c.gymToday = false;
@@ -654,6 +791,56 @@ export function advanceTurn(state) {
   }
   state.teamLocations = [null, null, null];
   checkGameOver(state);
+}
+
+// ---------- random events ----------
+// Rolled once per day at the night->morning rollover. Happiness skews good vs bad, but never
+// removes the chance of either outright.
+
+function rollRandomEvent(state) {
+  if (Math.random() >= EVENT_CHANCE) return;
+  const goodChance = clamp01(0.5 + (state.happiness - 50) / 100);
+  const kind = Math.random() < goodChance ? "good" : "bad";
+  const pool = EVENTS.filter((e) => e.kind === kind);
+  if (!pool.length) return;
+  applyEvent(state, pick(pool));
+}
+
+function applyEvent(state, event) {
+  const e = event.effect || {};
+  if (e.food) state.resources.food = Math.max(0, state.resources.food + e.food);
+  if (e.materials) state.resources.materials = Math.max(0, state.resources.materials + e.materials);
+  if (e.medicine) state.resources.medicine = Math.max(0, state.resources.medicine + e.medicine);
+  if (e.research) state.resources.research = Math.max(0, state.resources.research + e.research);
+  if (e.happiness) adjustHappiness(state, e.happiness);
+
+  if (e.recruit) {
+    const recruit = makeCharacter(e.recruit, pick(["M", "F"]));
+    state.recruitPool.push(recruit);
+    addLog(state, `${recruit.name} wants to join the school.`);
+  }
+  if (e.kill) {
+    const victims = aliveChars(state);
+    if (victims.length) {
+      const victim = pick(victims);
+      killCharacter(state, victim);
+      addLog(state, `${victim.name} did not make it.`);
+    }
+  }
+  if (e.injure) {
+    const candidates = aliveChars(state);
+    if (candidates.length) {
+      const victim = pick(candidates);
+      const dmg = randInt(15, 35);
+      victim.hp = Math.max(1, victim.hp - dmg);
+      victim.injured = victim.hp < victim.maxHp * 0.5;
+      addLog(state, `${victim.name} was hurt in the incident (-${dmg} HP).`);
+    }
+  }
+
+  addLog(state, `${event.kind === "good" ? "📈" : "📉"} Event: ${event.title} — ${event.desc}`);
+  state.eventLog.unshift({ day: state.day, id: event.id, kind: event.kind, title: event.title, desc: event.desc });
+  if (state.eventLog.length > 10) state.eventLog.length = 10;
 }
 
 function checkGameOver(state) {
@@ -708,6 +895,7 @@ export function acceptRecruit(state, index) {
   }
   state.characters.push(recruit);
   state.recruitPool.splice(index, 1);
+  adjustHappiness(state, HAPPINESS_GAIN_RECRUIT);
   addLog(state, `${recruit.name} joined the school.`);
   return true;
 }

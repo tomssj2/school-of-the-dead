@@ -1,9 +1,10 @@
 import * as G from "./game.js";
-import { renderApp, renderCharacterCard, renderMissionModal } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
+  HAPPINESS_START,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -50,6 +51,11 @@ function migrateState(s) {
   if (!s.rooms.scrapyard) s.rooms.scrapyard = { studentCapacity: SCRAPYARD_CAPACITY };
   if (!s.rooms.lab) s.rooms.lab = { studentCapacity: LAB_CAPACITY };
   if (s.resources.research === undefined) s.resources.research = 0;
+  if (s.happiness === undefined) s.happiness = HAPPINESS_START;
+  if (s.pendingRaid === undefined) s.pendingRaid = null;
+  if (s.pendingAssault === undefined) s.pendingAssault = false;
+  if (!s.raidDefenders) s.raidDefenders = [];
+  if (!s.eventLog) s.eventLog = [];
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -107,6 +113,8 @@ function render() {
     ? renderCharacterCard(state, card, cardTab)
     : openMissionLocationId
     ? renderMissionModal(state, openMissionLocationId)
+    : state.pendingAssault
+    ? renderAssaultModal()
     : "";
   root.innerHTML = renderApp(state, activeTab, rosterFilter, mobileView) + modalHtml;
 }
@@ -146,7 +154,13 @@ function flash(msg) {
 function resolveCurrentTurn() {
   if (state.turn === 1) G.resolveTraining(state);
   else if (state.turn === 2) G.resolveExploration(state);
-  else G.resolveDefense(state);
+  else {
+    G.resolveDefense(state);
+    // A won battle can roll a facility raid or an Assault opportunity that must be handled
+    // (assigning raid defenders, or answering the Assault popup) before the day advances —
+    // resolveFacilityRaid/resolveAssault call advanceTurn themselves once that happens.
+    if (state.pendingRaid || state.pendingAssault) return;
+  }
   G.advanceTurn(state);
 }
 
@@ -198,6 +212,18 @@ root.addEventListener("click", (e) => {
       break;
     case "remove-farm":
       G.setFarmToday(state, el.dataset.id, false);
+      render();
+      break;
+    case "resolve-raid":
+      G.resolveFacilityRaid(state);
+      render();
+      break;
+    case "assault-chase":
+      G.resolveAssault(state, true);
+      render();
+      break;
+    case "assault-decline":
+      G.resolveAssault(state, false);
       render();
       break;
     case "remove-scrapyard":
@@ -394,6 +420,11 @@ root.addEventListener("change", (e) => {
     }
     case "toggle-defend": {
       G.setDefending(state, el.dataset.id, el.checked);
+      render();
+      break;
+    }
+    case "toggle-raid-defender": {
+      G.setRaidDefender(state, el.dataset.id, el.checked);
       render();
       break;
     }

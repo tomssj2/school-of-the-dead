@@ -91,6 +91,19 @@ export const ITEM_TEMPLATES = [
 // A handful of starter items to seed the shared armory with on a new game.
 export const STARTER_ARMORY_IDS = ["bat", "jacket", "charm", "knife", "watch", "pads", "glasses"];
 
+// Rare, much stronger items — never in the starter/shared armory pool. Only ever created
+// pre-equipped on a legendary survivor (see makeLegendaryCharacter).
+export const LEGENDARY_ITEM_TEMPLATES = [
+  { id: "legendary_bat", name: "Home Run King", slot: "weapon", icon: "🏏", bonuses: { STR: 16 }, legendary: true },
+  { id: "legendary_axe", name: "Widow's Edge", slot: "weapon", icon: "🪓", bonuses: { STR: 12, DEX: 8 }, legendary: true },
+  { id: "legendary_vest", name: "Warden's Plate", slot: "armor", icon: "🦺", bonuses: { CON: 20 }, legendary: true },
+  { id: "legendary_coat", name: "Survivor's Coat", slot: "armor", icon: "🧥", bonuses: { CON: 12, DEX: 6 }, legendary: true },
+  { id: "legendary_charm", name: "Four-Leaf Talisman", slot: "accessory", icon: "🍀", bonuses: { CHA: 14, WIS: 6 }, legendary: true },
+  { id: "legendary_glasses", name: "Oracle's Lenses", slot: "accessory", icon: "👓", bonuses: { INT: 14, WIS: 6 }, legendary: true },
+];
+
+export const LEGENDARY_TITLES = ["the Relentless", "the Unbroken", "the Last Stand", "the Ironclad", "the Undying", "the Reaper's Bane"];
+
 // ===== Skill tree =====
 // One path per subject/grade, 5 nodes (D through S). A node unlocks automatically once the
 // character's letter grade in that subject reaches its tier — no separate skill points.
@@ -189,6 +202,42 @@ export const STAMINA_COST_GYM = 20; // students, per day trained
 export const STAMINA_COST_EXPLORE = 20; // students, per expedition
 export const STAMINA_COST_TEACH = 20; // teachers, per day assigned to a classroom
 export const STAMINA_RECHARGE_CAFETERIA = 50; // per day resting/working in the cafeteria
+
+// ===== Happiness =====
+// A school-wide mood meter that reacts to wins/losses/recruits/deaths and, in turn, skews
+// whether random events lean good or bad.
+export const HAPPINESS_START = 50;
+export const HAPPINESS_MIN = 0;
+export const HAPPINESS_MAX = 100;
+export const HAPPINESS_GAIN_WIN = 5; // won the night's main battle
+export const HAPPINESS_GAIN_RECRUIT = 3; // accepted a new student/teacher
+export const HAPPINESS_LOSS_MISSION_FAIL = 3; // a team's expedition failed
+export const HAPPINESS_LOSS_DEATH = 8; // a character died
+
+// ===== Night-phase follow-ups (Turn 3) =====
+// Rolled once, in this order, only after a WON main battle (defense power >= wave strength) —
+// at most one of the two can happen on a given night.
+export const FACILITY_RAID_CHANCE = 0.1;
+export const ASSAULT_CHANCE = 0.2;
+export const RAIDABLE_FACILITIES = ["farm", "scrapyard", "lab"];
+export const LEGENDARY_CHANCE = 0.15; // chance a won Assault turns up a legendary survivor
+
+// ===== Random events =====
+// Rolled once per day (at the Turn 3 -> Turn 1 rollover). `effect` is interpreted generically
+// by applyEvent() in game.js so this file stays data-only.
+export const EVENT_CHANCE = 0.25;
+export const EVENTS = [
+  { id: "donation", kind: "good", title: "A Generous Donation", desc: "A passing convoy leaves food and supplies at the gate.", effect: { food: 20, materials: 10 } },
+  { id: "good_news", kind: "good", title: "Good News on the Radio", desc: "A broadcast says the military is pushing the horde back elsewhere. Spirits lift.", effect: { happiness: 12 } },
+  { id: "wanderer", kind: "good", title: "A Wanderer Arrives", desc: "A survivor asks to join the school.", effect: { recruit: "student" } },
+  { id: "medic", kind: "good", title: "A Medic Passes Through", desc: "A traveling medic shares supplies before moving on.", effect: { medicine: 15 } },
+  { id: "research_breakthrough", kind: "good", title: "A Breakthrough", desc: "Notes left behind by a university team advance your research.", effect: { research: 10 } },
+  { id: "theft", kind: "bad", title: "Supplies Go Missing", desc: "Someone was careless — or someone stole from the stores overnight.", effect: { materials: -15 } },
+  { id: "spoiled_food", kind: "bad", title: "Spoiled Rations", desc: "A batch of food spoils before anyone notices.", effect: { food: -15 } },
+  { id: "bad_news", kind: "bad", title: "Bad News on the Radio", desc: "A broadcast describes a nearby town overrun. The school grows anxious.", effect: { happiness: -12 } },
+  { id: "accident", kind: "bad", title: "An Accident", desc: "A careless moment during chores turns into a real injury.", effect: { injure: true } },
+  { id: "sickness", kind: "bad", title: "A Sickness Spreads", desc: "Something is going around the dorms. One student doesn't pull through.", effect: { kill: true } },
+];
 
 // ===== Exploration locations =====
 export const LOCATIONS = [
