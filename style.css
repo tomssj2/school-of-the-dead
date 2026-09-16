@@ -327,6 +327,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   color: var(--muted);
 }
 .chip.chip-specialty { border-color: #f4c430; color: #f4c430; font-weight: 600; }
+.stat-top { color: #f4c430; }
 
 .tag { border-radius: 4px; padding: 1px 6px; font-size: 11px; }
 .tag-ok { background: #163527; color: #6fdc9e; }
@@ -845,6 +846,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.grade-row-best .gr-name { color: #f4c430; font-weight: 700; }
 .gr-col.gr-letter {
   flex: 0 0 3ch;
   text-align: center;

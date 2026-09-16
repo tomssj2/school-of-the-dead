@@ -90,14 +90,34 @@ function statChips(c) {
       }).join("")}
     </div>`;
   }
+  const studentStats = [
+    ["STR", "Strength (PE)", c.grades.PE],
+    ["DEX", "Dexterity (Gymnastics)", c.grades.Gymnastics],
+    ["CON", "Constitution (Biology)", c.grades.Biology],
+    ["INT", "Intelligence (Physics)", c.grades.Physics],
+    ["WIS", "Wisdom (History)", c.grades.History],
+    ["CHA", "Charisma (Social Studies)", c.grades.SocialStudies],
+  ];
+  const best = Math.max(...studentStats.map(([, , v]) => v));
   return `<div class="stat-chips">
-    <span class="chip" title="Strength (PE)">STR ${c.grades.PE}</span>
-    <span class="chip" title="Dexterity (Gymnastics)">DEX ${c.grades.Gymnastics}</span>
-    <span class="chip" title="Constitution (Biology)">CON ${c.grades.Biology}</span>
-    <span class="chip" title="Intelligence (Physics)">INT ${c.grades.Physics}</span>
-    <span class="chip" title="Wisdom (History)">WIS ${c.grades.History}</span>
-    <span class="chip" title="Charisma (Social Studies)">CHA ${c.grades.SocialStudies}</span>
+    ${studentStats
+      .map(([label, title, val]) => {
+        const top = val === best;
+        return `<span class="chip ${top ? "chip-specialty" : ""}" title="${title}${top ? " (highest)" : ""}">${top ? "🌟 " : ""}${label} ${val}</span>`;
+      })
+      .join("")}
   </div>`;
+}
+
+// Bolds whichever of STR/DEX is higher — used in the compact defender-picking lists (Night
+// Watch, facility raids) that only show these two combat stats, not the full statChips().
+function strDexLabel(c) {
+  const str = c.grades.PE;
+  const dex = c.grades.Gymnastics;
+  const max = Math.max(str, dex);
+  const strHtml = str === max ? `<b class="stat-top">STR ${str}</b>` : `STR ${str}`;
+  const dexHtml = dex === max ? `<b class="stat-top">DEX ${dex}</b>` : `DEX ${dex}`;
+  return `${strHtml} ${dexHtml}`;
 }
 
 // Letter grade (+ the flat bonus a teacher's grade gives students while teaching), used
@@ -588,7 +608,7 @@ function renderTurn3Overview(state) {
       const checked = c.defending ? "checked" : "";
       return `<label class="check-row">
         <input type="checkbox" data-action="toggle-defend" data-id="${c.id}" ${checked}/>
-        ${nameTag(c)} — STR ${c.grades.PE} DEX ${c.grades.Gymnastics} ${statusTag(c)}
+        ${nameTag(c)} — ${strDexLabel(c)} ${statusTag(c)}
       </label>`;
     })
     .join("");
@@ -620,7 +640,7 @@ function renderFacilityRaidPanel(state) {
       const checked = state.raidDefenders.includes(c.id) ? "checked" : "";
       return `<label class="check-row">
         <input type="checkbox" data-action="toggle-raid-defender" data-id="${c.id}" ${checked}/>
-        ${nameTag(c)} — STR ${c.grades.PE} DEX ${c.grades.Gymnastics} ${statusTag(c)}
+        ${nameTag(c)} — ${strDexLabel(c)} ${statusTag(c)}
       </label>`;
     })
     .join("");
@@ -1195,6 +1215,7 @@ function renderStatsTab(state, c) {
 }
 
 function renderStudentStatsTab(state, c) {
+  const bestGrade = Math.max(...SUBJECTS.map((s) => c.grades[s]));
   const gradeRows = SUBJECTS.map((s) => {
     const val = c.grades[s];
     const letter = gradeLetter(val);
@@ -1203,12 +1224,13 @@ function renderStudentStatsTab(state, c) {
     const classBonus = classroomTeachingBonus(state, c, s);
     const total = val + gearBonus + classBonus;
     const hasBonus = gearBonus + classBonus > 0;
+    const isBest = val === bestGrade;
     const bonusParts = [];
     if (gearBonus) bonusParts.push(`+${gearBonus} from equipped gear`);
     if (classBonus) bonusParts.push(`+${classBonus} from classroom teacher`);
     const tooltip = bonusParts.join(", ");
-    return `<div class="grade-row-v2">
-      <span class="gr-col gr-name">${SUBJECT_LABEL[s]}</span>
+    return `<div class="grade-row-v2 ${isBest ? "grade-row-best" : ""}">
+      <span class="gr-col gr-name">${isBest ? "🌟 " : ""}${SUBJECT_LABEL[s]}</span>
       <span class="gr-sep">|</span>
       <span class="gr-col gr-letter grade-letter-${letter}">${letter}</span>
       <span class="gr-sep">|</span>
@@ -1219,7 +1241,7 @@ function renderStudentStatsTab(state, c) {
   }).join("");
   return `<div class="cc-section-label">Grades</div><div class="grade-list">${gradeRows}</div>
     <p class="muted cc-grade-note">The letter grade reflects academic performance only. A highlighted number includes a
-    bonus from equipped gear or a classroom teacher — hover it to see the breakdown.</p>`;
+    bonus from equipped gear or a classroom teacher — hover it to see the breakdown. The 🌟 marks their strongest stat.</p>`;
 }
 
 // Teachers don't have combat stats — their grades only matter as a teaching bonus for whatever
