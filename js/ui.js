@@ -158,7 +158,11 @@ export function renderTopbar(state) {
   return `
   <div class="topbar">
     <div class="topbar-left">
-      <div class="tb-title">🧟 School of the Dead</div>
+      <div class="tb-stats">
+        <span class="tb-item">👥 <b>${pop}</b> alive</span>
+        <span class="tb-item">🎓 <b>${teacherCount(state)}</b>/${MAX_TEACHERS} teachers</span>
+        <span class="tb-item" title="Happiness">${happinessFace(state.happiness)} <b>${state.happiness}</b></span>
+      </div>
     </div>
     <div class="topbar-center">
       <span class="tb-day">📅 Day <b>${state.day}</b></span>
@@ -171,9 +175,6 @@ export function renderTopbar(state) {
         <span class="tb-item">🔧 <b>${state.resources.materials}</b></span>
         <span class="tb-item">💊 <b>${state.resources.medicine}</b></span>
         <span class="tb-item">🧠 <b>${state.resources.research}</b></span>
-        <span class="tb-item" title="Happiness">${happinessFace(state.happiness)} <b>${state.happiness}</b></span>
-        <span class="tb-item">👥 <b>${pop}</b> alive</span>
-        <span class="tb-item">🎓 <b>${teacherCount(state)}</b>/${MAX_TEACHERS} teachers</span>
       </div>
     </div>
   </div>`;
