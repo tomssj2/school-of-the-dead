@@ -159,8 +159,8 @@ export function renderTopbar(state) {
   <div class="topbar">
     <div class="topbar-left">
       <div class="tb-stats">
-        <span class="tb-item">👥 <b>${pop}</b> alive</span>
-        <span class="tb-item">🎓 <b>${teacherCount(state)}</b>/${MAX_TEACHERS} teachers</span>
+        <span class="tb-item">👥 <b>${pop}</b></span>
+        <span class="tb-item">🎓 <b>${teacherCount(state)}</b></span>
         <span class="tb-item" title="Happiness">${happinessFace(state.happiness)} <b>${state.happiness}</b></span>
       </div>
     </div>
