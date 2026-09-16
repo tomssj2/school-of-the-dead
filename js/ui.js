@@ -2,6 +2,7 @@ import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
   CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, LOCATIONS,
   BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_UPGRADE_MAX_LEVEL,
+  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -161,6 +162,7 @@ export function renderTopbar(state) {
         <span class="tb-item">🍞 <b>${state.resources.food}</b></span>
         <span class="tb-item">🔧 <b>${state.resources.materials}</b></span>
         <span class="tb-item">💊 <b>${state.resources.medicine}</b></span>
+        <span class="tb-item">🧠 <b>${state.resources.research}</b></span>
         <span class="tb-item">👥 <b>${pop}</b> alive</span>
         <span class="tb-item">🎓 <b>${teacherCount(state)}</b>/${MAX_TEACHERS} teachers</span>
       </div>
@@ -168,13 +170,33 @@ export function renderTopbar(state) {
   </div>`;
 }
 
-export function renderTabs(state, activeTab, mobileView) {
-  const floorTabs = [
+// The left 3 tabs change with the turn — you manage the school on Turn 1, the outside
+// facilities on Turn 2 (while teams are out exploring), and (once defined) night-related
+// screens on Turn 3.
+const LEFT_TABS_BY_TURN = {
+  1: [
     ["floor1", "🚪 Entrance"],
     ["floor2", "🏫 Classrooms"],
     ["floor3", "🏢 Facilities"],
-  ];
-  const floorBtns = floorTabs
+  ],
+  2: [
+    ["farm", "🌾 Farm"],
+    ["scrapyard", "🔩 Scrapyard"],
+    ["lab", "🧪 Lab"],
+  ],
+  3: [
+    ["defense", "🛡 Defense"],
+    ["assault", "⚔ Assault"],
+    ["event", "🎲 Event"],
+  ],
+};
+// The center button always returns to the current turn's action screen (assigning classes,
+// missions, or defenders + the button that actually advances the turn) — labeled per-turn so
+// it doesn't read as a generic "advance turn" action.
+const OVERVIEW_TAB_LABEL = { 1: "📚 Classes", 2: "🗺 Explore", 3: "🌙 Night Watch" };
+
+export function renderTabs(state, activeTab, mobileView) {
+  const floorBtns = (LEFT_TABS_BY_TURN[state.turn] || LEFT_TABS_BY_TURN[1])
     .map(
       ([id, label]) =>
         `<button class="tab-btn ${activeTab === id ? "active" : ""}" data-action="set-tab" data-tab="${id}">${label}</button>`
@@ -186,10 +208,11 @@ export function renderTabs(state, activeTab, mobileView) {
       ${floorBtns}
     </div>
     <div class="tabs-center">
-      <button class="tab-btn tab-btn-turn ${activeTab === "overview" ? "active" : ""}" data-action="set-tab" data-tab="overview">▶ Turn</button>
+      <button class="tab-btn tab-btn-turn ${activeTab === "overview" ? "active" : ""}" data-action="set-tab" data-tab="overview">${OVERVIEW_TAB_LABEL[state.turn]}</button>
     </div>
     <div class="tabs-right">
       <button class="tab-btn ${activeTab === "roster" ? "active" : ""}" data-action="set-tab" data-tab="roster">📋 Roster</button>
+      <button class="tab-btn ${activeTab === "research" ? "active" : ""}" data-action="set-tab" data-tab="research">🧠 Research</button>
       <button class="tab-btn ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
       <details class="options-dropdown">
         <summary class="tab-btn options-summary">⚙ Options ▾</summary>
@@ -327,7 +350,11 @@ export function renderMissionModal(state, locationId) {
 
   const members = state.characters.filter((c) => c.exploreTeam === teamIndex && c.alive);
   const availableStudents = state.characters.filter(
-    (c) => c.role === "student" && c.alive && (c.exploreTeam === null || c.exploreTeam === teamIndex)
+    (c) =>
+      c.role === "student" &&
+      c.alive &&
+      (c.exploreTeam === null || c.exploreTeam === teamIndex) &&
+      !c.farmToday && !c.scrapyardToday && !c.labToday
   );
   const studentRows = availableStudents
     .map((s) => {
@@ -628,6 +655,80 @@ export function renderFloor3(state) {
       ${utilityRoom("🔬 Research Room", "Generates medicine each day, scaled by the assigned teacher's Physics (INT) grade.", researcher, "research", "INT", "Physics")}
       ${utilityRoom("🛠 Crafting Room", "Converts materials into permanent entrance Fortification, scaled by Gymnastics (DEX).", crafter, "crafting", "DEX", "Gymnastics")}
       ${utilityRoom("🗳 Student Council Room", "Chance each day to hear of a survivor wanting to join, scaled by Social Studies (CHA).", council, "council", "CHA", "SocialStudies")}
+    </div>
+  </div>`;
+}
+
+// ---------- outside facilities (Turn 2) ----------
+
+function renderOutsideFacility(state, roomKey, flagKey, icon, title, desc) {
+  const room = state.rooms[roomKey];
+  const workers = state.characters.filter((c) => c[flagKey] && c.alive);
+  const available = state.characters.filter(
+    (c) => c.role === "student" && c.alive && !c[flagKey] && c.exploreTeam === null
+  );
+
+  return `
+  <div class="card">
+    <h2>${icon} ${title}</h2>
+    <p class="muted">${desc}</p>
+    <div class="mini-label">Working today (${workers.length}/${room.studentCapacity})</div>
+    <ul class="assign-list">
+      ${workers.map((s) => `<li>${nameTag(s)} ${statusTag(s)} <button class="btn-x" data-action="remove-${roomKey}" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+    </ul>
+    ${workers.length < room.studentCapacity ? `<select data-action="add-${roomKey}"><option value="">+ assign student…</option>${available.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select>` : ""}
+    ${upgradeButton(state, roomKey, null, "student", "Student slot")}
+  </div>`;
+}
+
+export function renderFarm(state) {
+  return renderOutsideFacility(
+    state, "farm", "farmToday", "🌾", "Farm",
+    `Assign students to grow food instead of sending them out to explore today. Each worker yields ${FARM_YIELD_FOOD} food when the day ends.`
+  );
+}
+
+export function renderScrapyard(state) {
+  return renderOutsideFacility(
+    state, "scrapyard", "scrapyardToday", "🔩", "Scrapyard",
+    `Assign students to strip nearby wrecks for parts instead of exploring today. Each worker yields ${SCRAPYARD_YIELD_MATERIALS} materials when the day ends.`
+  );
+}
+
+export function renderLab(state) {
+  return renderOutsideFacility(
+    state, "lab", "labToday", "🧪", "Lab",
+    `Assign students to run experiments instead of exploring today. Each worker yields ${LAB_YIELD_RESEARCH} research when the day ends — spend research on the skill tree (coming soon).`
+  );
+}
+
+// ---------- Turn 3 side screens (placeholders — behavior defined later) ----------
+
+function renderComingSoon(icon, title, desc) {
+  return `<div class="card"><h2>${icon} ${title}</h2><p class="muted">${desc}</p></div>`;
+}
+
+export function renderDefenseTab() {
+  return renderComingSoon("🛡", "Defense", "Fortification and defender-loadout options will live here. For now, assign defenders from the Night Watch panel.");
+}
+
+export function renderAssaultTab() {
+  return renderComingSoon("⚔", "Assault", "A future option to send a team out on the offensive at night. Not yet implemented.");
+}
+
+export function renderEventTab() {
+  return renderComingSoon("🎲", "Event", "Random night events will show up here. Not yet implemented.");
+}
+
+// ---------- research ----------
+
+export function renderResearch(state) {
+  return `
+  <div class="card">
+    <h2>🧠 Research</h2>
+    <p class="muted">Earned by staffing the Lab during Turn 2. A skill tree to spend it on is coming soon.</p>
+    <div class="summary-list">
+      <div>Research banked: <b>${state.resources.research}</b></div>
     </div>
   </div>`;
 }
@@ -974,12 +1075,19 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
 
 export function renderApp(state, activeTab, rosterFilter = "all", mobileView = false) {
   let content;
-  if (activeTab === "overview") content = renderOverview(state);
-  else if (activeTab === "floor1") content = renderFloor1(state);
+  if (activeTab === "floor1") content = renderFloor1(state);
   else if (activeTab === "floor2") content = renderFloor2(state);
   else if (activeTab === "floor3") content = renderFloor3(state);
+  else if (activeTab === "farm") content = renderFarm(state);
+  else if (activeTab === "scrapyard") content = renderScrapyard(state);
+  else if (activeTab === "lab") content = renderLab(state);
+  else if (activeTab === "defense") content = renderDefenseTab();
+  else if (activeTab === "assault") content = renderAssaultTab();
+  else if (activeTab === "event") content = renderEventTab();
   else if (activeTab === "roster") content = renderRoster(state, rosterFilter);
-  else content = renderLog(state);
+  else if (activeTab === "research") content = renderResearch(state);
+  else if (activeTab === "log") content = renderLog(state);
+  else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 
   return `${renderTopbar(state)}${renderTabs(state, activeTab, mobileView)}<div class="content">${content}</div>`;
 }

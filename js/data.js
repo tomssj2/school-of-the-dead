@@ -156,6 +156,15 @@ export const GYM_MAX_TEACHERS = 3; // base teacher slots (gym works fine with no
 export const CAFETERIA_CAPACITY = 10; // base student rest slots/day
 export const CAFETERIA_MAX_TEACHERS = 3; // base teacher (cook) slots
 
+// Outside facilities, worked during Turn 2 instead of exploring. No teacher slots — just passive
+// per-student daily yield, split out so each facility can scale/upgrade independently.
+export const FARM_CAPACITY = 10;
+export const SCRAPYARD_CAPACITY = 10;
+export const LAB_CAPACITY = 10;
+export const FARM_YIELD_FOOD = 3; // food per assigned student/day
+export const SCRAPYARD_YIELD_MATERIALS = 3; // materials per assigned student/day
+export const LAB_YIELD_RESEARCH = 2; // research per assigned student/day
+
 // ===== Room upgrades =====
 // Materials cost to go from a given upgrade level to the next; capped at ROOM_UPGRADE_MAX_LEVEL.
 export const ROOM_UPGRADE_MAX_LEVEL = 3;
@@ -167,6 +176,9 @@ export const ROOM_UPGRADE_INCREMENT = {
   gymTeacher: 1,
   cafeteriaStudent: 5,
   cafeteriaTeacher: 1,
+  farmStudent: 5,
+  scrapyardStudent: 5,
+  labStudent: 5,
 };
 
 export const BOND_COUPLE_THRESHOLD = 6;

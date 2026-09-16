@@ -3,7 +3,7 @@ import { renderApp, renderCharacterCard, renderMissionModal } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
-  CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS,
+  CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -30,6 +30,9 @@ function migrateState(s) {
     if (c.stamina === undefined) c.stamina = MAX_STAMINA;
     if (c.maxStamina === undefined) c.maxStamina = MAX_STAMINA;
     if (c.cafeteriaToday === undefined) c.cafeteriaToday = false;
+    if (c.farmToday === undefined) c.farmToday = false;
+    if (c.scrapyardToday === undefined) c.scrapyardToday = false;
+    if (c.labToday === undefined) c.labToday = false;
     if (c.role === "teacher") {
       if (!/^(mr|mrs)\.\s/i.test(c.name)) c.name = withTeacherHonorific(c.name, c.gender);
       if (!c.teachSubject) {
@@ -43,6 +46,10 @@ function migrateState(s) {
   migrateClassroomRooms(s);
   if (!s.rooms.gym) s.rooms.gym = { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS };
   if (!s.rooms.cafeteria) s.rooms.cafeteria = { studentCapacity: CAFETERIA_CAPACITY, teacherCapacity: CAFETERIA_MAX_TEACHERS };
+  if (!s.rooms.farm) s.rooms.farm = { studentCapacity: FARM_CAPACITY };
+  if (!s.rooms.scrapyard) s.rooms.scrapyard = { studentCapacity: SCRAPYARD_CAPACITY };
+  if (!s.rooms.lab) s.rooms.lab = { studentCapacity: LAB_CAPACITY };
+  if (s.resources.research === undefined) s.resources.research = 0;
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -187,6 +194,18 @@ root.addEventListener("click", (e) => {
       break;
     case "remove-cafeteria":
       G.setCafeteriaToday(state, el.dataset.id, false);
+      render();
+      break;
+    case "remove-farm":
+      G.setFarmToday(state, el.dataset.id, false);
+      render();
+      break;
+    case "remove-scrapyard":
+      G.setScrapyardToday(state, el.dataset.id, false);
+      render();
+      break;
+    case "remove-lab":
+      G.setLabToday(state, el.dataset.id, false);
       render();
       break;
     case "upgrade-room":
@@ -338,6 +357,21 @@ root.addEventListener("change", (e) => {
     }
     case "add-cafeteria": {
       if (el.value) G.setCafeteriaToday(state, el.value, true);
+      render();
+      break;
+    }
+    case "add-farm": {
+      if (el.value) G.setFarmToday(state, el.value, true);
+      render();
+      break;
+    }
+    case "add-scrapyard": {
+      if (el.value) G.setScrapyardToday(state, el.value, true);
+      render();
+      break;
+    }
+    case "add-lab": {
+      if (el.value) G.setLabToday(state, el.value, true);
       render();
       break;
     }

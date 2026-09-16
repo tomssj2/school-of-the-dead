@@ -1,6 +1,8 @@
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS,
   GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS,
+  FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
+  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH,
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
   ROOM_UPGRADE_MAX_LEVEL, ROOM_UPGRADE_INCREMENT, roomUpgradeCost,
@@ -21,7 +23,7 @@ export function createInitialState() {
   const state = {
     day: 1,
     turn: 1, // 1=training, 2=exploration, 3=defense
-    resources: { food: 60, materials: 30, medicine: 20 },
+    resources: { food: 60, materials: 30, medicine: 20, research: 0 },
     fortification: 0,
     characters: [],
     rooms: {
@@ -30,6 +32,9 @@ export function createInitialState() {
       ),
       gym: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
       cafeteria: { studentCapacity: CAFETERIA_CAPACITY, teacherCapacity: CAFETERIA_MAX_TEACHERS },
+      farm: { studentCapacity: FARM_CAPACITY },
+      scrapyard: { studentCapacity: SCRAPYARD_CAPACITY },
+      lab: { studentCapacity: LAB_CAPACITY },
     },
     recruitPool: [],
     log: [],
@@ -214,9 +219,40 @@ export function setCafeteriaToday(state, studentId, value) {
   return true;
 }
 
+// Outside facilities worked during Turn 2 as an alternative to exploring — a student can do one
+// or the other on a given day, never both, so each setter blocks while the other is active.
+function makeOutsideFacilitySetter(flagKey, roomKey) {
+  return function (state, studentId, value) {
+    const c = getChar(state, studentId);
+    if (!c || c.role !== "student") return false;
+    if (value) {
+      if (c.exploreTeam !== null) return false;
+      const count = state.characters.filter((x) => x[flagKey]).length;
+      if (count >= state.rooms[roomKey].studentCapacity) return false;
+    }
+    c[flagKey] = value;
+    return true;
+  };
+}
+
+export const setFarmToday = makeOutsideFacilitySetter("farmToday", "farm");
+export const setScrapyardToday = makeOutsideFacilitySetter("scrapyardToday", "scrapyard");
+export const setLabToday = makeOutsideFacilitySetter("labToday", "lab");
+
 // ---------- room upgrades ----------
 // Spends materials to add more capacity to a room, up to ROOM_UPGRADE_MAX_LEVEL times. Classroom
 // teacher capacity is fixed at 1 and can't be upgraded — everything else can.
+
+// Base (unupgraded) capacity per room type/kind, used to figure out the current upgrade level
+// from the room's live capacity.
+const ROOM_BASE_CAPACITY = {
+  gym: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
+  cafeteria: { student: CAFETERIA_CAPACITY, teacher: CAFETERIA_MAX_TEACHERS },
+  farm: { student: FARM_CAPACITY },
+  scrapyard: { student: SCRAPYARD_CAPACITY },
+  lab: { student: LAB_CAPACITY },
+};
+const ROOM_LABELS = { gym: "the Gym", cafeteria: "the Cafeteria", farm: "the Farm", scrapyard: "the Scrapyard", lab: "the Lab" };
 
 function roomUpgradeLevel(state, roomType, roomId, kind) {
   if (roomType === "classroom") {
@@ -226,8 +262,8 @@ function roomUpgradeLevel(state, roomType, roomId, kind) {
   }
   const room = state.rooms[roomType];
   if (!room) return null;
-  const base = roomType === "gym" ? (kind === "student" ? GYM_CAPACITY : GYM_MAX_TEACHERS)
-    : (kind === "student" ? CAFETERIA_CAPACITY : CAFETERIA_MAX_TEACHERS);
+  const base = ROOM_BASE_CAPACITY[roomType]?.[kind];
+  if (base === undefined) return null;
   const inc = ROOM_UPGRADE_INCREMENT[`${roomType}${kind === "student" ? "Student" : "Teacher"}`];
   const field = kind === "student" ? "studentCapacity" : "teacherCapacity";
   return Math.round((room[field] - base) / inc);
@@ -257,7 +293,7 @@ export function upgradeRoom(state, roomType, roomId, kind) {
     const inc = ROOM_UPGRADE_INCREMENT[`${roomType}${kind === "student" ? "Student" : "Teacher"}`];
     const field = kind === "student" ? "studentCapacity" : "teacherCapacity";
     room[field] += inc;
-    label = roomType === "gym" ? "the Gym" : "the Cafeteria";
+    label = ROOM_LABELS[roomType];
   }
 
   state.resources.materials -= cost;
@@ -516,6 +552,27 @@ export function resolveExploration(state) {
     teamBondBumps(state, members.map((c) => c.id));
   }
 
+  // outside facilities — passive daily yield for students working the Farm/Scrapyard/Lab
+  // instead of exploring.
+  const farmWorkers = state.characters.filter((c) => c.farmToday && c.alive);
+  if (farmWorkers.length) {
+    const gain = farmWorkers.length * FARM_YIELD_FOOD;
+    state.resources.food += gain;
+    addLog(state, `The Farm brings in ${gain} food from ${farmWorkers.length} student(s).`);
+  }
+  const scrapyardWorkers = state.characters.filter((c) => c.scrapyardToday && c.alive);
+  if (scrapyardWorkers.length) {
+    const gain = scrapyardWorkers.length * SCRAPYARD_YIELD_MATERIALS;
+    state.resources.materials += gain;
+    addLog(state, `The Scrapyard salvages ${gain} materials from ${scrapyardWorkers.length} student(s).`);
+  }
+  const labWorkers = state.characters.filter((c) => c.labToday && c.alive);
+  if (labWorkers.length) {
+    const gain = labWorkers.length * LAB_YIELD_RESEARCH;
+    state.resources.research += gain;
+    addLog(state, `The Lab produces ${gain} research from ${labWorkers.length} student(s).`);
+  }
+
   addLog(state, `Turn 2 (Exploration) resolved.`);
 }
 
@@ -589,6 +646,9 @@ export function advanceTurn(state) {
   for (const c of state.characters) {
     c.gymToday = false;
     c.cafeteriaToday = false;
+    c.farmToday = false;
+    c.scrapyardToday = false;
+    c.labToday = false;
     c.exploreTeam = null;
     c.defending = false;
   }
@@ -752,6 +812,7 @@ export function setExploreTeam(state, charId, teamIndex) {
   }
   if (c.role !== "student") return false; // teachers stay at the school, never explore
   if (c.stamina <= 0) return false; // too exhausted to go out
+  if (c.farmToday || c.scrapyardToday || c.labToday) return false; // already working an outside facility today
   if (teamIndex < 0 || teamIndex > 2) return false;
   const teammateCount = state.characters.filter((x) => x.exploreTeam === teamIndex && x.id !== c.id).length;
   if (teammateCount >= 5) return false;
