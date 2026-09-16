@@ -1144,9 +1144,40 @@ export function renderResearch(state) {
 
 // ---------- roster ----------
 
-export function renderRoster(state, filter = "all") {
+const ROSTER_SORT_FIELDS = [
+  { key: "name", label: "Name" },
+  { key: "level", label: "Level" },
+  { key: "hp", label: "HP" },
+  { key: "stamina", label: "Stamina" },
+  { key: "STR", label: "STR" },
+  { key: "DEX", label: "DEX" },
+  { key: "CON", label: "CON" },
+  { key: "INT", label: "INT" },
+  { key: "WIS", label: "WIS" },
+  { key: "CHA", label: "CHA" },
+];
+
+function rosterSortValue(c, key) {
+  if (key === "name") return c.name.toLowerCase();
+  if (key === "level") return overallLevel(c);
+  if (key === "hp") return c.hp;
+  if (key === "stamina") return c.stamina;
+  const subject = SUBJECTS.find((s) => STAT_OF_SUBJECT[s] === key);
+  return c.grades[subject];
+}
+
+export function renderRoster(state, filter = "all", sortKey = "name", sortDir = "asc") {
   const showDead = window.__showDead;
-  const list = state.characters.filter((c) => (showDead || c.alive) && (filter === "all" || c.role === filter));
+  const fields = ROSTER_SORT_FIELDS;
+  const effectiveSortKey = fields.some((f) => f.key === sortKey) ? sortKey : "name";
+  const list = state.characters
+    .filter((c) => (showDead || c.alive) && (filter === "all" || c.role === filter))
+    .sort((a, b) => {
+      const va = rosterSortValue(a, effectiveSortKey);
+      const vb = rosterSortValue(b, effectiveSortKey);
+      const cmp = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
   const rows = list
     .map((c) => {
       const loc =
@@ -1182,9 +1213,16 @@ export function renderRoster(state, filter = "all") {
     .map(([id, label]) => `<button class="subtab-btn ${filter === id ? "active" : ""}" data-action="set-roster-filter" data-filter="${id}">${label}</button>`)
     .join("")}</div>`;
 
+  const sortOptions = fields.map((f) => `<option value="${f.key}" ${f.key === effectiveSortKey ? "selected" : ""}>${f.label}</option>`).join("");
+
   return `<div class="card">
     <h2>Roster</h2>
     ${filterBar}
+    <div class="picker-sort-row">
+      <span class="mini-label">Sort by</span>
+      <select data-action="set-roster-sort">${sortOptions}</select>
+      <button class="btn btn-sm" data-action="toggle-roster-sort-dir" title="Toggle ascending/descending">${sortDir === "asc" ? "⬆ Ascending" : "⬇ Descending"}</button>
+    </div>
     <label class="check-row"><input type="checkbox" data-action="toggle-show-dead" ${showDead ? "checked" : ""}/> Show deceased</label>
     <div class="table-wrap">
       <table class="roster-table">
@@ -1484,7 +1522,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
 
 // ---------- root ----------
 
-export function renderApp(state, activeTab, rosterFilter = "all", mobileView = false, floaties = []) {
+export function renderApp(state, activeTab, rosterFilter = "all", mobileView = false, floaties = [], rosterSortKey = "name", rosterSortDir = "asc") {
   let content;
   if (activeTab === "floor1") content = renderFloor1(state);
   else if (activeTab === "floor2") content = renderFloor2(state);
@@ -1495,7 +1533,7 @@ export function renderApp(state, activeTab, rosterFilter = "all", mobileView = f
   else if (activeTab === "defense") content = renderDefenseTab(state);
   else if (activeTab === "assault") content = renderAssaultTab(state);
   else if (activeTab === "event") content = renderEventTab(state);
-  else if (activeTab === "roster") content = renderRoster(state, rosterFilter);
+  else if (activeTab === "roster") content = renderRoster(state, rosterFilter, rosterSortKey, rosterSortDir);
   else if (activeTab === "research") content = renderResearch(state);
   else if (activeTab === "log") content = renderLog(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here

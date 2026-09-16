@@ -16,6 +16,8 @@ let activeTab = "overview";
 let openCardId = null;
 let cardTab = "stats";
 let rosterFilter = "all";
+let rosterSortKey = "name";
+let rosterSortDir = "asc";
 let mobileView = false;
 let openMissionLocationId = null;
 let openScoutHex = null; // { q, r } or null
@@ -173,7 +175,7 @@ function render() {
     : state.pendingAssault
     ? renderAssaultModal()
     : "";
-  root.innerHTML = renderApp(state, activeTab, rosterFilter, mobileView, floaties) + modalHtml;
+  root.innerHTML = renderApp(state, activeTab, rosterFilter, mobileView, floaties, rosterSortKey, rosterSortDir) + modalHtml;
 }
 
 function loadGame() {
@@ -480,6 +482,10 @@ root.addEventListener("click", (e) => {
       pickerSortDir = pickerSortDir === "asc" ? "desc" : "asc";
       render();
       break;
+    case "toggle-roster-sort-dir":
+      rosterSortDir = rosterSortDir === "asc" ? "desc" : "asc";
+      render();
+      break;
     case "clear-mission": {
       const teamIndex = Number(el.dataset.team);
       state.characters.filter((c) => c.exploreTeam === teamIndex).forEach((c) => G.setExploreTeam(state, c.id, null));
@@ -537,6 +543,10 @@ root.addEventListener("change", (e) => {
   switch (action) {
     case "set-picker-sort":
       pickerSortKey = el.value;
+      render();
+      break;
+    case "set-roster-sort":
+      rosterSortKey = el.value;
       render();
       break;
     case "toggle-gym": {
