@@ -13,6 +13,33 @@ import {
 import { characterSprite } from "./sprite.js";
 
 const TURN_NAMES = { 1: "Classes (Morning)", 2: "Exploration (Afternoon)", 3: "Defense (Night)" };
+const TURN_NAMES_SHORT = { 1: "Classes", 2: "Exploration", 3: "Defense" };
+
+// ---------- hex map (Turn 2) ----------
+
+const LOCATION_ICON = {
+  corner_store: "🏪",
+  pharmacy: "💊",
+  supermarket: "🛒",
+  hardware_store: "🔧",
+  hospital: "🏥",
+  police_station: "🚓",
+  mall: "🛍",
+  neighborhood: "🏘",
+};
+const RESOURCE_ICON = { food: "🍞", materials: "🔧", medicine: "💊" };
+
+const HEX_W = 76;
+const HEX_H = 66;
+const HEX_SIZE = HEX_W / 2;
+
+// Flat-top axial hex -> pixel center, and axial distance from the origin.
+function hexCenter(q, r) {
+  return { x: 1.5 * HEX_SIZE * q, y: Math.sqrt(3) * HEX_SIZE * (r + q / 2) };
+}
+function hexDistance(q, r) {
+  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+}
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -121,37 +148,61 @@ export function renderTopbar(state) {
   const pop = aliveChars(state).length;
   return `
   <div class="topbar">
-    <div class="tb-title">🧟 School of the Dead</div>
-    <div class="tb-stats">
-      <span class="tb-item">📅 Day <b>${state.day}</b></span>
-      <span class="tb-item">⏱ Turn ${state.turn}/3 — <b>${TURN_NAMES[state.turn]}</b></span>
-      <span class="tb-item">🍞 <b>${state.resources.food}</b></span>
-      <span class="tb-item">🔧 <b>${state.resources.materials}</b></span>
-      <span class="tb-item">💊 <b>${state.resources.medicine}</b></span>
-      <span class="tb-item">🧱 Fort <b>${state.fortification}</b></span>
-      <span class="tb-item">👥 <b>${pop}</b> alive</span>
-      <span class="tb-item">🎓 <b>${teacherCount(state)}</b>/${MAX_TEACHERS} teachers</span>
+    <div class="topbar-left">
+      <div class="tb-title">🧟 School of the Dead</div>
+    </div>
+    <div class="topbar-center">
+      <span class="tb-day">📅 Day <b>${state.day}</b></span>
+      <span class="tb-sep">|</span>
+      <span class="tb-turn-indicator">⏰ ${state.turn}/3 · <b>${TURN_NAMES_SHORT[state.turn]}</b></span>
+    </div>
+    <div class="topbar-right">
+      <div class="tb-stats">
+        <span class="tb-item">🍞 <b>${state.resources.food}</b></span>
+        <span class="tb-item">🔧 <b>${state.resources.materials}</b></span>
+        <span class="tb-item">💊 <b>${state.resources.medicine}</b></span>
+        <span class="tb-item">👥 <b>${pop}</b> alive</span>
+        <span class="tb-item">🎓 <b>${teacherCount(state)}</b>/${MAX_TEACHERS} teachers</span>
+      </div>
     </div>
   </div>`;
 }
 
-export function renderTabs(activeTab) {
-  const tabs = [
-    ["overview", "▶ Turn"],
-    ["floor1", "🏫 Floor 1"],
-    ["floor2", "🏫 Floor 2"],
-    ["floor3", "🏫 Floor 3"],
-    ["roster", "📋 Roster"],
-    ["log", "📜 Log"],
+export function renderTabs(state, activeTab, mobileView) {
+  const floorTabs = [
+    ["floor1", "🚪 Entrance"],
+    ["floor2", "🏫 Classrooms"],
+    ["floor3", "🏢 Facilities"],
   ];
-  return `<div class="tabs">${tabs
+  const floorBtns = floorTabs
     .map(
       ([id, label]) =>
         `<button class="tab-btn ${activeTab === id ? "active" : ""}" data-action="set-tab" data-tab="${id}">${label}</button>`
     )
-    .join("")}
-    <button class="tab-btn tab-btn-ghost" data-action="save-game">💾 Save</button>
-    <button class="tab-btn tab-btn-ghost" data-action="reset-game">🔄 New Game</button>
+    .join("");
+
+  return `<div class="tabs">
+    <div class="tabs-left">
+      ${floorBtns}
+    </div>
+    <div class="tabs-center">
+      <button class="tab-btn tab-btn-turn ${activeTab === "overview" ? "active" : ""}" data-action="set-tab" data-tab="overview">▶ Turn</button>
+    </div>
+    <div class="tabs-right">
+      <button class="tab-btn ${activeTab === "roster" ? "active" : ""}" data-action="set-tab" data-tab="roster">📋 Roster</button>
+      <button class="tab-btn ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
+      <details class="options-dropdown">
+        <summary class="tab-btn options-summary">⚙ Options ▾</summary>
+        <div class="options-menu">
+          <button class="options-item" data-action="save-game">💾 Save</button>
+          <button class="options-item" data-action="reset-game">🔄 New Game</button>
+          <label class="options-item options-toggle">
+            <input type="checkbox" data-action="toggle-mobile-view" ${mobileView ? "checked" : ""}/>
+            📱 Mobile View
+          </label>
+        </div>
+      </details>
+    </div>
   </div>`;
 }
 
@@ -194,30 +245,87 @@ function renderTurn1Overview(state) {
 }
 
 function renderTurn2Overview(state) {
-  const teams = [0, 1, 2].map((i) => renderTeamCard(state, i)).join("");
+  const missionChips = [0, 1, 2]
+    .map((i) => {
+      const locId = state.teamLocations[i];
+      if (!locId) return "";
+      const loc = LOCATIONS.find((l) => l.id === locId);
+      const memberCount = state.characters.filter((c) => c.exploreTeam === i && c.alive).length;
+      return `<button class="mission-chip" data-action="open-mission" data-location="${locId}">
+        <span>${LOCATION_ICON[locId]} ${esc(loc.name)}</span>
+        <span class="muted">${memberCount}/5</span>
+        <span class="btn-x" data-action="clear-mission" data-team="${i}" title="Recall team">✕</span>
+      </button>`;
+    })
+    .join("");
+
   return `
   <div class="card">
     <h2>Turn 2 — Exploration</h2>
-    <p>Assign up to 3 teams of up to 5 students to explore and loot locations around the city. Teachers stay at the
-    school. High STR/DEX raises success odds. High CON/INT protects your team. High WIS boosts loot. High CHA finds recruits.</p>
-    ${teams}
+    <p>Click a location on the map to send a team there. Distance from the school sets the difficulty — closer is
+    safer, farther pays better (and is more dangerous). Teachers stay at the school. A fuller team of up to 5
+    students succeeds more often.</p>
+    ${renderExplorationMap(state)}
+    <div class="mission-chips">${missionChips || '<p class="muted">No teams assigned yet — click a hex on the map to start a mission.</p>'}</div>
     <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 Launch Expeditions &amp; Advance to Night</button>
   </div>`;
 }
 
-function renderTeamCard(state, teamIndex) {
-  const students = state.characters.filter((c) => c.exploreTeam === teamIndex && c.alive);
-  const locationId = state.teamLocations[teamIndex];
+function renderExplorationMap(state) {
+  const points = [{ id: "school", q: 0, r: 0 }, ...LOCATIONS.map((l) => ({ id: l.id, q: l.hex.q, r: l.hex.r }))];
+  const centers = points.map((p) => ({ ...p, ...hexCenter(p.q, p.r) }));
+  const xs = centers.map((c) => c.x);
+  const ys = centers.map((c) => c.y);
+  const minX = Math.min(...xs) - HEX_W / 2 - 10;
+  const maxX = Math.max(...xs) + HEX_W / 2 + 10;
+  const minY = Math.min(...ys) - HEX_H / 2 - 10;
+  const maxY = Math.max(...ys) + HEX_H / 2 + 10;
+  const width = maxX - minX;
+  const height = maxY - minY;
+  const toPos = (x, y) => ({ left: x - minX - HEX_W / 2, top: y - minY - HEX_H / 2 });
 
-  const usedLocations = state.teamLocations.filter((l, i) => l && i !== teamIndex);
-  const locOptions = LOCATIONS.map(
-    (l) =>
-      `<option value="${l.id}" ${l.id === locationId ? "selected" : ""} ${usedLocations.includes(l.id) ? "disabled" : ""}>${l.name} (diff ${l.difficulty}/danger ${l.danger})</option>`
-  ).join("");
+  const schoolCenter = centers.find((c) => c.id === "school");
+  const schoolPos = toPos(schoolCenter.x, schoolCenter.y);
+  let hexesHtml = `<div class="hex hex-school" style="left:${schoolPos.left}px;top:${schoolPos.top}px;" title="Your school">
+    <div class="hex-inner"><span class="hex-icon">🏫</span><span class="hex-label">School</span></div>
+  </div>`;
 
-  const location = LOCATIONS.find((l) => l.id === locationId);
-  const locDesc = location ? `<p class="muted">${esc(location.desc)}</p>` : "";
+  for (const loc of LOCATIONS) {
+    const center = centers.find((c) => c.id === loc.id);
+    const pos = toPos(center.x, center.y);
+    const dist = hexDistance(loc.hex.q, loc.hex.r);
+    const diffClass = dist <= 2 ? "hex-easy" : dist <= 4 ? "hex-medium" : "hex-hard";
+    const teamIndex = state.teamLocations.indexOf(loc.id);
+    const assigned = teamIndex !== -1;
+    const memberCount = assigned ? state.characters.filter((c) => c.exploreTeam === teamIndex && c.alive).length : 0;
+    const rewardsStr = Object.entries(loc.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ~${v}`).join("  ");
+    const recruitStr = loc.recruitBonus ? "🙋 Good chance of finding survivors" : "🙋 Slim chance of finding survivors";
 
+    hexesHtml += `<div class="hex hex-loc ${diffClass} ${assigned ? "hex-assigned" : ""}" data-action="open-mission" data-location="${loc.id}" style="left:${pos.left}px;top:${pos.top}px;">
+      <div class="hex-inner">
+        <span class="hex-icon">${LOCATION_ICON[loc.id]}</span>
+        <span class="hex-label">${esc(loc.name)}</span>
+        ${assigned ? `<span class="hex-team-badge">👥 ${memberCount}/5</span>` : ""}
+      </div>
+      <div class="hex-tooltip">
+        <b>${esc(loc.name)}</b>
+        <p class="muted">${esc(loc.desc)}</p>
+        <div>Difficulty ${loc.difficulty}/5 · Danger ${loc.danger}/5</div>
+        <div>${rewardsStr}</div>
+        <div class="muted">${recruitStr}</div>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="hexmap-wrap"><div class="hexmap" style="width:${width}px;height:${height}px;">${hexesHtml}</div></div>`;
+}
+
+export function renderMissionModal(state, locationId) {
+  const loc = LOCATIONS.find((l) => l.id === locationId);
+  const teamIndex = state.teamLocations.indexOf(locationId);
+  if (!loc || teamIndex === -1) return "";
+
+  const members = state.characters.filter((c) => c.exploreTeam === teamIndex && c.alive);
   const availableStudents = state.characters.filter(
     (c) => c.role === "student" && c.alive && (c.exploreTeam === null || c.exploreTeam === teamIndex)
   );
@@ -225,7 +333,7 @@ function renderTeamCard(state, teamIndex) {
     .map((s) => {
       const checked = s.exploreTeam === teamIndex ? "checked" : "";
       const exhausted = s.stamina <= 0 && s.exploreTeam !== teamIndex;
-      const disabled = (students.length >= 5 && s.exploreTeam !== teamIndex) || exhausted ? "disabled" : "";
+      const disabled = (members.length >= 5 && s.exploreTeam !== teamIndex) || exhausted ? "disabled" : "";
       return `<label class="check-row ${exhausted ? "check-row-disabled" : ""}">
         <input type="checkbox" data-action="toggle-team-member" data-team="${teamIndex}" data-id="${s.id}" ${checked} ${disabled}/>
         ${nameTag(s)} — Lv${overallLevel(s)} ${staminaBar(s)} ${statusTag(s)}${exhausted ? ' <span class="tag tag-injured">exhausted</span>' : ""}
@@ -233,18 +341,35 @@ function renderTeamCard(state, teamIndex) {
     })
     .join("");
 
+  let successHtml = `<p class="muted">Assign students to estimate the odds of success.</p>`;
+  if (members.length) {
+    const avg = (statKey) => members.reduce((sum, c) => sum + effectiveGrade(state, c, statKey), 0) / members.length;
+    const power = (avg("PE") + avg("Gymnastics")) / 2;
+    const requirement = loc.difficulty * 15;
+    const pct = Math.round(Math.max(0, Math.min(1, 0.3 + (power - requirement) / 100)) * 100);
+    const cls = pct >= 60 ? "mission-good" : pct >= 35 ? "mission-ok" : "mission-bad";
+    successHtml = `<div class="mission-success ${cls}">Estimated success: <b>${pct}%</b>${members.length < 5 ? " — a fuller team does better" : " — full team!"}</div>`;
+  }
+
   return `
-  <div class="subcard">
-    <h3>Team ${teamIndex + 1} <span class="muted">(${students.length}/5 students)</span></h3>
-    <label class="field-label">Destination
-      <select data-action="set-team-location" data-team="${teamIndex}">
-        <option value="">— choose location —</option>
-        ${locOptions}
-      </select>
-    </label>
-    ${locDesc}
-    <div class="mini-label">Select students (${students.length}/5)</div>
-    <div class="check-list">${studentRows || '<p class="muted">No available students.</p>'}</div>
+  <div class="modal-overlay" data-action="close-mission">
+    <div class="char-card mission-card" data-action="noop">
+      <button class="cc-close" data-action="close-mission" title="Close">✕</button>
+      <h3>${LOCATION_ICON[locationId]} ${esc(loc.name)}</h3>
+      <p class="muted">${esc(loc.desc)}</p>
+      <div class="mission-stats-row">
+        <span>Difficulty ${loc.difficulty}/5</span>
+        <span>Danger ${loc.danger}/5</span>
+        ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
+      </div>
+      ${successHtml}
+      <div class="mini-label">Team (${members.length}/5)</div>
+      <div class="check-list">${studentRows || '<p class="muted">No available students.</p>'}</div>
+      <div class="row-actions">
+        <button class="btn btn-danger btn-sm" data-action="clear-mission" data-team="${teamIndex}">Recall Team</button>
+        <button class="btn btn-primary" data-action="close-mission">🗡️ Confirm Team &amp; Close</button>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -847,7 +972,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
 
 // ---------- root ----------
 
-export function renderApp(state, activeTab, rosterFilter = "all") {
+export function renderApp(state, activeTab, rosterFilter = "all", mobileView = false) {
   let content;
   if (activeTab === "overview") content = renderOverview(state);
   else if (activeTab === "floor1") content = renderFloor1(state);
@@ -856,5 +981,5 @@ export function renderApp(state, activeTab, rosterFilter = "all") {
   else if (activeTab === "roster") content = renderRoster(state, rosterFilter);
   else content = renderLog(state);
 
-  return `${renderTopbar(state)}${renderTabs(activeTab)}<div class="content">${content}</div>`;
+  return `${renderTopbar(state)}${renderTabs(state, activeTab, mobileView)}<div class="content">${content}</div>`;
 }

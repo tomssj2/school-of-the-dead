@@ -1,5 +1,5 @@
 import * as G from "./game.js";
-import { renderApp, renderCharacterCard } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
@@ -14,6 +14,8 @@ let activeTab = "overview";
 let openCardId = null;
 let cardTab = "stats";
 let rosterFilter = "all";
+let mobileView = false;
+let openMissionLocationId = null;
 
 const root = document.getElementById("app");
 
@@ -82,7 +84,14 @@ function migrateClassroomRooms(s) {
 function render() {
   const card = openCardId ? G.getCharAnywhere(state, openCardId) : null;
   if (openCardId && !card) openCardId = null; // e.g. expelled while card was open
-  root.innerHTML = renderApp(state, activeTab, rosterFilter) + (card ? renderCharacterCard(state, card, cardTab) : "");
+  if (openMissionLocationId && !state.teamLocations.includes(openMissionLocationId)) openMissionLocationId = null;
+  root.classList.toggle("mobile-forced", mobileView);
+  const modalHtml = card
+    ? renderCharacterCard(state, card, cardTab)
+    : openMissionLocationId
+    ? renderMissionModal(state, openMissionLocationId)
+    : "";
+  root.innerHTML = renderApp(state, activeTab, rosterFilter, mobileView) + modalHtml;
 }
 
 function loadGame() {
@@ -199,12 +208,41 @@ root.addEventListener("click", (e) => {
       e.preventDefault(); // stop a click inside a <label> from also toggling its checkbox
       openCardId = el.dataset.id;
       cardTab = "stats";
+      openMissionLocationId = null;
       render();
       break;
     case "close-card":
       openCardId = null;
       render();
       break;
+    case "open-mission": {
+      const locationId = el.dataset.location;
+      let teamIndex = state.teamLocations.indexOf(locationId);
+      if (teamIndex === -1) {
+        teamIndex = state.teamLocations.findIndex((l) => !l);
+        if (teamIndex === -1) {
+          flash("All 3 teams are already out on missions.");
+          break;
+        }
+        G.setTeamLocation(state, teamIndex, locationId);
+      }
+      openCardId = null;
+      openMissionLocationId = locationId;
+      render();
+      break;
+    }
+    case "close-mission":
+      openMissionLocationId = null;
+      render();
+      break;
+    case "clear-mission": {
+      const teamIndex = Number(el.dataset.team);
+      state.characters.filter((c) => c.exploreTeam === teamIndex).forEach((c) => G.setExploreTeam(state, c.id, null));
+      G.setTeamLocation(state, teamIndex, null);
+      openMissionLocationId = null;
+      render();
+      break;
+    }
     case "set-card-tab":
       cardTab = el.dataset.tab;
       render();
@@ -239,8 +277,9 @@ root.addEventListener("click", (e) => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && openCardId) {
+  if (e.key === "Escape" && (openCardId || openMissionLocationId)) {
     openCardId = null;
+    openMissionLocationId = null;
     render();
   }
 });
@@ -316,6 +355,11 @@ root.addEventListener("change", (e) => {
     }
     case "toggle-show-dead": {
       window.__showDead = el.checked;
+      render();
+      break;
+    }
+    case "toggle-mobile-view": {
+      mobileView = el.checked;
       render();
       break;
     }

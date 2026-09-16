@@ -26,28 +26,50 @@ body {
   max-width: 1100px;
   margin: 0 auto;
   padding: 0 14px;
+  container-type: inline-size;
+  container-name: app;
 }
+/* Forces the app into its own mobile layout regardless of the actual browser window width, by
+   shrinking the size-container itself — the @container rules below then respond to this, not
+   the real viewport. */
+#app.mobile-forced { max-width: 400px; }
 
+/* Same 3-column grid as .tabs below: title on the left, day/turn status dead-center, resources
+   on the right — regardless of how wide each side's content is. */
 .topbar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
+.topbar-left { display: flex; }
+.topbar-center { display: flex; align-items: center; gap: 10px; justify-content: center; }
+.topbar-right { display: flex; justify-content: flex-end; }
 .tb-title { font-size: 18px; font-weight: 700; }
 .tb-stats { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; }
 .tb-item b { color: #fff; }
 
+/* 3-column grid: equal flanking columns guarantee the center column (the Turn button) sits at
+   the true horizontal center of the bar, regardless of how much content is in the other two. */
 .tabs {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
   gap: 6px;
   padding: 10px 0;
   border-bottom: 1px solid var(--border);
   margin-bottom: 14px;
+}
+.tabs-left, .tabs-right { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tabs-left { justify-content: flex-start; }
+.tabs-right { justify-content: flex-end; }
+.tabs-center { display: flex; justify-content: center; }
+@container app (max-width: 560px) {
+  .topbar { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .tabs { grid-template-columns: 1fr; justify-items: center; }
+  .tabs-left, .tabs-right { justify-content: center; }
 }
 .tab-btn {
   background: var(--panel);
@@ -60,7 +82,72 @@ body {
 }
 .tab-btn:hover { background: var(--panel-2); }
 .tab-btn.active { background: var(--accent); color: #06210f; border-color: var(--accent); font-weight: 600; }
-.tab-btn-ghost { margin-left: auto; opacity: 0.8; }
+
+.tb-day { display: flex; align-items: center; font-size: 13.5px; color: var(--muted); }
+.tb-day b { color: #fff; }
+.tb-turn-indicator { display: flex; align-items: center; gap: 3px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.tb-turn-indicator b { color: #fff; }
+.tb-sep { color: var(--muted); opacity: 0.6; font-size: 13px; }
+
+.tab-btn-turn {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), #3a8f63);
+  border-color: var(--accent);
+  color: #06210f;
+  box-shadow: 0 0 0 1px rgba(76, 175, 125, 0.3), 0 2px 10px rgba(76, 175, 125, 0.35);
+}
+.tab-btn-turn:hover {
+  background: linear-gradient(135deg, #5cc491, var(--accent));
+  box-shadow: 0 0 0 1px rgba(76, 175, 125, 0.5), 0 3px 14px rgba(76, 175, 125, 0.5);
+}
+.tab-btn-turn.active {
+  background: linear-gradient(135deg, #5cc491, var(--accent));
+  color: #06210f;
+}
+
+.options-dropdown { position: relative; display: flex; align-items: stretch; margin: 0; }
+.options-summary {
+  display: inline-flex;
+  align-items: center;
+  list-style: none;
+  user-select: none;
+  box-sizing: border-box;
+  height: 100%;
+  margin: 0;
+}
+.options-summary::-webkit-details-marker { display: none; }
+.options-summary::marker { display: none; content: ""; }
+.options-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.options-item {
+  background: none;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.options-item:hover { background: var(--panel-2); }
+.options-toggle { display: flex; align-items: center; gap: 7px; margin: 0; }
+.options-toggle input { margin: 0; }
 
 .subtabs { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 12px; }
 .subtab-btn {
@@ -144,7 +231,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .floor3-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 10px; }
 .floor2-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
-@media (max-width: 800px) {
+@container app (max-width: 800px) {
   .floor-grid, .floor1-grid, .floor3-grid, .floor2-grid { grid-template-columns: 1fr; }
 }
 
@@ -213,7 +300,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .mini-portrait {
   display: inline-flex;
   width: 24px;
-  height: 27px;
+  height: 30px;
   flex-shrink: 0;
   border-radius: 4px;
   overflow: hidden;
@@ -274,7 +361,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   display: flex;
   gap: 20px;
 }
-@media (max-width: 560px) {
+@container app (max-width: 560px) {
   .char-card { flex-direction: column; align-items: center; text-align: center; }
 }
 
@@ -291,6 +378,108 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   padding: 4px;
 }
 .cc-close:hover { color: var(--accent-2); }
+
+/* ---------- Exploration hex map ---------- */
+
+.hexmap-wrap {
+  overflow: auto;
+  margin: 14px 0;
+  background: #10141c;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+.hexmap { position: relative; margin: 0 auto; }
+
+.hex {
+  position: absolute;
+  width: 76px;
+  height: 66px;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  background: #263042;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hex-loc { cursor: pointer; transition: transform 0.12s, filter 0.12s; }
+.hex-loc:hover { transform: scale(1.08); filter: brightness(1.15); z-index: 5; }
+
+.hex-school {
+  background: #3a4a6b;
+  border-color: var(--accent, #4caf7d);
+  z-index: 2;
+}
+.hex-easy { background: #24422e; border-color: #3f7a52; }
+.hex-medium { background: #4a3f22; border-color: #b08a2e; }
+.hex-hard { background: #4a2424; border-color: #a03d3d; }
+.hex-assigned { outline: 2px solid #d9d9d9; outline-offset: 2px; }
+
+.hex-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+  pointer-events: none;
+}
+.hex-icon { font-size: 20px; line-height: 1; }
+.hex-label { font-size: 9.5px; color: var(--muted); max-width: 64px; line-height: 1.1; }
+.hex-team-badge { font-size: 9.5px; color: #fff; }
+
+.hex-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 190px;
+  background: #12151c;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s;
+  z-index: 10;
+}
+.hex-tooltip b { display: block; margin-bottom: 2px; }
+.hex-tooltip p { margin: 2px 0; }
+.hex:hover .hex-tooltip { opacity: 1; }
+
+.mission-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.mission-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-2, #1c212c);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  color: var(--text, #fff);
+  cursor: pointer;
+}
+.mission-chip .btn-x {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 0 2px;
+}
+.mission-chip .btn-x:hover { color: var(--accent-2); }
+
+.mission-card { display: block; max-width: 480px; }
+.mission-stats-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin: 6px 0 10px; }
+.mission-success {
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.mission-success.mission-good { background: rgba(76, 175, 125, 0.15); color: #4caf7d; }
+.mission-success.mission-ok { background: rgba(224, 165, 54, 0.15); color: #e0a536; }
+.mission-success.mission-bad { background: rgba(214, 69, 69, 0.15); color: #d64545; }
 
 .cc-left {
   flex-shrink: 0;

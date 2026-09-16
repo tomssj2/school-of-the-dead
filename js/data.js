@@ -187,6 +187,7 @@ export const LOCATIONS = [
     difficulty: 1,
     danger: 1,
     rewards: { food: 12, materials: 4, medicine: 2 },
+    hex: { q: 1, r: 0 }, // distance 1 — right next door
   },
   {
     id: "pharmacy",
@@ -195,6 +196,7 @@ export const LOCATIONS = [
     difficulty: 2,
     danger: 2,
     rewards: { food: 2, materials: 2, medicine: 14 },
+    hex: { q: 2, r: 0 }, // distance 2
   },
   {
     id: "supermarket",
@@ -203,6 +205,7 @@ export const LOCATIONS = [
     difficulty: 3,
     danger: 3,
     rewards: { food: 28, materials: 6, medicine: 4 },
+    hex: { q: 0, r: 3 }, // distance 3
   },
   {
     id: "hardware_store",
@@ -211,6 +214,7 @@ export const LOCATIONS = [
     difficulty: 3,
     danger: 2,
     rewards: { food: 2, materials: 24, medicine: 1 },
+    hex: { q: -3, r: 1 }, // distance 3
   },
   {
     id: "hospital",
@@ -219,6 +223,7 @@ export const LOCATIONS = [
     difficulty: 5,
     danger: 5,
     rewards: { food: 4, materials: 8, medicine: 30 },
+    hex: { q: -2, r: -3 }, // distance 5 — clear across town
   },
   {
     id: "police_station",
@@ -227,6 +232,7 @@ export const LOCATIONS = [
     difficulty: 5,
     danger: 5,
     rewards: { food: 2, materials: 30, medicine: 4 },
+    hex: { q: 5, r: 0 }, // distance 5 — clear across town
   },
   {
     id: "mall",
@@ -236,6 +242,7 @@ export const LOCATIONS = [
     danger: 4,
     rewards: { food: 14, materials: 10, medicine: 6 },
     recruitBonus: 2,
+    hex: { q: 4, r: -1 }, // distance 4
   },
   {
     id: "neighborhood",
@@ -245,6 +252,7 @@ export const LOCATIONS = [
     danger: 3,
     rewards: { food: 10, materials: 6, medicine: 4 },
     recruitBonus: 1.5,
+    hex: { q: -1, r: -1 }, // distance 2
   },
 ];
 
