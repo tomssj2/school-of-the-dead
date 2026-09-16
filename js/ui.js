@@ -6,7 +6,7 @@ import {
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
-  classroomTeachingBonus, bestClassroomSubjectFor,
+  classroomTeachingBonus,
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
@@ -142,9 +142,12 @@ function occupationLabel(state, c) {
     return TEACHER_POST_LABEL[c.post] || c.post;
   }
   if (c.defending) return "Defending";
-  if (c.exploreTeam !== null) return "Exploring";
+  if (c.exploreTeam !== null) return `Exploring (Team ${c.exploreTeam + 1})`;
   if (c.cafeteriaToday) return "Cafeteria";
   if (c.gymToday) return "Gym";
+  if (c.farmToday) return "Farm";
+  if (c.scrapyardToday) return "Scrapyard";
+  if (c.labToday) return "Lab";
   if (c.seat) return roomDisplayName(state, c.seat.room);
   return "Unassigned";
 }
@@ -572,6 +575,148 @@ export function renderAssaultModal() {
   </div>`;
 }
 
+// ---------- assignment picker ----------
+// A single generic "who should fill this slot" modal, replacing what used to be 8 separate
+// plain <select> dropdowns (Gym/Cafeteria/Classroom/Research/Crafting/Council/Farm/Scrapyard/
+// Lab). Characters already busy elsewhere still show up (greyed out, sorted to the bottom, no
+// Assign button) instead of silently disappearing, so the player can see where everyone is.
+
+const STUDENT_SORT_FIELDS = [
+  { key: "level", label: "Level" },
+  { key: "STR", label: "STR" },
+  { key: "DEX", label: "DEX" },
+  { key: "CON", label: "CON" },
+  { key: "INT", label: "INT" },
+  { key: "WIS", label: "WIS" },
+  { key: "CHA", label: "CHA" },
+];
+const TEACHER_SORT_FIELDS = STUDENT_SORT_FIELDS.filter((f) => f.key !== "level");
+
+function pickerSortValue(c, sortKey) {
+  if (sortKey === "level") return overallLevel(c);
+  const subject = SUBJECTS.find((s) => STAT_OF_SUBJECT[s] === sortKey);
+  return c.grades[subject];
+}
+
+function teacherBusyLabel(state, c, exceptPost) {
+  if (!c.post || c.post === exceptPost) return null;
+  return occupationLabel(state, c);
+}
+
+function studentBusyLabel(c, exceptFlag) {
+  if (exceptFlag !== "gymToday" && c.gymToday) return "Training in the Gym";
+  if (exceptFlag !== "cafeteriaToday" && c.cafeteriaToday) return "Resting in the Cafeteria";
+  if (exceptFlag !== "farmToday" && c.farmToday) return "Working the Farm";
+  if (exceptFlag !== "scrapyardToday" && c.scrapyardToday) return "Working the Scrapyard";
+  if (exceptFlag !== "labToday" && c.labToday) return "Working the Lab";
+  if (c.exploreTeam !== null) return `Exploring (Team ${c.exploreTeam + 1})`;
+  if (c.defending) return "Defending the Entrance";
+  return null;
+}
+
+function resolvePickerCandidates(state, picker) {
+  const { kind, roomId, postKey } = picker;
+  const teacherRow = (c, exceptPost) => ({ c, reason: teacherBusyLabel(state, c, exceptPost) });
+  const studentRow = (c, exceptFlag, extraReason) => ({ c, reason: studentBusyLabel(c, exceptFlag) || (extraReason ? extraReason(c) : null) });
+
+  switch (kind) {
+    case "gym-teacher":
+      return {
+        role: "teacher", title: "Assign a Gym Teacher",
+        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "gym").map((c) => teacherRow(c, "gym")),
+      };
+    case "gym-student":
+      return {
+        role: "student", title: "Send a Student to the Gym",
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.gymToday)
+          .map((c) => studentRow(c, "gymToday", (c) => (c.stamina <= 0 ? "Exhausted" : null))),
+      };
+    case "cafeteria-teacher":
+      return {
+        role: "teacher", title: "Assign a Cook",
+        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "cafeteria").map((c) => teacherRow(c, "cafeteria")),
+      };
+    case "cafeteria-student":
+      return {
+        role: "student", title: "Send a Student to Rest",
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.cafeteriaToday).map((c) => studentRow(c, "cafeteriaToday")),
+      };
+    case "classroom-teacher": {
+      const post = `classroom:${roomId}`;
+      return {
+        role: "teacher", title: "Assign a Classroom Teacher",
+        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== post)
+          .map((c) => ({ c, reason: teacherBusyLabel(state, c, post) || (c.stamina <= 0 ? "Exhausted" : null) })),
+      };
+    }
+    case "classroom-seat":
+      return {
+        role: "student", title: "Assign a Seat",
+        list: state.characters.filter((c) => c.role === "student" && c.alive)
+          .map((c) => ({ c, reason: c.seat ? `Seated in ${roomDisplayName(state, c.seat.room)}` : null })),
+      };
+    case "utility":
+      return {
+        role: "teacher", title: "Assign a Teacher",
+        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== postKey).map((c) => teacherRow(c, postKey)),
+      };
+    case "farm":
+    case "scrapyard":
+    case "lab": {
+      const flagKey = `${kind}Today`;
+      const label = kind.charAt(0).toUpperCase() + kind.slice(1);
+      return {
+        role: "student", title: `Assign to the ${label}`,
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c[flagKey]).map((c) => studentRow(c, flagKey)),
+      };
+    }
+    default:
+      return { role: "student", title: "Assign", list: [] };
+  }
+}
+
+export function renderPickerModal(state, picker, sortKey, sortDir) {
+  const { role, title, list } = resolvePickerCandidates(state, picker);
+  const fields = role === "student" ? STUDENT_SORT_FIELDS : TEACHER_SORT_FIELDS;
+  const effectiveSortKey = fields.some((f) => f.key === sortKey) ? sortKey : fields[0].key;
+
+  const sorted = [...list].sort((a, b) => {
+    if (!!a.reason !== !!b.reason) return a.reason ? 1 : -1; // selectable first, busy/ineligible last
+    const va = pickerSortValue(a.c, effectiveSortKey);
+    const vb = pickerSortValue(b.c, effectiveSortKey);
+    return sortDir === "asc" ? va - vb : vb - va;
+  });
+
+  const rows = sorted
+    .map(
+      ({ c, reason }) => `
+    <div class="picker-row ${reason ? "picker-row-disabled" : ""}">
+      <div class="picker-row-main">
+        <span>${nameTag(c)} ${role === "student" ? `<span class="muted">Lv${overallLevel(c)}</span>` : ""}</span>
+        ${reason ? `<span class="tag tag-injured">${esc(reason)}</span>` : `<button class="btn btn-sm btn-primary" data-action="confirm-picker" data-id="${c.id}">✓ Assign</button>`}
+      </div>
+      ${statChips(c)}
+    </div>`
+    )
+    .join("");
+
+  const sortOptions = fields.map((f) => `<option value="${f.key}" ${f.key === effectiveSortKey ? "selected" : ""}>${f.label}</option>`).join("");
+
+  return `
+  <div class="modal-overlay" data-action="close-picker">
+    <div class="char-card mission-card" data-action="noop">
+      <button class="cc-close" data-action="close-picker" title="Close">✕</button>
+      <h3>${esc(title)}</h3>
+      <div class="picker-sort-row">
+        <span class="mini-label">Sort by</span>
+        <select data-action="set-picker-sort">${sortOptions}</select>
+        <button class="btn btn-sm" data-action="toggle-picker-sort-dir" title="Toggle ascending/descending">${sortDir === "asc" ? "⬆ Ascending" : "⬇ Descending"}</button>
+      </div>
+      <div class="check-list picker-list">${rows || '<p class="muted">No one available.</p>'}</div>
+    </div>
+  </div>`;
+}
+
 // ---------- floor 1 ----------
 
 export function renderFloor1(state) {
@@ -580,13 +725,9 @@ export function renderFloor1(state) {
 
   const gymStudents = state.characters.filter((c) => c.gymToday && c.alive);
   const gymTeachers = state.characters.filter((c) => c.role === "teacher" && c.post === "gym" && c.alive);
-  const availableForGym = state.characters.filter((c) => c.role === "student" && c.alive && !c.gymToday);
-  const availableTeachersGym = state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "gym");
 
   const cooks = state.characters.filter((c) => c.role === "teacher" && c.post === "cafeteria" && c.alive);
   const restingStudents = state.characters.filter((c) => c.cafeteriaToday && c.alive);
-  const availableForCafe = state.characters.filter((c) => c.role === "student" && c.alive && !c.cafeteriaToday);
-  const availableTeachersCafe = state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "cafeteria");
 
   return `
   <div class="card">
@@ -600,13 +741,13 @@ export function renderFloor1(state) {
         <ul class="assign-list">
           ${gymTeachers.map((t) => `<li>${nameTag(t)} — PE ${teachBonusLabel(t.grades.PE)}, Gym ${teachBonusLabel(t.grades.Gymnastics)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
         </ul>
-        ${gymTeachers.length < gymRoom.teacherCapacity ? `<select data-action="assign-gym-teacher"><option value="">+ assign teacher…</option>${availableTeachersGym.map((t) => `<option value="${t.id}">${esc(t.name)} (PE ${teachBonusLabel(t.grades.PE)} / Gym ${teachBonusLabel(t.grades.Gymnastics)})</option>`).join("")}</select>` : ""}
+        ${gymTeachers.length < gymRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-teacher">+ Assign teacher…</button>` : ""}
         ${upgradeButton(state, "gym", null, "teacher", "Teacher slot")}
         <div class="mini-label">Training today (${gymStudents.length}/${gymRoom.studentCapacity})</div>
         <ul class="assign-list">
           ${gymStudents.map((s) => `<li>${nameTag(s)} ${staminaBar(s)} <button class="btn-x" data-action="remove-gym" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
         </ul>
-        ${gymStudents.length < gymRoom.studentCapacity ? `<select data-action="add-gym"><option value="">+ send student…</option>${availableForGym.map((s) => `<option value="${s.id}" ${s.stamina <= 0 ? "disabled" : ""}>${esc(s.name)} (${s.stamina}/${s.maxStamina} stamina)${s.stamina <= 0 ? " — exhausted" : ""}</option>`).join("")}</select>` : ""}
+        ${gymStudents.length < gymRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-student">+ Send student…</button>` : ""}
         ${upgradeButton(state, "gym", null, "student", "Student slot")}
       </div>
       <div class="room room-entrance">
@@ -622,13 +763,13 @@ export function renderFloor1(state) {
         <ul class="assign-list">
           ${cooks.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} ${staminaBar(t)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
         </ul>
-        ${cooks.length < cafeRoom.teacherCapacity ? `<select data-action="assign-cafeteria"><option value="">+ assign cook…</option>${availableTeachersCafe.map((t) => `<option value="${t.id}">${esc(t.name)} (Biology ${gradeLetter(t.grades.Biology)})</option>`).join("")}</select>` : ""}
+        ${cooks.length < cafeRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-teacher">+ Assign cook…</button>` : ""}
         ${upgradeButton(state, "cafeteria", null, "teacher", "Cook slot")}
         <div class="mini-label">Resting today (${restingStudents.length}/${cafeRoom.studentCapacity})</div>
         <ul class="assign-list">
           ${restingStudents.map((s) => `<li>${nameTag(s)} ${staminaBar(s)} <button class="btn-x" data-action="remove-cafeteria" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
         </ul>
-        ${restingStudents.length < cafeRoom.studentCapacity ? `<select data-action="add-cafeteria"><option value="">+ send student…</option>${availableForCafe.map((s) => `<option value="${s.id}">${esc(s.name)} (${s.stamina}/${s.maxStamina} stamina)</option>`).join("")}</select>` : ""}
+        ${restingStudents.length < cafeRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-student">+ Send student…</button>` : ""}
         ${upgradeButton(state, "cafeteria", null, "student", "Student slot")}
       </div>
     </div>
@@ -652,8 +793,6 @@ function renderClassroom(state, roomId) {
   const subject = room.subject; // null until a teacher claims this room
   const post = `classroom:${roomId}`;
   const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === post && c.alive);
-  const availableTeachers = state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== post);
-  const unseated = state.characters.filter((c) => c.role === "student" && c.alive && !c.seat);
 
   const rowCount = room.seats.length / 6;
   let seatsHtml = "";
@@ -675,10 +814,7 @@ function renderClassroom(state, roomId) {
           </div>`;
         } else {
           rowHtml += `<div class="seat seat-empty">
-            <select data-action="assign-seat" data-room="${roomId}" data-index="${idx}">
-              <option value="">empty</option>
-              ${unseated.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join("")}
-            </select>
+            <button class="btn-seat-assign" data-action="open-picker" data-kind="classroom-seat" data-room="${roomId}" data-seat="${idx}">+ empty</button>
           </div>`;
         }
       }
@@ -690,14 +826,6 @@ function renderClassroom(state, roomId) {
 
   const count = room.seats.filter(Boolean).length;
 
-  // For an empty room, preview what subject/bonus each candidate teacher would bring — the
-  // room doesn't have a subject to grade them against yet, so show their own best fit.
-  const optionLabel = (t) => {
-    if (subject) return `${teachBonusLabel(t.grades[subject])}`;
-    const preview = bestClassroomSubjectFor(t);
-    return `${SUBJECT_LABEL[preview]} ${teachBonusLabel(t.grades[preview])}`;
-  };
-
   return `
   <div class="room room-classroom">
     <h3>${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`} <span class="muted">(${count}/${room.seats.length})</span></h3>
@@ -706,7 +834,7 @@ function renderClassroom(state, roomId) {
     <ul class="assign-list">
       ${teachers.map((t) => `<li>${nameTag(t)} — ${teachBonusLabel(t.grades[subject])} ${staminaBar(t)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
     </ul>
-    ${teachers.length < CLASSROOM_MAX_TEACHERS ? `<select data-action="assign-classroom-teacher" data-room="${roomId}"><option value="">+ assign teacher…</option>${availableTeachers.map((t) => `<option value="${t.id}" ${t.stamina <= 0 ? "disabled" : ""}>${esc(t.name)} (${optionLabel(t)})${t.stamina <= 0 ? " — exhausted" : ""}</option>`).join("")}</select>` : ""}
+    ${teachers.length < CLASSROOM_MAX_TEACHERS ? `<button class="btn btn-sm" data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}">+ Assign teacher…</button>` : ""}
     <div class="mini-label">Seating (${rowCount} rows × 3 desks)</div>
     <div class="seat-grid">${seatsHtml}</div>
     ${upgradeButton(state, "classroom", roomId, "student", "Row")}
@@ -755,7 +883,6 @@ export function renderFloor3(state) {
   const council = state.characters.find((c) => c.role === "teacher" && c.post === "council" && c.alive);
 
   const utilityRoom = (title, desc, current, postKey, statLabel, statKey) => {
-    const available = state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== postKey);
     return `<div class="room room-utility">
       <h3>${title}</h3>
       <p class="muted">${desc}</p>
@@ -763,7 +890,7 @@ export function renderFloor3(state) {
       <ul class="assign-list">
         ${current ? `<li>${nameTag(current)} — ${statLabel} ${gradeLetter(current.grades[statKey])} <button class="btn-x" data-action="clear-post" data-id="${current.id}">✕</button></li>` : '<li class="muted">none</li>'}
       </ul>
-      ${!current ? `<select data-action="assign-utility" data-post="${postKey}"><option value="">+ assign teacher…</option>${available.map((t) => `<option value="${t.id}">${esc(t.name)} (${statLabel} ${gradeLetter(t.grades[statKey])})</option>`).join("")}</select>` : ""}
+      ${!current ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="${postKey}">+ Assign teacher…</button>` : ""}
     </div>`;
   };
 
@@ -798,9 +925,6 @@ export function renderFloor3(state) {
 function renderOutsideFacility(state, roomKey, flagKey, icon, title, desc) {
   const room = state.rooms[roomKey];
   const workers = state.characters.filter((c) => c[flagKey] && c.alive);
-  const available = state.characters.filter(
-    (c) => c.role === "student" && c.alive && !c[flagKey] && c.exploreTeam === null
-  );
 
   return `
   <div class="card">
@@ -810,7 +934,7 @@ function renderOutsideFacility(state, roomKey, flagKey, icon, title, desc) {
     <ul class="assign-list">
       ${workers.map((s) => `<li>${nameTag(s)} ${statusTag(s)} <button class="btn-x" data-action="remove-${roomKey}" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
     </ul>
-    ${workers.length < room.studentCapacity ? `<select data-action="add-${roomKey}"><option value="">+ assign student…</option>${available.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select>` : ""}
+    ${workers.length < room.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="${roomKey}">+ Assign student…</button>` : ""}
     ${upgradeButton(state, roomKey, null, "student", "Student slot")}
   </div>`;
 }

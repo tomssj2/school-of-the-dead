@@ -1,5 +1,5 @@
 import * as G from "./game.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
@@ -19,6 +19,9 @@ let mobileView = false;
 let openMissionLocationId = null;
 let openScoutHex = null; // { q, r } or null
 let fightAnimation = null; // { studentId, ambushed, phase: "clash" | "result" } or null
+let openPicker = null; // { kind, roomId, seatIndex, postKey } or null
+let pickerSortKey = "level";
+let pickerSortDir = "desc";
 
 const root = document.getElementById("app");
 
@@ -121,6 +124,8 @@ function render() {
     ? renderMissionModal(state, openMissionLocationId)
     : openScoutHex
     ? renderScoutModal(state, openScoutHex.q, openScoutHex.r)
+    : openPicker
+    ? renderPickerModal(state, openPicker, pickerSortKey, pickerSortDir)
     : state.pendingAssault
     ? renderAssaultModal()
     : "";
@@ -271,6 +276,7 @@ root.addEventListener("click", (e) => {
       e.preventDefault(); // stop a click inside a <label> from also toggling its checkbox
       closeMissionModal();
       openScoutHex = null;
+      openPicker = null;
       openCardId = el.dataset.id;
       cardTab = "stats";
       render();
@@ -292,6 +298,7 @@ root.addEventListener("click", (e) => {
       }
       openCardId = null;
       openScoutHex = null;
+      openPicker = null;
       openMissionLocationId = locationId;
       render();
       break;
@@ -306,6 +313,7 @@ root.addEventListener("click", (e) => {
       if (!G.canScoutHex(state, q, r)) break;
       openCardId = null;
       openMissionLocationId = null;
+      openPicker = null;
       openScoutHex = { q, r };
       render();
       break;
@@ -346,6 +354,47 @@ root.addEventListener("click", (e) => {
       }
       break;
     }
+    case "open-picker": {
+      const kind = el.dataset.kind;
+      const roomId = el.dataset.room || null;
+      const postKey = el.dataset.post || null;
+      const seatIndex = el.dataset.seat !== undefined ? Number(el.dataset.seat) : null;
+      openCardId = null;
+      openMissionLocationId = null;
+      openScoutHex = null;
+      openPicker = { kind, roomId, postKey, seatIndex };
+      render();
+      break;
+    }
+    case "close-picker":
+      openPicker = null;
+      render();
+      break;
+    case "confirm-picker": {
+      if (!openPicker) break;
+      const id = el.dataset.id;
+      const { kind, roomId, postKey, seatIndex } = openPicker;
+      switch (kind) {
+        case "gym-teacher": G.setTeacherPost(state, id, "gym"); break;
+        case "gym-student": G.setGymToday(state, id, true); break;
+        case "cafeteria-teacher": G.setTeacherPost(state, id, "cafeteria"); break;
+        case "cafeteria-student": G.setCafeteriaToday(state, id, true); break;
+        case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;
+        case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
+        case "utility": G.setTeacherPost(state, id, postKey); break;
+        case "farm": G.setFarmToday(state, id, true); break;
+        case "scrapyard": G.setScrapyardToday(state, id, true); break;
+        case "lab": G.setLabToday(state, id, true); break;
+        default: break;
+      }
+      openPicker = null;
+      render();
+      break;
+    }
+    case "toggle-picker-sort-dir":
+      pickerSortDir = pickerSortDir === "asc" ? "desc" : "asc";
+      render();
+      break;
     case "clear-mission": {
       const teamIndex = Number(el.dataset.team);
       state.characters.filter((c) => c.exploreTeam === teamIndex).forEach((c) => G.setExploreTeam(state, c.id, null));
@@ -401,62 +450,10 @@ root.addEventListener("change", (e) => {
   const action = el.dataset.action;
 
   switch (action) {
-    case "assign-seat": {
-      const roomId = el.dataset.room;
-      const index = Number(el.dataset.index);
-      const studentId = el.value;
-      if (studentId) G.assignSeat(state, studentId, roomId, index);
+    case "set-picker-sort":
+      pickerSortKey = el.value;
       render();
       break;
-    }
-    case "assign-classroom-teacher": {
-      const roomId = el.dataset.room;
-      const teacherId = el.value;
-      if (teacherId) G.setTeacherPost(state, teacherId, `classroom:${roomId}`);
-      render();
-      break;
-    }
-    case "assign-gym-teacher": {
-      if (el.value) G.setTeacherPost(state, el.value, "gym");
-      render();
-      break;
-    }
-    case "assign-cafeteria": {
-      if (el.value) G.setTeacherPost(state, el.value, "cafeteria");
-      render();
-      break;
-    }
-    case "assign-utility": {
-      const post = el.dataset.post;
-      if (el.value) G.setTeacherPost(state, el.value, post);
-      render();
-      break;
-    }
-    case "add-gym": {
-      if (el.value) G.setGymToday(state, el.value, true);
-      render();
-      break;
-    }
-    case "add-cafeteria": {
-      if (el.value) G.setCafeteriaToday(state, el.value, true);
-      render();
-      break;
-    }
-    case "add-farm": {
-      if (el.value) G.setFarmToday(state, el.value, true);
-      render();
-      break;
-    }
-    case "add-scrapyard": {
-      if (el.value) G.setScrapyardToday(state, el.value, true);
-      render();
-      break;
-    }
-    case "add-lab": {
-      if (el.value) G.setLabToday(state, el.value, true);
-      render();
-      break;
-    }
     case "toggle-gym": {
       G.setGymToday(state, el.dataset.id, el.checked);
       render();
