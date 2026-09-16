@@ -204,15 +204,27 @@ function tbItemClass(floaties, key) {
   return floaties.some((f) => f.key === key) ? "tb-item tb-pulse" : "tb-item";
 }
 
+// Name + "how you get it" shown on hover over every topbar stat — esc() isn't needed since
+// these are all static, developer-authored strings, never user/character data.
+const TB_INFO = {
+  population: "Population — every student and teacher alive at the school right now.",
+  teachers: "Teachers — recruited through exploration or promoted from high-level students, capped at 20.",
+  happiness: "Happiness — rises from won battles and new recruits, falls from failed missions and deaths. Skews random events toward good or bad.",
+  food: "Food — grown at the Farm and looted from exploration sites. Consumed every night to feed the school.",
+  materials: "Materials — looted from exploration and worked at the Scrapyard. Spent on room upgrades and the Crafting Room.",
+  medicine: "Medicine — looted from exploration sites and produced by the Research Room.",
+  research: "Research — earned by staffing the Lab. Spent on the Research tech tree.",
+};
+
 export function renderTopbar(state, floaties = []) {
   const pop = aliveChars(state).length;
   return `
   <div class="topbar">
     <div class="topbar-left">
       <div class="tb-stats">
-        <span class="${tbItemClass(floaties, "population")}">👥 <b>${pop}</b>${floatyFor(floaties, "population")}</span>
-        <span class="tb-item">🎓 <b>${teacherCount(state)}</b></span>
-        <span class="${tbItemClass(floaties, "happiness")}" title="Happiness">${happinessFace(state.happiness)} <b>${state.happiness}</b>${floatyFor(floaties, "happiness")}</span>
+        <span class="${tbItemClass(floaties, "population")}" title="${TB_INFO.population}">👥 <b>${pop}</b>${floatyFor(floaties, "population")}</span>
+        <span class="tb-item" title="${TB_INFO.teachers}">🎓 <b>${teacherCount(state)}</b></span>
+        <span class="${tbItemClass(floaties, "happiness")}" title="${TB_INFO.happiness}">${happinessFace(state.happiness)} <b>${state.happiness}</b>${floatyFor(floaties, "happiness")}</span>
       </div>
     </div>
     <div class="topbar-center">
@@ -222,10 +234,10 @@ export function renderTopbar(state, floaties = []) {
     </div>
     <div class="topbar-right">
       <div class="tb-stats">
-        <span class="${tbItemClass(floaties, "food")} ${state.resources.food < pop ? "tb-warn" : ""}" title="${state.resources.food} on hand, ${pop} needed to feed everyone tonight">🍞 <b>${state.resources.food}</b><span class="tb-sub">-${pop}</span>${floatyFor(floaties, "food")}</span>
-        <span class="${tbItemClass(floaties, "materials")}">🔧 <b>${state.resources.materials}</b>${floatyFor(floaties, "materials")}</span>
-        <span class="${tbItemClass(floaties, "medicine")}">💊 <b>${state.resources.medicine}</b>${floatyFor(floaties, "medicine")}</span>
-        <span class="${tbItemClass(floaties, "research")}">🧠 <b>${state.resources.research}</b>${floatyFor(floaties, "research")}</span>
+        <span class="${tbItemClass(floaties, "food")} ${state.resources.food < pop ? "tb-warn" : ""}" title="${TB_INFO.food} ${state.resources.food} on hand, ${pop} needed tonight.">🍞 <b>${state.resources.food}</b><span class="tb-sub">-${pop}</span>${floatyFor(floaties, "food")}</span>
+        <span class="${tbItemClass(floaties, "materials")}" title="${TB_INFO.materials}">🔧 <b>${state.resources.materials}</b>${floatyFor(floaties, "materials")}</span>
+        <span class="${tbItemClass(floaties, "medicine")}" title="${TB_INFO.medicine}">💊 <b>${state.resources.medicine}</b>${floatyFor(floaties, "medicine")}</span>
+        <span class="${tbItemClass(floaties, "research")}" title="${TB_INFO.research}">🧠 <b>${state.resources.research}</b>${floatyFor(floaties, "research")}</span>
       </div>
     </div>
   </div>`;
