@@ -300,7 +300,7 @@ root.addEventListener("click", (e) => {
     case "open-scout": {
       const q = Number(el.dataset.q);
       const r = Number(el.dataset.r);
-      if (G.isHexExplored(state, q, r)) break;
+      if (!G.canScoutHex(state, q, r)) break;
       openCardId = null;
       openMissionLocationId = null;
       openScoutHex = { q, r };
@@ -313,8 +313,11 @@ root.addEventListener("click", (e) => {
       break;
     case "confirm-scout": {
       if (!openScoutHex) break;
-      const location = G.scoutHex(state, el.dataset.id, openScoutHex.q, openScoutHex.r);
-      flash(location ? `Discovered ${location.name}!` : "Scouted the area — nothing there.");
+      const result = G.scoutHex(state, el.dataset.id, openScoutHex.q, openScoutHex.r);
+      if (!result) flash("Can't scout that hex.");
+      else if (result.ambushed) flash("Ambushed! The scout fled back to the school.");
+      else if (result.location) flash(`Discovered ${result.location.name}!`);
+      else flash("Scouted the area — nothing there.");
       openScoutHex = null;
       render();
       break;

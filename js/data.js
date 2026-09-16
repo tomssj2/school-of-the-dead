@@ -178,6 +178,14 @@ export const FARM_YIELD_FOOD = 3; // food per assigned student/day
 export const SCRAPYARD_YIELD_MATERIALS = 3; // materials per assigned student/day
 export const LAB_YIELD_RESEARCH = 2; // research per assigned student/day
 
+// ===== Scouting =====
+export const SCOUT_STAMINA_COST = 5;
+// Chance of a zombie encounter while scouting a new tile, growing +10% per hex of distance from
+// the school (10% right next door, 50% at the edge of the radius-5 map). More encounter types
+// will be added later — this is the first.
+export const SCOUT_ENCOUNTER_CHANCE_PER_HEX = 0.1;
+export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout loses their fight
+
 // ===== Room upgrades =====
 // Materials cost to go from a given upgrade level to the next; capped at ROOM_UPGRADE_MAX_LEVEL.
 export const ROOM_UPGRADE_MAX_LEVEL = 3;

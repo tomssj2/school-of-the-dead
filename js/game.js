@@ -11,6 +11,7 @@ import {
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE,
   EVENT_CHANCE, EVENTS,
+  SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
 } from "./data.js";
 import {
   makeCharacter, makeLegendaryCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
@@ -1027,16 +1028,52 @@ export function isHexExplored(state, q, r) {
   return state.exploredHexes.includes(hexKey(q, r));
 }
 
+function hexDistance(q, r) {
+  return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+}
+
+const HEX_NEIGHBOR_OFFSETS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+
+// The frontier rule: a hex can only be scouted once it borders the school or a hex someone has
+// already scouted — you can't jump into unconnected fog.
+export function canScoutHex(state, q, r) {
+  if (isHexExplored(state, q, r)) return false;
+  return HEX_NEIGHBOR_OFFSETS.some(([dq, dr]) => {
+    const nq = q + dq, nr = r + dr;
+    return (nq === 0 && nr === 0) || isHexExplored(state, nq, nr);
+  });
+}
+
 // A cheap, instant scouting errand — separate from committing a full team to loot a location.
 // Reveals whatever's on a fogged hex; only a discovered LOCATIONS hex becomes lootable via the
-// normal setTeamLocation/setExploreTeam flow afterward.
+// normal setTeamLocation/setExploreTeam flow afterward. Every new tile risks a zombie encounter
+// that grows more likely the farther it is from the school (more encounter types come later).
 export function scoutHex(state, studentId, q, r) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student" || !c.alive) return null;
-  if (c.stamina < 5) return null;
-  if (isHexExplored(state, q, r)) return null;
+  if (c.stamina < SCOUT_STAMINA_COST) return null;
+  if (!canScoutHex(state, q, r)) return null;
 
-  c.stamina -= 5;
+  c.stamina -= SCOUT_STAMINA_COST;
+
+  const encounterChance = clamp01(hexDistance(q, r) * SCOUT_ENCOUNTER_CHANCE_PER_HEX);
+  if (Math.random() < encounterChance) {
+    const power = (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2;
+    const winChance = clamp01(0.5 + (power - 40) / 100);
+    if (Math.random() >= winChance) {
+      c.hp = Math.max(1, c.hp - SCOUT_ENCOUNTER_HP_LOSS);
+      c.injured = c.hp < c.maxHp * 0.5;
+      addLog(state, `${c.name} was ambushed by a zombie while scouting and fled back to the school (-${SCOUT_ENCOUNTER_HP_LOSS} HP).`);
+      return { ambushed: true, location: null };
+    }
+    const lootKey = pick(["food", "materials", "medicine"]);
+    const amt = randInt(5, 15);
+    state.resources[lootKey] += amt;
+    grantXp(state, c.id, "PE", 3 + randInt(0, 2));
+    grantXp(state, c.id, "Gymnastics", 3 + randInt(0, 2));
+    addLog(state, `${c.name} fought off a zombie while scouting and salvaged ${amt} ${lootKey}.`);
+  }
+
   state.exploredHexes.push(hexKey(q, r));
   const location = LOCATIONS.find((l) => l.hex.q === q && l.hex.r === r) || null;
 
@@ -1045,7 +1082,7 @@ export function scoutHex(state, studentId, q, r) {
   } else {
     addLog(state, `${c.name} scouted the area and found nothing of interest.`);
   }
-  return location;
+  return { ambushed: false, location };
 }
 
 export function setDefending(state, charId, value) {

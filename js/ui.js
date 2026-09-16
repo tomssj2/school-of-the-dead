@@ -2,7 +2,7 @@ import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
   CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, LOCATIONS,
   BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_UPGRADE_MAX_LEVEL,
-  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH,
+  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, SCOUT_STAMINA_COST,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -10,7 +10,7 @@ import {
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
-  isHexExplored,
+  isHexExplored, canScoutHex,
 } from "./game.js";
 import { characterSprite } from "./sprite.js";
 
@@ -336,9 +336,10 @@ function renderExplorationMap(state) {
     const explored = isHexExplored(state, q, r);
 
     if (!explored) {
-      hexesHtml += `<div class="hex hex-fog" data-action="open-scout" data-q="${q}" data-r="${r}" style="left:${pos.left}px;top:${pos.top}px;">
+      const reachable = canScoutHex(state, q, r);
+      hexesHtml += `<div class="hex hex-fog ${reachable ? "hex-fog-reachable" : ""}" ${reachable ? `data-action="open-scout" data-q="${q}" data-r="${r}"` : ""} style="left:${pos.left}px;top:${pos.top}px;">
         <div class="hex-inner"><span class="hex-icon hex-fog-icon">?</span></div>
-        <div class="hex-tooltip hex-tooltip-fog"><b>Unexplored</b><p class="muted">Click to send a scout (5 stamina).</p></div>
+        ${reachable ? `<div class="hex-tooltip hex-tooltip-fog"><b>Unexplored</b><p class="muted">Click to send a scout (${SCOUT_STAMINA_COST} stamina).</p></div>` : ""}
       </div>`;
       continue;
     }
@@ -376,12 +377,12 @@ function renderExplorationMap(state) {
 }
 
 export function renderScoutModal(state, q, r) {
-  const eligible = state.characters.filter((c) => c.role === "student" && c.alive && c.stamina >= 5);
+  const eligible = state.characters.filter((c) => c.role === "student" && c.alive && c.stamina >= SCOUT_STAMINA_COST);
   const rows = eligible
     .map(
       (s) => `<div class="check-row scout-row">
         <span>${nameTag(s)} ${staminaBar(s)} ${statusTag(s)}</span>
-        <button class="btn btn-sm btn-primary" data-action="confirm-scout" data-id="${s.id}" data-q="${q}" data-r="${r}">Send (−5 stamina)</button>
+        <button class="btn btn-sm btn-primary" data-action="confirm-scout" data-id="${s.id}" data-q="${q}" data-r="${r}">Send (−${SCOUT_STAMINA_COST} stamina)</button>
       </div>`
     )
     .join("");
