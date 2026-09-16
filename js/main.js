@@ -81,6 +81,16 @@ function migrateClassroomRooms(s) {
   (s.recruitPool || []).forEach(fixup);
 }
 
+// Closing the mission modal without ever assigning a student shouldn't leave a phantom mission
+// occupying one of the 3 team slots.
+function closeMissionModal() {
+  const teamIndex = state.teamLocations.indexOf(openMissionLocationId);
+  if (teamIndex !== -1 && !state.characters.some((c) => c.exploreTeam === teamIndex)) {
+    G.setTeamLocation(state, teamIndex, null);
+  }
+  openMissionLocationId = null;
+}
+
 function render() {
   const card = openCardId ? G.getCharAnywhere(state, openCardId) : null;
   if (openCardId && !card) openCardId = null; // e.g. expelled while card was open
@@ -206,9 +216,9 @@ root.addEventListener("click", (e) => {
       break;
     case "open-card":
       e.preventDefault(); // stop a click inside a <label> from also toggling its checkbox
+      closeMissionModal();
       openCardId = el.dataset.id;
       cardTab = "stats";
-      openMissionLocationId = null;
       render();
       break;
     case "close-card":
@@ -232,7 +242,7 @@ root.addEventListener("click", (e) => {
       break;
     }
     case "close-mission":
-      openMissionLocationId = null;
+      closeMissionModal();
       render();
       break;
     case "clear-mission": {
@@ -279,7 +289,7 @@ root.addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && (openCardId || openMissionLocationId)) {
     openCardId = null;
-    openMissionLocationId = null;
+    closeMissionModal();
     render();
   }
 });
