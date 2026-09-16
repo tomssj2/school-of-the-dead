@@ -28,6 +28,7 @@ let pickerSortKey = "level";
 let pickerSortDir = "desc";
 let lastResources = null; // resources/happiness snapshot from the previous render(), for floaties
 let lastHappiness = null;
+let lastPopulation = null;
 let lastDay = state.day; // for the day-rollover chime, however the advance happened
 let floaties = [];
 let floatyClearTimer = null;
@@ -136,6 +137,11 @@ function computeFloaties() {
     const delta = state.happiness - lastHappiness;
     if (delta !== 0) result.push({ key: "happiness", delta });
   }
+  const population = state.characters.filter((c) => c.alive).length;
+  if (lastPopulation !== null) {
+    const delta = population - lastPopulation;
+    if (delta !== 0) result.push({ key: "population", delta });
+  }
   return result;
 }
 
@@ -156,6 +162,7 @@ function render() {
   }
   lastResources = { ...state.resources };
   lastHappiness = state.happiness;
+  lastPopulation = state.characters.filter((c) => c.alive).length;
 
   if (state.day !== lastDay) {
     playChime(); // covers every path a new day can start from

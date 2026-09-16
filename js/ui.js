@@ -210,7 +210,7 @@ export function renderTopbar(state, floaties = []) {
   <div class="topbar">
     <div class="topbar-left">
       <div class="tb-stats">
-        <span class="tb-item">👥 <b>${pop}</b></span>
+        <span class="${tbItemClass(floaties, "population")}">👥 <b>${pop}</b>${floatyFor(floaties, "population")}</span>
         <span class="tb-item">🎓 <b>${teacherCount(state)}</b></span>
         <span class="${tbItemClass(floaties, "happiness")}" title="Happiness">${happinessFace(state.happiness)} <b>${state.happiness}</b>${floatyFor(floaties, "happiness")}</span>
       </div>
@@ -297,11 +297,44 @@ export function renderTabs(state, activeTab, mobileView) {
 
 // ---------- overview / turn action ----------
 
+function renderGameOver(state) {
+  const fallen = state.characters.filter((c) => !c.alive);
+  const legendaryCount = state.characters.filter((c) => c.legendary).length;
+  const title =
+    state.day >= 20 ? "A Legend Among the Ashes" : state.day >= 10 ? "A Valiant Last Stand" : "A Short, Brutal Fall";
+
+  const memorial = fallen.length
+    ? `<div class="mini-label">🕯 In Memoriam</div>
+       <div class="memorial-list">
+         ${fallen
+           .map(
+             (c) => `<div class="memorial-row" title="${esc(c.name)}">
+               <span class="mini-portrait cc-dead">${characterSprite(c, 32)}</span>
+               <span class="memorial-name">${esc(c.name)}</span>
+               <span class="muted memorial-day">Day ${c.diedOnDay || "?"}</span>
+             </div>`
+           )
+           .join("")}
+       </div>`
+    : "";
+
+  return `<div class="card gameover-card">
+    <h2>💀 The School Has Fallen</h2>
+    <p class="gameover-title">${title}</p>
+    <p class="muted">Day ${state.day}. Every soul who called this place home is gone.</p>
+    <div class="summary-list">
+      <div>Days survived: <b>${state.day}</b></div>
+      <div>Research unlocked: <b>${state.techUnlocked.length}</b></div>
+      <div>Legendary survivors found: <b>${legendaryCount}</b></div>
+      <div>Events weathered: <b>${state.eventLog.length}</b></div>
+    </div>
+    ${memorial}
+    <button class="btn btn-primary btn-big" data-action="reset-game">🔄 Start a New Game</button>
+  </div>`;
+}
+
 export function renderOverview(state) {
-  if (state.gameOver) {
-    return `<div class="card"><h2>Game Over</h2><p>The school has fallen after ${state.day} days. Everyone is gone.</p>
-      <button class="btn btn-primary" data-action="reset-game">Start a New Game</button></div>`;
-  }
+  if (state.gameOver) return renderGameOver(state);
   if (state.turn === 1) return renderTurn1Overview(state);
   if (state.turn === 2) return renderTurn2Overview(state);
   return renderTurn3Overview(state);

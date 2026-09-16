@@ -408,6 +408,17 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .armory-name { flex: 1; }
 .armory-bonus { color: var(--muted); font-size: 12px; }
 
+.gameover-card {
+  background-image: radial-gradient(ellipse at top, rgba(214, 69, 69, 0.1) 0%, transparent 65%);
+  border-color: #4a2a2a;
+  text-align: center;
+}
+.gameover-card h2 { font-size: 22px; }
+.gameover-title { color: var(--accent-2); font-size: 15px; font-weight: 700; font-style: italic; margin: 0 0 10px; }
+.gameover-card .summary-list { text-align: left; max-width: 320px; margin: 12px auto; }
+.gameover-card .memorial-list { justify-content: center; }
+.gameover-card .btn-big { margin-top: 16px; }
+
 .log-list { list-style: none; padding: 0; margin: 0; max-height: 70vh; overflow-y: auto; }
 .day-recap-list { max-height: 320px; margin: 10px 0; }
 .log-list li { padding: 5px 0 5px 8px; border-bottom: 1px solid var(--border); border-left: 2px solid transparent; font-size: 13px; }
