@@ -491,19 +491,6 @@ export function resolveTraining(state) {
     addLog(state, `${council.name} hears of a survivor, ${recruit.name}, wanting to join.`);
   }
 
-  // daily food upkeep
-  const pop = aliveChars(state).length;
-  state.resources.food -= pop;
-  if (state.resources.food < 0) {
-    const deficit = -state.resources.food;
-    state.resources.food = 0;
-    addLog(state, `Food ran out! Everyone goes hungry.`);
-    for (const c of aliveChars(state)) {
-      c.hp = Math.max(1, c.hp - Math.min(10, 2 + Math.round(deficit / Math.max(1, pop))));
-      c.injured = c.hp < c.maxHp * 0.5;
-    }
-  }
-
   addLog(state, `Turn 1 (Classes) resolved.`);
 }
 
@@ -783,9 +770,27 @@ export function resolveAssault(state, chase) {
 
 // ---------- turn advance / reset ----------
 
+// One food per living character (student or teacher) is consumed at the end of each day. Coming
+// up short doesn't touch teachers — it hits every student with a flat penalty.
+function resolveDailyFoodUpkeep(state) {
+  const pop = aliveChars(state).length;
+  state.resources.food -= pop;
+  if (state.resources.food < 0) {
+    state.resources.food = 0;
+    addLog(state, `Food ran out! The students go hungry (-20 HP, -10 stamina).`);
+    for (const c of state.characters) {
+      if (c.role !== "student" || !c.alive) continue;
+      c.hp = Math.max(1, c.hp - 20);
+      c.injured = c.hp < c.maxHp * 0.5;
+      c.stamina = Math.max(0, c.stamina - 10);
+    }
+  }
+}
+
 export function advanceTurn(state) {
   state.turn++;
   if (state.turn > 3) {
+    resolveDailyFoodUpkeep(state); // consumed at the end of the day that just finished
     state.turn = 1;
     state.day++;
     addLog(state, `Day ${state.day} begins.`);

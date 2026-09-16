@@ -55,6 +55,8 @@ body {
 .tb-stats { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; }
 .tb-item { position: relative; }
 .tb-item b { color: #fff; display: inline-block; }
+.tb-sub { color: var(--muted); font-size: 11px; margin-left: 1px; }
+.tb-warn b, .tb-warn .tb-sub { color: var(--accent-2); }
 .tb-pulse b { animation: tb-pulse-scale 0.4s ease-out; }
 
 @keyframes tb-pulse-scale {
