@@ -2,7 +2,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS,
   GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS,
   FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
-  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH,
+  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, FORTIFICATION_CAP,
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
   ROOM_UPGRADE_MAX_LEVEL, ROOM_UPGRADE_INCREMENT, roomUpgradeCost,
@@ -478,7 +478,7 @@ export function resolveTraining(state) {
     const use = Math.min(state.resources.materials, 4);
     state.resources.materials -= use;
     const gain = Math.round((use + crafter.grades.Gymnastics / 20) * 0.8);
-    state.fortification = Math.min(60, state.fortification + gain);
+    state.fortification = Math.min(FORTIFICATION_CAP, state.fortification + gain);
     addLog(state, `${crafter.name} reinforces the school defenses (+${gain} fortification).`);
   }
 
@@ -830,7 +830,7 @@ function applyEffect(state, e) {
   if (e.materials) state.resources.materials = Math.max(0, state.resources.materials + e.materials);
   if (e.medicine) state.resources.medicine = Math.max(0, state.resources.medicine + e.medicine);
   if (e.research) state.resources.research = Math.max(0, state.resources.research + e.research);
-  if (e.fortification) state.fortification = Math.min(60, state.fortification + e.fortification);
+  if (e.fortification) state.fortification = Math.min(FORTIFICATION_CAP, state.fortification + e.fortification);
   if (e.happiness) adjustHappiness(state, e.happiness);
 
   if (e.recruit) {

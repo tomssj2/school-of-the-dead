@@ -177,6 +177,9 @@ export const LAB_CAPACITY = 10;
 export const FARM_YIELD_FOOD = 3; // food per assigned student/day
 export const SCRAPYARD_YIELD_MATERIALS = 3; // materials per assigned student/day
 export const LAB_YIELD_RESEARCH = 2; // research per assigned student/day
+// Ceiling for state.fortification. Raised from 60 to 300 alongside the deeper Research tree so
+// the tier 3-5 fortification techs (which sum to well over the old cap) aren't dead purchases.
+export const FORTIFICATION_CAP = 300;
 
 // ===== Scouting =====
 export const SCOUT_STAMINA_COST = 5;
@@ -258,6 +261,18 @@ export const TECH_TREE = [
   { id: "reinforced_gates", name: "Reinforced Gates", icon: "🚪", desc: "A second line of defense at the entrance.", cost: 30, requires: "fortify_walls", effect: { fortification: 25 } },
   { id: "grain_silos", name: "Grain Silos", icon: "🌾", desc: "Bulk food storage.", cost: 30, requires: "field_rations", effect: { food: 60 } },
   { id: "surplus_trade", name: "Surplus Trade", icon: "💰", desc: "Trade excess supplies with other survivors.", cost: 30, requires: "stockpile", effect: { materials: 50, medicine: 15 } },
+  // Tier 3
+  { id: "watchtowers", name: "Watchtowers", icon: "🗼", desc: "Spot trouble before it reaches the gates.", cost: 50, requires: "reinforced_gates", effect: { fortification: 40 } },
+  { id: "greenhouse", name: "Greenhouse", icon: "🌱", desc: "Grow food indoors, safe from raids.", cost: 50, requires: "grain_silos", effect: { food: 90 } },
+  { id: "scrap_refinery", name: "Scrap Refinery", icon: "⚙️", desc: "Turn junk into usable parts.", cost: 50, requires: "surplus_trade", effect: { materials: 70 } },
+  // Tier 4
+  { id: "barricade_network", name: "Barricade Network", icon: "🚧", desc: "Choke points funnel attackers into kill zones.", cost: 75, requires: "watchtowers", effect: { fortification: 60 } },
+  { id: "livestock_pens", name: "Livestock Pens", icon: "🐄", desc: "A steady supply of meat and milk.", cost: 75, requires: "greenhouse", effect: { food: 120 } },
+  { id: "trade_caravan", name: "Trade Caravan", icon: "🐎", desc: "Run supply routes to nearby survivor camps.", cost: 75, requires: "scrap_refinery", effect: { materials: 90, medicine: 20 } },
+  // Tier 5
+  { id: "bastion_walls", name: "Bastion Walls", icon: "🏯", desc: "The school becomes a fortress.", cost: 110, requires: "barricade_network", effect: { fortification: 100 } },
+  { id: "cold_storage", name: "Cold Storage", icon: "🧊", desc: "Nothing spoils, nothing goes to waste.", cost: 110, requires: "livestock_pens", effect: { food: 160 } },
+  { id: "black_market", name: "Black Market Contacts", icon: "🕶️", desc: "Discreet dealers who can get almost anything.", cost: 110, requires: "trade_caravan", effect: { materials: 130, medicine: 40 } },
 ];
 
 // ===== Exploration locations =====

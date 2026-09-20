@@ -1200,8 +1200,13 @@ function renderTechNode(state, node) {
 export function renderResearch(state) {
   const branches = TECH_TREE.filter((t) => !t.requires)
     .map((root) => {
-      const children = TECH_TREE.filter((t) => t.requires === root.id).map((t) => renderTechNode(state, t)).join("");
-      return `<div class="tech-branch">${renderTechNode(state, root)}${children}</div>`;
+      const chain = [root];
+      let next = TECH_TREE.find((t) => t.requires === root.id);
+      while (next) {
+        chain.push(next);
+        next = TECH_TREE.find((t) => t.requires === next.id);
+      }
+      return `<div class="tech-branch">${chain.map((t) => renderTechNode(state, t)).join("")}</div>`;
     })
     .join("");
 
