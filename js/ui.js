@@ -3,6 +3,7 @@ import {
   CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, LOCATIONS,
   BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_UPGRADE_MAX_LEVEL,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, SCOUT_STAMINA_COST, TECH_TREE,
+  ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -225,6 +226,7 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
         <summary class="tab-btn options-summary">☰ Menu ▾</summary>
         <div class="options-menu">
           <button class="options-item ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
+          <button class="options-item ${activeTab === "itemlist" ? "active" : ""}" data-action="set-tab" data-tab="itemlist">📖 Item List</button>
           <button class="options-item" data-action="save-game">💾 Save</button>
           <button class="options-item" data-action="reset-game">🔄 New Game</button>
           <label class="options-item options-toggle">
@@ -1255,6 +1257,39 @@ export function renderArmory(state) {
   </div>`;
 }
 
+// ---------- item list (full equipment catalog) ----------
+
+export function renderItemList() {
+  const all = [...ITEM_TEMPLATES, ...LEGENDARY_ITEM_TEMPLATES];
+  const bySlot = { weapon: [], armor: [], accessory: [] };
+  for (const it of all) (bySlot[it.slot] || (bySlot[it.slot] = [])).push(it);
+
+  const section = (slotKey) => {
+    const items = bySlot[slotKey] || [];
+    const rows = items
+      .map(
+        (it) => `<div class="armory-item ${it.legendary ? "armory-legendary" : ""}">
+          <span class="armory-icon">${it.icon}</span>
+          <span class="armory-name">${it.legendary ? "✨ " : ""}${esc(it.name)}</span>
+          <span class="armory-bonus">${formatBonuses(it.bonuses)}</span>
+        </div>`
+      )
+      .join("");
+    return `<div class="subcard">
+      <h3>${ARMORY_SLOT_LABEL[slotKey]} <span class="muted">(${items.length})</span></h3>
+      <div class="armory-list">${rows}</div>
+    </div>`;
+  };
+
+  return `<div class="card">
+    <h2>📖 Item List</h2>
+    <p class="muted">Every piece of equipment that can turn up in the game — common gear found while exploring, plus the rare ✨ legendary items carried by legendary survivors.</p>
+    ${section("weapon")}
+    ${section("armor")}
+    ${section("accessory")}
+  </div>`;
+}
+
 // ---------- roster ----------
 
 const ROSTER_SORT_FIELDS = [
@@ -1698,6 +1733,7 @@ export function renderApp(state, activeTab, rosterFilter = "all", mobileView = f
   else if (activeTab === "roster") content = renderRoster(state, rosterFilter, rosterSortKey, rosterSortDir);
   else if (activeTab === "research") content = renderResearch(state);
   else if (activeTab === "armory") content = renderArmory(state);
+  else if (activeTab === "itemlist") content = renderItemList();
   else if (activeTab === "log") content = renderLog(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 
