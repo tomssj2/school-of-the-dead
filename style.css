@@ -53,7 +53,7 @@ body {
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
-.topbar-left { display: flex; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
 .topbar-center { display: flex; align-items: center; gap: 10px; justify-content: center; }
 .topbar-right { display: flex; justify-content: flex-end; }
 .tb-title { font-size: 18px; font-weight: 700; }
@@ -194,8 +194,11 @@ body {
   font-size: 13px;
 }
 .options-item:hover { background: var(--panel-2); }
+.options-item.active { background: var(--accent); color: #06210f; font-weight: 600; }
 .options-toggle { display: flex; align-items: center; gap: 7px; margin: 0; }
 .options-toggle input { margin: 0; }
+
+.menu-dropdown .options-menu { left: 0; right: auto; }
 
 .subtabs { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 12px; }
 .subtab-btn {

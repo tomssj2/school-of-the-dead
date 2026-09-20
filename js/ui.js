@@ -216,11 +216,27 @@ const TB_INFO = {
   research: "Research — earned by staffing the Lab. Spent on the Research tech tree.",
 };
 
-export function renderTopbar(state, floaties = []) {
+export function renderTopbar(state, floaties = [], activeTab = "", mobileView = false) {
   const pop = aliveChars(state).length;
   return `
   <div class="topbar">
     <div class="topbar-left">
+      <details class="options-dropdown menu-dropdown">
+        <summary class="tab-btn options-summary">☰ Menu ▾</summary>
+        <div class="options-menu">
+          <button class="options-item ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
+          <button class="options-item" data-action="save-game">💾 Save</button>
+          <button class="options-item" data-action="reset-game">🔄 New Game</button>
+          <label class="options-item options-toggle">
+            <input type="checkbox" data-action="toggle-mobile-view" ${mobileView ? "checked" : ""}/>
+            📱 Mobile View
+          </label>
+          <label class="options-item options-toggle">
+            <input type="checkbox" data-action="toggle-sound" ${isSoundEnabled() ? "checked" : ""}/>
+            🔊 Sound
+          </label>
+        </div>
+      </details>
       <div class="tb-stats">
         <span class="${tbItemClass(floaties, "population")}" title="${TB_INFO.population}">👥 <b>${pop}</b>${floatyFor(floaties, "population")}</span>
         <span class="tb-item" title="${TB_INFO.teachers}">🎓 <b>${teacherCount(state)}</b></span>
@@ -268,7 +284,7 @@ const LEFT_TABS_BY_TURN = {
 // it doesn't read as a generic "advance turn" action.
 const OVERVIEW_TAB_LABEL = { 1: "📚 Classes", 2: "🗺 Explore", 3: "🌙 Night Watch" };
 
-export function renderTabs(state, activeTab, mobileView) {
+export function renderTabs(state, activeTab) {
   const floorBtns = (LEFT_TABS_BY_TURN[state.turn] || LEFT_TABS_BY_TURN[1])
     .map(
       ([id, label]) =>
@@ -287,22 +303,6 @@ export function renderTabs(state, activeTab, mobileView) {
       <button class="tab-btn ${activeTab === "roster" ? "active" : ""}" data-action="set-tab" data-tab="roster">📋 Roster</button>
       <button class="tab-btn ${activeTab === "armory" ? "active" : ""}" data-action="set-tab" data-tab="armory">🗡 Armory</button>
       <button class="tab-btn ${activeTab === "research" ? "active" : ""}" data-action="set-tab" data-tab="research">🧠 Research</button>
-      <button class="tab-btn ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
-      <details class="options-dropdown">
-        <summary class="tab-btn options-summary">⚙ Options ▾</summary>
-        <div class="options-menu">
-          <button class="options-item" data-action="save-game">💾 Save</button>
-          <button class="options-item" data-action="reset-game">🔄 New Game</button>
-          <label class="options-item options-toggle">
-            <input type="checkbox" data-action="toggle-mobile-view" ${mobileView ? "checked" : ""}/>
-            📱 Mobile View
-          </label>
-          <label class="options-item options-toggle">
-            <input type="checkbox" data-action="toggle-sound" ${isSoundEnabled() ? "checked" : ""}/>
-            🔊 Sound
-          </label>
-        </div>
-      </details>
     </div>
   </div>`;
 }
@@ -1701,5 +1701,5 @@ export function renderApp(state, activeTab, rosterFilter = "all", mobileView = f
   else if (activeTab === "log") content = renderLog(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 
-  return `${renderTopbar(state, floaties)}${renderTabs(state, activeTab, mobileView)}<div class="content">${content}</div>`;
+  return `${renderTopbar(state, floaties, activeTab, mobileView)}${renderTabs(state, activeTab)}<div class="content">${content}</div>`;
 }
