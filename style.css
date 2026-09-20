@@ -308,6 +308,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 @container app (max-width: 700px) {
   .tech-grid { grid-template-columns: 1fr; }
 }
+.tech-branch { display: flex; flex-direction: column; gap: 10px; }
 .tech-node { margin: 0; }
 .tech-node.tech-owned { border-color: var(--accent, #4caf7d); opacity: 0.85; }
 .tech-node-main { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

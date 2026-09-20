@@ -1198,8 +1198,12 @@ function renderTechNode(state, node) {
 }
 
 export function renderResearch(state) {
-  const tier1 = TECH_TREE.filter((t) => !t.requires).map((t) => renderTechNode(state, t)).join("");
-  const tier2 = TECH_TREE.filter((t) => t.requires).map((t) => renderTechNode(state, t)).join("");
+  const branches = TECH_TREE.filter((t) => !t.requires)
+    .map((root) => {
+      const children = TECH_TREE.filter((t) => t.requires === root.id).map((t) => renderTechNode(state, t)).join("");
+      return `<div class="tech-branch">${renderTechNode(state, root)}${children}</div>`;
+    })
+    .join("");
 
   return `
   <div class="card">
@@ -1208,10 +1212,7 @@ export function renderResearch(state) {
     <div class="summary-list">
       <div>Research banked: <b>${state.resources.research}</b></div>
     </div>
-    <div class="mini-label">Tier 1</div>
-    <div class="tech-grid">${tier1}</div>
-    <div class="mini-label">Tier 2</div>
-    <div class="tech-grid">${tier2}</div>
+    <div class="tech-grid">${branches}</div>
   </div>`;
 }
 
