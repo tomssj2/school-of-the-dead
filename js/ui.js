@@ -6,6 +6,7 @@ import {
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
   DISHES, INGREDIENTS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
+  RESEARCH_ROOM_INT_PER_POINT,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -13,7 +14,7 @@ import {
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
-  isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty,
+  isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
 } from "./game.js";
 import { characterSprite } from "./sprite.js";
 import { isSoundEnabled } from "./sound.js";
@@ -81,7 +82,7 @@ function staminaBar(c) {
 function upgradeButton(state, roomType, roomId, kind, label) {
   const info = roomUpgradeInfo(state, roomType, roomId, kind);
   if (info.maxed) return `<span class="muted upgrade-maxed">${label} maxed</span>`;
-  return `<button class="btn btn-sm btn-upgrade" data-action="upgrade-room" data-room-type="${roomType}" data-room-id="${roomId || ""}" data-kind="${kind}" ${state.resources.materials < info.cost ? "disabled" : ""} title="Level ${info.level} → ${info.level + 1}">⬆ ${label} (${info.cost} materials)</button>`;
+  return `<button class="btn btn-sm btn-upgrade" data-action="upgrade-room" data-room-type="${roomType}" data-room-id="${roomId || ""}" data-kind="${kind}" ${state.resources.materials < info.cost ? "disabled" : ""} title="Level ${info.level} → ${info.level + 1}">⬆ ${label} (${info.cost} scrap)</button>`;
 }
 
 function statChips(c) {
@@ -216,9 +217,9 @@ const TB_INFO = {
   teachers: "Teachers — recruited through exploration or promoted from high-level students, capped at 20.",
   happiness: "Happiness — rises from won battles and new recruits, falls from failed missions and deaths. Skews random events toward good or bad.",
   food: "Food — grown at the Farm and looted from exploration sites. Consumed every night to feed the school.",
-  materials: "Materials — looted from exploration and worked at the Scrapyard. Spent on room upgrades and the Crafting Room.",
-  medicine: "Medicine — looted from exploration sites and produced by the Research Room. Spent treating patients in the Nurse's Office (3 each) and, automatically, saving defenders who go down in the night battle (5 each).",
-  research: "Research — earned by staffing the Lab. Spent on the Research tech tree.",
+  materials: "Scrap — looted from exploration and salvaged at the Scrapyard. Spent on room upgrades, defenses, the antenna and the Crafting Room.",
+  medicine: "Medicine — looted from exploration sites during Turn 2. Spent treating patients in the Nurse's Office (3 each) and, automatically, saving defenders who go down in the night battle (5 each).",
+  research: "Research — produced by teachers in the Research Room and students in the Lab. Spent on the Research tech tree and the antenna.",
 };
 
 export function renderTopbar(state, floaties = [], activeTab = "", mobileView = false) {
@@ -1332,7 +1333,8 @@ export function renderFloor3(state) {
     })
     .join("");
 
-  const researcher = state.characters.find((c) => c.role === "teacher" && c.post === "research" && c.alive);
+  const researchers = state.characters.filter((c) => c.role === "teacher" && c.post === "research" && c.alive);
+  const researchSlots = state.rooms.research.teacherCapacity;
   const crafter = state.characters.find((c) => c.role === "teacher" && c.post === "crafting" && c.alive);
   const council = state.characters.find((c) => c.role === "teacher" && c.post === "council" && c.alive);
 
@@ -1367,8 +1369,18 @@ export function renderFloor3(state) {
       <div class="recruit-list">${recruits || '<p class="muted">No one is waiting to join right now. Explore the city or staff the Student Council room to find survivors.</p>'}</div>
     </div>
     <div class="floor3-grid">
-      ${utilityRoom("🔬 Research Room", "Generates medicine each day, scaled by the assigned teacher's Physics (INT) grade.", researcher, "research", "INT", "Physics")}
-      ${utilityRoom("🛠 Crafting Room", "Converts materials into permanent entrance Fortification, scaled by Gymnastics (DEX).", crafter, "crafting", "DEX", "Gymnastics")}
+      <div class="room room-utility">
+        <h3>🔬 Research Room</h3>
+        <p class="muted">Produces research points each day: 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT (Physics grade) across every
+        teacher posted here. Currently <b>${researchRoomYield(state)} research/day</b>.</p>
+        <div class="mini-label">Researchers (${researchers.length}/${researchSlots})</div>
+        <ul class="assign-list">
+          ${researchers.map((t) => `<li>${nameTag(t)} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)}) <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+        </ul>
+        ${researchers.length < researchSlots ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="research">+ Assign teacher…</button>` : ""}
+        ${upgradeButton(state, "research", null, "teacher", "Researcher slot")}
+      </div>
+      ${utilityRoom("🛠 Crafting Room", "Converts scrap into permanent entrance Fortification, scaled by Gymnastics (DEX).", crafter, "crafting", "DEX", "Gymnastics")}
       ${utilityRoom("🗳 Student Council Room", "Chance each day to hear of a survivor wanting to join, scaled by Social Studies (CHA).", council, "council", "CHA", "SocialStudies")}
     </div>
   </div>`;
@@ -1403,14 +1415,14 @@ export function renderFarm(state) {
 export function renderScrapyard(state) {
   return renderOutsideFacility(
     state, "scrapyard", "scrapyardToday", "🔩", "Scrapyard",
-    `Assign students to strip nearby wrecks for parts instead of exploring today. Each worker yields ${SCRAPYARD_YIELD_MATERIALS} materials when the day ends.`
+    `Assign students to strip nearby wrecks for parts instead of exploring today. Each worker yields ${SCRAPYARD_YIELD_MATERIALS} scrap when the day ends.`
   );
 }
 
 export function renderLab(state) {
   return renderOutsideFacility(
     state, "lab", "labToday", "🧪", "Lab",
-    `Assign students to run experiments instead of exploring today. Each worker yields ${LAB_YIELD_RESEARCH} research when the day ends — spend research on the skill tree (coming soon).`
+    `Assign students to run experiments instead of exploring today. Each worker yields ${LAB_YIELD_RESEARCH} research when the day ends — spend it in the Research tab.`
   );
 }
 
@@ -1524,7 +1536,7 @@ export function renderResearch(state) {
   return `
   <div class="card">
     <h2>🧠 Research</h2>
-    <p class="muted">Earned by staffing the Lab during Turn 2. Spend it below on permanent, one-time upgrades.</p>
+    <p class="muted">Produced by teachers in the Research Room (Floor 3) and students working the Lab during Turn 2. Spend it below on permanent, one-time upgrades.</p>
     <div class="summary-list">
       <div>Research banked: <b>${state.resources.research}</b></div>
     </div>
@@ -1765,7 +1777,7 @@ function logCategory(msg) {
   if (/fell|wounded|ambushed|attack|horde|defend|fought off|routed|breached|hurt|chase|zombie|went down/.test(m)) return "log-combat";
   if (/discovered|scouted|expedition|brought back/.test(m)) return "log-explore";
   if (/joined|couple|survivor|wants to join/.test(m)) return "log-social";
-  if (/food|materials|medicine|research|salvage|upgrad|fortif|stockpile/.test(m)) return "log-economy";
+  if (/food|scrap|medicine|research|salvage|upgrad|fortif|stockpile/.test(m)) return "log-economy";
   return "";
 }
 

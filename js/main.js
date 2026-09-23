@@ -4,7 +4,7 @@ import { emptyEquipment, starterArmory, withTeacherHonorific } from "./character
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
-  CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
+  CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY,
 } from "./data.js";
@@ -99,6 +99,7 @@ function migrateState(s) {
     s.rooms.lounge = { studentCapacity: s.rooms.cafeteria.studentCapacity || LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY };
   }
   delete s.rooms.cafeteria.studentCapacity;
+  if (!s.rooms.research) s.rooms.research = { teacherCapacity: RESEARCH_ROOM_TEACHERS };
   if (!s.rooms.farm) s.rooms.farm = { studentCapacity: FARM_CAPACITY };
   if (!s.rooms.scrapyard) s.rooms.scrapyard = { studentCapacity: SCRAPYARD_CAPACITY };
   if (!s.rooms.lab) s.rooms.lab = { studentCapacity: LAB_CAPACITY };

@@ -1,6 +1,7 @@
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS,
   GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY,
+  RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME,
   FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, FORTIFICATION_CAP,
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
@@ -72,6 +73,7 @@ export function createInitialState() {
       gym: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
       cafeteria: { teacherCapacity: CAFETERIA_MAX_TEACHERS },
       lounge: { studentCapacity: LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY },
+      research: { teacherCapacity: RESEARCH_ROOM_TEACHERS },
       infirmary: { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS },
       farm: { studentCapacity: FARM_CAPACITY },
       scrapyard: { studentCapacity: SCRAPYARD_CAPACITY },
@@ -215,7 +217,10 @@ export function setTeacherPost(state, teacherId, post) {
   } else if (post === "infirmary") {
     const count = state.characters.filter((c) => c.role === "teacher" && c.post === "infirmary").length;
     if (count >= state.rooms.infirmary.teacherCapacity) return false;
-  } else if (post && ["research", "crafting", "council"].includes(post)) {
+  } else if (post === "research") {
+    const count = state.characters.filter((c) => c.role === "teacher" && c.post === "research").length;
+    if (count >= state.rooms.research.teacherCapacity) return false;
+  } else if (post && ["crafting", "council"].includes(post)) {
     const count = state.characters.filter((c) => c.role === "teacher" && c.post === post).length;
     if (count >= 1) return false;
   }
@@ -295,7 +300,7 @@ export const setScrapyardToday = makeOutsideFacilitySetter("scrapyardToday", "sc
 export const setLabToday = makeOutsideFacilitySetter("labToday", "lab");
 
 // ---------- room upgrades ----------
-// Spends materials to raise one of a room's stats, up to ROOM_UPGRADE_MAX_LEVEL times. A "kind"
+// Spends scrap to raise one of a room's stats, up to ROOM_UPGRADE_MAX_LEVEL times. A "kind"
 // is student/teacher capacity, or the lounge's per-day stamina recovery. Classroom teacher
 // capacity is fixed at 1 and can't be upgraded.
 
@@ -305,13 +310,14 @@ const ROOM_BASE_CAPACITY = {
   gym: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
   cafeteria: { teacher: CAFETERIA_MAX_TEACHERS },
   lounge: { student: LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY },
+  research: { teacher: RESEARCH_ROOM_TEACHERS },
   infirmary: { student: INFIRMARY_CAPACITY }, // one nurse, not upgradeable
   farm: { student: FARM_CAPACITY },
   scrapyard: { student: SCRAPYARD_CAPACITY },
   lab: { student: LAB_CAPACITY },
 };
 const ROOM_LABELS = {
-  gym: "the Gym", cafeteria: "the Cafeteria", lounge: "the Lounge", infirmary: "the Nurse's Office",
+  gym: "the Gym", cafeteria: "the Cafeteria", lounge: "the Lounge", infirmary: "the Nurse's Office", research: "the Research Room",
   farm: "the Farm", scrapyard: "the Scrapyard", lab: "the Lab",
 };
 const UPGRADE_FIELD = { student: "studentCapacity", teacher: "teacherCapacity", recovery: "recovery" };
@@ -356,7 +362,7 @@ export function upgradeRoom(state, roomType, roomId, kind) {
 
   state.resources.materials -= cost;
   const what = kind === "recovery" ? "stamina recovery" : `${kind} capacity`;
-  addLog(state, `Upgraded ${label}'s ${what} to level ${level + 1} (-${cost} materials).`);
+  addLog(state, `Upgraded ${label}'s ${what} to level ${level + 1} (-${cost} scrap).`);
   return true;
 }
 
@@ -459,6 +465,14 @@ function grantXp(state, charId, subject, amount) {
   c.maxHp = maxHpFor(c.grades);
 }
 
+// One research point per RESEARCH_ROOM_INT_PER_POINT of the posted teachers' combined INT.
+export function researchRoomYield(state) {
+  const totalInt = state.characters
+    .filter((c) => c.role === "teacher" && c.post === "research" && c.alive)
+    .reduce((sum, c) => sum + c.grades.Physics, 0);
+  return Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT);
+}
+
 // ---------- TURN 1: training ----------
 
 export function resolveTraining(state) {
@@ -536,12 +550,11 @@ export function resolveTraining(state) {
     addLog(state, `${c.name} ${treated ? "was treated" : "got bed rest (no medicine to spare)"} in the Nurse's Office (+${healed} HP).`);
   }
 
-  // research
-  const researcher = state.characters.find((c) => c.role === "teacher" && c.post === "research" && c.alive);
-  if (researcher) {
-    const gain = 1 + Math.floor(researcher.grades.Physics / 25);
-    state.resources.medicine += gain;
-    addLog(state, `${researcher.name} synthesizes ${gain} medicine in the research room.`);
+  // research room
+  const researchGain = researchRoomYield(state);
+  if (researchGain > 0) {
+    state.resources.research += researchGain;
+    addLog(state, `The Research Room produces ${researchGain} research.`);
   }
 
   // crafting
@@ -694,7 +707,7 @@ export function resolveExploration(state) {
   if (scrapyardWorkers.length) {
     const gain = scrapyardWorkers.length * SCRAPYARD_YIELD_MATERIALS;
     state.resources.materials += gain;
-    addLog(state, `The Scrapyard salvages ${gain} materials from ${scrapyardWorkers.length} student(s).`);
+    addLog(state, `The Scrapyard salvages ${gain} scrap from ${scrapyardWorkers.length} student(s).`);
   }
   const labWorkers = state.characters.filter((c) => c.labToday && c.alive);
   if (labWorkers.length) {
@@ -988,7 +1001,7 @@ export function resolveDefense(state) {
     const item = makeItem(pick(ITEM_TEMPLATES.filter((t) => itemTier(t) >= 3)).id);
     state.armory.push(item);
     adjustHappiness(state, HAPPINESS_GAIN_WIN);
-    addLog(state, `${bossName} is down! Its hoard: +25 materials, +15 food and ${item.icon} ${item.name}.`);
+    addLog(state, `${bossName} is down! Its hoard: +25 scrap, +15 food and ${item.icon} ${item.name}.`);
   } else if (bossName) {
     addLog(state, `${bossName} survived the night and slunk back into the dark.`);
   }
@@ -1623,7 +1636,7 @@ export function scoutHex(state, studentId, q, r) {
     state.resources[lootKey] += amt;
     grantXp(state, c.id, "PE", 3 + randInt(0, 2));
     grantXp(state, c.id, "Gymnastics", 3 + randInt(0, 2));
-    addLog(state, `${c.name} fought off a zombie while scouting and salvaged ${amt} ${lootKey}.`);
+    addLog(state, `${c.name} fought off a zombie while scouting and salvaged ${amt} ${RESOURCE_NAME[lootKey]}.`);
   }
 
   state.exploredHexes.push(hexKey(q, r));

@@ -323,6 +323,11 @@ export const GYM_MAX_TEACHERS = 3; // base teacher slots (gym works fine with no
 
 export const CAFETERIA_MAX_TEACHERS = 3; // base teacher (cook) slots — each cook makes one dish a day
 
+// Research Room: teachers turn their combined INT (Physics grade) into research points each day.
+// Starts with one researcher slot; each upgrade level adds another.
+export const RESEARCH_ROOM_TEACHERS = 1;
+export const RESEARCH_ROOM_INT_PER_POINT = 20;
+
 // Lounge: students rest here to recover stamina. Both the slots and the amount recovered upgrade.
 export const LOUNGE_CAPACITY = 10;
 export const LOUNGE_RECOVERY = 50; // stamina per student per day, before upgrades
@@ -352,7 +357,7 @@ export const STARTING_PANTRY = { canned_meat: 1, spices: 1, honey: 1, coffee: 1,
 export const DISHES = [
   {
     id: "scavenger_stew", name: "Scavenger's Stew", icon: "🍲", ingredients: { canned_meat: 1, spices: 1 }, food: 8,
-    effect: { expeditionMaterials: 1.5 }, desc: "Expeditions bring back 50% more materials today.",
+    effect: { expeditionMaterials: 1.5 }, desc: "Expeditions bring back 50% more scrap today.",
   },
   {
     id: "bbq_beacon", name: "Barbecue Beacon", icon: "🍖", ingredients: { canned_meat: 1, honey: 1 }, food: 8,
@@ -376,7 +381,11 @@ export const FARM_CAPACITY = 10;
 export const SCRAPYARD_CAPACITY = 10;
 export const LAB_CAPACITY = 10;
 export const FARM_YIELD_FOOD = 3; // food per assigned student/day
-export const SCRAPYARD_YIELD_MATERIALS = 3; // materials per assigned student/day
+export const SCRAPYARD_YIELD_MATERIALS = 3; // scrap per assigned student/day
+
+// The scrap resource is stored under the `materials` key (older saves use it); this is the name
+// players see.
+export const RESOURCE_NAME = { food: "food", materials: "scrap", medicine: "medicine", research: "research" };
 export const LAB_YIELD_RESEARCH = 2; // research per assigned student/day
 // Ceiling for state.fortification. Raised from 60 to 300 alongside the deeper Research tree so
 // the tier 3-5 fortification techs (which sum to well over the old cap) aren't dead purchases.
@@ -391,7 +400,7 @@ export const SCOUT_ENCOUNTER_CHANCE_PER_HEX = 0.1;
 export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout loses their fight
 
 // ===== Room upgrades =====
-// Materials cost to go from a given upgrade level to the next; capped at ROOM_UPGRADE_MAX_LEVEL.
+// Scrap cost to go from a given upgrade level to the next; capped at ROOM_UPGRADE_MAX_LEVEL.
 export const ROOM_UPGRADE_MAX_LEVEL = 3;
 export const roomUpgradeCost = (level) => 15 * (level + 1);
 // How much capacity one upgrade level adds, per room/slot type.
@@ -402,6 +411,7 @@ export const ROOM_UPGRADE_INCREMENT = {
   cafeteriaTeacher: 1,
   loungeStudent: 5,
   loungeRecovery: 15,
+  researchTeacher: 1,
   infirmaryStudent: 2,
   farmStudent: 5,
   scrapyardStudent: 5,
