@@ -12,12 +12,15 @@ import {
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE,
   EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
-  ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES,
+  ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
+  ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
+  zombieCountForDay, zombieStatsForDay,
+  EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
 } from "./data.js";
 import {
   makeCharacter, makeLegendaryCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, teachingBonus,
-  bestClassroomSubjectFor, emptyEquipment,
+  bestClassroomSubjectFor, emptyEquipment, makeItem,
 } from "./characters.js";
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -498,9 +501,28 @@ export function resolveTraining(state) {
 
 // ---------- TURN 2: exploration ----------
 
+// Rough 1-4 power tier from an item's total stat bonuses, so harder locations can drop better gear.
+function itemTier(t) {
+  const sum = Object.values(t.bonuses).reduce((a, b) => a + b, 0);
+  return sum <= 4 ? 1 : sum <= 6 ? 2 : sum <= 8 ? 3 : 4;
+}
+
+// Legendary gear never drops here — it only arrives on legendary survivors.
+function rollExpeditionItem(state, location, success) {
+  const chance = success ? EXPEDITION_ITEM_CHANCE + location.difficulty * 0.08 : EXPEDITION_ITEM_CHANCE_FAILED;
+  if (Math.random() >= chance) return null;
+  const maxTier = Math.min(4, Math.ceil(location.difficulty * 0.8));
+  const pool = ITEM_TEMPLATES.filter((t) => itemTier(t) <= maxTier);
+  const weighted = pool.flatMap((t) => (t.slot === location.lootBias ? [t, t, t] : [t]));
+  const item = makeItem(pick(weighted).id);
+  state.armory.push(item);
+  return item;
+}
+
 export function resolveExploration(state) {
   let teamsSent = 0;
   let successes = 0;
+  const itemsFound = [];
   for (let teamIndex = 0; teamIndex < 3; teamIndex++) {
     const locationId = state.teamLocations[teamIndex];
     const location = LOCATIONS.find((l) => l.id === locationId);
@@ -536,6 +558,12 @@ export function resolveExploration(state) {
       }
       addLog(state, `${location.name}: expedition struggled and barely scraped by.`);
       adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL);
+    }
+
+    const found = rollExpeditionItem(state, location, success);
+    if (found) {
+      itemsFound.push(found);
+      addLog(state, `The team brought back ${found.icon} ${found.name} from the ${location.name} — it's in the armory.`);
     }
 
     for (const c of members) {
@@ -592,66 +620,311 @@ export function resolveExploration(state) {
   }
 
   addLog(state, `Turn 2 (Exploration) resolved.`);
-  return { teamsSent, successes };
+  return { teamsSent, successes, itemsFound };
 }
 
-// ---------- TURN 3: defense ----------
+// ---------- TURN 3: defense (entrance grid battle) ----------
+// The whole fight is simulated up front, tick by tick, on the entrance grid: zombies spawn in the
+// bottom rows and shamble one row up per tick; each defender hits the most advanced zombie within
+// reach (melee weapon or fists first if anything's that close, otherwise their ranged weapon);
+// walls block a lane until smashed, traps hurt whatever walks over them. A zombie that walks off
+// the top row hits the gate (fortification x2 HP) and, once that's down, breaks into the school.
+// Every tick is recorded as a frame so the UI can replay the battle afterwards — state itself is
+// resolved immediately, same as every other turn.
+
+const chebyshev = (a, b) => Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col));
+
+// Student-zone cells, front line (the row nearest the horde) first.
+function studentZoneCells(size) {
+  const third = Math.floor(size / 3);
+  const cells = [];
+  for (let row = third - 1; row >= 0; row--) for (let col = 0; col < size; col++) cells.push(`${row},${col}`);
+  return cells;
+}
+
+export function firstFreeEntranceCell(state) {
+  return studentZoneCells(state.entranceGrid.size).find((k) => !state.entranceGrid.students[k]) || null;
+}
+
+function battleStats(state, c) {
+  const eq = c.equipment || {};
+  return {
+    melee: eq.meleeWeapon || FIST_WEAPON,
+    ranged: eq.rangedWeapon || null,
+    meleeMult: 0.5 + effectiveGrade(state, c, "PE") / 100,
+    rangedMult: 0.5 + effectiveGrade(state, c, "Gymnastics") / 100,
+    hitChance: Math.min(0.95, 0.7 + effectiveGrade(state, c, "Gymnastics") / 500),
+    armorMult: Math.max(0.4, 1 - effectiveGrade(state, c, "Biology") / 250),
+  };
+}
+
+export function simulateEntranceBattle(state) {
+  const grid = state.entranceGrid;
+  const size = grid.size;
+  const zStats = zombieStatsForDay(state.day);
+  const toSpawn = zombieCountForDay(state.day);
+  const spawnRows = [size - 1, size - 2];
+
+  const students = Object.entries(grid.students)
+    .map(([key, id]) => ({ key, c: getChar(state, id) }))
+    .filter(({ c }) => c && c.alive)
+    .map(({ key, c }) => {
+      const [row, col] = key.split(",").map(Number);
+      return { id: c.id, row, col, hp: c.hp, maxHp: c.maxHp, downed: false, kills: 0, usedMelee: false, usedRanged: false, ...battleStats(state, c) };
+    });
+
+  const structures = {};
+  for (const [key, structureId] of Object.entries(grid.defenses)) {
+    const def = DEFENSE_STRUCTURES.find((d) => d.id === structureId);
+    if (!def) continue;
+    const [row, col] = key.split(",").map(Number);
+    structures[key] = { key, row, col, def, hp: def.hp || 0, destroyed: false };
+  }
+  const gate = { hp: state.fortification * 2, max: state.fortification * 2 };
+
+  const zombies = [];
+  let spawned = 0;
+  let killed = 0;
+  let breached = 0;
+  const frames = [];
+
+  const zombieAt = (row, col) => zombies.find((z) => z.alive && z.row === row && z.col === col);
+  const studentAt = (row, col) => students.find((s) => !s.downed && s.row === row && s.col === col);
+  const wallAt = (row, col) => {
+    const st = structures[`${row},${col}`];
+    return st && st.def.blocks && !st.destroyed ? st : null;
+  };
+  const killZombie = (z, events) => {
+    z.alive = false;
+    killed++;
+    events.push({ type: "kill", at: [z.row, z.col] });
+  };
+  const snapshot = (tick, events) => ({
+    tick,
+    events,
+    zombies: zombies.filter((z) => z.alive).map((z) => ({ id: z.id, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp })),
+    students: students.map((s) => ({ id: s.id, row: s.row, col: s.col, hp: Math.max(0, s.hp), maxHp: s.maxHp, downed: s.downed })),
+    structures: Object.values(structures).map((st) => ({ key: st.key, id: st.def.id, hp: st.hp, maxHp: st.def.hp || 0, destroyed: st.destroyed })),
+    gate: { ...gate },
+    killed,
+    breached,
+    spawned,
+  });
+
+  frames.push(snapshot(0, []));
+
+  for (let tick = 1; tick <= BATTLE_MAX_TICKS; tick++) {
+    const events = [];
+
+    // 1. the next few zombies shamble in, back row first
+    for (let n = 0; n < Math.ceil(size / 2) && spawned < toSpawn; n++) {
+      const free = [];
+      for (const row of spawnRows) for (let col = 0; col < size; col++) if (!zombieAt(row, col)) free.push({ row, col });
+      if (!free.length) break;
+      const back = free.filter((p) => p.row === size - 1);
+      const spot = pick(back.length ? back : free);
+      zombies.push({ id: spawned + 1, row: spot.row, col: spot.col, hp: zStats.hp, maxHp: zStats.hp, alive: true, snagged: false });
+      spawned++;
+    }
+
+    // 2. defenders strike
+    for (const s of students) {
+      if (s.downed) continue;
+      const live = zombies.filter((z) => z.alive);
+      if (!live.length) break;
+      const inMelee = live.filter((z) => chebyshev(s, z) <= s.melee.range);
+      const inRanged = s.ranged ? live.filter((z) => chebyshev(s, z) <= s.ranged.range) : [];
+      const pool = inMelee.length ? inMelee : inRanged;
+      if (!pool.length) continue;
+      const target = [...pool].sort((a, b) => a.row - b.row || a.hp - b.hp)[0];
+      const useMelee = inMelee.length > 0;
+      const weapon = useMelee ? s.melee : s.ranged;
+      if (useMelee) s.usedMelee = true;
+      else s.usedRanged = true;
+      const hit = Math.random() < s.hitChance;
+      const dmg = hit ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * (0.85 + Math.random() * 0.3))) : 0;
+      target.hp -= dmg;
+      events.push({ type: "attack", from: [s.row, s.col], to: [target.row, target.col], zid: target.id, dmg, hit, kind: useMelee ? "melee" : "ranged", icon: weapon.icon });
+      if (target.hp <= 0) {
+        s.kills++;
+        killZombie(target, events);
+      }
+    }
+
+    // 3. the horde advances, front-most first so the ones behind can step up
+    for (const z of zombies.filter((z) => z.alive).sort((a, b) => a.row - b.row)) {
+      if (z.snagged) {
+        z.snagged = false;
+        continue;
+      }
+
+      const adjacent = students
+        .filter((s) => !s.downed && chebyshev(s, z) <= 1)
+        .sort((a, b) => (a.col === z.col ? 0 : 1) - (b.col === z.col ? 0 : 1));
+      if (adjacent.length) {
+        const s = adjacent[0];
+        const hit = Math.random() < ZOMBIE_HIT_CHANCE;
+        const dmg = hit ? Math.max(1, Math.round(zStats.damage * s.armorMult * (0.85 + Math.random() * 0.3))) : 0;
+        s.hp -= dmg;
+        events.push({ type: "bite", from: [z.row, z.col], to: [s.row, s.col], dmg, hit });
+        if (s.hp <= 0) {
+          s.downed = true;
+          events.push({ type: "downed", at: [s.row, s.col], id: s.id });
+        }
+        continue;
+      }
+
+      const ahead = z.row - 1;
+      if (ahead < 0) {
+        if (gate.hp > 0) {
+          gate.hp = Math.max(0, gate.hp - zStats.damage);
+          events.push({ type: "gate", at: [z.row, z.col], dmg: zStats.damage });
+        } else {
+          z.alive = false;
+          breached++;
+          events.push({ type: "breach", at: [z.row, z.col] });
+        }
+        continue;
+      }
+
+      const wall = wallAt(ahead, z.col);
+      if (wall) {
+        wall.hp -= zStats.damage;
+        events.push({ type: "smash", at: [ahead, z.col], dmg: zStats.damage });
+        if (wall.hp <= 0) {
+          wall.hp = 0;
+          wall.destroyed = true;
+          events.push({ type: "destroyed", at: [ahead, z.col] });
+        }
+        continue;
+      }
+
+      // straight ahead if it's clear, otherwise try to shuffle diagonally around whoever's in the way
+      const sides = Math.random() < 0.5 ? [z.col - 1, z.col + 1] : [z.col + 1, z.col - 1];
+      const destCol = [z.col, ...sides].find(
+        (col) => col >= 0 && col < size && !zombieAt(ahead, col) && !studentAt(ahead, col) && !wallAt(ahead, col)
+      );
+      if (destCol === undefined) continue;
+      z.row = ahead;
+      z.col = destCol;
+
+      const trap = structures[`${ahead},${destCol}`];
+      if (trap && !trap.def.blocks && trap.def.enterDamage) {
+        z.hp -= trap.def.enterDamage;
+        events.push({ type: "trap", at: [ahead, destCol], dmg: trap.def.enterDamage });
+        if (trap.def.slows) z.snagged = true;
+        if (z.hp <= 0) killZombie(z, events);
+      }
+    }
+
+    frames.push(snapshot(tick, events));
+    if (spawned >= toSpawn && !zombies.some((z) => z.alive)) break;
+  }
+
+  return {
+    size,
+    frames,
+    spawned,
+    killed,
+    breached,
+    held: zombies.filter((z) => z.alive).length, // still on the field at dawn — they drift off
+    students,
+    destroyedKeys: Object.values(structures).filter((st) => st.destroyed).map((st) => st.key),
+  };
+}
 
 export function resolveDefense(state) {
+  // Anyone flagged as defending without a spot on the grid (e.g. an older save) takes the next one.
+  for (const c of state.characters.filter((c) => c.defending && c.alive)) {
+    if (Object.values(state.entranceGrid.students).includes(c.id)) continue;
+    const cell = firstFreeEntranceCell(state);
+    if (cell) state.entranceGrid.students[cell] = c.id;
+    else c.defending = false;
+  }
   const defenders = state.characters.filter((c) => c.defending && c.alive);
-  const waveStrength = 22 + state.day * 6 + randInt(-5, 5);
-  const defensePower =
-    defenders.reduce((sum, c) => sum + (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2, 0) / Math.max(1, defenders.length) *
-      Math.sqrt(Math.max(1, defenders.length)) +
-    state.fortification;
 
-  const ratio = defenders.length === 0 ? 0 : defensePower / waveStrength;
+  const battle = simulateEntranceBattle(state);
+  const { spawned, killed, breached } = battle;
+  addLog(state, `The horde attacks the entrance — ${spawned} zombies shamble out of the dark.`);
+  if (!defenders.length) addLog(state, `No one was defending the entrance!`);
 
-  let severity; // higher = worse
-  if (ratio >= 1.3) severity = 0.05;
-  else if (ratio >= 1.0) severity = 0.15;
-  else if (ratio >= 0.7) severity = 0.35;
-  else severity = 0.6;
-
-  addLog(
-    state,
-    `The horde attacks! Wave strength ${Math.round(waveStrength)} vs defense ${Math.round(defensePower)}.`
-  );
-
-  for (const c of defenders) {
-    const personal = clamp01(severity - (effectiveGrade(state, c, "Biology") - 40) / 400);
-    if (Math.random() < personal) {
-      if (Math.random() < 0.2) {
+  let downedCount = 0;
+  for (const s of battle.students) {
+    const c = getChar(state, s.id);
+    if (!c) continue;
+    if (s.downed) {
+      downedCount++;
+      c.defending = false; // too hurt to join any chase afterwards
+      clearEntranceCellForChar(state, c.id);
+      const stabilized = state.resources.medicine >= MEDICINE_PER_STABILIZE;
+      const deathChance = clamp01(DOWNED_DEATH_CHANCE - (effectiveGrade(state, c, "Biology") - 40) / 200);
+      if (!stabilized && Math.random() < deathChance) {
         killCharacter(state, c);
         addLog(state, `${c.name} fell defending the entrance.`);
       } else {
-        const dmg = randInt(10, 35);
-        c.hp = Math.max(1, c.hp - dmg);
-        c.injured = c.hp < c.maxHp * 0.5;
-        addLog(state, `${c.name} was wounded defending the entrance (-${dmg} HP).`);
+        if (stabilized) state.resources.medicine -= MEDICINE_PER_STABILIZE;
+        c.hp = Math.max(1, Math.round(c.maxHp * 0.1));
+        c.injured = true;
+        addLog(
+          state,
+          stabilized
+            ? `${c.name} went down at the entrance — patched up with ${MEDICINE_PER_STABILIZE} medicine.`
+            : `${c.name} went down at the entrance but was dragged to safety.`
+        );
       }
-    } else {
-      grantXp(state, c.id, "PE", 2 + randInt(0, 2));
-      grantXp(state, c.id, "Gymnastics", 2 + randInt(0, 2));
+      continue;
     }
+    c.hp = Math.max(1, s.hp);
+    c.injured = c.hp < c.maxHp * 0.5;
+    const killBonus = Math.min(3, s.kills);
+    grantXp(state, c.id, "PE", 2 + randInt(0, 2) + (s.usedMelee ? killBonus : 0));
+    grantXp(state, c.id, "Gymnastics", 2 + randInt(0, 2) + (s.usedRanged ? killBonus : 0));
+    if (s.kills >= 3) addLog(state, `${c.name} cut down ${s.kills} zombies at the entrance.`);
   }
 
-  if (ratio < 0.7) {
-    const lost = Math.round(state.resources.food * 0.15);
-    state.resources.food = Math.max(0, state.resources.food - lost);
-    addLog(state, `The horde breached the entrance and spoiled ${lost} food before being pushed back.`);
-    if (defenders.length === 0) {
-      addLog(state, `No one was defending the entrance!`);
-    }
-  } else if (ratio >= 1.3) {
-    addLog(state, `The defense was overwhelming. The horde was routed with ease.`);
+  for (const key of battle.destroyedKeys) {
+    const def = DEFENSE_STRUCTURES.find((d) => d.id === state.entranceGrid.defenses[key]);
+    delete state.entranceGrid.defenses[key];
+    if (def) addLog(state, `The horde smashed a ${def.name} at the entrance to pieces.`);
   }
+
+  if (breached > 0) {
+    let hurt = 0;
+    for (let i = 0; i < breached; i++) {
+      const inside = aliveChars(state).filter((c) => !c.defending);
+      const victim = pick(inside.length ? inside : aliveChars(state));
+      if (!victim) break;
+      if (Math.random() < 0.08) {
+        killCharacter(state, victim);
+        addLog(state, `A zombie that broke into the school got ${victim.name}.`);
+      } else {
+        victim.hp = Math.max(1, victim.hp - (randInt(10, 20) + state.day));
+        victim.injured = victim.hp < victim.maxHp * 0.5;
+        hurt++;
+      }
+    }
+    const lost = Math.round(state.resources.food * Math.min(0.25, breached * 0.04));
+    state.resources.food = Math.max(0, state.resources.food - lost);
+    adjustHappiness(state, -2 * breached);
+    addLog(
+      state,
+      `${breached} zombie${breached === 1 ? "" : "s"} broke into the school` +
+        (hurt ? `, hurting ${hurt} ${hurt === 1 ? "person" : "people"}` : "") +
+        (lost ? ` and spoiling ${lost} food` : "") +
+        ` before being put down.`
+    );
+  }
+
+  const won = breached === 0;
+  const routed = won && killed === spawned && downedCount === 0;
+  if (routed) addLog(state, `The defense was overwhelming. The horde was routed with ease.`);
+  else if (won) addLog(state, `The entrance held — ${killed} of ${spawned} zombies were put down.`);
 
   teamBondBumps(state, defenders.map((c) => c.id));
 
   // A won battle can lead into one (never both) follow-up: a facility raid demanding an
   // immediate response, or a chance to chase the horde down for a bigger prize.
-  if (ratio >= 1.0) {
+  if (won) {
     adjustHappiness(state, HAPPINESS_GAIN_WIN);
     if (Math.random() < FACILITY_RAID_CHANCE) {
       const facility = pick(RAIDABLE_FACILITIES);
@@ -664,7 +937,7 @@ export function resolveDefense(state) {
   }
 
   addLog(state, `Turn 3 (Defense) resolved.`);
-  return { ratio, defenderCount: defenders.length };
+  return { won, routed, spawned, killed, breached, downedCount, defenderCount: defenders.length, size: battle.size, frames: battle.frames };
 }
 
 // ---------- facility raid ----------
@@ -786,13 +1059,25 @@ function resolveDailyFoodUpkeep(state) {
       c.injured = c.hp < c.maxHp * 0.5;
       c.stamina = Math.max(0, c.stamina - 10);
     }
+    return false;
+  }
+  return true;
+}
+
+// A fed school gets a night's rest: everyone recovers a slice of their max HP, so battle damage
+// doesn't just stack up night after night. Going hungry skips it.
+const OVERNIGHT_RECOVERY = 0.15;
+function resolveOvernightRecovery(state) {
+  for (const c of aliveChars(state)) {
+    c.hp = Math.min(c.maxHp, c.hp + Math.round(c.maxHp * OVERNIGHT_RECOVERY));
+    c.injured = c.hp < c.maxHp * 0.5;
   }
 }
 
 export function advanceTurn(state) {
   state.turn++;
   if (state.turn > 3) {
-    resolveDailyFoodUpkeep(state); // consumed at the end of the day that just finished
+    if (resolveDailyFoodUpkeep(state)) resolveOvernightRecovery(state); // end of the day that just finished
     state.turn = 1;
     state.day++;
     addLog(state, `Day ${state.day} begins.`);
@@ -1153,12 +1438,22 @@ function clearEntranceCellForChar(state, charId) {
   }
 }
 
+// Checking a defender from the Night Watch list drops them into the first free front-line spot,
+// so "defending" always means "standing somewhere on the entrance grid".
 export function setDefending(state, charId, value) {
   const c = getChar(state, charId);
   if (!c) return false;
   if (value && c.role !== "student") return false; // teachers never defend either
+  if (value) {
+    if (!Object.values(state.entranceGrid.students).includes(charId)) {
+      const cell = firstFreeEntranceCell(state);
+      if (!cell) return false;
+      state.entranceGrid.students[cell] = charId;
+    }
+  } else {
+    clearEntranceCellForChar(state, charId);
+  }
   c.defending = value;
-  if (!value) clearEntranceCellForChar(state, charId);
   return true;
 }
 

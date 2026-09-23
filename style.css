@@ -361,6 +361,8 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .entrance-cell-portrait { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .entrance-cell-portrait svg, .entrance-cell-portrait img { max-width: 100%; max-height: 100%; }
 .entrance-cell-icon { font-size: 18px; }
+.entrance-cell-locked { opacity: 0.45; }
+.entrance-cell-gear { position: absolute; bottom: 1px; left: 2px; font-size: 9px; line-height: 1; }
 .entrance-cell .cell-remove {
   position: absolute;
   top: 1px;
@@ -801,6 +803,83 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   from { transform: scale(0.6); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+.fight-result-sub { font-size: 13px; color: var(--text); max-width: 320px; text-align: center; }
+
+/* ---------- Night battle playback (entrance grid) ---------- */
+
+.gb-overlay { gap: 12px; overflow-y: auto; justify-content: flex-start; padding-top: 24px; background: rgba(8, 10, 14, 0.95); }
+.gb-header { text-align: center; }
+.gb-title { font-size: 17px; font-weight: 700; }
+.gb-counters { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.gb-gate { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.gb-gate-none { color: var(--warn); }
+.gb-grid {
+  --gb-cell: min(60px, calc((100vw - 48px) / var(--gb-size)));
+  display: grid;
+  grid-template-columns: repeat(var(--gb-size), var(--gb-cell));
+  gap: 3px;
+  flex-shrink: 0;
+}
+.gb-cell {
+  width: var(--gb-cell);
+  height: var(--gb-cell);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  border: 1px solid transparent;
+}
+.gb-top { background: rgba(63, 167, 214, 0.16); border-color: rgba(63, 167, 214, 0.3); }
+.gb-mid { background: rgba(160, 61, 92, 0.16); border-color: rgba(160, 61, 92, 0.3); }
+.gb-bottom { background: rgba(214, 69, 69, 0.12); border-color: rgba(214, 69, 69, 0.25); }
+.gb-unit { line-height: 1; display: flex; }
+.gb-zombie { font-size: calc(var(--gb-cell) * 0.5); }
+.gb-downed { filter: grayscale(1) brightness(0.5); }
+.gb-structure { position: absolute; top: 2px; left: 3px; font-size: calc(var(--gb-cell) * 0.28); opacity: 0.9; }
+.gb-hp { display: block; width: 80%; height: 4px; background: rgba(0, 0, 0, 0.55); border-radius: 2px; overflow: hidden; margin-top: 2px; }
+.gb-hp > span { display: block; height: 100%; transition: width 0.3s ease; }
+.gb-hp-student > span { background: #4caf7d; }
+.gb-hp-zombie > span { background: #d64545; }
+.gb-hp-wall > span { background: #e0a536; }
+.gb-hp-gate { width: 140px; height: 7px; margin: 0; }
+.gb-hp-gate > span { background: #e0a536; }
+.gb-structure + .gb-hp-wall { position: absolute; bottom: 2px; width: 70%; }
+
+.gb-pop {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffd166;
+  text-shadow: 0 0 3px #000, 0 0 3px #000;
+  pointer-events: none;
+  animation: gb-pop-rise 0.45s ease-out forwards;
+}
+.fx-bitten .gb-pop, .fx-breach .gb-pop { color: #ff6b6b; }
+.fx-miss .gb-pop { color: var(--muted); font-weight: 600; }
+@keyframes gb-pop-rise {
+  from { opacity: 1; transform: translate(-50%, 0) scale(1.15); }
+  to { opacity: 0.2; transform: translate(-50%, -16px) scale(1); }
+}
+
+.fx-hit { animation: gb-flash-hit 0.4s ease-out; }
+.fx-bitten { animation: gb-flash-bitten 0.4s ease-out; }
+.fx-smash { animation: gb-flash-smash 0.4s ease-out; }
+.fx-kill { animation: gb-flash-kill 0.4s ease-out; }
+.fx-breach, .fx-downed { box-shadow: inset 0 0 0 2px #d64545; }
+.fx-swing { box-shadow: inset 0 0 0 2px #e0a536; }
+.fx-shoot { box-shadow: inset 0 0 0 2px #3fa7d6; }
+@keyframes gb-flash-hit { from { background-color: rgba(255, 209, 102, 0.55); } }
+@keyframes gb-flash-bitten { from { background-color: rgba(214, 69, 69, 0.6); } }
+@keyframes gb-flash-smash { from { background-color: rgba(224, 165, 54, 0.55); } }
+@keyframes gb-flash-kill { from { background-color: rgba(255, 255, 255, 0.55); } }
+
+.gb-result { gap: 6px; }
+.gb-result .fight-result-icon { font-size: 40px; }
+.gb-result-stats { font-size: 12.5px; color: var(--muted); text-align: center; }
 
 .cc-left {
   flex-shrink: 0;

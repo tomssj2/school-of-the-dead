@@ -188,12 +188,32 @@ export const LEGENDARY_TITLES = ["the Relentless", "the Unbroken", "the Last Sta
 // later "expand the entrance" upgrade can just grow state.entranceGrid.size.
 export const ENTRANCE_GRID_SIZE = 6;
 
+// `blocks` structures stop zombies until smashed (hp); destroyed ones are gone after the battle,
+// damaged ones are patched back up. `enterDamage` hits a zombie stepping onto the cell;
+// `slows` holds it there an extra tick.
 export const DEFENSE_STRUCTURES = [
-  { id: "barricade", name: "Barricade", icon: "🚧", cost: { materials: 12 }, desc: "A simple wooden barricade. Slows the horde down." },
-  { id: "spike_trap", name: "Spike Trap", icon: "🔺", cost: { materials: 18 }, desc: "Impales zombies that stumble through." },
-  { id: "sandbag_wall", name: "Sandbag Wall", icon: "🧱", cost: { materials: 15 }, desc: "Sturdy cover for defenders to fight behind." },
-  { id: "razor_wire", name: "Razor Wire", icon: "🔗", cost: { materials: 20 }, desc: "Tangles and cuts anything that pushes through." },
+  { id: "barricade", name: "Barricade", icon: "🚧", cost: { materials: 12 }, blocks: true, hp: 40, desc: "Blocks a lane until the horde smashes through (40 HP)." },
+  { id: "sandbag_wall", name: "Sandbag Wall", icon: "🧱", cost: { materials: 18 }, blocks: true, hp: 80, desc: "A heavier wall — takes twice the beating (80 HP)." },
+  { id: "spike_trap", name: "Spike Trap", icon: "🔺", cost: { materials: 15 }, enterDamage: 14, desc: "Deals 14 damage to every zombie that steps on it." },
+  { id: "razor_wire", name: "Razor Wire", icon: "🔗", cost: { materials: 20 }, enterDamage: 6, slows: true, desc: "Cuts for 6 and snags zombies in place for an extra turn." },
 ];
+
+// ===== Night battle tuning =====
+export const ZOMBIE_HIT_CHANCE = 0.65;
+export const FIST_WEAPON = { name: "Fists", icon: "👊", damage: 4, range: 1, category: "melee" };
+export const BATTLE_MAX_TICKS = 40;
+export const DOWNED_DEATH_CHANCE = 0.2; // before the Biology modifier, when there's no medicine to spare
+export const MEDICINE_PER_STABILIZE = 5; // spent automatically to save a downed defender outright
+export function zombieCountForDay(day) {
+  return 3 + Math.floor(day * 0.8);
+}
+export function zombieStatsForDay(day) {
+  return { hp: 18 + day * 2, damage: 4 + Math.floor(day / 2) };
+}
+
+// ===== Expedition loot =====
+export const EXPEDITION_ITEM_CHANCE = 0.3; // + 0.08 per location difficulty, on a success
+export const EXPEDITION_ITEM_CHANCE_FAILED = 0.1;
 
 // ===== Skill tree =====
 // One path per subject/grade, 5 nodes (D through S). A node unlocks automatically once the
@@ -402,6 +422,7 @@ export const LOCATIONS = [
     difficulty: 3,
     danger: 2,
     rewards: { food: 2, materials: 24, medicine: 1 },
+    lootBias: "weapon",
     hex: { q: -3, r: 1 }, // distance 3
   },
   {
@@ -411,6 +432,7 @@ export const LOCATIONS = [
     difficulty: 5,
     danger: 5,
     rewards: { food: 4, materials: 8, medicine: 30 },
+    lootBias: "armor",
     hex: { q: -2, r: -3 }, // distance 5 — clear across town
   },
   {
@@ -420,6 +442,7 @@ export const LOCATIONS = [
     difficulty: 5,
     danger: 5,
     rewards: { food: 2, materials: 30, medicine: 4 },
+    lootBias: "weapon",
     hex: { q: 5, r: 0 }, // distance 5 — clear across town
   },
   {
@@ -430,6 +453,7 @@ export const LOCATIONS = [
     danger: 4,
     rewards: { food: 14, materials: 10, medicine: 6 },
     recruitBonus: 2,
+    lootBias: "accessory",
     hex: { q: 4, r: -1 }, // distance 4
   },
   {

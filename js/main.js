@@ -271,6 +271,41 @@ function playBattleAnimation(kind, summary, won, afterResult) {
   }, 1300);
 }
 
+// Replays the night battle's recorded frames on the grid, one tick at a time. The battle itself
+// is already fully resolved in `state`; "Skip" just jumps to the result, and "Continue" on the
+// result screen runs `afterResult` to finish the turn.
+const BATTLE_TICK_MS = 450;
+let battleTimer = null;
+function playGridBattle(summary, afterResult) {
+  const anim = { kind: "grid", summary, frameIndex: 0, phase: "battle" };
+  const showResult = () => {
+    if (anim.phase !== "battle") return;
+    clearTimeout(battleTimer);
+    anim.phase = "result";
+    anim.frameIndex = summary.frames.length - 1;
+    (summary.won ? playSuccess : playFail)();
+    render();
+  };
+  const step = () => {
+    if (anim.frameIndex >= summary.frames.length - 1) return showResult();
+    anim.frameIndex++;
+    const events = summary.frames[anim.frameIndex].events;
+    if (events.some((e) => (e.type === "bite" && e.hit) || e.type === "breach" || e.type === "downed")) playHit();
+    render();
+    battleTimer = setTimeout(step, BATTLE_TICK_MS);
+  };
+  anim.skip = showResult;
+  anim.finish = () => {
+    clearTimeout(battleTimer);
+    battleAnimation = null;
+    afterResult();
+  };
+  battleAnimation = anim;
+  playHit();
+  render();
+  battleTimer = setTimeout(step, 900);
+}
+
 function resolveCurrentTurn() {
   if (state.turn === 1) {
     G.resolveTraining(state);
@@ -289,7 +324,7 @@ function resolveCurrentTurn() {
     }
   } else {
     const summary = G.resolveDefense(state);
-    playBattleAnimation("defense", summary, summary.ratio >= 1.0, () => {
+    playGridBattle(summary, () => {
       // A won battle can roll a facility raid or an Assault opportunity that must be handled
       // (assigning raid defenders, or answering the Assault popup) before the day advances —
       // resolveFacilityRaid/resolveAssault call advanceTurn themselves once that happens.
@@ -539,6 +574,12 @@ root.addEventListener("click", (e) => {
       dayRecap = null;
       render();
       break;
+    case "skip-battle":
+      if (battleAnimation && battleAnimation.skip) battleAnimation.skip();
+      break;
+    case "finish-battle":
+      if (battleAnimation && battleAnimation.finish) battleAnimation.finish();
+      break;
     case "buy-tech":
       if (!G.buyTech(state, el.dataset.id)) flash("Can't buy that yet.");
       render();
@@ -654,7 +695,7 @@ root.addEventListener("change", (e) => {
       break;
     }
     case "toggle-defend": {
-      G.setDefending(state, el.dataset.id, el.checked);
+      if (!G.setDefending(state, el.dataset.id, el.checked)) flash("No free spots left on the entrance grid.");
       render();
       break;
     }
