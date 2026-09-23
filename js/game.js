@@ -12,6 +12,7 @@ import {
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE,
   EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
+  ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES,
 } from "./data.js";
 import {
   makeCharacter, makeLegendaryCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
@@ -50,6 +51,7 @@ export function createInitialState() {
     eventLog: [], // most recent random events, newest first
     exploredHexes: [], // "q,r" keys the fog of war has been lifted from
     techUnlocked: [], // TECH_TREE ids purchased with banked Research
+    entranceGrid: { size: ENTRANCE_GRID_SIZE, students: {}, defenses: {} }, // "row,col" -> id
     characters: [],
     rooms: {
       classrooms: Object.fromEntries(
@@ -805,6 +807,7 @@ export function advanceTurn(state) {
     c.exploreTeam = null;
     c.defending = false;
   }
+  state.entranceGrid.students = {}; // built defenses persist; daily placements don't
   state.teamLocations = [null, null, null];
   checkGameOver(state);
 }
@@ -917,6 +920,7 @@ export function promoteToTeacher(state, id) {
   c.post = null;
   c.exploreTeam = null;
   c.defending = false;
+  clearEntranceCellForChar(state, id);
   // Their teaching specialty becomes whatever subject they excelled in as a student.
   c.teachSubject = SUBJECTS.reduce((best, s) => (c.grades[s] > c.grades[best] ? s : best), SUBJECTS[0]);
   c.name = withTeacherHonorific(c.name, c.gender);
@@ -1122,11 +1126,61 @@ export function scoutHex(state, studentId, q, r) {
   return { ambushed: false, encountered, location };
 }
 
+// Removes any grid cell a character occupies, without touching their `defending` flag — used
+// wherever `defending` is cleared from elsewhere (setDefending, promotion) so the grid never
+// points at a student who isn't actually defending.
+function clearEntranceCellForChar(state, charId) {
+  const students = state.entranceGrid.students;
+  for (const key of Object.keys(students)) {
+    if (students[key] === charId) delete students[key];
+  }
+}
+
 export function setDefending(state, charId, value) {
   const c = getChar(state, charId);
   if (!c) return false;
   if (value && c.role !== "student") return false; // teachers never defend either
   c.defending = value;
+  if (!value) clearEntranceCellForChar(state, charId);
+  return true;
+}
+
+// ---------- entrance battle grid ----------
+
+export function placeEntranceStudent(state, cellKey, studentId) {
+  const c = getChar(state, studentId);
+  if (!c || c.role !== "student" || !c.alive) return false;
+  clearEntranceCellForChar(state, studentId);
+  state.entranceGrid.students[cellKey] = studentId;
+  c.defending = true;
+  return true;
+}
+
+export function clearEntranceStudentCell(state, cellKey) {
+  const studentId = state.entranceGrid.students[cellKey];
+  if (!studentId) return false;
+  delete state.entranceGrid.students[cellKey];
+  const c = getChar(state, studentId);
+  if (c) c.defending = false;
+  return true;
+}
+
+export function buildDefense(state, cellKey, structureId) {
+  if (state.entranceGrid.defenses[cellKey]) return false;
+  const def = DEFENSE_STRUCTURES.find((d) => d.id === structureId);
+  if (!def) return false;
+  for (const res of Object.keys(def.cost)) {
+    if ((state.resources[res] || 0) < def.cost[res]) return false;
+  }
+  for (const res of Object.keys(def.cost)) state.resources[res] -= def.cost[res];
+  state.entranceGrid.defenses[cellKey] = structureId;
+  addLog(state, `Built a ${def.name} at the entrance.`);
+  return true;
+}
+
+export function clearDefense(state, cellKey) {
+  if (!state.entranceGrid.defenses[cellKey]) return false;
+  delete state.entranceGrid.defenses[cellKey];
   return true;
 }
 

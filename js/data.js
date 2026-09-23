@@ -152,6 +152,20 @@ export const LEGENDARY_ITEM_TEMPLATES = [
 
 export const LEGENDARY_TITLES = ["the Relentless", "the Unbroken", "the Last Stand", "the Ironclad", "the Undying", "the Reaper's Bane"];
 
+// ===== Main Entrance battle grid =====
+// The grid the player builds and fights on at the Main Entrance, split into 3 equal horizontal
+// thirds: students are placed in the top rows, defenses are built in the middle rows, and the
+// bottom rows are reserved for the horde. Starts at 6x6 — stored on state (not hardcoded) so a
+// later "expand the entrance" upgrade can just grow state.entranceGrid.size.
+export const ENTRANCE_GRID_SIZE = 6;
+
+export const DEFENSE_STRUCTURES = [
+  { id: "barricade", name: "Barricade", icon: "🚧", cost: { materials: 12 }, desc: "A simple wooden barricade. Slows the horde down." },
+  { id: "spike_trap", name: "Spike Trap", icon: "🔺", cost: { materials: 18 }, desc: "Impales zombies that stumble through." },
+  { id: "sandbag_wall", name: "Sandbag Wall", icon: "🧱", cost: { materials: 15 }, desc: "Sturdy cover for defenders to fight behind." },
+  { id: "razor_wire", name: "Razor Wire", icon: "🔗", cost: { materials: 20 }, desc: "Tangles and cuts anything that pushes through." },
+];
+
 // ===== Skill tree =====
 // One path per subject/grade, 5 nodes (D through S). A node unlocks automatically once the
 // character's letter grade in that subject reaches its tier — no separate skill points.

@@ -1,11 +1,11 @@
 import * as G from "./game.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
-  HAPPINESS_START,
+  HAPPINESS_START, ENTRANCE_GRID_SIZE,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -24,6 +24,7 @@ let openScoutHex = null; // { q, r } or null
 let fightAnimation = null; // { studentId, ambushed, phase: "clash" | "result" } or null
 let battleAnimation = null; // { kind: "defense" | "exploration", summary, phase: "clash" | "result" } or null
 let openPicker = null; // { kind, roomId, seatIndex, postKey } or null
+let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
 let pickerSortDir = "desc";
 let lastResources = null; // resources/happiness snapshot from the previous render(), for floaties
@@ -74,6 +75,7 @@ function migrateState(s) {
   if (!s.eventLog) s.eventLog = [];
   if (!s.exploredHexes) s.exploredHexes = [];
   if (!s.techUnlocked) s.techUnlocked = [];
+  if (!s.entranceGrid) s.entranceGrid = { size: ENTRANCE_GRID_SIZE, students: {}, defenses: {} };
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -185,6 +187,8 @@ function render() {
     ? renderScoutModal(state, openScoutHex.q, openScoutHex.r)
     : openPicker
     ? renderPickerModal(state, openPicker, pickerSortKey, pickerSortDir)
+    : openDefenseBuild
+    ? renderDefenseBuildModal(state, openDefenseBuild)
     : state.pendingAssault
     ? renderAssaultModal()
     : "";
@@ -479,6 +483,32 @@ root.addEventListener("click", (e) => {
       openPicker = null;
       render();
       break;
+    case "open-defense-build": {
+      openCardId = null;
+      openMissionLocationId = null;
+      openScoutHex = null;
+      openPicker = null;
+      openDefenseBuild = el.dataset.cell;
+      render();
+      break;
+    }
+    case "close-defense-build":
+      openDefenseBuild = null;
+      render();
+      break;
+    case "build-defense":
+      if (!G.buildDefense(state, el.dataset.cell, el.dataset.structure)) flash("Can't build that here.");
+      openDefenseBuild = null;
+      render();
+      break;
+    case "clear-defense":
+      G.clearDefense(state, el.dataset.cell);
+      render();
+      break;
+    case "clear-entrance-student":
+      G.clearEntranceStudentCell(state, el.dataset.cell);
+      render();
+      break;
     case "close-day-recap":
       dayRecap = null;
       render();
@@ -502,6 +532,7 @@ root.addEventListener("click", (e) => {
         case "farm": G.setFarmToday(state, id, true); break;
         case "scrapyard": G.setScrapyardToday(state, id, true); break;
         case "lab": G.setLabToday(state, id, true); break;
+        case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
         default: break;
       }
       openPicker = null;

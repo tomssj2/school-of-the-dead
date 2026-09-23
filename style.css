@@ -339,6 +339,59 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .room-entrance { --room-accent: #d64545; }
 .room-utility { --room-accent: #a03d5c; }
 
+.entrance-grid { display: grid; gap: 4px; margin: 10px 0 6px; }
+.entrance-cell {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+}
+.entrance-cell-top { background: rgba(63, 167, 214, 0.1); border-color: rgba(63, 167, 214, 0.3); }
+.entrance-cell-mid { background: rgba(160, 61, 92, 0.1); border-color: rgba(160, 61, 92, 0.3); }
+.entrance-cell-bottom { background: rgba(214, 69, 69, 0.08); border-color: rgba(214, 69, 69, 0.25); }
+.entrance-cell-empty { cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+.entrance-cell-empty:hover { border-color: var(--accent); color: var(--accent); }
+.entrance-cell-filled { padding: 2px; }
+.entrance-cell-portrait { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.entrance-cell-portrait svg, .entrance-cell-portrait img { max-width: 100%; max-height: 100%; }
+.entrance-cell-icon { font-size: 18px; }
+.entrance-cell .cell-remove {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  line-height: 1;
+  background: none;
+  border: none;
+  color: var(--accent-2);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 2px;
+  z-index: 1;
+}
+.entrance-legend { font-size: 11.5px; margin-top: 2px; }
+
+.defense-build-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.defense-build-option {
+  text-align: left;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color 0.12s, transform 0.12s;
+}
+.defense-build-option:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.defense-build-option:disabled { opacity: 0.4; cursor: not-allowed; }
+.defense-build-option-main { display: flex; align-items: center; gap: 6px; }
+.defense-build-option p { margin: 4px 0 0; }
+
 .mini-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 10px 0 4px; }
 
 .assign-list { list-style: none; padding: 0; margin: 4px 0; }

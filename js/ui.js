@@ -3,7 +3,7 @@ import {
   CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, LOCATIONS,
   BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_UPGRADE_MAX_LEVEL,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, SCOUT_STAMINA_COST, TECH_TREE,
-  ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
+  ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -783,7 +783,7 @@ function studentBusyLabel(c, exceptFlag) {
   if (exceptFlag !== "scrapyardToday" && c.scrapyardToday) return "Working the Scrapyard";
   if (exceptFlag !== "labToday" && c.labToday) return "Working the Lab";
   if (c.exploreTeam !== null) return `Exploring (Team ${c.exploreTeam + 1})`;
-  if (c.defending) return "Defending the Entrance";
+  if (exceptFlag !== "defending" && c.defending) return "Defending the Entrance";
   return null;
 }
 
@@ -833,6 +833,14 @@ function resolvePickerCandidates(state, picker) {
         role: "teacher", title: "Assign a Teacher",
         list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== postKey).map((c) => teacherRow(c, postKey)),
       };
+    case "entrance-student": {
+      const placed = new Set(Object.values(state.entranceGrid.students));
+      return {
+        role: "student", title: "Place a Student at the Entrance",
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !placed.has(c.id))
+          .map((c) => studentRow(c, "defending")),
+      };
+    }
     case "farm":
     case "scrapyard":
     case "lab": {
@@ -890,7 +898,73 @@ export function renderPickerModal(state, picker, sortKey, sortDir) {
   </div>`;
 }
 
+export function renderDefenseBuildModal(state, cellKey) {
+  const options = DEFENSE_STRUCTURES.map((d) => {
+    const affordable = Object.keys(d.cost).every((res) => (state.resources[res] || 0) >= d.cost[res]);
+    const costLabel = Object.keys(d.cost).map((res) => `${TECH_EFFECT_ICON[res] || ""} ${d.cost[res]}`).join("  ");
+    return `<button class="defense-build-option" data-action="build-defense" data-cell="${cellKey}" data-structure="${d.id}" ${affordable ? "" : "disabled"}>
+      <div class="defense-build-option-main"><span class="tech-icon">${d.icon}</span> <b>${esc(d.name)}</b> <span class="muted">${costLabel}</span></div>
+      <p class="muted">${esc(d.desc)}</p>
+    </button>`;
+  }).join("");
+
+  return `
+  <div class="modal-overlay" data-action="close-defense-build">
+    <div class="char-card mission-card" data-action="noop">
+      <button class="cc-close" data-action="close-defense-build" title="Close">✕</button>
+      <h3>Build a Defense</h3>
+      <div class="defense-build-list">${options}</div>
+    </div>
+  </div>`;
+}
+
 // ---------- floor 1 ----------
+
+function entranceCellKey(row, col) {
+  return `${row},${col}`;
+}
+
+function renderEntranceGrid(state) {
+  const grid = state.entranceGrid;
+  const size = grid.size;
+  const third = Math.floor(size / 3);
+  const cells = [];
+
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      const key = entranceCellKey(row, col);
+      if (row < third) {
+        const studentId = grid.students[key];
+        const c = studentId ? getChar(state, studentId) : null;
+        cells.push(
+          c && c.alive
+            ? `<div class="entrance-cell entrance-cell-top entrance-cell-filled" title="${esc(c.name)}">
+                <button class="cell-remove" data-action="clear-entrance-student" data-cell="${key}" title="Remove">✕</button>
+                <span class="entrance-cell-portrait">${characterSprite(c, 26)}</span>
+              </div>`
+            : `<div class="entrance-cell entrance-cell-top entrance-cell-empty" data-action="open-picker" data-kind="entrance-student" data-room="${key}" title="Place a student here">+</div>`
+        );
+      } else if (row < third * 2) {
+        const structureId = grid.defenses[key];
+        const def = structureId ? DEFENSE_STRUCTURES.find((d) => d.id === structureId) : null;
+        cells.push(
+          def
+            ? `<div class="entrance-cell entrance-cell-mid entrance-cell-filled" title="${esc(def.name)}">
+                <button class="cell-remove" data-action="clear-defense" data-cell="${key}" title="Demolish">✕</button>
+                <span class="entrance-cell-icon">${def.icon}</span>
+              </div>`
+            : `<div class="entrance-cell entrance-cell-mid entrance-cell-empty" data-action="open-defense-build" data-cell="${key}" title="Build a defense here">+</div>`
+        );
+      } else {
+        cells.push(`<div class="entrance-cell entrance-cell-bottom"></div>`);
+      }
+    }
+  }
+
+  return `
+    <div class="entrance-grid" style="grid-template-columns: repeat(${size}, 1fr);">${cells.join("")}</div>
+    <p class="muted entrance-legend">🔵 Top — place your students &nbsp;·&nbsp; 🟣 Middle — build defenses &nbsp;·&nbsp; 🔴 Bottom — the horde spawns here</p>`;
+}
 
 export function renderFloor1(state) {
   const gymRoom = state.rooms.gym;
@@ -941,9 +1015,11 @@ export function renderFloor1(state) {
         ${upgradeButton(state, "cafeteria", null, "student", "Student slot")}
       </div>
       <div class="room room-entrance">
-        <h3>🚪 Main Entrance</h3>
-        <p class="muted">Defended each night during Turn 3. Assign defenders from the Turn panel.</p>
+        <h3>🚪 Main Entrance <span class="muted">(${state.entranceGrid.size}×${state.entranceGrid.size} battle grid)</span></h3>
+        <p class="muted">Defended each night during Turn 3. Place students up top to defend, build defenses in the
+        middle row, and watch the bottom — that's where the horde comes from.</p>
         <p>Fortification: <b>${state.fortification}</b> (from the Crafting Room)</p>
+        ${renderEntranceGrid(state)}
       </div>
     </div>
   </div>`;
