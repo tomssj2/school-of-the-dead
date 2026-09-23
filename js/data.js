@@ -322,7 +322,50 @@ export const GYM_CAPACITY = 10; // base student slots/day
 export const GYM_MAX_TEACHERS = 3; // base teacher slots (gym works fine with none assigned)
 
 export const CAFETERIA_CAPACITY = 10; // base student rest slots/day
-export const CAFETERIA_MAX_TEACHERS = 3; // base teacher (cook) slots
+export const CAFETERIA_MAX_TEACHERS = 3; // base teacher (cook) slots — each cook makes one dish a day
+
+// Nurse's Office: one nurse (a teacher) and a few beds. A patient heals INFIRMARY_HEAL_BASE of their
+// max HP plus up to INFIRMARY_NURSE_BONUS more from the nurse's Biology, spending medicine; with
+// none to spare they only get bed rest.
+export const INFIRMARY_CAPACITY = 4;
+export const INFIRMARY_MAX_TEACHERS = 1;
+export const INFIRMARY_MEDICINE_PER_PATIENT = 3;
+export const INFIRMARY_HEAL_BASE = 0.3;
+export const INFIRMARY_NURSE_BONUS = 0.25; // at Biology 100
+export const INFIRMARY_BED_REST = 0.1;
+
+// ===== Cooking =====
+// Ingredients are scavenged on expeditions; cooks turn them (plus some food to feed everyone) into
+// a dish whose buff covers the whole school until the day ends. `effect` multipliers are read
+// through dishMultiplier() in game.js.
+export const INGREDIENTS = {
+  canned_meat: { name: "Canned Meat", icon: "🥫" },
+  spices: { name: "Spices", icon: "🌶️" },
+  honey: { name: "Honey", icon: "🍯" },
+  coffee: { name: "Coffee Beans", icon: "☕" },
+  chocolate: { name: "Chocolate", icon: "🍫" },
+};
+export const STARTING_PANTRY = { canned_meat: 1, spices: 1, honey: 1, coffee: 1, chocolate: 1 };
+export const DISHES = [
+  {
+    id: "scavenger_stew", name: "Scavenger's Stew", icon: "🍲", ingredients: { canned_meat: 1, spices: 1 }, food: 8,
+    effect: { expeditionMaterials: 1.5 }, desc: "Expeditions bring back 50% more materials today.",
+  },
+  {
+    id: "bbq_beacon", name: "Barbecue Beacon", icon: "🍖", ingredients: { canned_meat: 1, honey: 1 }, food: 8,
+    effect: { recruitChance: 2 }, desc: "The smoke carries for miles — expeditions are twice as likely to find survivors today.",
+  },
+  {
+    id: "battle_chili", name: "Battle Chili", icon: "🥘", ingredients: { spices: 1, coffee: 1 }, food: 8,
+    effect: { battleDamage: 1.25 }, desc: "Defenders deal 25% more damage in tonight's battle.",
+  },
+  {
+    id: "brain_brownies", name: "Brain-Food Brownies", icon: "🧁", ingredients: { chocolate: 1, coffee: 1 }, food: 6,
+    effect: { xp: 1.5 }, desc: "Every action earns 50% more XP today.",
+  },
+];
+export const EXPEDITION_INGREDIENT_CHANCE = 0.5; // + a location's ingredientBonus, on a success
+export const EXPEDITION_INGREDIENT_CHANCE_FAILED = 0.15;
 
 // Outside facilities, worked during Turn 2 instead of exploring. No teacher slots — just passive
 // per-student daily yield, split out so each facility can scale/upgrade independently.
@@ -355,6 +398,7 @@ export const ROOM_UPGRADE_INCREMENT = {
   gymTeacher: 1,
   cafeteriaStudent: 5,
   cafeteriaTeacher: 1,
+  infirmaryStudent: 2,
   farmStudent: 5,
   scrapyardStudent: 5,
   labStudent: 5,
@@ -439,6 +483,7 @@ export const LOCATIONS = [
     difficulty: 1,
     danger: 1,
     rewards: { food: 12, materials: 4, medicine: 2 },
+    ingredientBonus: 0.15,
     hex: { q: 1, r: 0 }, // distance 1 — right next door
   },
   {
@@ -457,6 +502,7 @@ export const LOCATIONS = [
     difficulty: 3,
     danger: 3,
     rewards: { food: 28, materials: 6, medicine: 4 },
+    ingredientBonus: 0.35,
     hex: { q: 0, r: 3 }, // distance 3
   },
   {
@@ -508,6 +554,7 @@ export const LOCATIONS = [
     danger: 3,
     rewards: { food: 10, materials: 6, medicine: 4 },
     recruitBonus: 1.5,
+    ingredientBonus: 0.15,
     hex: { q: -1, r: -1 }, // distance 2
   },
 ];

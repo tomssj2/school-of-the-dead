@@ -5,6 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, SCOUT_STAMINA_COST, TECH_TREE,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
+  DISHES, INGREDIENTS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -12,7 +13,7 @@ import {
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
-  isHexExplored, canScoutHex, meetsItemRequirement, antennaReady,
+  isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty,
 } from "./game.js";
 import { characterSprite } from "./sprite.js";
 import { isSoundEnabled } from "./sound.js";
@@ -151,6 +152,7 @@ function roomDisplayName(state, roomId) {
 const TEACHER_POST_LABEL = {
   gym: "Gym",
   cafeteria: "Cafeteria",
+  infirmary: "Nurse's Office",
   research: "Research Room",
   crafting: "Crafting Room",
   council: "Student Council",
@@ -166,6 +168,7 @@ function occupationLabel(state, c) {
   }
   if (c.defending) return "Defending";
   if (c.exploreTeam !== null) return `Exploring (Team ${c.exploreTeam + 1})`;
+  if (c.infirmaryToday) return "Nurse's Office";
   if (c.cafeteriaToday) return "Cafeteria";
   if (c.gymToday) return "Gym";
   if (c.farmToday) return "Farm";
@@ -214,7 +217,7 @@ const TB_INFO = {
   happiness: "Happiness — rises from won battles and new recruits, falls from failed missions and deaths. Skews random events toward good or bad.",
   food: "Food — grown at the Farm and looted from exploration sites. Consumed every night to feed the school.",
   materials: "Materials — looted from exploration and worked at the Scrapyard. Spent on room upgrades and the Crafting Room.",
-  medicine: "Medicine — looted from exploration sites and produced by the Research Room. Spent automatically (5 each) to save defenders who go down in the night battle.",
+  medicine: "Medicine — looted from exploration sites and produced by the Research Room. Spent treating patients in the Nurse's Office (3 each) and, automatically, saving defenders who go down in the night battle (5 each).",
   research: "Research — earned by staffing the Lab. Spent on the Research tech tree.",
 };
 
@@ -245,6 +248,11 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
         <span class="${tbItemClass(floaties, "population")}" title="${TB_INFO.population}">👥 <b>${pop}</b>${floatyFor(floaties, "population")}</span>
         <span class="tb-item" title="${TB_INFO.teachers}">🎓 <b>${teacherCount(state)}</b></span>
         <span class="${tbItemClass(floaties, "happiness")}" title="${TB_INFO.happiness}">${happinessFace(state.happiness)} <b>${state.happiness}</b>${floatyFor(floaties, "happiness")}</span>
+        ${state.dishesToday
+          .map((id) => DISHES.find((d) => d.id === id))
+          .filter(Boolean)
+          .map((d) => `<span class="tb-buff" title="${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon}</span>`)
+          .join("")}
       </div>
     </div>
     <div class="topbar-center">
@@ -276,7 +284,7 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
 // screens on Turn 3.
 const LEFT_TABS_BY_TURN = {
   1: [
-    ["floor1", "🚪 Entrance"],
+    ["floor1", "🍽 Commons"],
     ["floor2", "🏫 Classrooms"],
     ["floor3", "🏢 Facilities"],
   ],
@@ -405,7 +413,10 @@ function renderTurn1Overview(state) {
   }).join("");
   const gymCount = state.characters.filter((c) => c.gymToday).length;
   const restCount = state.characters.filter((c) => c.cafeteriaToday).length;
-  const cooks = state.characters.filter((c) => c.role === "teacher" && c.post === "cafeteria");
+  const cooks = cooksOnDuty(state);
+  const patientCount = state.characters.filter((c) => c.infirmaryToday).length;
+  const nurse = state.characters.find((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
+  const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
   return `
   <div class="card">
     <h2>Turn 1 — Classes</h2>
@@ -417,6 +428,8 @@ function renderTurn1Overview(state) {
       ${classroomSummaries}
       <li><b>Gym</b>: ${gymCount}/${state.rooms.gym.studentCapacity} students training today</li>
       <li><b>Cafeteria</b>: ${cooks.length ? cooks.map((c) => esc(c.name)).join(", ") : "no cooks assigned"}, ${restCount}/${state.rooms.cafeteria.studentCapacity} students resting today</li>
+      <li><b>Today's meals</b>: ${served.length ? served.map((d) => `${d.icon} ${esc(d.name)}`).join(", ") : `none yet${cooks.length ? " — cook something in the Cafeteria" : ""}`}</li>
+      <li><b>Nurse's Office</b>: ${nurse ? esc(nurse.name) : "no nurse"}, ${patientCount}/${state.rooms.infirmary.studentCapacity} patients today</li>
     </ul>
     <button class="btn btn-primary btn-big" data-action="resolve-turn">📚 Hold Classes &amp; Advance to Afternoon</button>
   </div>`;
@@ -680,13 +693,15 @@ export function renderBattleAnimation(state, anim) {
       </div>`;
     }
 
-    const { teamsSent, successes, itemsFound = [] } = anim.summary;
+    const { teamsSent, successes, itemsFound = [], ingredientsFound = [] } = anim.summary;
     const none = successes === 0;
     const icon = successes === teamsSent ? "🧳" : none ? "😬" : "⚖️";
     const text = `${successes}/${teamsSent} expedition${teamsSent === 1 ? "" : "s"} succeeded`;
-    const loot = itemsFound.length
-      ? `<div class="fight-result-sub">Found: ${itemsFound.map((it) => `${it.icon} ${esc(it.name)}`).join(", ")}</div>`
-      : "";
+    const finds = [
+      ...itemsFound.map((it) => `${it.icon} ${esc(it.name)}`),
+      ...ingredientsFound.map((g) => `${INGREDIENTS[g.id].icon} ${esc(INGREDIENTS[g.id].name)} ×${g.qty}`),
+    ];
+    const loot = finds.length ? `<div class="fight-result-sub">Found: ${finds.join(", ")}</div>` : "";
     return `
     <div class="modal-overlay fight-overlay">
       <div class="fight-result ${none ? "fight-lose" : "fight-win"}">
@@ -827,7 +842,7 @@ function renderTurn3Overview(state) {
       <div>Defenders on the grid: <b>${defenders.length}</b>${unarmed ? ` · ⚠️ ${unarmed} fighting bare-handed — hand out weapons from each student's Inventory tab` : ""}</div>
       <div>Medicine: <b>${state.resources.medicine}</b> — enough to patch up <b>${Math.floor(state.resources.medicine / 5)}</b> defender${Math.floor(state.resources.medicine / 5) === 1 ? "" : "s"} who go down (without it, they might not get back up)</div>
     </div>
-    ${renderEntranceGrid(state, true)}
+    ${renderEntranceGrid(state)}
     <div class="mini-label">Quick assign — drops them on the front line</div>
     <div class="check-list">${rows || '<p class="muted">Nobody available.</p>'}</div>
     <button class="btn btn-primary btn-big" data-action="resolve-turn">🛡 Defend the Entrance &amp; Advance to Next Day</button>
@@ -909,6 +924,7 @@ function teacherBusyLabel(state, c, exceptPost) {
 function studentBusyLabel(c, exceptFlag) {
   if (exceptFlag !== "gymToday" && c.gymToday) return "Training in the Gym";
   if (exceptFlag !== "cafeteriaToday" && c.cafeteriaToday) return "Resting in the Cafeteria";
+  if (exceptFlag !== "infirmaryToday" && c.infirmaryToday) return "In the Nurse's Office";
   if (exceptFlag !== "farmToday" && c.farmToday) return "Working the Farm";
   if (exceptFlag !== "scrapyardToday" && c.scrapyardToday) return "Working the Scrapyard";
   if (exceptFlag !== "labToday" && c.labToday) return "Working the Lab";
@@ -943,6 +959,17 @@ function resolvePickerCandidates(state, picker) {
       return {
         role: "student", title: "Send a Student to Rest",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.cafeteriaToday).map((c) => studentRow(c, "cafeteriaToday")),
+      };
+    case "infirmary-teacher":
+      return {
+        role: "teacher", title: "Assign a Nurse",
+        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "infirmary").map((c) => teacherRow(c, "infirmary")),
+      };
+    case "infirmary-student":
+      return {
+        role: "student", title: "Send a Student to the Nurse",
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infirmaryToday)
+          .map((c) => studentRow(c, "infirmaryToday", (c) => (c.hp >= c.maxHp ? "Already at full HP" : null))),
       };
     case "classroom-teacher": {
       const post = `classroom:${roomId}`;
@@ -1054,9 +1081,9 @@ function entranceCellKey(row, col) {
   return `${row},${col}`;
 }
 
-// Every turn advance clears who's defending, so student spots only open during the Night Watch
-// (placementOpen) — anywhere else they're shown locked. Defenses can be built any time.
-function renderEntranceGrid(state, placementOpen) {
+// Shown during the Night Watch (Turn 3's overview and Defense tab), where defenders take their
+// spots and defenses get built.
+function renderEntranceGrid(state) {
   const grid = state.entranceGrid;
   const size = grid.size;
   const third = Math.floor(size / 3);
@@ -1074,13 +1101,11 @@ function renderEntranceGrid(state, placementOpen) {
         cells.push(
           c && c.alive
             ? `<div class="entrance-cell entrance-cell-top entrance-cell-filled" title="${esc(c.name)} — ${esc(gearTitle)}">
-                ${placementOpen ? `<button class="cell-remove" data-action="clear-entrance-student" data-cell="${key}" title="Remove">✕</button>` : ""}
+                <button class="cell-remove" data-action="clear-entrance-student" data-cell="${key}" title="Remove">✕</button>
                 <span class="entrance-cell-portrait">${characterSprite(c, 26)}</span>
                 <span class="entrance-cell-gear">${gear.length ? gear.map((w) => w.icon).join("") : "👊"}</span>
               </div>`
-            : placementOpen
-            ? `<div class="entrance-cell entrance-cell-top entrance-cell-empty" data-action="open-picker" data-kind="entrance-student" data-room="${key}" title="Place a student here">+</div>`
-            : `<div class="entrance-cell entrance-cell-top entrance-cell-locked" title="Defenders take their spots during the Night Watch (Turn 3)"></div>`
+            : `<div class="entrance-cell entrance-cell-top entrance-cell-empty" data-action="open-picker" data-kind="entrance-student" data-room="${key}" title="Place a student here">+</div>`
         );
       } else if (row < third * 2) {
         const structureId = grid.defenses[key];
@@ -1101,7 +1126,7 @@ function renderEntranceGrid(state, placementOpen) {
 
   return `
     <div class="entrance-grid" style="grid-template-columns: repeat(${size}, 1fr);">${cells.join("")}</div>
-    <p class="muted entrance-legend">🔵 Top — defenders${placementOpen ? "" : " (placed during the Night Watch)"} &nbsp;·&nbsp; 🟡 Middle — build defenses &nbsp;·&nbsp;🔴 Bottom — the horde spawns here</p>`;
+    <p class="muted entrance-legend">🔵 Top — defenders &nbsp;·&nbsp; 🟡 Middle — build defenses &nbsp;·&nbsp; 🔴 Bottom — the horde spawns here</p>`;
 }
 
 export function renderFloor1(state) {
@@ -1111,12 +1136,32 @@ export function renderFloor1(state) {
   const gymStudents = state.characters.filter((c) => c.gymToday && c.alive);
   const gymTeachers = state.characters.filter((c) => c.role === "teacher" && c.post === "gym" && c.alive);
 
-  const cooks = state.characters.filter((c) => c.role === "teacher" && c.post === "cafeteria" && c.alive);
+  const cooks = cooksOnDuty(state);
   const restingStudents = state.characters.filter((c) => c.cafeteriaToday && c.alive);
+
+  const infRoom = state.rooms.infirmary;
+  const nurses = state.characters.filter((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
+  const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
+  const nurseBonus = nurses.length ? Math.round((nurses[0].grades.Biology / 100) * INFIRMARY_NURSE_BONUS * 100) : 0;
+
+  const pantry = Object.entries(INGREDIENTS)
+    .map(([id, ing]) => `<span class="pantry-item ${state.pantry[id] ? "" : "pantry-empty"}" title="${ing.name}">${ing.icon} ${state.pantry[id] || 0}</span>`)
+    .join("");
+  const menu = DISHES.map((d) => {
+    const served = state.dishesToday.includes(d.id);
+    const cost = Object.entries(d.ingredients).map(([id, n]) => `${INGREDIENTS[id].icon}${n > 1 ? `×${n}` : ""}`).join(" ") + ` 🍞${d.food}`;
+    const action = served
+      ? `<span class="tag tag-ok">✓ Served</span>`
+      : `<button class="btn btn-sm btn-primary" data-action="cook-dish" data-id="${d.id}" ${canCookDish(state, d) ? "" : "disabled"}>Cook (${cost})</button>`;
+    return `<div class="dish-row ${served ? "dish-served" : ""}">
+      <div class="dish-main"><span class="dish-icon">${d.icon}</span> <b>${esc(d.name)}</b> ${action}</div>
+      <div class="muted">${esc(d.desc)}</div>
+    </div>`;
+  }).join("");
 
   return `
   <div class="card">
-    <h2>Floor 1</h2>
+    <h2>Floor 1 — Commons</h2>
     <div class="floor-grid floor1-grid">
       <div class="room room-gym">
         <h3>🏋 Gym <span class="muted">(PE &amp; Gymnastics)</span></h3>
@@ -1138,13 +1183,17 @@ export function renderFloor1(state) {
       <div class="room room-cafeteria">
         <h3>🍽 Cafeteria</h3>
         <p class="muted">Up to ${cafeRoom.studentCapacity} students/day, ${cafeRoom.teacherCapacity} teachers (cooks).
-        Everyone assigned here recharges 50 stamina/day. Cooks also heal everyone a little and stretch the food supply.</p>
+        Everyone assigned here recharges 50 stamina/day. Each cook can serve one dish a day — its buff covers the whole
+        school until tonight — and cooks stretch the rations (+6 food).</p>
         <div class="mini-label">Cooks (${cooks.length}/${cafeRoom.teacherCapacity})</div>
         <ul class="assign-list">
-          ${cooks.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} ${staminaBar(t)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+          ${cooks.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} ${staminaBar(t)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
         </ul>
         ${cooks.length < cafeRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-teacher">+ Assign cook…</button>` : ""}
         ${upgradeButton(state, "cafeteria", null, "teacher", "Cook slot")}
+        <div class="mini-label">Today's menu (${state.dishesToday.length}/${cooks.length} dish${cooks.length === 1 ? "" : "es"} served)</div>
+        <div class="pantry">${pantry}</div>
+        <div class="dish-list">${menu}</div>
         <div class="mini-label">Resting today (${restingStudents.length}/${cafeRoom.studentCapacity})</div>
         <ul class="assign-list">
           ${restingStudents.map((s) => `<li>${nameTag(s)} ${staminaBar(s)} <button class="btn-x" data-action="remove-cafeteria" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
@@ -1152,12 +1201,22 @@ export function renderFloor1(state) {
         ${restingStudents.length < cafeRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-student">+ Send student…</button>` : ""}
         ${upgradeButton(state, "cafeteria", null, "student", "Student slot")}
       </div>
-      <div class="room room-entrance">
-        <h3>🚪 Main Entrance <span class="muted">(${state.entranceGrid.size}×${state.entranceGrid.size} battle grid)</span></h3>
-        <p class="muted">The night battle plays out here. Build walls and traps in the middle rows any time; defenders
-        take their spots up top during the Night Watch. The horde comes up from the bottom.</p>
-        <p>Fortification: <b>${state.fortification}</b> — the gate holds for <b>${state.fortification * 2} HP</b> of zombie hits</p>
-        ${renderEntranceGrid(state, state.turn === 3)}
+      <div class="room room-infirmary">
+        <h3>🩺 Nurse's Office</h3>
+        <p class="muted">Up to ${infRoom.studentCapacity} patients/day. Each patient heals ${Math.round(INFIRMARY_HEAL_BASE * 100)}% of
+        their max HP${nurses.length ? ` +${nurseBonus}% from the nurse's Biology` : " (a nurse's Biology adds up to 25% more)"} for
+        ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare they only get bed rest (10%).</p>
+        <div class="mini-label">Nurse (${nurses.length}/${infRoom.teacherCapacity})</div>
+        <ul class="assign-list">
+          ${nurses.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+        </ul>
+        ${nurses.length < infRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-teacher">+ Assign nurse…</button>` : ""}
+        <div class="mini-label">Patients today (${patients.length}/${infRoom.studentCapacity})</div>
+        <ul class="assign-list">
+          ${patients.map((s) => `<li>${nameTag(s)} ${hpBar(s)} <button class="btn-x" data-action="remove-infirmary" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+        </ul>
+        ${patients.length < infRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-student">+ Admit patient…</button>` : ""}
+        ${upgradeButton(state, "infirmary", null, "student", "Bed")}
       </div>
     </div>
   </div>`;
@@ -1371,7 +1430,7 @@ export function renderDefenseTab(state) {
     <p class="muted">Click an empty middle-row cell to build, or a top-row cell to post a defender. Smashed walls are
     gone for good; damaged ones get patched up by morning. Fortification (${state.fortification}) makes the gate worth
     ${state.fortification * 2} HP.</p>
-    ${renderEntranceGrid(state, true)}
+    ${renderEntranceGrid(state)}
     <div class="mini-label">What you can build</div>
     <div class="armory-list">${structures}</div>
     <div class="mini-label">Know your enemy</div>

@@ -63,6 +63,18 @@ body {
 .tb-sub { color: var(--muted); font-size: 11px; margin-left: 1px; }
 .tb-warn b, .tb-warn .tb-sub { color: var(--accent-2); }
 .tb-pulse b { animation: tb-pulse-scale 0.4s ease-out; }
+.tb-buff {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(244, 196, 48, 0.14);
+  border: 1px solid rgba(244, 196, 48, 0.5);
+  font-size: 12px;
+  cursor: help;
+}
 
 @keyframes tb-pulse-scale {
   0% { transform: scale(1); }
@@ -315,7 +327,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 
 .floor-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 .floor1-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.floor1-grid .room-entrance { grid-column: 1 / -1; }
+.floor1-grid .room-infirmary { grid-column: 1 / -1; }
 .floor3-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 10px; }
 .floor2-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
@@ -372,7 +384,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .room-gym { --room-accent: #e0a536; }
 .room-cafeteria { --room-accent: #4caf7d; }
 .room-classroom { --room-accent: #3fa7d6; }
-.room-entrance { --room-accent: #d64545; }
+.room-infirmary { --room-accent: #ef8fb3; }
 .room-utility { --room-accent: #a03d5c; }
 
 .entrance-grid { display: grid; gap: 4px; margin: 10px auto 6px; max-width: 50%; }
@@ -397,7 +409,6 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .entrance-cell-portrait { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .entrance-cell-portrait svg, .entrance-cell-portrait img { max-width: 100%; max-height: 100%; }
 .entrance-cell-icon { font-size: 18px; }
-.entrance-cell-locked { opacity: 0.45; }
 .entrance-cell-gear { position: absolute; bottom: 1px; left: 2px; font-size: 9px; line-height: 1; }
 .entrance-cell .cell-remove {
   position: absolute;
@@ -429,6 +440,17 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .defense-build-option:disabled { opacity: 0.4; cursor: not-allowed; }
 .defense-build-option-main { display: flex; align-items: center; gap: 6px; }
 .defense-build-option p { margin: 4px 0 0; }
+
+.pantry { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.pantry-item { font-size: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
+.pantry-empty { opacity: 0.45; }
+.dish-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.dish-row { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; }
+.dish-row .muted { font-size: 11.5px; margin-top: 2px; }
+.dish-main { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dish-main .btn, .dish-main .tag { margin-left: auto; }
+.dish-icon { font-size: 16px; }
+.dish-served { border-color: rgba(76, 175, 125, 0.55); }
 
 .mini-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 10px 0 4px; }
 

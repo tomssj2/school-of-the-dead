@@ -6,6 +6,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -74,6 +75,7 @@ function migrateState(s) {
     if (c.stamina === undefined) c.stamina = MAX_STAMINA;
     if (c.maxStamina === undefined) c.maxStamina = MAX_STAMINA;
     if (c.cafeteriaToday === undefined) c.cafeteriaToday = false;
+    if (c.infirmaryToday === undefined) c.infirmaryToday = false;
     if (c.farmToday === undefined) c.farmToday = false;
     if (c.scrapyardToday === undefined) c.scrapyardToday = false;
     if (c.labToday === undefined) c.labToday = false;
@@ -105,6 +107,9 @@ function migrateState(s) {
   if (s.rescue === undefined) s.rescue = null; // an older save past day 3 gets its broadcast at the next day rollover
   if (s.victory === undefined) s.victory = false;
   if (!s.bossesSlain) s.bossesSlain = [];
+  if (!s.rooms.infirmary) s.rooms.infirmary = { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS };
+  if (!s.pantry) s.pantry = { ...STARTING_PANTRY };
+  if (!s.dishesToday) s.dishesToday = [];
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -382,6 +387,14 @@ root.addEventListener("click", (e) => {
       G.setCafeteriaToday(state, el.dataset.id, false);
       render();
       break;
+    case "remove-infirmary":
+      G.setInfirmaryToday(state, el.dataset.id, false);
+      render();
+      break;
+    case "cook-dish":
+      if (!G.cookDish(state, el.dataset.id)) flash("Can't cook that right now.");
+      render();
+      break;
     case "remove-farm":
       G.setFarmToday(state, el.dataset.id, false);
       render();
@@ -604,6 +617,8 @@ root.addEventListener("click", (e) => {
         case "gym-student": G.setGymToday(state, id, true); break;
         case "cafeteria-teacher": G.setTeacherPost(state, id, "cafeteria"); break;
         case "cafeteria-student": G.setCafeteriaToday(state, id, true); break;
+        case "infirmary-teacher": G.setTeacherPost(state, id, "infirmary"); break;
+        case "infirmary-student": G.setInfirmaryToday(state, id, true); break;
         case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;
         case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
         case "utility": G.setTeacherPost(state, id, postKey); break;

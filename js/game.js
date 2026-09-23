@@ -17,6 +17,9 @@ import {
   zombieStatsForDay, ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
   RESCUE_BROADCAST_DAY, RESCUE_DAY, RESCUE_DELAY_DAYS, ANTENNA_STAGES,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE,
+  INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES,
+  EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
 } from "./data.js";
 import {
   makeCharacter, makeLegendaryCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
@@ -59,6 +62,8 @@ export function createInitialState() {
     rescue: null, // { day, stagesDone, evacuated } once the radio broadcast has come in
     victory: false,
     bossesSlain: [], // boss names, for the epilogue
+    pantry: { ...STARTING_PANTRY }, // ingredient id -> count
+    dishesToday: [], // DISHES ids served today; their buffs last until the day rolls over
     characters: [],
     rooms: {
       classrooms: Object.fromEntries(
@@ -66,6 +71,7 @@ export function createInitialState() {
       ),
       gym: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
       cafeteria: { studentCapacity: CAFETERIA_CAPACITY, teacherCapacity: CAFETERIA_MAX_TEACHERS },
+      infirmary: { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS },
       farm: { studentCapacity: FARM_CAPACITY },
       scrapyard: { studentCapacity: SCRAPYARD_CAPACITY },
       lab: { studentCapacity: LAB_CAPACITY },
@@ -205,6 +211,9 @@ export function setTeacherPost(state, teacherId, post) {
   } else if (post === "cafeteria") {
     const count = state.characters.filter((c) => c.role === "teacher" && c.post === "cafeteria").length;
     if (count >= state.rooms.cafeteria.teacherCapacity) return false;
+  } else if (post === "infirmary") {
+    const count = state.characters.filter((c) => c.role === "teacher" && c.post === "infirmary").length;
+    if (count >= state.rooms.infirmary.teacherCapacity) return false;
   } else if (post && ["research", "crafting", "council"].includes(post)) {
     const count = state.characters.filter((c) => c.role === "teacher" && c.post === post).length;
     if (count >= 1) return false;
@@ -253,6 +262,17 @@ export function setCafeteriaToday(state, studentId, value) {
   return true;
 }
 
+export function setInfirmaryToday(state, studentId, value) {
+  const c = getChar(state, studentId);
+  if (!c || c.role !== "student") return false;
+  if (value) {
+    const count = state.characters.filter((x) => x.infirmaryToday).length;
+    if (count >= state.rooms.infirmary.studentCapacity) return false;
+  }
+  c.infirmaryToday = value;
+  return true;
+}
+
 // Outside facilities worked during Turn 2 as an alternative to exploring — a student can do one
 // or the other on a given day, never both, so each setter blocks while the other is active.
 function makeOutsideFacilitySetter(flagKey, roomKey) {
@@ -282,11 +302,15 @@ export const setLabToday = makeOutsideFacilitySetter("labToday", "lab");
 const ROOM_BASE_CAPACITY = {
   gym: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
   cafeteria: { student: CAFETERIA_CAPACITY, teacher: CAFETERIA_MAX_TEACHERS },
+  infirmary: { student: INFIRMARY_CAPACITY }, // one nurse, not upgradeable
   farm: { student: FARM_CAPACITY },
   scrapyard: { student: SCRAPYARD_CAPACITY },
   lab: { student: LAB_CAPACITY },
 };
-const ROOM_LABELS = { gym: "the Gym", cafeteria: "the Cafeteria", farm: "the Farm", scrapyard: "the Scrapyard", lab: "the Lab" };
+const ROOM_LABELS = {
+  gym: "the Gym", cafeteria: "the Cafeteria", infirmary: "the Nurse's Office",
+  farm: "the Farm", scrapyard: "the Scrapyard", lab: "the Lab",
+};
 
 function roomUpgradeLevel(state, roomType, roomId, kind) {
   if (roomType === "classroom") {
@@ -389,11 +413,42 @@ function traitGrowthMultiplier(c, subject) {
   return has ? TRAIT_GROWTH_BONUS : 1;
 }
 
+// ---------- cooking ----------
+// Each cook can serve one dish a day; a dish's buff covers the whole school until the day rolls over.
+
+export function dishMultiplier(state, effectKey) {
+  return (state.dishesToday || []).reduce((mult, id) => {
+    const dish = DISHES.find((d) => d.id === id);
+    return mult * (dish?.effect[effectKey] || 1);
+  }, 1);
+}
+
+export function cooksOnDuty(state) {
+  return state.characters.filter((c) => c.role === "teacher" && c.post === "cafeteria" && c.alive);
+}
+
+export function canCookDish(state, dish) {
+  if (state.dishesToday.includes(dish.id)) return false;
+  if (state.dishesToday.length >= cooksOnDuty(state).length) return false;
+  if (state.resources.food < dish.food) return false;
+  return Object.entries(dish.ingredients).every(([id, n]) => (state.pantry[id] || 0) >= n);
+}
+
+export function cookDish(state, dishId) {
+  const dish = DISHES.find((d) => d.id === dishId);
+  if (!dish || !canCookDish(state, dish)) return false;
+  for (const [id, n] of Object.entries(dish.ingredients)) state.pantry[id] -= n;
+  state.resources.food -= dish.food;
+  state.dishesToday.push(dish.id);
+  addLog(state, `The cafeteria serves ${dish.icon} ${dish.name} — ${dish.desc}`);
+  return true;
+}
+
 function grantXp(state, charId, subject, amount) {
   const c = getChar(state, charId);
   if (!c || !c.alive) return;
   if (c.grades[subject] >= 100) return;
-  c.xp[subject] += amount * traitGrowthMultiplier(c, subject);
+  c.xp[subject] += amount * traitGrowthMultiplier(c, subject) * dishMultiplier(state, "xp");
   let guard = 0;
   while (c.xp[subject] >= xpThreshold(c.grades[subject]) && c.grades[subject] < 100 && guard < 50) {
     c.xp[subject] -= xpThreshold(c.grades[subject]);
@@ -452,26 +507,32 @@ export function resolveTraining(state) {
   if (gymStudents.length) addLog(state, `Gym session held for ${gymStudents.length} student(s).`);
   teamBondBumps(state, gymStudents.map((c) => c.id));
 
-  // cafeteria — up to a few teachers cook (heals everyone, stretches food) and, along with any
-  // students sent to rest here today, recharge their own stamina.
-  const cooks = state.characters.filter((c) => c.role === "teacher" && c.post === "cafeteria" && c.alive);
+  // cafeteria — cooks stretch the rations (their dishes are served on demand, see cookDish) and,
+  // along with any students sent to rest here today, recharge their own stamina.
+  const cooks = cooksOnDuty(state);
   if (cooks.length) {
-    const healAmt = 4 + cooks.reduce((sum, c) => sum + Math.round(c.grades.Biology / 20), 0);
-    for (const c of aliveChars(state)) {
-      c.hp = Math.min(c.maxHp, c.hp + healAmt);
-      c.injured = c.hp < c.maxHp * 0.5;
-    }
     state.resources.food += 6;
-    addLog(
-      state,
-      `${cooks.map((c) => c.name).join(" & ")} cook${cooks.length === 1 ? "s" : ""} a hot meal for everyone (+${healAmt} HP, +6 food).`
-    );
+    addLog(state, `${cooks.map((c) => c.name).join(" & ")} stretch${cooks.length === 1 ? "es" : ""} the rations (+6 food).`);
   }
   const restingStudents = state.characters.filter((c) => c.cafeteriaToday && c.alive);
   for (const c of [...cooks, ...restingStudents]) {
     c.stamina = Math.min(c.maxStamina, c.stamina + STAMINA_RECHARGE_CAFETERIA);
   }
   if (restingStudents.length) addLog(state, `${restingStudents.length} student(s) rested in the cafeteria.`);
+
+  // nurse's office — patients heal a big chunk of HP for a little medicine each; a nurse's Biology
+  // adds on top. Without medicine to spare, they only get bed rest.
+  const nurse = state.characters.find((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
+  const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
+  for (const c of patients) {
+    const treated = state.resources.medicine >= INFIRMARY_MEDICINE_PER_PATIENT;
+    if (treated) state.resources.medicine -= INFIRMARY_MEDICINE_PER_PATIENT;
+    const share = treated ? INFIRMARY_HEAL_BASE + (nurse ? (nurse.grades.Biology / 100) * INFIRMARY_NURSE_BONUS : 0) : INFIRMARY_BED_REST;
+    const healed = Math.min(c.maxHp - c.hp, Math.round(c.maxHp * share));
+    c.hp += healed;
+    c.injured = c.hp < c.maxHp * 0.5;
+    addLog(state, `${c.name} ${treated ? "was treated" : "got bed rest (no medicine to spare)"} in the Nurse's Office (+${healed} HP).`);
+  }
 
   // research
   const researcher = state.characters.find((c) => c.role === "teacher" && c.post === "research" && c.alive);
@@ -523,10 +584,20 @@ function rollExpeditionItem(state, location, success) {
   return item;
 }
 
+function rollExpeditionIngredient(state, location, success) {
+  const chance = success ? EXPEDITION_INGREDIENT_CHANCE + (location.ingredientBonus || 0) : EXPEDITION_INGREDIENT_CHANCE_FAILED;
+  if (Math.random() >= chance) return null;
+  const id = pick(Object.keys(INGREDIENTS));
+  const qty = randInt(1, 3);
+  state.pantry[id] = (state.pantry[id] || 0) + qty;
+  return { id, qty };
+}
+
 export function resolveExploration(state) {
   let teamsSent = 0;
   let successes = 0;
   const itemsFound = [];
+  const ingredientsFound = [];
   for (let teamIndex = 0; teamIndex < 3; teamIndex++) {
     const locationId = state.teamLocations[teamIndex];
     const location = LOCATIONS.find((l) => l.id === locationId);
@@ -548,16 +619,17 @@ export function resolveExploration(state) {
     const dangerReq = location.danger * 15;
     const baseCasualty = clamp01(0.05 + (dangerReq - safety) / 150) * (success ? 0.5 : 1.2);
 
+    const stewMult = (key) => (key === "materials" ? dishMultiplier(state, "expeditionMaterials") : 1);
     if (success) {
       successes++;
       for (const key of Object.keys(location.rewards)) {
-        const amt = Math.round(location.rewards[key] * lootMult * (0.8 + Math.random() * 0.4));
+        const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * (0.8 + Math.random() * 0.4));
         state.resources[key] += amt;
       }
       addLog(state, `${location.name}: expedition succeeded! Loot brought home.`);
     } else {
       for (const key of Object.keys(location.rewards)) {
-        const amt = Math.round(location.rewards[key] * lootMult * (0.5 + Math.random() * 0.5));
+        const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * (0.5 + Math.random() * 0.5));
         state.resources[key] += amt;
       }
       addLog(state, `${location.name}: expedition struggled and barely scraped by.`);
@@ -568,6 +640,12 @@ export function resolveExploration(state) {
     if (found) {
       itemsFound.push(found);
       addLog(state, `The team brought back ${found.icon} ${found.name} from the ${location.name} — it's in the armory.`);
+    }
+    const ingredient = rollExpeditionIngredient(state, location, success);
+    if (ingredient) {
+      ingredientsFound.push(ingredient);
+      const info = INGREDIENTS[ingredient.id];
+      addLog(state, `The team brought back ${info.icon} ${info.name} ×${ingredient.qty} from the ${location.name} for the pantry.`);
     }
 
     for (const c of members) {
@@ -591,7 +669,7 @@ export function resolveExploration(state) {
     }
 
     const recruitBonus = location.recruitBonus || 1;
-    const recruitChance = clamp01((cha - 20) / 150) * recruitBonus * (success ? 1 : 0.4);
+    const recruitChance = clamp01((cha - 20) / 150 * recruitBonus * (success ? 1 : 0.4) * dishMultiplier(state, "recruitChance"));
     if (Math.random() < recruitChance) {
       const role = rollRecruitRole(state);
       const recruit = makeCharacter(role, Math.random() < 0.5 ? "M" : "F");
@@ -624,7 +702,7 @@ export function resolveExploration(state) {
   }
 
   addLog(state, `Turn 2 (Exploration) resolved.`);
-  return { teamsSent, successes, itemsFound };
+  return { teamsSent, successes, itemsFound, ingredientsFound };
 }
 
 // ---------- TURN 3: defense (entrance grid battle) ----------
@@ -661,11 +739,12 @@ export function firstFreeEntranceCell(state) {
 
 function battleStats(state, c) {
   const eq = c.equipment || {};
+  const chili = dishMultiplier(state, "battleDamage");
   return {
     melee: eq.meleeWeapon || FIST_WEAPON,
     ranged: eq.rangedWeapon || null,
-    meleeMult: 0.5 + effectiveGrade(state, c, "PE") / 100,
-    rangedMult: 0.5 + effectiveGrade(state, c, "Gymnastics") / 100,
+    meleeMult: (0.5 + effectiveGrade(state, c, "PE") / 100) * chili,
+    rangedMult: (0.5 + effectiveGrade(state, c, "Gymnastics") / 100) * chili,
     hitChance: Math.min(0.95, 0.7 + effectiveGrade(state, c, "Gymnastics") / 500),
     armorMult: Math.max(0.4, 1 - effectiveGrade(state, c, "Biology") / 250),
   };
@@ -1204,6 +1283,7 @@ export function advanceTurn(state) {
   if (state.turn > 3) {
     if (resolveDailyFoodUpkeep(state)) resolveOvernightRecovery(state); // end of the day that just finished
     resolveDayMilestones(state, state.day + 1);
+    state.dishesToday = []; // the day's meals wear off overnight
     state.turn = 1;
     state.day++;
     addLog(state, `Day ${state.day} begins.`);
@@ -1212,6 +1292,7 @@ export function advanceTurn(state) {
   for (const c of state.characters) {
     c.gymToday = false;
     c.cafeteriaToday = false;
+    c.infirmaryToday = false;
     c.farmToday = false;
     c.scrapyardToday = false;
     c.labToday = false;
