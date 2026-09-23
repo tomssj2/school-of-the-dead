@@ -1101,7 +1101,7 @@ function renderEntranceGrid(state, placementOpen) {
 
   return `
     <div class="entrance-grid" style="grid-template-columns: repeat(${size}, 1fr);">${cells.join("")}</div>
-    <p class="muted entrance-legend">🔵 Top — defenders${placementOpen ? "" : " (placed during the Night Watch)"} &nbsp;·&nbsp; 🟣 Middle — build defenses &nbsp;·&nbsp; 🔴 Bottom — the horde spawns here</p>`;
+    <p class="muted entrance-legend">🔵 Top — defenders${placementOpen ? "" : " (placed during the Night Watch)"} &nbsp;·&nbsp; 🟡 Middle — build defenses &nbsp;·&nbsp;🔴 Bottom — the horde spawns here</p>`;
 }
 
 export function renderFloor1(state) {

@@ -389,7 +389,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   overflow: hidden;
 }
 .entrance-cell-top { background: rgba(63, 167, 214, 0.1); border-color: rgba(63, 167, 214, 0.3); }
-.entrance-cell-mid { background: rgba(160, 61, 92, 0.1); border-color: rgba(160, 61, 92, 0.3); }
+.entrance-cell-mid { background: rgba(245, 222, 120, 0.16); border-color: rgba(245, 222, 120, 0.4); }
 .entrance-cell-bottom { background: rgba(214, 69, 69, 0.08); border-color: rgba(214, 69, 69, 0.25); }
 .entrance-cell-empty { cursor: pointer; transition: border-color 0.12s, background 0.12s; }
 .entrance-cell-empty:hover { border-color: var(--accent); color: var(--accent); }
@@ -868,7 +868,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   border: 1px solid transparent;
 }
 .gb-top { background: rgba(63, 167, 214, 0.16); border-color: rgba(63, 167, 214, 0.3); }
-.gb-mid { background: rgba(160, 61, 92, 0.16); border-color: rgba(160, 61, 92, 0.3); }
+.gb-mid { background: rgba(245, 222, 120, 0.18); border-color: rgba(245, 222, 120, 0.4); }
 .gb-bottom { background: rgba(214, 69, 69, 0.12); border-color: rgba(214, 69, 69, 0.25); }
 .gb-unit { line-height: 1; display: flex; }
 .gb-zombie { font-size: calc(var(--gb-cell) * 0.5); }
