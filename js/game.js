@@ -1,6 +1,6 @@
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS,
-  GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS,
+  GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY,
   FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, FORTIFICATION_CAP,
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
@@ -70,7 +70,8 @@ export function createInitialState() {
         CLASSROOM_IDS.map((id) => [id, { subject: null, seats: Array(CLASSROOM_CAPACITY).fill(null) }])
       ),
       gym: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
-      cafeteria: { studentCapacity: CAFETERIA_CAPACITY, teacherCapacity: CAFETERIA_MAX_TEACHERS },
+      cafeteria: { teacherCapacity: CAFETERIA_MAX_TEACHERS },
+      lounge: { studentCapacity: LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY },
       infirmary: { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS },
       farm: { studentCapacity: FARM_CAPACITY },
       scrapyard: { studentCapacity: SCRAPYARD_CAPACITY },
@@ -249,16 +250,16 @@ export function setGymToday(state, studentId, value) {
   return true;
 }
 
-// Resting in the cafeteria recharges stamina (see STAMINA_RECHARGE_CAFETERIA) — anyone can rest
+// Resting in the lounge recharges stamina (state.rooms.lounge.recovery) — anyone can rest
 // regardless of their current stamina, unlike Gym/exploring which require some left to spend.
-export function setCafeteriaToday(state, studentId, value) {
+export function setLoungeToday(state, studentId, value) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
   if (value) {
-    const count = state.characters.filter((x) => x.cafeteriaToday).length;
-    if (count >= state.rooms.cafeteria.studentCapacity) return false;
+    const count = state.characters.filter((x) => x.loungeToday).length;
+    if (count >= state.rooms.lounge.studentCapacity) return false;
   }
-  c.cafeteriaToday = value;
+  c.loungeToday = value;
   return true;
 }
 
@@ -294,23 +295,27 @@ export const setScrapyardToday = makeOutsideFacilitySetter("scrapyardToday", "sc
 export const setLabToday = makeOutsideFacilitySetter("labToday", "lab");
 
 // ---------- room upgrades ----------
-// Spends materials to add more capacity to a room, up to ROOM_UPGRADE_MAX_LEVEL times. Classroom
-// teacher capacity is fixed at 1 and can't be upgraded — everything else can.
+// Spends materials to raise one of a room's stats, up to ROOM_UPGRADE_MAX_LEVEL times. A "kind"
+// is student/teacher capacity, or the lounge's per-day stamina recovery. Classroom teacher
+// capacity is fixed at 1 and can't be upgraded.
 
-// Base (unupgraded) capacity per room type/kind, used to figure out the current upgrade level
-// from the room's live capacity.
+// Base (unupgraded) value per room type/kind, used to work out the current upgrade level from the
+// room's live value.
 const ROOM_BASE_CAPACITY = {
   gym: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
-  cafeteria: { student: CAFETERIA_CAPACITY, teacher: CAFETERIA_MAX_TEACHERS },
+  cafeteria: { teacher: CAFETERIA_MAX_TEACHERS },
+  lounge: { student: LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY },
   infirmary: { student: INFIRMARY_CAPACITY }, // one nurse, not upgradeable
   farm: { student: FARM_CAPACITY },
   scrapyard: { student: SCRAPYARD_CAPACITY },
   lab: { student: LAB_CAPACITY },
 };
 const ROOM_LABELS = {
-  gym: "the Gym", cafeteria: "the Cafeteria", infirmary: "the Nurse's Office",
+  gym: "the Gym", cafeteria: "the Cafeteria", lounge: "the Lounge", infirmary: "the Nurse's Office",
   farm: "the Farm", scrapyard: "the Scrapyard", lab: "the Lab",
 };
+const UPGRADE_FIELD = { student: "studentCapacity", teacher: "teacherCapacity", recovery: "recovery" };
+const upgradeIncrement = (roomType, kind) => ROOM_UPGRADE_INCREMENT[`${roomType}${kind[0].toUpperCase()}${kind.slice(1)}`];
 
 function roomUpgradeLevel(state, roomType, roomId, kind) {
   if (roomType === "classroom") {
@@ -322,9 +327,7 @@ function roomUpgradeLevel(state, roomType, roomId, kind) {
   if (!room) return null;
   const base = ROOM_BASE_CAPACITY[roomType]?.[kind];
   if (base === undefined) return null;
-  const inc = ROOM_UPGRADE_INCREMENT[`${roomType}${kind === "student" ? "Student" : "Teacher"}`];
-  const field = kind === "student" ? "studentCapacity" : "teacherCapacity";
-  return Math.round((room[field] - base) / inc);
+  return Math.round((room[UPGRADE_FIELD[kind]] - base) / upgradeIncrement(roomType, kind));
 }
 
 export function roomUpgradeInfo(state, roomType, roomId, kind) {
@@ -347,15 +350,13 @@ export function upgradeRoom(state, roomType, roomId, kind) {
     room.seats.push(...Array(ROOM_UPGRADE_INCREMENT.classroomStudent).fill(null));
     label = `Classroom ${roomId}`;
   } else {
-    const room = state.rooms[roomType];
-    const inc = ROOM_UPGRADE_INCREMENT[`${roomType}${kind === "student" ? "Student" : "Teacher"}`];
-    const field = kind === "student" ? "studentCapacity" : "teacherCapacity";
-    room[field] += inc;
+    state.rooms[roomType][UPGRADE_FIELD[kind]] += upgradeIncrement(roomType, kind);
     label = ROOM_LABELS[roomType];
   }
 
   state.resources.materials -= cost;
-  addLog(state, `Upgraded ${label}'s ${kind} capacity to level ${level + 1} (-${cost} materials).`);
+  const what = kind === "recovery" ? "stamina recovery" : `${kind} capacity`;
+  addLog(state, `Upgraded ${label}'s ${what} to level ${level + 1} (-${cost} materials).`);
   return true;
 }
 
@@ -507,18 +508,19 @@ export function resolveTraining(state) {
   if (gymStudents.length) addLog(state, `Gym session held for ${gymStudents.length} student(s).`);
   teamBondBumps(state, gymStudents.map((c) => c.id));
 
-  // cafeteria — cooks stretch the rations (their dishes are served on demand, see cookDish) and,
-  // along with any students sent to rest here today, recharge their own stamina.
+  // cafeteria — cooks stretch the rations (their dishes are served on demand, see cookDish) and
+  // recharge their own stamina; cooking is how teachers recover.
   const cooks = cooksOnDuty(state);
   if (cooks.length) {
     state.resources.food += 6;
     addLog(state, `${cooks.map((c) => c.name).join(" & ")} stretch${cooks.length === 1 ? "es" : ""} the rations (+6 food).`);
   }
-  const restingStudents = state.characters.filter((c) => c.cafeteriaToday && c.alive);
-  for (const c of [...cooks, ...restingStudents]) {
-    c.stamina = Math.min(c.maxStamina, c.stamina + STAMINA_RECHARGE_CAFETERIA);
-  }
-  if (restingStudents.length) addLog(state, `${restingStudents.length} student(s) rested in the cafeteria.`);
+  for (const c of cooks) c.stamina = Math.min(c.maxStamina, c.stamina + STAMINA_RECHARGE_CAFETERIA);
+
+  // lounge — students resting here recover stamina
+  const resting = state.characters.filter((c) => c.loungeToday && c.alive);
+  for (const c of resting) c.stamina = Math.min(c.maxStamina, c.stamina + state.rooms.lounge.recovery);
+  if (resting.length) addLog(state, `${resting.length} student(s) rested in the lounge (+${state.rooms.lounge.recovery} stamina).`);
 
   // nurse's office — patients heal a big chunk of HP for a little medicine each; a nurse's Biology
   // adds on top. Without medicine to spare, they only get bed rest.
@@ -1291,7 +1293,7 @@ export function advanceTurn(state) {
   }
   for (const c of state.characters) {
     c.gymToday = false;
-    c.cafeteriaToday = false;
+    c.loungeToday = false;
     c.infirmaryToday = false;
     c.farmToday = false;
     c.scrapyardToday = false;

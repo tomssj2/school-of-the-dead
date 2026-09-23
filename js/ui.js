@@ -169,7 +169,7 @@ function occupationLabel(state, c) {
   if (c.defending) return "Defending";
   if (c.exploreTeam !== null) return `Exploring (Team ${c.exploreTeam + 1})`;
   if (c.infirmaryToday) return "Nurse's Office";
-  if (c.cafeteriaToday) return "Cafeteria";
+  if (c.loungeToday) return "Lounge";
   if (c.gymToday) return "Gym";
   if (c.farmToday) return "Farm";
   if (c.scrapyardToday) return "Scrapyard";
@@ -412,7 +412,7 @@ function renderTurn1Overview(state) {
     return `<li><b>${roomDisplayName(state, roomId)}</b>: ${n}/${room.seats.length} students, ${teachers.length} teacher(s)</li>`;
   }).join("");
   const gymCount = state.characters.filter((c) => c.gymToday).length;
-  const restCount = state.characters.filter((c) => c.cafeteriaToday).length;
+  const restCount = state.characters.filter((c) => c.loungeToday).length;
   const cooks = cooksOnDuty(state);
   const patientCount = state.characters.filter((c) => c.infirmaryToday).length;
   const nurse = state.characters.find((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
@@ -423,11 +423,12 @@ function renderTurn1Overview(state) {
     <p>Students in their home classroom earn XP toward their grade in that subject. Send students to the Gym for
     Physical Education &amp; Gymnastics training — a Gym teacher speeds that up, no teacher required. A <b>Floor 2</b>
     classroom teacher doesn't speed up grades, but gives every seated student a standing bonus to that subject.
-    Gym and exploring cost 20 stamina; resting in the Cafeteria recovers 50.</p>
+    Gym and exploring cost 20 stamina; resting in the Lounge recovers ${state.rooms.lounge.recovery}.</p>
     <ul class="summary-list">
       ${classroomSummaries}
       <li><b>Gym</b>: ${gymCount}/${state.rooms.gym.studentCapacity} students training today</li>
-      <li><b>Cafeteria</b>: ${cooks.length ? cooks.map((c) => esc(c.name)).join(", ") : "no cooks assigned"}, ${restCount}/${state.rooms.cafeteria.studentCapacity} students resting today</li>
+      <li><b>Cafeteria</b>: ${cooks.length ? cooks.map((c) => esc(c.name)).join(", ") : "no cooks assigned"}</li>
+      <li><b>Lounge</b>: ${restCount}/${state.rooms.lounge.studentCapacity} students resting today</li>
       <li><b>Today's meals</b>: ${served.length ? served.map((d) => `${d.icon} ${esc(d.name)}`).join(", ") : `none yet${cooks.length ? " — cook something in the Cafeteria" : ""}`}</li>
       <li><b>Nurse's Office</b>: ${nurse ? esc(nurse.name) : "no nurse"}, ${patientCount}/${state.rooms.infirmary.studentCapacity} patients today</li>
     </ul>
@@ -923,7 +924,7 @@ function teacherBusyLabel(state, c, exceptPost) {
 
 function studentBusyLabel(c, exceptFlag) {
   if (exceptFlag !== "gymToday" && c.gymToday) return "Training in the Gym";
-  if (exceptFlag !== "cafeteriaToday" && c.cafeteriaToday) return "Resting in the Cafeteria";
+  if (exceptFlag !== "loungeToday" && c.loungeToday) return "Resting in the Lounge";
   if (exceptFlag !== "infirmaryToday" && c.infirmaryToday) return "In the Nurse's Office";
   if (exceptFlag !== "farmToday" && c.farmToday) return "Working the Farm";
   if (exceptFlag !== "scrapyardToday" && c.scrapyardToday) return "Working the Scrapyard";
@@ -955,10 +956,11 @@ function resolvePickerCandidates(state, picker) {
         role: "teacher", title: "Assign a Cook",
         list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "cafeteria").map((c) => teacherRow(c, "cafeteria")),
       };
-    case "cafeteria-student":
+    case "lounge-student":
       return {
-        role: "student", title: "Send a Student to Rest",
-        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.cafeteriaToday).map((c) => studentRow(c, "cafeteriaToday")),
+        role: "student", title: "Send a Student to the Lounge",
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.loungeToday)
+          .map((c) => studentRow(c, "loungeToday", (c) => (c.stamina >= c.maxStamina ? "Already fully rested" : null))),
       };
     case "infirmary-teacher":
       return {
@@ -1137,7 +1139,8 @@ export function renderFloor1(state) {
   const gymTeachers = state.characters.filter((c) => c.role === "teacher" && c.post === "gym" && c.alive);
 
   const cooks = cooksOnDuty(state);
-  const restingStudents = state.characters.filter((c) => c.cafeteriaToday && c.alive);
+  const lounge = state.rooms.lounge;
+  const resting = state.characters.filter((c) => c.loungeToday && c.alive);
 
   const infRoom = state.rooms.infirmary;
   const nurses = state.characters.filter((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
@@ -1182,9 +1185,8 @@ export function renderFloor1(state) {
       </div>
       <div class="room room-cafeteria">
         <h3>🍽 Cafeteria</h3>
-        <p class="muted">Up to ${cafeRoom.studentCapacity} students/day, ${cafeRoom.teacherCapacity} teachers (cooks).
-        Everyone assigned here recharges 50 stamina/day. Each cook can serve one dish a day — its buff covers the whole
-        school until tonight — and cooks stretch the rations (+6 food).</p>
+        <p class="muted">Up to ${cafeRoom.teacherCapacity} teachers (cooks). Each cook can serve one dish a day — its buff
+        covers the whole school until tonight — stretches the rations (+6 food), and recovers 50 stamina while cooking.</p>
         <div class="mini-label">Cooks (${cooks.length}/${cafeRoom.teacherCapacity})</div>
         <ul class="assign-list">
           ${cooks.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} ${staminaBar(t)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
@@ -1194,12 +1196,6 @@ export function renderFloor1(state) {
         <div class="mini-label">Today's menu (${state.dishesToday.length}/${cooks.length} dish${cooks.length === 1 ? "" : "es"} served)</div>
         <div class="pantry">${pantry}</div>
         <div class="dish-list">${menu}</div>
-        <div class="mini-label">Resting today (${restingStudents.length}/${cafeRoom.studentCapacity})</div>
-        <ul class="assign-list">
-          ${restingStudents.map((s) => `<li>${nameTag(s)} ${staminaBar(s)} <button class="btn-x" data-action="remove-cafeteria" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
-        </ul>
-        ${restingStudents.length < cafeRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-student">+ Send student…</button>` : ""}
-        ${upgradeButton(state, "cafeteria", null, "student", "Student slot")}
       </div>
       <div class="room room-infirmary">
         <h3>🩺 Nurse's Office</h3>
@@ -1217,6 +1213,18 @@ export function renderFloor1(state) {
         </ul>
         ${patients.length < infRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-student">+ Admit patient…</button>` : ""}
         ${upgradeButton(state, "infirmary", null, "student", "Bed")}
+      </div>
+      <div class="room room-lounge">
+        <h3>🛋 Lounge</h3>
+        <p class="muted">Up to ${lounge.studentCapacity} students/day. Everyone resting here recovers
+        <b>${lounge.recovery} stamina</b> — students only; teachers recover by cooking.</p>
+        <div class="mini-label">Resting today (${resting.length}/${lounge.studentCapacity})</div>
+        <ul class="assign-list">
+          ${resting.map((s) => `<li>${nameTag(s)} ${staminaBar(s)} <button class="btn-x" data-action="remove-lounge" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+        </ul>
+        ${resting.length < lounge.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="lounge-student">+ Send student…</button>` : ""}
+        ${upgradeButton(state, "lounge", null, "student", "Rest slots")}
+        ${upgradeButton(state, "lounge", null, "recovery", "Recovery +15")}
       </div>
     </div>
   </div>`;

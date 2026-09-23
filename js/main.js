@@ -4,7 +4,7 @@ import { emptyEquipment, starterArmory, withTeacherHonorific } from "./character
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
-  CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
+  CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY,
 } from "./data.js";
@@ -74,7 +74,9 @@ function migrateState(s) {
     if (!c.skills) c.skills = [];
     if (c.stamina === undefined) c.stamina = MAX_STAMINA;
     if (c.maxStamina === undefined) c.maxStamina = MAX_STAMINA;
-    if (c.cafeteriaToday === undefined) c.cafeteriaToday = false;
+    // students used to rest in the cafeteria; that moved to the lounge
+    if (c.loungeToday === undefined) c.loungeToday = !!c.cafeteriaToday;
+    delete c.cafeteriaToday;
     if (c.infirmaryToday === undefined) c.infirmaryToday = false;
     if (c.farmToday === undefined) c.farmToday = false;
     if (c.scrapyardToday === undefined) c.scrapyardToday = false;
@@ -91,7 +93,12 @@ function migrateState(s) {
 
   migrateClassroomRooms(s);
   if (!s.rooms.gym) s.rooms.gym = { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS };
-  if (!s.rooms.cafeteria) s.rooms.cafeteria = { studentCapacity: CAFETERIA_CAPACITY, teacherCapacity: CAFETERIA_MAX_TEACHERS };
+  if (!s.rooms.cafeteria) s.rooms.cafeteria = { teacherCapacity: CAFETERIA_MAX_TEACHERS };
+  if (!s.rooms.lounge) {
+    // carry any rest-slot upgrades bought for the old cafeteria over to the lounge
+    s.rooms.lounge = { studentCapacity: s.rooms.cafeteria.studentCapacity || LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY };
+  }
+  delete s.rooms.cafeteria.studentCapacity;
   if (!s.rooms.farm) s.rooms.farm = { studentCapacity: FARM_CAPACITY };
   if (!s.rooms.scrapyard) s.rooms.scrapyard = { studentCapacity: SCRAPYARD_CAPACITY };
   if (!s.rooms.lab) s.rooms.lab = { studentCapacity: LAB_CAPACITY };
@@ -383,8 +390,8 @@ root.addEventListener("click", (e) => {
       G.setGymToday(state, el.dataset.id, false);
       render();
       break;
-    case "remove-cafeteria":
-      G.setCafeteriaToday(state, el.dataset.id, false);
+    case "remove-lounge":
+      G.setLoungeToday(state, el.dataset.id, false);
       render();
       break;
     case "remove-infirmary":
@@ -616,7 +623,7 @@ root.addEventListener("click", (e) => {
         case "gym-teacher": G.setTeacherPost(state, id, "gym"); break;
         case "gym-student": G.setGymToday(state, id, true); break;
         case "cafeteria-teacher": G.setTeacherPost(state, id, "cafeteria"); break;
-        case "cafeteria-student": G.setCafeteriaToday(state, id, true); break;
+        case "lounge-student": G.setLoungeToday(state, id, true); break;
         case "infirmary-teacher": G.setTeacherPost(state, id, "infirmary"); break;
         case "infirmary-student": G.setInfirmaryToday(state, id, true); break;
         case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;

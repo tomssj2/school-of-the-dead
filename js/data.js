@@ -321,8 +321,11 @@ export const CLASSROOM_MAX_TEACHERS = 1; // one teacher = one subject, kept simp
 export const GYM_CAPACITY = 10; // base student slots/day
 export const GYM_MAX_TEACHERS = 3; // base teacher slots (gym works fine with none assigned)
 
-export const CAFETERIA_CAPACITY = 10; // base student rest slots/day
 export const CAFETERIA_MAX_TEACHERS = 3; // base teacher (cook) slots — each cook makes one dish a day
+
+// Lounge: students rest here to recover stamina. Both the slots and the amount recovered upgrade.
+export const LOUNGE_CAPACITY = 10;
+export const LOUNGE_RECOVERY = 50; // stamina per student per day, before upgrades
 
 // Nurse's Office: one nurse (a teacher) and a few beds. A patient heals INFIRMARY_HEAL_BASE of their
 // max HP plus up to INFIRMARY_NURSE_BONUS more from the nurse's Biology, spending medicine; with
@@ -396,8 +399,9 @@ export const ROOM_UPGRADE_INCREMENT = {
   classroomStudent: CLASSROOM_SEATS_PER_ROW, // +1 row
   gymStudent: 5,
   gymTeacher: 1,
-  cafeteriaStudent: 5,
   cafeteriaTeacher: 1,
+  loungeStudent: 5,
+  loungeRecovery: 15,
   infirmaryStudent: 2,
   farmStudent: 5,
   scrapyardStudent: 5,
@@ -411,7 +415,7 @@ export const MAX_STAMINA = 100;
 export const STAMINA_COST_GYM = 20; // students, per day trained
 export const STAMINA_COST_EXPLORE = 20; // students, per expedition
 export const STAMINA_COST_TEACH = 20; // teachers, per day assigned to a classroom
-export const STAMINA_RECHARGE_CAFETERIA = 50; // per day resting/working in the cafeteria
+export const STAMINA_RECHARGE_CAFETERIA = 50; // per day a teacher spends cooking (how teachers recover)
 
 // ===== Happiness =====
 // A school-wide mood meter that reacts to wins/losses/recruits/deaths and, in turn, skews
