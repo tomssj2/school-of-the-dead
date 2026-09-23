@@ -5,7 +5,7 @@ import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnab
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_CAPACITY, CAFETERIA_MAX_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
-  HAPPINESS_START, ENTRANCE_GRID_SIZE,
+  HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -37,13 +37,39 @@ let dayRecap = null; // { day, entries } shown once right after a day rolls over
 
 const root = document.getElementById("app");
 
+// Weapons used to be a single "weapon" slot/type with no category/damage/range/requires — backfill
+// those from the current template (falling back to sane melee defaults if the template's gone).
+function migrateWeaponItem(item) {
+  if (!item || item.slot !== "weapon" || item.category) return item;
+  const template = ITEM_TEMPLATES.find((t) => t.id === item.id) || LEGENDARY_ITEM_TEMPLATES.find((t) => t.id === item.id);
+  item.category = template?.category || "melee";
+  item.damage = template?.damage ?? 8;
+  item.range = template?.range ?? 1;
+  item.requires = template?.requires || {};
+  return item;
+}
+
 // Fills in fields added by later versions of the game so saves from before traits/equipment
 // existed still load without crashing.
 function migrateState(s) {
   if (!s.armory) s.armory = starterArmory();
+  s.armory.forEach(migrateWeaponItem);
   const fixup = (c) => {
     if (!c.traits) c.traits = [];
     if (!c.equipment) c.equipment = emptyEquipment();
+    if (c.equipment.weapon !== undefined) {
+      // old single-weapon-slot shape: route it into melee/ranged by category, then drop the field
+      if (c.equipment.meleeWeapon === undefined) {
+        const w = migrateWeaponItem(c.equipment.weapon);
+        c.equipment.meleeWeapon = w && w.category === "ranged" ? null : w;
+        c.equipment.rangedWeapon = w && w.category === "ranged" ? w : null;
+      }
+      delete c.equipment.weapon;
+    }
+    if (c.equipment.meleeWeapon === undefined) c.equipment.meleeWeapon = null;
+    if (c.equipment.rangedWeapon === undefined) c.equipment.rangedWeapon = null;
+    migrateWeaponItem(c.equipment.meleeWeapon);
+    migrateWeaponItem(c.equipment.rangedWeapon);
     if (!c.skills) c.skills = [];
     if (c.stamina === undefined) c.stamina = MAX_STAMINA;
     if (c.maxStamina === undefined) c.maxStamina = MAX_STAMINA;
@@ -654,7 +680,9 @@ root.addEventListener("change", (e) => {
       break;
     }
     case "equip-item": {
-      if (el.value) G.equipItem(state, el.dataset.id, el.dataset.slot, el.value);
+      if (el.value && !G.equipItem(state, el.dataset.id, el.dataset.slot, el.value)) {
+        flash("Not strong/dextrous enough to wield that yet.");
+      }
       render();
       break;
     }

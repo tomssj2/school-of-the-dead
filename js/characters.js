@@ -27,14 +27,14 @@ export function starterArmory() {
 }
 
 export function emptyEquipment() {
-  return { weapon: null, armor: null, accessories: [null, null, null] };
+  return { meleeWeapon: null, rangedWeapon: null, armor: null, accessories: [null, null, null] };
 }
 
 // Sum of a stat's bonuses across everything a character has equipped.
 export function equipmentBonus(c, stat) {
   const eq = c.equipment;
   if (!eq) return 0;
-  const items = [eq.weapon, eq.armor, ...(eq.accessories || [])].filter(Boolean);
+  const items = [eq.meleeWeapon, eq.rangedWeapon, eq.armor, ...(eq.accessories || [])].filter(Boolean);
   return items.reduce((sum, it) => sum + (it.bonuses[stat] || 0), 0);
 }
 
@@ -247,7 +247,8 @@ export function makeLegendaryCharacter(role, gender) {
 
   const template = pick(LEGENDARY_ITEM_TEMPLATES);
   const item = { ...template, bonuses: { ...template.bonuses }, uid: nextItemUid() };
-  if (item.slot === "weapon" || item.slot === "armor") c.equipment[item.slot] = item;
+  if (item.slot === "weapon") c.equipment[item.category === "ranged" ? "rangedWeapon" : "meleeWeapon"] = item;
+  else if (item.slot === "armor") c.equipment.armor = item;
   else c.equipment.accessories[0] = item;
 
   return c;

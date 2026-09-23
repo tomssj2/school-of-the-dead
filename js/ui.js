@@ -11,7 +11,7 @@ import {
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
-  isHexExplored, canScoutHex,
+  isHexExplored, canScoutHex, meetsItemRequirement,
 } from "./game.js";
 import { characterSprite } from "./sprite.js";
 import { isSoundEnabled } from "./sound.js";
@@ -1301,33 +1301,45 @@ export function renderResearch(state) {
 
 // ---------- armory ----------
 
-const ARMORY_SLOT_LABEL = { weapon: "⚔ Weapons", armor: "🛡 Armor", accessory: "💍 Accessories" };
+const ARMORY_SLOT_LABEL = { melee: "🗡 Melee Weapons", ranged: "🏹 Ranged Weapons", armor: "🛡 Armor", accessory: "💍 Accessories" };
+const armoryGroupKey = (it) => (it.slot === "weapon" ? it.category : it.slot);
+
+// Damage/range (and the STR/DEX floor to wield it) shown on every weapon row, on top of the
+// usual stat bonuses.
+function weaponStatsLabel(it) {
+  if (it.slot !== "weapon") return "";
+  const req = it.requires && Object.keys(it.requires).length
+    ? ` · 🔒 ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}+`).join(" ")}`
+    : "";
+  return `<span class="weapon-stats">⚔ ${it.damage} dmg · 📏 ${it.range} range${req}</span>`;
+}
+
+function armoryItemRow(it) {
+  return `<div class="armory-item ${it.legendary ? "armory-legendary" : ""}">
+    <span class="armory-icon">${it.icon}</span>
+    <span class="armory-name">${it.legendary ? "✨ " : ""}${esc(it.name)}</span>
+    <span class="armory-bonus">${formatBonuses(it.bonuses)}</span>
+    ${weaponStatsLabel(it)}
+  </div>`;
+}
 
 export function renderArmory(state) {
-  const bySlot = { weapon: [], armor: [], accessory: [] };
-  for (const it of state.armory) (bySlot[it.slot] || (bySlot[it.slot] = [])).push(it);
+  const grouped = { melee: [], ranged: [], armor: [], accessory: [] };
+  for (const it of state.armory) (grouped[armoryGroupKey(it)] || (grouped[armoryGroupKey(it)] = [])).push(it);
 
-  const section = (slotKey) => {
-    const items = bySlot[slotKey] || [];
-    const rows = items
-      .map(
-        (it) => `<div class="armory-item ${it.legendary ? "armory-legendary" : ""}">
-          <span class="armory-icon">${it.icon}</span>
-          <span class="armory-name">${it.legendary ? "✨ " : ""}${esc(it.name)}</span>
-          <span class="armory-bonus">${formatBonuses(it.bonuses)}</span>
-        </div>`
-      )
-      .join("");
+  const section = (key) => {
+    const items = grouped[key] || [];
     return `<div class="subcard">
-      <h3>${ARMORY_SLOT_LABEL[slotKey]} <span class="muted">(${items.length})</span></h3>
-      <div class="armory-list">${rows || '<p class="muted">Nothing in storage right now.</p>'}</div>
+      <h3>${ARMORY_SLOT_LABEL[key]} <span class="muted">(${items.length})</span></h3>
+      <div class="armory-list">${items.map(armoryItemRow).join("") || '<p class="muted">Nothing in storage right now.</p>'}</div>
     </div>`;
   };
 
   return `<div class="card">
     <h2>🗡 Armory</h2>
     <p class="muted">Unequipped gear sitting in the shared armory — equip it on a student from their card's Inventory tab.</p>
-    ${section("weapon")}
+    ${section("melee")}
+    ${section("ranged")}
     ${section("armor")}
     ${section("accessory")}
   </div>`;
@@ -1337,30 +1349,22 @@ export function renderArmory(state) {
 
 export function renderItemList() {
   const all = [...ITEM_TEMPLATES, ...LEGENDARY_ITEM_TEMPLATES];
-  const bySlot = { weapon: [], armor: [], accessory: [] };
-  for (const it of all) (bySlot[it.slot] || (bySlot[it.slot] = [])).push(it);
+  const grouped = { melee: [], ranged: [], armor: [], accessory: [] };
+  for (const it of all) (grouped[armoryGroupKey(it)] || (grouped[armoryGroupKey(it)] = [])).push(it);
 
-  const section = (slotKey) => {
-    const items = bySlot[slotKey] || [];
-    const rows = items
-      .map(
-        (it) => `<div class="armory-item ${it.legendary ? "armory-legendary" : ""}">
-          <span class="armory-icon">${it.icon}</span>
-          <span class="armory-name">${it.legendary ? "✨ " : ""}${esc(it.name)}</span>
-          <span class="armory-bonus">${formatBonuses(it.bonuses)}</span>
-        </div>`
-      )
-      .join("");
+  const section = (key) => {
+    const items = grouped[key] || [];
     return `<div class="subcard">
-      <h3>${ARMORY_SLOT_LABEL[slotKey]} <span class="muted">(${items.length})</span></h3>
-      <div class="armory-list">${rows}</div>
+      <h3>${ARMORY_SLOT_LABEL[key]} <span class="muted">(${items.length})</span></h3>
+      <div class="armory-list">${items.map(armoryItemRow).join("")}</div>
     </div>`;
   };
 
   return `<div class="card">
     <h2>📖 Item List</h2>
-    <p class="muted">Every piece of equipment that can turn up in the game — common gear found while exploring, plus the rare ✨ legendary items carried by legendary survivors.</p>
-    ${section("weapon")}
+    <p class="muted">Every piece of equipment that can turn up in the game — common gear found while exploring, plus the rare ✨ legendary items carried by legendary survivors. Every student can equip one melee weapon and one ranged weapon at once — melee needs enough STR (PE grade) to hold, ranged needs enough DEX (Gymnastics grade).</p>
+    ${section("melee")}
+    ${section("ranged")}
     ${section("armor")}
     ${section("accessory")}
   </div>`;
@@ -1576,33 +1580,43 @@ function renderTeacherStatsTab(c) {
 }
 
 function renderInventoryTab(state, c) {
-  const eq = c.equipment || { weapon: null, armor: null, accessories: [null, null, null] };
+  const eq = c.equipment || { meleeWeapon: null, rangedWeapon: null, armor: null, accessories: [null, null, null] };
 
-  const slotRow = (label, slotKey, item, allowedSlotType) => {
-    const options = state.armory.filter((it) => it.slot === allowedSlotType);
+  const slotRow = (label, slotKey, item, allowedSlotType, category) => {
+    const options = state.armory.filter((it) => it.slot === allowedSlotType && (!category || it.category === category));
     const itemHtml = item
       ? `<div class="inv-item">
           <span class="inv-item-icon">${item.icon}</span>
           <span class="inv-item-name">${esc(item.name)}</span>
           <span class="inv-item-bonus">${formatBonuses(item.bonuses)}</span>
+          ${weaponStatsLabel(item)}
           <button class="btn-x" data-action="unequip-item" data-id="${c.id}" data-slot="${slotKey}">✕</button>
         </div>`
       : `<select data-action="equip-item" data-id="${c.id}" data-slot="${slotKey}">
           <option value="">— empty —</option>
-          ${options.map((it) => `<option value="${it.uid}">${it.icon} ${esc(it.name)} (${formatBonuses(it.bonuses)})</option>`).join("")}
+          ${options
+            .map((it) => {
+              const ok = meetsItemRequirement(c, it);
+              const reqNote = it.requires && Object.keys(it.requires).length
+                ? ` [needs ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}+`).join(" ")}]`
+                : "";
+              return `<option value="${it.uid}" ${ok ? "" : "disabled"}>${ok ? "" : "🔒 "}${it.icon} ${esc(it.name)} (${formatBonuses(it.bonuses)})${reqNote}</option>`;
+            })
+            .join("")}
         </select>`;
     return `<div class="inv-slot"><div class="inv-slot-label">${label}</div>${itemHtml}</div>`;
   };
 
   const rows = [
-    slotRow("Weapon", "weapon", eq.weapon, "weapon"),
+    slotRow("Melee Weapon", "meleeWeapon", eq.meleeWeapon, "weapon", "melee"),
+    slotRow("Ranged Weapon", "rangedWeapon", eq.rangedWeapon, "weapon", "ranged"),
     slotRow("Armor", "armor", eq.armor, "armor"),
     slotRow("Accessory 1", "accessory0", eq.accessories[0], "accessory"),
     slotRow("Accessory 2", "accessory1", eq.accessories[1], "accessory"),
     slotRow("Accessory 3", "accessory2", eq.accessories[2], "accessory"),
   ].join("");
 
-  const allItems = [eq.weapon, eq.armor, ...eq.accessories].filter(Boolean);
+  const allItems = [eq.meleeWeapon, eq.rangedWeapon, eq.armor, ...eq.accessories].filter(Boolean);
   const totals = {};
   for (const it of allItems) for (const [k, v] of Object.entries(it.bonuses)) totals[k] = (totals[k] || 0) + v;
   const totalStr = Object.keys(totals).length

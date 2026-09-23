@@ -71,25 +71,50 @@ export const TRAITS = [
 // ===== Equipment =====
 // Templates for the shared school armory. Weapon/armor/accessory bonuses add directly to
 // their stat during expeditions and defense (they don't touch academic grades).
+//
+// Weapons carry 3 extra things armor/accessories don't: `category` ("melee" or "ranged"),
+// `damage` and `range` (in grid squares — melee tops out at 2, ranged runs 4-9), and `requires`,
+// a minimum STR (melee) or DEX (ranged) the character's own grade must clear to equip it at all
+// (checked against their raw PE/Gymnastics grade, not equipment-boosted, so gear can't bootstrap
+// itself). Every student can hold one melee weapon and one ranged weapon at once.
 export const ITEM_TEMPLATES = [
-  // Weapons (17)
-  { id: "bat", name: "Baseball Bat", slot: "weapon", icon: "🏏", bonuses: { STR: 6 } },
-  { id: "knife", name: "Kitchen Knife", slot: "weapon", icon: "🔪", bonuses: { DEX: 6 } },
-  { id: "axe", name: "Fire Axe", slot: "weapon", icon: "🪓", bonuses: { STR: 5, DEX: 3 } },
-  { id: "crowbar", name: "Crowbar", slot: "weapon", icon: "🔧", bonuses: { STR: 4, DEX: 2 } },
-  { id: "hockey_stick", name: "Hockey Stick", slot: "weapon", icon: "🏒", bonuses: { DEX: 5 } },
-  { id: "cleaver", name: "Cafeteria Cleaver", slot: "weapon", icon: "🗡", bonuses: { STR: 5, DEX: 2 } },
-  { id: "broom_spear", name: "Broom Handle Spear", slot: "weapon", icon: "🧹", bonuses: { DEX: 4, STR: 2 } },
-  { id: "tennis_racket", name: "Tennis Racket", slot: "weapon", icon: "🎾", bonuses: { DEX: 3 } },
-  { id: "trophy", name: "Heavy Trophy", slot: "weapon", icon: "🏆", bonuses: { STR: 6 } },
-  { id: "wrench", name: "Pipe Wrench", slot: "weapon", icon: "🔩", bonuses: { STR: 5 } },
-  { id: "shovel", name: "Shovel", slot: "weapon", icon: "⛏", bonuses: { STR: 6, CON: 2 } },
-  { id: "nail_bat", name: "Nail-Studded Bat", slot: "weapon", icon: "🏏", bonuses: { STR: 7, DEX: 1 } },
-  { id: "machete", name: "Machete", slot: "weapon", icon: "⚔", bonuses: { DEX: 7 } },
-  { id: "sledgehammer", name: "Sledgehammer", slot: "weapon", icon: "🔨", bonuses: { STR: 9 } },
-  { id: "field_chainsaw", name: "Rusty Chainsaw", slot: "weapon", icon: "🪚", bonuses: { STR: 7, DEX: 2 } },
-  { id: "pool_cue", name: "Pool Cue", slot: "weapon", icon: "🎱", bonuses: { DEX: 4 } },
-  { id: "fire_poker", name: "Fire Poker", slot: "weapon", icon: "🔥", bonuses: { STR: 4, DEX: 2 } },
+  // Melee weapons (17) — require STR (PE grade) to hold, range 1-2
+  { id: "bat", name: "Baseball Bat", slot: "weapon", category: "melee", icon: "🏏", bonuses: { STR: 6 }, damage: 10, range: 2, requires: { STR: 25 } },
+  { id: "knife", name: "Kitchen Knife", slot: "weapon", category: "melee", icon: "🔪", bonuses: { DEX: 6 }, damage: 9, range: 1, requires: { STR: 20 } },
+  { id: "axe", name: "Fire Axe", slot: "weapon", category: "melee", icon: "🪓", bonuses: { STR: 5, DEX: 3 }, damage: 12, range: 2, requires: { STR: 35 } },
+  { id: "crowbar", name: "Crowbar", slot: "weapon", category: "melee", icon: "🔧", bonuses: { STR: 4, DEX: 2 }, damage: 9, range: 1, requires: { STR: 22 } },
+  { id: "hockey_stick", name: "Hockey Stick", slot: "weapon", category: "melee", icon: "🏒", bonuses: { DEX: 5 }, damage: 8, range: 2, requires: { STR: 20 } },
+  { id: "cleaver", name: "Cafeteria Cleaver", slot: "weapon", category: "melee", icon: "🗡", bonuses: { STR: 5, DEX: 2 }, damage: 11, range: 1, requires: { STR: 30 } },
+  { id: "broom_spear", name: "Broom Handle Spear", slot: "weapon", category: "melee", icon: "🧹", bonuses: { DEX: 4, STR: 2 }, damage: 8, range: 2, requires: { STR: 22 } },
+  { id: "tennis_racket", name: "Tennis Racket", slot: "weapon", category: "melee", icon: "🎾", bonuses: { DEX: 3 }, damage: 6, range: 1, requires: { STR: 15 } },
+  { id: "trophy", name: "Heavy Trophy", slot: "weapon", category: "melee", icon: "🏆", bonuses: { STR: 6 }, damage: 10, range: 1, requires: { STR: 28 } },
+  { id: "wrench", name: "Pipe Wrench", slot: "weapon", category: "melee", icon: "🔩", bonuses: { STR: 5 }, damage: 9, range: 1, requires: { STR: 25 } },
+  { id: "shovel", name: "Shovel", slot: "weapon", category: "melee", icon: "⛏", bonuses: { STR: 6, CON: 2 }, damage: 11, range: 2, requires: { STR: 32 } },
+  { id: "nail_bat", name: "Nail-Studded Bat", slot: "weapon", category: "melee", icon: "🏏", bonuses: { STR: 7, DEX: 1 }, damage: 13, range: 2, requires: { STR: 38 } },
+  { id: "machete", name: "Machete", slot: "weapon", category: "melee", icon: "⚔", bonuses: { DEX: 7 }, damage: 11, range: 1, requires: { STR: 30 } },
+  { id: "sledgehammer", name: "Sledgehammer", slot: "weapon", category: "melee", icon: "🔨", bonuses: { STR: 9 }, damage: 15, range: 2, requires: { STR: 45 } },
+  { id: "field_chainsaw", name: "Rusty Chainsaw", slot: "weapon", category: "melee", icon: "🪚", bonuses: { STR: 7, DEX: 2 }, damage: 14, range: 2, requires: { STR: 42 } },
+  { id: "pool_cue", name: "Pool Cue", slot: "weapon", category: "melee", icon: "🎱", bonuses: { DEX: 4 }, damage: 7, range: 2, requires: { STR: 18 } },
+  { id: "fire_poker", name: "Fire Poker", slot: "weapon", category: "melee", icon: "🔥", bonuses: { STR: 4, DEX: 2 }, damage: 9, range: 2, requires: { STR: 24 } },
+
+  // Ranged weapons (17) — require DEX (Gymnastics grade) to hold, range 4-9
+  { id: "slingshot", name: "Slingshot", slot: "weapon", category: "ranged", icon: "🎯", bonuses: { DEX: 5 }, damage: 7, range: 5, requires: { DEX: 18 } },
+  { id: "recurve_bow", name: "Recurve Bow", slot: "weapon", category: "ranged", icon: "🏹", bonuses: { DEX: 7 }, damage: 10, range: 7, requires: { DEX: 28 } },
+  { id: "compound_bow", name: "Compound Bow", slot: "weapon", category: "ranged", icon: "🏹", bonuses: { DEX: 8 }, damage: 12, range: 8, requires: { DEX: 35 } },
+  { id: "crossbow", name: "Crossbow", slot: "weapon", category: "ranged", icon: "🎯", bonuses: { DEX: 7, STR: 2 }, damage: 13, range: 6, requires: { DEX: 38 } },
+  { id: "nerf_blaster", name: "Nerf Blaster", slot: "weapon", category: "ranged", icon: "🔫", bonuses: { DEX: 4 }, damage: 5, range: 4, requires: { DEX: 12 } },
+  { id: "dart_gun", name: "Tranq Dart Gun", slot: "weapon", category: "ranged", icon: "🔫", bonuses: { DEX: 5 }, damage: 8, range: 5, requires: { DEX: 22 } },
+  { id: "paintball_marker", name: "Paintball Marker", slot: "weapon", category: "ranged", icon: "🔫", bonuses: { DEX: 6 }, damage: 8, range: 6, requires: { DEX: 24 } },
+  { id: "potato_cannon", name: "Potato Cannon", slot: "weapon", category: "ranged", icon: "🥔", bonuses: { DEX: 5, STR: 2 }, damage: 11, range: 7, requires: { DEX: 30 } },
+  { id: "water_balloon_launcher", name: "Water Balloon Launcher", slot: "weapon", category: "ranged", icon: "💧", bonuses: { DEX: 4 }, damage: 4, range: 4, requires: { DEX: 10 } },
+  { id: "throwing_knives", name: "Throwing Knives", slot: "weapon", category: "ranged", icon: "🔪", bonuses: { DEX: 6 }, damage: 9, range: 5, requires: { DEX: 25 } },
+  { id: "javelin", name: "Javelin", slot: "weapon", category: "ranged", icon: "🥍", bonuses: { DEX: 6, STR: 2 }, damage: 12, range: 6, requires: { DEX: 33 } },
+  { id: "discus", name: "Discus", slot: "weapon", category: "ranged", icon: "🥏", bonuses: { DEX: 5, STR: 3 }, damage: 11, range: 5, requires: { DEX: 30 } },
+  { id: "fire_extinguisher", name: "Fire Extinguisher", slot: "weapon", category: "ranged", icon: "🧯", bonuses: { DEX: 3, CON: 2 }, damage: 6, range: 4, requires: { DEX: 16 } },
+  { id: "bottle_rocket", name: "Bottle Rocket", slot: "weapon", category: "ranged", icon: "🎆", bonuses: { DEX: 4 }, damage: 7, range: 6, requires: { DEX: 20 } },
+  { id: "bb_gun", name: "BB Gun", slot: "weapon", category: "ranged", icon: "🔫", bonuses: { DEX: 6 }, damage: 8, range: 6, requires: { DEX: 22 } },
+  { id: "baseball_pitch", name: "Pitching Arm", slot: "weapon", category: "ranged", icon: "⚾", bonuses: { DEX: 6 }, damage: 9, range: 6, requires: { DEX: 26 } },
+  { id: "fishing_rod_hook", name: "Fishing Rod & Hook", slot: "weapon", category: "ranged", icon: "🎣", bonuses: { DEX: 4, WIS: 2 }, damage: 7, range: 9, requires: { DEX: 20 } },
 
   // Armor (17)
   { id: "jacket", name: "School Jacket", slot: "armor", icon: "🧥", bonuses: { CON: 4 } },
@@ -131,15 +156,19 @@ export const ITEM_TEMPLATES = [
 ];
 
 // A handful of starter items to seed the shared armory with on a new game.
-export const STARTER_ARMORY_IDS = ["bat", "jacket", "charm", "knife", "watch", "pads", "glasses"];
+export const STARTER_ARMORY_IDS = ["bat", "jacket", "charm", "knife", "watch", "pads", "glasses", "slingshot"];
 
 // Rare, much stronger items — never in the starter/shared armory pool. Only ever created
 // pre-equipped on a legendary survivor (see makeLegendaryCharacter).
 export const LEGENDARY_ITEM_TEMPLATES = [
-  { id: "legendary_bat", name: "Home Run King", slot: "weapon", icon: "🏏", bonuses: { STR: 16 }, legendary: true },
-  { id: "legendary_axe", name: "Widow's Edge", slot: "weapon", icon: "🪓", bonuses: { STR: 12, DEX: 8 }, legendary: true },
-  { id: "legendary_chainsaw", name: "Groundskeeper's Fury", slot: "weapon", icon: "🪚", bonuses: { STR: 18, DEX: 4 }, legendary: true },
-  { id: "legendary_machete", name: "Principal's Wrath", slot: "weapon", icon: "⚔", bonuses: { DEX: 16, STR: 6 }, legendary: true },
+  { id: "legendary_bat", name: "Home Run King", slot: "weapon", category: "melee", icon: "🏏", bonuses: { STR: 16 }, damage: 26, range: 2, requires: { STR: 70 }, legendary: true },
+  { id: "legendary_axe", name: "Widow's Edge", slot: "weapon", category: "melee", icon: "🪓", bonuses: { STR: 12, DEX: 8 }, damage: 32, range: 2, requires: { STR: 78 }, legendary: true },
+  { id: "legendary_chainsaw", name: "Groundskeeper's Fury", slot: "weapon", category: "melee", icon: "🪚", bonuses: { STR: 18, DEX: 4 }, damage: 36, range: 2, requires: { STR: 85 }, legendary: true },
+  { id: "legendary_machete", name: "Principal's Wrath", slot: "weapon", category: "melee", icon: "⚔", bonuses: { DEX: 16, STR: 6 }, damage: 34, range: 1, requires: { STR: 80 }, legendary: true },
+  { id: "legendary_recurve", name: "Robin's Last Arrow", slot: "weapon", category: "ranged", icon: "🏹", bonuses: { DEX: 18 }, damage: 30, range: 9, requires: { DEX: 75 }, legendary: true },
+  { id: "legendary_crossbow", name: "Van Helsing's Crossbow", slot: "weapon", category: "ranged", icon: "🎯", bonuses: { DEX: 14, STR: 6 }, damage: 34, range: 8, requires: { DEX: 80 }, legendary: true },
+  { id: "legendary_cannon", name: "Coach's Cannon", slot: "weapon", category: "ranged", icon: "🥔", bonuses: { DEX: 12, STR: 10 }, damage: 36, range: 7, requires: { DEX: 82 }, legendary: true },
+  { id: "legendary_slingshot", name: "Giant's Fall", slot: "weapon", category: "ranged", icon: "🎯", bonuses: { DEX: 16, WIS: 6 }, damage: 28, range: 9, requires: { DEX: 72 }, legendary: true },
   { id: "legendary_vest", name: "Warden's Plate", slot: "armor", icon: "🦺", bonuses: { CON: 20 }, legendary: true },
   { id: "legendary_coat", name: "Survivor's Coat", slot: "armor", icon: "🧥", bonuses: { CON: 12, DEX: 6 }, legendary: true },
   { id: "legendary_riotgear", name: "Last Guardian's Plate", slot: "armor", icon: "🛡", bonuses: { CON: 22, STR: 4 }, legendary: true },

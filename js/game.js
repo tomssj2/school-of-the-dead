@@ -951,13 +951,27 @@ export function rejectRecruit(state, index) {
 }
 
 // ---------- equipment ----------
-// slot is "weapon", "armor", or "accessory0"/"accessory1"/"accessory2". Equipping pulls the
-// item out of the shared armory; unequipping returns it there. Only one school's worth of gear
-// exists at a time, so equipping one unit can mean un-equipping another first.
+// slot is "meleeWeapon", "rangedWeapon", "armor", or "accessory0"/"accessory1"/"accessory2".
+// Equipping pulls the item out of the shared armory; unequipping returns it there. Only one
+// school's worth of gear exists at a time, so equipping one unit can mean un-equipping another.
 
 function requiredSlotType(slot) {
-  if (slot === "weapon" || slot === "armor") return slot;
+  if (slot === "meleeWeapon" || slot === "rangedWeapon") return "weapon";
+  if (slot === "armor") return "armor";
   return "accessory";
+}
+
+// A weapon's `requires` is checked against the character's own raw STR/DEX (their PE/Gymnastics
+// grade) — not equipment-boosted — so gear can't bootstrap the strength/dexterity needed to
+// wield it in the first place.
+export function statValue(c, statKey) {
+  const subject = SUBJECTS.find((s) => STAT_OF_SUBJECT[s] === statKey);
+  return subject ? c.grades[subject] : 0;
+}
+
+export function meetsItemRequirement(c, item) {
+  if (!item || !item.requires) return true;
+  return Object.entries(item.requires).every(([stat, min]) => statValue(c, stat) >= min);
 }
 
 export function equipItem(state, charId, slot, itemUid) {
@@ -967,10 +981,13 @@ export function equipItem(state, charId, slot, itemUid) {
   if (idx === -1) return false;
   const item = state.armory[idx];
   if (item.slot !== requiredSlotType(slot)) return false;
+  if (slot === "meleeWeapon" && item.category !== "melee") return false;
+  if (slot === "rangedWeapon" && item.category !== "ranged") return false;
+  if (!meetsItemRequirement(c, item)) return false;
 
   state.armory.splice(idx, 1);
   let old;
-  if (slot === "weapon" || slot === "armor") {
+  if (slot === "meleeWeapon" || slot === "rangedWeapon" || slot === "armor") {
     old = c.equipment[slot];
     c.equipment[slot] = item;
   } else {
@@ -986,7 +1003,7 @@ export function unequipItem(state, charId, slot) {
   const c = getChar(state, charId);
   if (!c) return false;
   let old;
-  if (slot === "weapon" || slot === "armor") {
+  if (slot === "meleeWeapon" || slot === "rangedWeapon" || slot === "armor") {
     old = c.equipment[slot];
     c.equipment[slot] = null;
   } else {
