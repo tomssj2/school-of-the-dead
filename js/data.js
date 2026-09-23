@@ -72,20 +72,62 @@ export const TRAITS = [
 // Templates for the shared school armory. Weapon/armor/accessory bonuses add directly to
 // their stat during expeditions and defense (they don't touch academic grades).
 export const ITEM_TEMPLATES = [
+  // Weapons (17)
   { id: "bat", name: "Baseball Bat", slot: "weapon", icon: "🏏", bonuses: { STR: 6 } },
   { id: "knife", name: "Kitchen Knife", slot: "weapon", icon: "🔪", bonuses: { DEX: 6 } },
   { id: "axe", name: "Fire Axe", slot: "weapon", icon: "🪓", bonuses: { STR: 5, DEX: 3 } },
   { id: "crowbar", name: "Crowbar", slot: "weapon", icon: "🔧", bonuses: { STR: 4, DEX: 2 } },
+  { id: "hockey_stick", name: "Hockey Stick", slot: "weapon", icon: "🏒", bonuses: { DEX: 5 } },
+  { id: "cleaver", name: "Cafeteria Cleaver", slot: "weapon", icon: "🗡", bonuses: { STR: 5, DEX: 2 } },
+  { id: "broom_spear", name: "Broom Handle Spear", slot: "weapon", icon: "🧹", bonuses: { DEX: 4, STR: 2 } },
+  { id: "tennis_racket", name: "Tennis Racket", slot: "weapon", icon: "🎾", bonuses: { DEX: 3 } },
+  { id: "trophy", name: "Heavy Trophy", slot: "weapon", icon: "🏆", bonuses: { STR: 6 } },
+  { id: "wrench", name: "Pipe Wrench", slot: "weapon", icon: "🔩", bonuses: { STR: 5 } },
+  { id: "shovel", name: "Shovel", slot: "weapon", icon: "⛏", bonuses: { STR: 6, CON: 2 } },
+  { id: "nail_bat", name: "Nail-Studded Bat", slot: "weapon", icon: "🏏", bonuses: { STR: 7, DEX: 1 } },
+  { id: "machete", name: "Machete", slot: "weapon", icon: "⚔", bonuses: { DEX: 7 } },
+  { id: "sledgehammer", name: "Sledgehammer", slot: "weapon", icon: "🔨", bonuses: { STR: 9 } },
+  { id: "field_chainsaw", name: "Rusty Chainsaw", slot: "weapon", icon: "🪚", bonuses: { STR: 7, DEX: 2 } },
+  { id: "pool_cue", name: "Pool Cue", slot: "weapon", icon: "🎱", bonuses: { DEX: 4 } },
+  { id: "fire_poker", name: "Fire Poker", slot: "weapon", icon: "🔥", bonuses: { STR: 4, DEX: 2 } },
+
+  // Armor (17)
   { id: "jacket", name: "School Jacket", slot: "armor", icon: "🧥", bonuses: { CON: 4 } },
   { id: "vest", name: "Riot Vest", slot: "armor", icon: "🦺", bonuses: { CON: 9 } },
   { id: "pads", name: "Padded Gear", slot: "armor", icon: "🎽", bonuses: { CON: 5, DEX: 2 } },
   { id: "helmet", name: "Bike Helmet", slot: "armor", icon: "⛑", bonuses: { CON: 3, STR: 2 } },
+  { id: "letterman_jacket", name: "Letterman Jacket", slot: "armor", icon: "🏅", bonuses: { CON: 4, CHA: 2 } },
+  { id: "hoodie", name: "Hoodie", slot: "armor", icon: "🧣", bonuses: { CON: 3 } },
+  { id: "backpack_plate", name: "Backpack Plate", slot: "armor", icon: "🎒", bonuses: { CON: 5 } },
+  { id: "catchers_gear", name: "Catcher's Gear", slot: "armor", icon: "🥎", bonuses: { CON: 7 } },
+  { id: "football_pads", name: "Football Pads", slot: "armor", icon: "🏈", bonuses: { CON: 6, STR: 2 } },
+  { id: "trash_lid", name: "Trash Can Lid", slot: "armor", icon: "🛡", bonuses: { CON: 6 } },
+  { id: "welding_mask", name: "Welding Mask", slot: "armor", icon: "😷", bonuses: { CON: 4, WIS: 2 } },
+  { id: "motorcycle_jacket", name: "Motorcycle Jacket", slot: "armor", icon: "🏍", bonuses: { CON: 6, DEX: 2 } },
+  { id: "kevlar_vest", name: "Improvised Kevlar", slot: "armor", icon: "🦺", bonuses: { CON: 9 } },
+  { id: "lab_coat", name: "Lab Coat", slot: "armor", icon: "🥼", bonuses: { CON: 3, INT: 3 } },
+  { id: "apron", name: "Cafeteria Apron", slot: "armor", icon: "🧑‍🍳", bonuses: { CON: 3 } },
+  { id: "winter_coat", name: "Winter Coat", slot: "armor", icon: "🧥", bonuses: { CON: 5, STR: 1 } },
+  { id: "riot_harness", name: "Riot Shield Harness", slot: "armor", icon: "🛡", bonuses: { CON: 6, STR: 2 } },
+
+  // Accessories (17)
   { id: "charm", name: "Lucky Charm", slot: "accessory", icon: "🍀", bonuses: { CHA: 5 } },
   { id: "glasses", name: "Reading Glasses", slot: "accessory", icon: "👓", bonuses: { INT: 5 } },
   { id: "watch", name: "Pocket Watch", slot: "accessory", icon: "⌚", bonuses: { WIS: 5 } },
   { id: "energy_drink", name: "Energy Drink", slot: "accessory", icon: "🥤", bonuses: { STR: 2, DEX: 2 } },
   { id: "photo", name: "Family Photo", slot: "accessory", icon: "📷", bonuses: { CHA: 3, WIS: 2 } },
   { id: "gloves", name: "Fingerless Gloves", slot: "accessory", icon: "🧤", bonuses: { DEX: 3, STR: 2 } },
+  { id: "bracelet", name: "Friendship Bracelet", slot: "accessory", icon: "📿", bonuses: { CHA: 4 } },
+  { id: "class_ring", name: "Class Ring", slot: "accessory", icon: "💍", bonuses: { CHA: 3, WIS: 2 } },
+  { id: "harmonica", name: "Harmonica", slot: "accessory", icon: "🎵", bonuses: { CHA: 4 } },
+  { id: "walkie_talkie", name: "Walkie-Talkie", slot: "accessory", icon: "📻", bonuses: { WIS: 4 } },
+  { id: "compass", name: "Compass", slot: "accessory", icon: "🧭", bonuses: { WIS: 5 } },
+  { id: "notebook", name: "Notebook", slot: "accessory", icon: "📓", bonuses: { INT: 4 } },
+  { id: "headband", name: "Headband", slot: "accessory", icon: "🎗", bonuses: { DEX: 3 } },
+  { id: "whistle", name: "Whistle", slot: "accessory", icon: "📯", bonuses: { CHA: 3, STR: 1 } },
+  { id: "sunglasses", name: "Sunglasses", slot: "accessory", icon: "🕶", bonuses: { CHA: 4 } },
+  { id: "first_aid", name: "Worn First Aid Kit", slot: "accessory", icon: "🩹", bonuses: { CON: 3, WIS: 2 } },
+  { id: "energy_stash", name: "Energy Bar Stash", slot: "accessory", icon: "🍫", bonuses: { STR: 2, CON: 2 } },
 ];
 
 // A handful of starter items to seed the shared armory with on a new game.
@@ -96,10 +138,16 @@ export const STARTER_ARMORY_IDS = ["bat", "jacket", "charm", "knife", "watch", "
 export const LEGENDARY_ITEM_TEMPLATES = [
   { id: "legendary_bat", name: "Home Run King", slot: "weapon", icon: "🏏", bonuses: { STR: 16 }, legendary: true },
   { id: "legendary_axe", name: "Widow's Edge", slot: "weapon", icon: "🪓", bonuses: { STR: 12, DEX: 8 }, legendary: true },
+  { id: "legendary_chainsaw", name: "Groundskeeper's Fury", slot: "weapon", icon: "🪚", bonuses: { STR: 18, DEX: 4 }, legendary: true },
+  { id: "legendary_machete", name: "Principal's Wrath", slot: "weapon", icon: "⚔", bonuses: { DEX: 16, STR: 6 }, legendary: true },
   { id: "legendary_vest", name: "Warden's Plate", slot: "armor", icon: "🦺", bonuses: { CON: 20 }, legendary: true },
   { id: "legendary_coat", name: "Survivor's Coat", slot: "armor", icon: "🧥", bonuses: { CON: 12, DEX: 6 }, legendary: true },
+  { id: "legendary_riotgear", name: "Last Guardian's Plate", slot: "armor", icon: "🛡", bonuses: { CON: 22, STR: 4 }, legendary: true },
+  { id: "legendary_labcoat", name: "Alchemist's Ward", slot: "armor", icon: "🥼", bonuses: { INT: 12, CON: 10 }, legendary: true },
   { id: "legendary_charm", name: "Four-Leaf Talisman", slot: "accessory", icon: "🍀", bonuses: { CHA: 14, WIS: 6 }, legendary: true },
   { id: "legendary_glasses", name: "Oracle's Lenses", slot: "accessory", icon: "👓", bonuses: { INT: 14, WIS: 6 }, legendary: true },
+  { id: "legendary_compass", name: "Wayfinder's Compass", slot: "accessory", icon: "🧭", bonuses: { WIS: 16, INT: 6 }, legendary: true },
+  { id: "legendary_ring", name: "Captain's Signet", slot: "accessory", icon: "💍", bonuses: { CHA: 16, WIS: 6 }, legendary: true },
 ];
 
 export const LEGENDARY_TITLES = ["the Relentless", "the Unbroken", "the Last Stand", "the Ironclad", "the Undying", "the Reaper's Bane"];
