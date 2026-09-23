@@ -14,7 +14,8 @@ import {
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
   ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
-  zombieCountForDay, zombieStatsForDay,
+  zombieStatsForDay, ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
+  RESCUE_BROADCAST_DAY, RESCUE_DAY, RESCUE_DELAY_DAYS, ANTENNA_STAGES,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
 } from "./data.js";
 import {
@@ -55,6 +56,9 @@ export function createInitialState() {
     exploredHexes: [], // "q,r" keys the fog of war has been lifted from
     techUnlocked: [], // TECH_TREE ids purchased with banked Research
     entranceGrid: { size: ENTRANCE_GRID_SIZE, students: {}, defenses: {} }, // "row,col" -> id
+    rescue: null, // { day, stagesDone, evacuated } once the radio broadcast has come in
+    victory: false,
+    bossesSlain: [], // boss names, for the epilogue
     characters: [],
     rooms: {
       classrooms: Object.fromEntries(
@@ -634,6 +638,15 @@ export function resolveExploration(state) {
 
 const chebyshev = (a, b) => Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col));
 
+function shuffled(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 // Student-zone cells, front line (the row nearest the horde) first.
 function studentZoneCells(size) {
   const third = Math.floor(size / 3);
@@ -662,7 +675,10 @@ export function simulateEntranceBattle(state) {
   const grid = state.entranceGrid;
   const size = grid.size;
   const zStats = zombieStatsForDay(state.day);
-  const toSpawn = zombieCountForDay(state.day);
+  const comp = hordeComposition(state.day);
+  const queue = shuffled(["walker", "runner", "brute", "spitter"].flatMap((t) => Array(comp[t]).fill(t)));
+  if (comp.boss) queue.push("boss"); // the boss brings up the rear
+  const toSpawn = queue.length;
   const spawnRows = [size - 1, size - 2];
 
   const students = Object.entries(grid.students)
@@ -696,13 +712,14 @@ export function simulateEntranceBattle(state) {
   };
   const killZombie = (z, events) => {
     z.alive = false;
+    z.killed = true;
     killed++;
-    events.push({ type: "kill", at: [z.row, z.col] });
+    events.push({ type: "kill", at: [z.row, z.col], boss: z.type === "boss" });
   };
   const snapshot = (tick, events) => ({
     tick,
     events,
-    zombies: zombies.filter((z) => z.alive).map((z) => ({ id: z.id, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp })),
+    zombies: zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp })),
     students: students.map((s) => ({ id: s.id, row: s.row, col: s.col, hp: Math.max(0, s.hp), maxHp: s.maxHp, downed: s.downed })),
     structures: Object.values(structures).map((st) => ({ key: st.key, id: st.def.id, hp: st.hp, maxHp: st.def.hp || 0, destroyed: st.destroyed })),
     gate: { ...gate },
@@ -723,7 +740,11 @@ export function simulateEntranceBattle(state) {
       if (!free.length) break;
       const back = free.filter((p) => p.row === size - 1);
       const spot = pick(back.length ? back : free);
-      zombies.push({ id: spawned + 1, row: spot.row, col: spot.col, hp: zStats.hp, maxHp: zStats.hp, alive: true, snagged: false });
+      const type = queue[spawned];
+      const T = ZOMBIE_TYPES[type];
+      const hp = Math.round(zStats.hp * T.hpMult);
+      const dmg = Math.max(1, Math.round(zStats.damage * T.dmgMult));
+      zombies.push({ id: spawned + 1, type, row: spot.row, col: spot.col, hp, maxHp: hp, dmg, alive: true, snagged: false });
       spawned++;
     }
 
@@ -752,51 +773,43 @@ export function simulateEntranceBattle(state) {
     }
 
     // 3. the horde advances, front-most first so the ones behind can step up
-    for (const z of zombies.filter((z) => z.alive).sort((a, b) => a.row - b.row)) {
-      if (z.snagged) {
-        z.snagged = false;
-        continue;
+    const hurtStudent = (z, s, dmgBase, type, events) => {
+      const hit = Math.random() < ZOMBIE_HIT_CHANCE;
+      const dmg = hit ? Math.max(1, Math.round(dmgBase * s.armorMult * (0.85 + Math.random() * 0.3))) : 0;
+      s.hp -= dmg;
+      events.push({ type, from: [z.row, z.col], to: [s.row, s.col], dmg, hit });
+      if (s.hp <= 0) {
+        s.downed = true;
+        events.push({ type: "downed", at: [s.row, s.col], id: s.id });
       }
+    };
 
-      const adjacent = students
-        .filter((s) => !s.downed && chebyshev(s, z) <= 1)
-        .sort((a, b) => (a.col === z.col ? 0 : 1) - (b.col === z.col ? 0 : 1));
-      if (adjacent.length) {
-        const s = adjacent[0];
-        const hit = Math.random() < ZOMBIE_HIT_CHANCE;
-        const dmg = hit ? Math.max(1, Math.round(zStats.damage * s.armorMult * (0.85 + Math.random() * 0.3))) : 0;
-        s.hp -= dmg;
-        events.push({ type: "bite", from: [z.row, z.col], to: [s.row, s.col], dmg, hit });
-        if (s.hp <= 0) {
-          s.downed = true;
-          events.push({ type: "downed", at: [s.row, s.col], id: s.id });
-        }
-        continue;
-      }
-
+    // One row forward (or its outcome if something's in the way). Returns true only on a move.
+    const advance = (z, T, events) => {
       const ahead = z.row - 1;
       if (ahead < 0) {
         if (gate.hp > 0) {
-          gate.hp = Math.max(0, gate.hp - zStats.damage);
-          events.push({ type: "gate", at: [z.row, z.col], dmg: zStats.damage });
+          gate.hp = Math.max(0, gate.hp - z.dmg);
+          events.push({ type: "gate", at: [z.row, z.col], dmg: z.dmg });
         } else {
           z.alive = false;
           breached++;
           events.push({ type: "breach", at: [z.row, z.col] });
         }
-        continue;
+        return false;
       }
 
       const wall = wallAt(ahead, z.col);
       if (wall) {
-        wall.hp -= zStats.damage;
-        events.push({ type: "smash", at: [ahead, z.col], dmg: zStats.damage });
+        const dmg = z.dmg * (T.wallMult || 1);
+        wall.hp -= dmg;
+        events.push({ type: "smash", at: [ahead, z.col], dmg });
         if (wall.hp <= 0) {
           wall.hp = 0;
           wall.destroyed = true;
           events.push({ type: "destroyed", at: [ahead, z.col] });
         }
-        continue;
+        return false;
       }
 
       // straight ahead if it's clear, otherwise try to shuffle diagonally around whoever's in the way
@@ -804,7 +817,7 @@ export function simulateEntranceBattle(state) {
       const destCol = [z.col, ...sides].find(
         (col) => col >= 0 && col < size && !zombieAt(ahead, col) && !studentAt(ahead, col) && !wallAt(ahead, col)
       );
-      if (destCol === undefined) continue;
+      if (destCol === undefined) return false;
       z.row = ahead;
       z.col = destCol;
 
@@ -812,8 +825,45 @@ export function simulateEntranceBattle(state) {
       if (trap && !trap.def.blocks && trap.def.enterDamage) {
         z.hp -= trap.def.enterDamage;
         events.push({ type: "trap", at: [ahead, destCol], dmg: trap.def.enterDamage });
-        if (trap.def.slows) z.snagged = true;
-        if (z.hp <= 0) killZombie(z, events);
+        if (trap.def.slows && !T.unsnaggable) z.snagged = true;
+        if (z.hp <= 0) {
+          killZombie(z, events);
+          return false;
+        }
+        if (z.snagged) return false;
+      }
+      return true;
+    };
+
+    for (const z of zombies.filter((z) => z.alive).sort((a, b) => a.row - b.row)) {
+      const T = ZOMBIE_TYPES[z.type];
+      if (z.snagged) {
+        z.snagged = false;
+        continue;
+      }
+
+      const adjacentTo = () =>
+        students
+          .filter((s) => !s.downed && chebyshev(s, z) <= 1)
+          .sort((a, b) => (a.col === z.col ? 0 : 1) - (b.col === z.col ? 0 : 1));
+      const adjacent = adjacentTo();
+      if (adjacent.length) {
+        hurtStudent(z, adjacent[0], z.dmg, "bite", events);
+        continue;
+      }
+
+      if (T.spitRange) {
+        const inRange = students.filter((s) => !s.downed && chebyshev(s, z) <= T.spitRange);
+        if (inRange.length) {
+          const target = inRange.sort((a, b) => chebyshev(a, z) - chebyshev(b, z))[0];
+          hurtStudent(z, target, z.dmg, "spit", events);
+          continue;
+        }
+      }
+
+      for (let step = 0; step < (T.speed || 1); step++) {
+        if (step > 0 && adjacentTo().length) break; // closed the distance — it'll bite next turn
+        if (!advance(z, T, events)) break;
       }
     }
 
@@ -828,6 +878,7 @@ export function simulateEntranceBattle(state) {
     killed,
     breached,
     held: zombies.filter((z) => z.alive).length, // still on the field at dawn — they drift off
+    bossKilled: zombies.some((z) => z.type === "boss" && z.killed),
     students,
     destroyedKeys: Object.values(structures).filter((st) => st.destroyed).map((st) => st.key),
   };
@@ -845,8 +896,21 @@ export function resolveDefense(state) {
 
   const battle = simulateEntranceBattle(state);
   const { spawned, killed, breached } = battle;
-  addLog(state, `The horde attacks the entrance — ${spawned} zombies shamble out of the dark.`);
+  const bossName = isBossNight(state.day) ? bossNameForDay(state.day) : null;
+  addLog(state, `The horde attacks the entrance — ${spawned} zombies shamble out of the dark${bossName ? `, led by ${bossName}` : ""}.`);
   if (!defenders.length) addLog(state, `No one was defending the entrance!`);
+
+  if (bossName && battle.bossKilled) {
+    state.bossesSlain.push(bossName);
+    state.resources.materials += 25;
+    state.resources.food += 15;
+    const item = makeItem(pick(ITEM_TEMPLATES.filter((t) => itemTier(t) >= 3)).id);
+    state.armory.push(item);
+    adjustHappiness(state, HAPPINESS_GAIN_WIN);
+    addLog(state, `${bossName} is down! Its hoard: +25 materials, +15 food and ${item.icon} ${item.name}.`);
+  } else if (bossName) {
+    addLog(state, `${bossName} survived the night and slunk back into the dark.`);
+  }
 
   let downedCount = 0;
   for (const s of battle.students) {
@@ -937,7 +1001,10 @@ export function resolveDefense(state) {
   }
 
   addLog(state, `Turn 3 (Defense) resolved.`);
-  return { won, routed, spawned, killed, breached, downedCount, defenderCount: defenders.length, size: battle.size, frames: battle.frames };
+  return {
+    won, routed, spawned, killed, breached, downedCount, defenderCount: defenders.length,
+    bossName, bossKilled: battle.bossKilled, size: battle.size, frames: battle.frames,
+  };
 }
 
 // ---------- facility raid ----------
@@ -1074,10 +1141,69 @@ function resolveOvernightRecovery(state) {
   }
 }
 
+// ---------- the rescue ----------
+
+export function antennaReady(state) {
+  return !!state.rescue && state.rescue.stagesDone >= ANTENNA_STAGES.length;
+}
+
+export function repairAntenna(state) {
+  if (!state.rescue) return false;
+  const stage = ANTENNA_STAGES[state.rescue.stagesDone];
+  if (!stage) return false;
+  const cost = Object.entries(stage.cost);
+  if (cost.some(([res, amt]) => (state.resources[res] || 0) < amt)) return false;
+  for (const [res, amt] of cost) state.resources[res] -= amt;
+  state.rescue.stagesDone++;
+  addLog(
+    state,
+    antennaReady(state)
+      ? `📡 The antenna is fixed and the school's signal is on the air — now hold out until the helicopters come.`
+      : `📡 Antenna repair: ${stage.name} done (${state.rescue.stagesDone}/${ANTENNA_STAGES.length}).`
+  );
+  return true;
+}
+
+// Staying behind after the evacuation turns the run into endless survival.
+export function stayAfterRescue(state) {
+  state.victory = false;
+  addLog(state, `A handful of survivors stay behind to hold the school.`);
+}
+
+// Run at the end of each day for the day that's about to start — everything is logged before the
+// day number ticks over so it lands in the Day Recap shown right afterwards.
+function resolveDayMilestones(state, nextDay) {
+  if (!state.rescue && nextDay >= RESCUE_BROADCAST_DAY) {
+    state.rescue = { day: Math.max(RESCUE_DAY, nextDay + 10), stagesDone: 0, evacuated: false };
+    addLog(
+      state,
+      `📻 The radio crackles to life: a military evacuation will sweep the city on day ${state.rescue.day}. ` +
+        `They'll only find survivors who can signal them — the rooftop antenna has to be repaired by then.`
+    );
+  }
+  if (state.rescue && !state.rescue.evacuated && nextDay >= state.rescue.day && aliveChars(state).length > 0) {
+    if (antennaReady(state)) {
+      state.victory = true;
+      state.rescue.evacuated = true;
+      addLog(state, `🚁 Rotor blades over the school! The evacuation found your signal — everyone left alive is flown out.`);
+    } else {
+      state.rescue.day = nextDay + RESCUE_DELAY_DAYS;
+      adjustHappiness(state, -15);
+      addLog(state, `🚁 Helicopters circle the city but can't find the school without a working antenna. They'll try again on day ${state.rescue.day}.`);
+    }
+  }
+  if (isBossNight(nextDay + 1)) {
+    addLog(state, `☠ Scouts report something huge moving with the horde — ${bossNameForDay(nextDay + 1)} will lead the attack on night ${nextDay + 1}.`);
+  } else if (isBossNight(nextDay)) {
+    addLog(state, `☠ ${bossNameForDay(nextDay)} leads the horde on night ${nextDay}. Build up the entrance while there's still daylight.`);
+  }
+}
+
 export function advanceTurn(state) {
   state.turn++;
   if (state.turn > 3) {
     if (resolveDailyFoodUpkeep(state)) resolveOvernightRecovery(state); // end of the day that just finished
+    resolveDayMilestones(state, state.day + 1);
     state.turn = 1;
     state.day++;
     addLog(state, `Day ${state.day} begins.`);

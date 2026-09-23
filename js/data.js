@@ -205,11 +205,55 @@ export const BATTLE_MAX_TICKS = 40;
 export const DOWNED_DEATH_CHANCE = 0.2; // before the Biology modifier, when there's no medicine to spare
 export const MEDICINE_PER_STABILIZE = 5; // spent automatically to save a downed defender outright
 export function zombieCountForDay(day) {
-  return 3 + Math.floor(day * 0.8);
+  return 3 + Math.floor(day * 0.7);
 }
 export function zombieStatsForDay(day) {
-  return { hp: 18 + day * 2, damage: 4 + Math.floor(day / 2) };
+  return { hp: 18 + Math.round(day * 1.2), damage: 4 + Math.floor(day / 2) };
 }
+
+// Multipliers are applied to zombieStatsForDay. `speed` = rows moved per turn, `wallMult` scales
+// damage to walls, `spitRange` lets it attack a defender from that many squares away instead of
+// closing in, `unsnaggable` ignores razor wire.
+export const ZOMBIE_TYPES = {
+  walker: { name: "Walker", badge: "", hpMult: 1, dmgMult: 1, from: 1, desc: "Slow and relentless." },
+  runner: { name: "Runner", badge: "💨", hpMult: 0.6, dmgMult: 0.8, speed: 2, from: 4, desc: "Covers two rows a turn, but goes down easy." },
+  brute: { name: "Brute", badge: "💪", hpMult: 2, dmgMult: 1.5, wallMult: 2, from: 7, desc: "Soaks up hits and smashes walls twice as fast." },
+  spitter: { name: "Spitter", badge: "🤮", hpMult: 0.8, dmgMult: 0.7, spitRange: 3, from: 10, desc: "Spits acid at defenders up to 3 squares away." },
+  boss: { name: "Boss", badge: "👑", hpMult: 5, dmgMult: 2, wallMult: 3, unsnaggable: true, from: 5, desc: "Leads the horde every 5th night. Brings a hoard worth taking." },
+};
+
+export const BOSS_EVERY = 5;
+const BOSS_NAMES = ["The Janitor", "Coach Carrion", "The Lunch Lady", "Principal Rot", "The Superintendent"];
+export function isBossNight(day) {
+  return day % BOSS_EVERY === 0;
+}
+export function bossNameForDay(day) {
+  return BOSS_NAMES[day / BOSS_EVERY - 1] || "The Horde King";
+}
+
+// Deterministic (only spawn spots are random), so the Night Watch forecast can list it exactly.
+export function hordeComposition(day) {
+  const count = zombieCountForDay(day);
+  const runner = day >= ZOMBIE_TYPES.runner.from ? Math.floor(count * 0.25) : 0;
+  const brute = day >= ZOMBIE_TYPES.brute.from ? Math.max(1, Math.floor(count * 0.15)) : 0;
+  const spitter = day >= ZOMBIE_TYPES.spitter.from ? Math.max(1, Math.floor(count * 0.15)) : 0;
+  return { walker: count - runner - brute - spitter, runner, brute, spitter, boss: isBossNight(day) ? 1 : 0 };
+}
+
+// ===== The rescue (the run's goal) =====
+// At the end of day RESCUE_BROADCAST_DAY - 1 the radio announces an evacuation on RESCUE_DAY —
+// if the rooftop antenna is repaired by then. If it isn't, the helicopters come back
+// RESCUE_DELAY_DAYS later.
+export const RESCUE_BROADCAST_DAY = 3;
+export const RESCUE_DAY = 30;
+export const RESCUE_DELAY_DAYS = 5;
+export const ANTENNA_STAGES = [
+  { name: "Salvage the wiring", icon: "🔌", cost: { materials: 30 } },
+  { name: "Rebuild the mast", icon: "🗼", cost: { materials: 50 } },
+  { name: "Rig a generator", icon: "🔋", cost: { materials: 40, research: 15 } },
+  { name: "Fix the transmitter", icon: "📻", cost: { research: 35 } },
+  { name: "Boost the signal", icon: "📡", cost: { materials: 50, research: 30 } },
+];
 
 // ===== Expedition loot =====
 export const EXPEDITION_ITEM_CHANCE = 0.3; // + 0.08 per location difficulty, on a success

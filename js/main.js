@@ -102,6 +102,9 @@ function migrateState(s) {
   if (!s.exploredHexes) s.exploredHexes = [];
   if (!s.techUnlocked) s.techUnlocked = [];
   if (!s.entranceGrid) s.entranceGrid = { size: ENTRANCE_GRID_SIZE, students: {}, defenses: {} };
+  if (s.rescue === undefined) s.rescue = null; // an older save past day 3 gets its broadcast at the next day rollover
+  if (s.victory === undefined) s.victory = false;
+  if (!s.bossesSlain) s.bossesSlain = [];
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -582,6 +585,14 @@ root.addEventListener("click", (e) => {
       break;
     case "buy-tech":
       if (!G.buyTech(state, el.dataset.id)) flash("Can't buy that yet.");
+      render();
+      break;
+    case "repair-antenna":
+      if (!G.repairAntenna(state)) flash("Not enough resources for that repair yet.");
+      render();
+      break;
+    case "stay-after-rescue":
+      G.stayAfterRescue(state);
       render();
       break;
     case "confirm-picker": {

@@ -4,6 +4,7 @@ import {
   BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_UPGRADE_MAX_LEVEL,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, SCOUT_STAMINA_COST, TECH_TREE,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
+  ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -11,7 +12,7 @@ import {
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
-  isHexExplored, canScoutHex, meetsItemRequirement,
+  isHexExplored, canScoutHex, meetsItemRequirement, antennaReady,
 } from "./game.js";
 import { characterSprite } from "./sprite.js";
 import { isSoundEnabled } from "./sound.js";
@@ -227,6 +228,7 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
         <div class="options-menu">
           <button class="options-item ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
           <button class="options-item ${activeTab === "itemlist" ? "active" : ""}" data-action="set-tab" data-tab="itemlist">📖 Item List</button>
+          ${state.rescue ? `<button class="options-item ${activeTab === "rescue" ? "active" : ""}" data-action="set-tab" data-tab="rescue">📡 Rescue Plan</button>` : ""}
           <button class="options-item" data-action="save-game">💾 Save</button>
           <button class="options-item" data-action="reset-game">🔄 New Game</button>
           <label class="options-item options-toggle">
@@ -249,6 +251,14 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
       <span class="tb-day">📅 Day <b>${state.day}</b></span>
       <span class="tb-sep">|</span>
       <span class="tb-turn-indicator">⏰ ${state.turn}/3 · <b>${TURN_NAMES_SHORT[state.turn]}</b></span>
+      ${
+        state.rescue && !state.rescue.evacuated
+          ? `<button class="tb-rescue ${antennaReady(state) ? "tb-rescue-ready" : ""}" data-action="set-tab" data-tab="rescue"
+               title="Evacuation on day ${state.rescue.day} — the rooftop antenna has to be working by then. Click for the rescue plan.">
+               📡 Day <b>${state.rescue.day}</b> · ${state.rescue.stagesDone}/${ANTENNA_STAGES.length}
+             </button>`
+          : ""
+      }
     </div>
     <div class="topbar-right">
       <div class="tb-stats">
@@ -311,26 +321,34 @@ export function renderTabs(state, activeTab) {
 
 // ---------- overview / turn action ----------
 
+function renderMemorial(fallen) {
+  if (!fallen.length) return "";
+  return `<div class="mini-label">🕯 In Memoriam</div>
+    <div class="memorial-list">
+      ${fallen
+        .map(
+          (c) => `<div class="memorial-row" title="${esc(c.name)}">
+            <span class="mini-portrait cc-dead">${characterSprite(c, 32)}</span>
+            <span class="memorial-name">${esc(c.name)}</span>
+            <span class="muted memorial-day">Day ${c.diedOnDay || "?"}</span>
+          </div>`
+        )
+        .join("")}
+    </div>`;
+}
+
+function runStats(state) {
+  const bosses = state.bossesSlain || [];
+  return `
+    <div>Research unlocked: <b>${state.techUnlocked.length}</b></div>
+    <div>Bosses slain: <b>${bosses.length}</b>${bosses.length ? ` <span class="muted">(${bosses.map(esc).join(", ")})</span>` : ""}</div>
+    <div>Legendary survivors found: <b>${state.characters.filter((c) => c.legendary).length}</b></div>
+    <div>Events weathered: <b>${state.eventLog.length}</b></div>`;
+}
+
 function renderGameOver(state) {
-  const fallen = state.characters.filter((c) => !c.alive);
-  const legendaryCount = state.characters.filter((c) => c.legendary).length;
   const title =
     state.day >= 20 ? "A Legend Among the Ashes" : state.day >= 10 ? "A Valiant Last Stand" : "A Short, Brutal Fall";
-
-  const memorial = fallen.length
-    ? `<div class="mini-label">🕯 In Memoriam</div>
-       <div class="memorial-list">
-         ${fallen
-           .map(
-             (c) => `<div class="memorial-row" title="${esc(c.name)}">
-               <span class="mini-portrait cc-dead">${characterSprite(c, 32)}</span>
-               <span class="memorial-name">${esc(c.name)}</span>
-               <span class="muted memorial-day">Day ${c.diedOnDay || "?"}</span>
-             </div>`
-           )
-           .join("")}
-       </div>`
-    : "";
 
   return `<div class="card gameover-card">
     <h2>💀 The School Has Fallen</h2>
@@ -338,17 +356,41 @@ function renderGameOver(state) {
     <p class="muted">Day ${state.day}. Every soul who called this place home is gone.</p>
     <div class="summary-list">
       <div>Days survived: <b>${state.day}</b></div>
-      <div>Research unlocked: <b>${state.techUnlocked.length}</b></div>
-      <div>Legendary survivors found: <b>${legendaryCount}</b></div>
-      <div>Events weathered: <b>${state.eventLog.length}</b></div>
+      ${runStats(state)}
     </div>
-    ${memorial}
+    ${renderMemorial(state.characters.filter((c) => !c.alive))}
     <button class="btn btn-primary btn-big" data-action="reset-game">🔄 Start a New Game</button>
+  </div>`;
+}
+
+function renderVictory(state) {
+  const survivors = aliveChars(state);
+  const fallen = state.characters.filter((c) => !c.alive);
+  const share = survivors.length / Math.max(1, survivors.length + fallen.length);
+  const title = share >= 0.9 ? "Nobody Left Behind" : share >= 0.6 ? "Out of the Fire" : "The Few Who Made It";
+
+  return `<div class="card gameover-card victory-card">
+    <h2>🚁 Rescued!</h2>
+    <p class="gameover-title">${title}</p>
+    <p class="muted">Day ${state.day}. The helicopters followed your signal to the rooftop and flew
+    ${survivors.length} survivor${survivors.length === 1 ? "" : "s"} out of the city.</p>
+    <div class="victory-survivors">
+      ${survivors.map((c) => `<span class="mini-portrait" title="${esc(c.name)}">${characterSprite(c, 32)}</span>`).join("")}
+    </div>
+    <div class="summary-list">
+      <div>Survivors evacuated: <b>${survivors.length}</b></div>
+      <div>Lost along the way: <b>${fallen.length}</b></div>
+      ${runStats(state)}
+    </div>
+    ${renderMemorial(fallen)}
+    <button class="btn btn-primary btn-big" data-action="reset-game">🔄 Start a New Game</button>
+    <button class="btn btn-big" data-action="stay-after-rescue">🏫 Stay behind and keep holding the school (endless)</button>
   </div>`;
 }
 
 export function renderOverview(state) {
   if (state.gameOver) return renderGameOver(state);
+  if (state.victory) return renderVictory(state);
   if (state.turn === 1) return renderTurn1Overview(state);
   if (state.turn === 2) return renderTurn2Overview(state);
   return renderTurn3Overview(state);
@@ -544,7 +586,11 @@ function renderGridBattle(state, anim) {
       mark(e.from, e.kind === "melee" ? "fx-swing" : "fx-shoot");
       mark(z ? [z.row, z.col] : e.to, e.hit ? "fx-hit" : "fx-miss", e.hit ? `-${e.dmg}` : "miss");
     } else if (e.type === "bite") mark(e.to, e.hit ? "fx-bitten" : "fx-miss", e.hit ? `-${e.dmg}` : "miss");
-    else if (e.type === "kill" || e.type === "destroyed") mark(e.at, "fx-kill", "💥");
+    else if (e.type === "spit") {
+      mark(e.from, "fx-spit");
+      mark(e.to, e.hit ? "fx-bitten" : "fx-miss", e.hit ? `🤮-${e.dmg}` : "miss");
+    } else if (e.type === "kill") mark(e.at, "fx-kill", e.boss ? "👑💥" : "💥");
+    else if (e.type === "destroyed") mark(e.at, "fx-kill", "💥");
     else if (e.type === "trap") mark(e.at, "fx-hit", `-${e.dmg}`);
     else if (e.type === "smash") mark(e.at, "fx-smash", `-${e.dmg}`);
     else if (e.type === "downed") mark(e.at, "fx-downed");
@@ -571,7 +617,11 @@ function renderGridBattle(state, anim) {
         inner += `<span class="gb-unit ${x.student.downed ? "gb-downed" : ""}">${c ? characterSprite(c, 30) : "🧍"}</span>`;
         inner += bar(x.student.hp, x.student.maxHp, "gb-hp-student");
       }
-      if (x.zombie) inner += `<span class="gb-unit gb-zombie">🧟</span>${bar(x.zombie.hp, x.zombie.maxHp, "gb-hp-zombie")}`;
+      if (x.zombie) {
+        const T = ZOMBIE_TYPES[x.zombie.type] || ZOMBIE_TYPES.walker;
+        const badge = T.badge ? `<span class="gb-zbadge">${T.badge}</span>` : "";
+        inner += `<span class="gb-unit gb-zombie gb-z-${x.zombie.type}" title="${T.name}">🧟${badge}</span>${bar(x.zombie.hp, x.zombie.maxHp, "gb-hp-zombie")}`;
+      }
       if (f) inner += f.pops.map((p) => `<span class="gb-pop">${p}</span>`).join("");
       cells.push(`<div class="gb-cell gb-${zone} ${f ? [...f.cls].join(" ") : ""}">${inner}</div>`);
     }
@@ -585,12 +635,16 @@ function renderGridBattle(state, anim) {
   if (anim.phase === "battle") {
     footer = `<button class="btn" data-action="skip-battle">⏩ Skip to the result</button>`;
   } else {
-    const { won, routed, killed, spawned, breached, downedCount } = summary;
+    const { won, routed, killed, spawned, breached, downedCount, bossName, bossKilled } = summary;
     const icon = routed ? "🛡️" : won ? "✅" : "⚠️";
     const text = routed ? "The horde was routed!" : won ? "The entrance held!" : `${breached} zombie${breached === 1 ? "" : "s"} broke through!`;
+    const bossLine = bossName
+      ? `<div class="gb-boss-result ${bossKilled ? "fight-win" : "fight-lose"}">${bossKilled ? `👑 ${esc(bossName)} is down — its hoard is yours` : `👑 ${esc(bossName)} got away`}</div>`
+      : "";
     footer = `<div class="fight-result gb-result ${won ? "fight-win" : "fight-lose"}">
         <div class="fight-result-icon">${icon}</div>
         <div class="fight-result-text">${text}</div>
+        ${bossLine}
         <div class="gb-result-stats">💀 ${killed}/${spawned} put down · 🚨 ${breached} broke in · 🩸 ${downedCount} defender${downedCount === 1 ? "" : "s"} went down</div>
         <button class="btn btn-primary" data-action="finish-battle">Continue</button>
       </div>`;
@@ -599,7 +653,7 @@ function renderGridBattle(state, anim) {
   return `
   <div class="modal-overlay fight-overlay gb-overlay">
     <div class="gb-header">
-      <div class="gb-title">🌙 Night ${state.day} — the horde hits the entrance</div>
+      <div class="gb-title">🌙 Night ${state.day} — ${summary.bossName ? `☠ ${esc(summary.bossName)} leads the horde` : "the horde hits the entrance"}</div>
       <div class="gb-counters">🧟 ${frame.spawned}/${summary.spawned} arrived · 💀 ${frame.killed} down · 🚨 ${frame.breached} broke in</div>
     </div>
     ${gate}
@@ -738,6 +792,16 @@ function renderTurn3Overview(state) {
   const zombies = zombieCountForDay(state.day);
   const z = zombieStatsForDay(state.day);
   const unarmed = defenders.filter((c) => !c.equipment?.meleeWeapon && !c.equipment?.rangedWeapon).length;
+  const comp = hordeComposition(state.day);
+  const mix = ["walker", "runner", "brute", "spitter"]
+    .filter((t) => comp[t])
+    .map((t) => `${comp[t]} ${ZOMBIE_TYPES[t].name.toLowerCase()}${comp[t] === 1 ? "" : "s"}${ZOMBIE_TYPES[t].badge ? ` ${ZOMBIE_TYPES[t].badge}` : ""}`)
+    .join(", ");
+  const boss = isBossNight(state.day)
+    ? `<div class="boss-warning">☠ <b>Boss night:</b> ${esc(bossNameForDay(state.day))} brings up the rear —
+       ${Math.round(z.hp * ZOMBIE_TYPES.boss.hpMult)} HP, hits for about ${Math.round(z.damage * ZOMBIE_TYPES.boss.dmgMult)}, smashes walls three
+       times as hard. Bring it down for its hoard.</div>`
+    : "";
 
   const rows = available
     .map((c) => {
@@ -756,8 +820,9 @@ function renderTurn3Overview(state) {
     weapons at 1–2 squares, ranged weapons from 4–9, bare fists only point-blank. Walls block a lane until they're
     smashed; traps hurt anything that walks over them. A zombie that gets past the top row hits the gate, then breaks
     into the school.</p>
+    ${boss}
     <div class="summary-list">
-      <div>Tonight's horde: <b>${zombies} zombies</b> — ${z.hp} HP each, hitting for about ${z.damage}</div>
+      <div>Tonight's horde: <b>${zombies} zombies</b> — ${mix}. A walker has ${z.hp} HP and hits for about ${z.damage}.</div>
       <div>Gate: <b>${state.fortification * 2} HP</b> ${state.fortification ? "(fortification ×2)" : "— no fortification yet, so anything that slips past gets straight in"}</div>
       <div>Defenders on the grid: <b>${defenders.length}</b>${unarmed ? ` · ⚠️ ${unarmed} fighting bare-handed — hand out weapons from each student's Inventory tab` : ""}</div>
       <div>Medicine: <b>${state.resources.medicine}</b> — enough to patch up <b>${Math.floor(state.resources.medicine / 5)}</b> defender${Math.floor(state.resources.medicine / 5) === 1 ? "" : "s"} who go down (without it, they might not get back up)</div>
@@ -1309,6 +1374,17 @@ export function renderDefenseTab(state) {
     ${renderEntranceGrid(state, true)}
     <div class="mini-label">What you can build</div>
     <div class="armory-list">${structures}</div>
+    <div class="mini-label">Know your enemy</div>
+    <div class="armory-list">${Object.values(ZOMBIE_TYPES)
+      .map(
+        (t) => `<div class="armory-item">
+          <span class="armory-icon">🧟${t.badge}</span>
+          <span class="armory-name">${esc(t.name)}</span>
+          <span class="armory-bonus">${esc(t.desc)}</span>
+          <span class="weapon-stats">${t === ZOMBIE_TYPES.boss ? "every 5th night" : t.from > 1 ? `from day ${t.from}` : "always"}</span>
+        </div>`
+      )
+      .join("")}</div>
   </div>`;
 }
 
@@ -1386,6 +1462,49 @@ export function renderResearch(state) {
       <div>Research banked: <b>${state.resources.research}</b></div>
     </div>
     <div class="tech-grid">${branches}</div>
+  </div>`;
+}
+
+// ---------- rescue plan ----------
+
+export function renderRescue(state) {
+  const r = state.rescue;
+  if (!r) return renderComingSoon("📡", "Rescue", "Keep the radio on — maybe someone out there is still broadcasting.");
+  if (r.evacuated) {
+    return renderComingSoon("🚁", "Rescue", "The evacuation has come and gone. Whoever stayed behind is on their own now.");
+  }
+
+  const daysLeft = r.day - state.day;
+  const next = r.stagesDone;
+  const costLabel = (cost) => Object.entries(cost).map(([res, amt]) => `${TECH_EFFECT_ICON[res]} ${amt}`).join("  ");
+  const stages = ANTENNA_STAGES.map((stage, i) => {
+    const affordable = Object.entries(stage.cost).every(([res, amt]) => (state.resources[res] || 0) >= amt);
+    const action =
+      i < next
+        ? `<span class="tag tag-ok">✓ Done</span>`
+        : i === next
+        ? `<button class="btn btn-sm btn-primary" data-action="repair-antenna" ${affordable ? "" : "disabled"}>🔧 Repair (${costLabel(stage.cost)})</button>`
+        : `<span class="tag tag-injured">🔒 ${costLabel(stage.cost)}</span>`;
+    return `<div class="subcard tech-node ${i < next ? "tech-owned" : ""}">
+      <div class="tech-node-main">
+        <div><span class="tech-icon">${stage.icon}</span> <b>${i + 1}. ${esc(stage.name)}</b></div>
+        ${action}
+      </div>
+    </div>`;
+  }).join("");
+
+  return `
+  <div class="card">
+    <h2>📡 Rescue Plan</h2>
+    <p class="muted">A military evacuation sweeps the city on <b>day ${r.day}</b> — ${
+      daysLeft > 0 ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} from now` : "today"
+    }. They'll only find survivors who can signal them, so the rooftop antenna has to be fully repaired by then.
+    If it isn't, the helicopters leave and try again 5 days later — and the horde doesn't wait.</p>
+    <div class="rescue-progress"><span style="width:${Math.round((next / ANTENNA_STAGES.length) * 100)}%"></span></div>
+    <div class="summary-list">
+      <div>Antenna: <b>${next}/${ANTENNA_STAGES.length}</b> ${antennaReady(state) ? "— on the air! Just hold out until the helicopters arrive." : "repairs done"}</div>
+    </div>
+    <div class="rescue-stages">${stages}</div>
   </div>`;
 }
 
@@ -1914,6 +2033,7 @@ export function renderApp(state, activeTab, rosterFilter = "all", mobileView = f
   else if (activeTab === "research") content = renderResearch(state);
   else if (activeTab === "armory") content = renderArmory(state);
   else if (activeTab === "itemlist") content = renderItemList();
+  else if (activeTab === "rescue") content = renderRescue(state);
   else if (activeTab === "log") content = renderLog(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 
