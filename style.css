@@ -299,7 +299,9 @@ select, input[type="text"] {
 
 details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 
-.floor-grid, .floor1-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.floor-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.floor1-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.floor1-grid .room-entrance { grid-column: 1 / -1; }
 .floor3-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 10px; }
 .floor2-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 

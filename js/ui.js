@@ -923,11 +923,6 @@ export function renderFloor1(state) {
         ${gymStudents.length < gymRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-student">+ Send student…</button>` : ""}
         ${upgradeButton(state, "gym", null, "student", "Student slot")}
       </div>
-      <div class="room room-entrance">
-        <h3>🚪 Main Entrance</h3>
-        <p class="muted">Defended each night during Turn 3. Assign defenders from the Turn panel.</p>
-        <p>Fortification: <b>${state.fortification}</b> (from the Crafting Room)</p>
-      </div>
       <div class="room room-cafeteria">
         <h3>🍽 Cafeteria</h3>
         <p class="muted">Up to ${cafeRoom.studentCapacity} students/day, ${cafeRoom.teacherCapacity} teachers (cooks).
@@ -944,6 +939,11 @@ export function renderFloor1(state) {
         </ul>
         ${restingStudents.length < cafeRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-student">+ Send student…</button>` : ""}
         ${upgradeButton(state, "cafeteria", null, "student", "Student slot")}
+      </div>
+      <div class="room room-entrance">
+        <h3>🚪 Main Entrance</h3>
+        <p class="muted">Defended each night during Turn 3. Assign defenders from the Turn panel.</p>
+        <p>Fortification: <b>${state.fortification}</b> (from the Crafting Room)</p>
       </div>
     </div>
   </div>`;
