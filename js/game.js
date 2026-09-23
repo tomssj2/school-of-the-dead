@@ -745,8 +745,8 @@ export function resolveAssault(state, chase) {
       // Teachers never fight and have no Inventory tab to manage gear from — hand the item to
       // the shared armory instead of leaving it permanently stuck, unusable, on their sheet.
       if (role === "teacher") {
-        const { weapon, armor, accessories } = recruit.equipment;
-        for (const item of [weapon, armor, ...accessories]) {
+        const { meleeWeapon, rangedWeapon, armor, accessories } = recruit.equipment;
+        for (const item of [meleeWeapon, rangedWeapon, armor, ...accessories]) {
           if (item) state.armory.push(item);
         }
         recruit.equipment = emptyEquipment();
