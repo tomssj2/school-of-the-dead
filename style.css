@@ -339,7 +339,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .room-entrance { --room-accent: #d64545; }
 .room-utility { --room-accent: #a03d5c; }
 
-.entrance-grid { display: grid; gap: 4px; margin: 10px 0 6px; }
+.entrance-grid { display: grid; gap: 4px; margin: 10px 0 6px; max-width: 50%; }
 .entrance-cell {
   aspect-ratio: 1;
   border-radius: 5px;
