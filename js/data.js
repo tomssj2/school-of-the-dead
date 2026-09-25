@@ -343,35 +343,49 @@ export const INFIRMARY_NURSE_BONUS = 0.25; // at Biology 100
 export const INFIRMARY_BED_REST = 0.1;
 
 // ===== Cooking =====
-// Ingredients are scavenged on expeditions; cooks turn them (plus some food to feed everyone) into
-// a dish whose buff covers the whole school until the day ends. `effect` multipliers are read
-// through dishMultiplier() in game.js.
+// Four staple crops are grown at the Farm; three extras only turn up on expeditions. Cooks turn
+// them (plus some food to feed everyone) into a dish whose buff covers the whole school until
+// the day ends. `effect` multipliers are read through dishMultiplier() in game.js.
 export const INGREDIENTS = {
-  canned_meat: { name: "Canned Meat", icon: "🥫" },
-  spices: { name: "Spices", icon: "🌶️" },
-  honey: { name: "Honey", icon: "🍯" },
-  coffee: { name: "Coffee Beans", icon: "☕" },
-  chocolate: { name: "Chocolate", icon: "🍫" },
+  potatoes: { name: "Potatoes", icon: "🥔", source: "farm" },
+  tomatoes: { name: "Tomatoes", icon: "🍅", source: "farm" },
+  wheat: { name: "Wheat Flour", icon: "🌾", source: "farm" },
+  eggs: { name: "Eggs", icon: "🥚", source: "farm" },
+  canned_meat: { name: "Canned Meat", icon: "🥫", source: "scavenged" },
+  spices: { name: "Chili Spices", icon: "🌶️", source: "scavenged" },
+  coffee: { name: "Coffee", icon: "☕", source: "scavenged" },
 };
-export const STARTING_PANTRY = { canned_meat: 1, spices: 1, honey: 1, coffee: 1, chocolate: 1 };
+export const FARM_INGREDIENTS = Object.keys(INGREDIENTS).filter((id) => INGREDIENTS[id].source === "farm");
+export const SCAVENGED_INGREDIENTS = Object.keys(INGREDIENTS).filter((id) => INGREDIENTS[id].source === "scavenged");
+export const STARTING_PANTRY = { potatoes: 2, tomatoes: 2, wheat: 2, eggs: 2, canned_meat: 1, spices: 1, coffee: 1 };
+// Every farm worker harvests this many crops a day (a random staple each) on top of their food.
+export const FARM_YIELD_INGREDIENTS = 1;
 export const DISHES = [
   {
-    id: "scavenger_stew", name: "Scavenger's Stew", icon: "🍲", ingredients: { canned_meat: 1, spices: 1 }, food: 8,
-    effect: { expeditionMaterials: 1.5 }, desc: "Expeditions bring back 50% more scrap today.",
+    id: "meat_stew", name: "Meat & Potato Stew", icon: "🍲", ingredients: { canned_meat: 1, potatoes: 2 }, food: 6,
+    effect: { expeditionMaterials: 1.5 },
+    desc: "A heavy, slow-burning meal for a long day of hauling salvage — expeditions bring back 50% more scrap today.",
   },
   {
-    id: "bbq_beacon", name: "Barbecue Beacon", icon: "🍖", ingredients: { canned_meat: 1, honey: 1 }, food: 8,
-    effect: { recruitChance: 2 }, desc: "The smoke carries for miles — expeditions are twice as likely to find survivors today.",
+    id: "fresh_bread", name: "Fresh-Baked Bread", icon: "🍞", ingredients: { wheat: 2, eggs: 1 }, food: 4,
+    effect: { recruitChance: 2 },
+    desc: "The smell drifts past the barricades and teams carry spare loaves to share — expeditions are twice as likely to find survivors today.",
   },
   {
-    id: "battle_chili", name: "Battle Chili", icon: "🥘", ingredients: { spices: 1, coffee: 1 }, food: 8,
-    effect: { battleDamage: 1.25 }, desc: "Defenders deal 25% more damage in tonight's battle.",
+    id: "firehouse_chili", name: "Firehouse Chili", icon: "🥘", ingredients: { canned_meat: 1, tomatoes: 1, spices: 1 }, food: 6,
+    effect: { battleDamage: 1.25 },
+    desc: "A fiery bowl before the watch that keeps everyone hot-blooded and wide awake — defenders deal 25% more damage in tonight's battle.",
   },
   {
-    id: "brain_brownies", name: "Brain-Food Brownies", icon: "🧁", ingredients: { chocolate: 1, coffee: 1 }, food: 6,
-    effect: { xp: 1.5 }, desc: "Every action earns 50% more XP today.",
+    id: "scholars_breakfast", name: "Scholar's Breakfast", icon: "🍳", ingredients: { eggs: 1, wheat: 1, coffee: 1 }, food: 5,
+    effect: { xp: 1.5 },
+    desc: "Eggs on toast and a strong cup of coffee keep minds sharp all day — every action earns 50% more XP today.",
   },
 ];
+// Pre-farm dish ids from older saves, for migrateState.
+export const LEGACY_DISH_IDS = {
+  scavenger_stew: "meat_stew", bbq_beacon: "fresh_bread", battle_chili: "firehouse_chili", brain_brownies: "scholars_breakfast",
+};
 export const EXPEDITION_INGREDIENT_CHANCE = 0.5; // + a location's ingredientBonus, on a success
 export const EXPEDITION_INGREDIENT_CHANCE_FAILED = 0.15;
 

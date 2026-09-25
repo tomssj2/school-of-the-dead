@@ -6,7 +6,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, FARM_INGREDIENTS, LEGACY_DISH_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -137,6 +137,13 @@ function migrateState(s) {
   if (!s.rooms.infirmary) s.rooms.infirmary = { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS };
   if (!s.pantry) s.pantry = { ...STARTING_PANTRY };
   if (!s.dishesToday) s.dishesToday = [];
+  // Cooking moved to farm-grown staples + three scavenged extras: honey and chocolate are gone, the
+  // new staples get the starting stock, and dishes already served today keep their buff.
+  if (s.pantry.potatoes === undefined) {
+    for (const id of Object.keys(s.pantry)) if (!INGREDIENTS[id]) delete s.pantry[id];
+    for (const id of FARM_INGREDIENTS) s.pantry[id] = STARTING_PANTRY[id];
+  }
+  s.dishesToday = s.dishesToday.map((id) => LEGACY_DISH_IDS[id] || id);
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now

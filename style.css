@@ -697,7 +697,9 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .defense-build-option-main { display: flex; align-items: center; gap: 6px; }
 .defense-build-option p { margin: 4px 0 0; }
 
-.pantry { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.pantry { display: flex; flex-direction: column; gap: 5px; margin: 4px 0 8px; }
+.pantry-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; cursor: help; }
+.pantry-label { width: 70px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
 .pantry-item { font-size: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
 .pantry-empty { opacity: 0.45; }
 .dish-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }

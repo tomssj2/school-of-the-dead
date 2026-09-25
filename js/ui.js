@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, SCOUT_STAMINA_COST, TECH_TREE,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
-  DISHES, INGREDIENTS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
+  DISHES, INGREDIENTS, FARM_YIELD_INGREDIENTS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES,
 } from "./data.js";
 import {
@@ -1174,15 +1174,23 @@ export function renderFloor1(state) {
   const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
   const nurseBonus = nurses.length ? Math.round((nurses[0].grades.Biology / 100) * INFIRMARY_NURSE_BONUS * 100) : 0;
 
-  const pantry = Object.entries(INGREDIENTS)
-    .map(([id, ing]) => `<span class="pantry-item ${state.pantry[id] ? "" : "pantry-empty"}" title="${ing.name}">${ing.icon} ${state.pantry[id] || 0}</span>`)
-    .join("");
+  const pantryGroup = (source, label, tip) => {
+    const items = Object.entries(INGREDIENTS)
+      .filter(([, ing]) => ing.source === source)
+      .map(([id, ing]) => `<span class="pantry-item ${state.pantry[id] ? "" : "pantry-empty"}" title="${ing.name}">${ing.icon} ${state.pantry[id] || 0}</span>`)
+      .join("");
+    return `<div class="pantry-group" title="${tip}"><span class="pantry-label">${label}</span>${items}</div>`;
+  };
+  const pantry =
+    pantryGroup("farm", "Farm", "Staple crops — grown by students working the Farm in Turn 2.") +
+    pantryGroup("scavenged", "Scavenged", "Extras that only turn up on expeditions.");
   const menu = DISHES.map((d) => {
     const served = state.dishesToday.includes(d.id);
     const cost = Object.entries(d.ingredients).map(([id, n]) => `${INGREDIENTS[id].icon}${n > 1 ? `×${n}` : ""}`).join(" ") + ` 🍞${d.food}`;
+    const recipe = Object.entries(d.ingredients).map(([id, n]) => `${n} ${INGREDIENTS[id].name}`).join(", ") + `, ${d.food} food`;
     const action = served
       ? `<span class="tag tag-ok">✓ Served</span>`
-      : `<button class="btn btn-sm btn-primary" data-action="cook-dish" data-id="${d.id}" ${canCookDish(state, d) ? "" : "disabled"}>Cook (${cost})</button>`;
+      : `<button class="btn btn-sm btn-primary" data-action="cook-dish" data-id="${d.id}" title="Needs ${recipe}" ${canCookDish(state, d) ? "" : "disabled"}>Cook (${cost})</button>`;
     return `<div class="dish-row ${served ? "dish-served" : ""}">
       <div class="dish-main"><span class="dish-icon">${d.icon}</span> <b>${esc(d.name)}</b> ${action}</div>
       <div class="muted">${esc(d.desc)}</div>
@@ -1434,8 +1442,8 @@ function renderOutsideFacility(state, roomKey, flagKey, title, tagline, desc) {
 
 export function renderFarm(state) {
   return renderOutsideFacility(
-    state, "farm", "farmToday", "Farm", `Each worker grows <b>${FARM_YIELD_FOOD} food</b> by the end of the day`,
-    `Assign students to grow food instead of sending them out to explore today. Each worker yields ${FARM_YIELD_FOOD} food when the day ends.`
+    state, "farm", "farmToday", "Farm", `Each worker grows <b>${FARM_YIELD_FOOD} food</b> and <b>${FARM_YIELD_INGREDIENTS} crop</b> for the pantry`,
+    `Assign students to farm instead of sending them out to explore today. Each worker yields ${FARM_YIELD_FOOD} food and ${FARM_YIELD_INGREDIENTS} random staple crop (potatoes, tomatoes, wheat or eggs) for the Cafeteria when the day ends — the only way to get them.`
   );
 }
 

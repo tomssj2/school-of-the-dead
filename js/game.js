@@ -19,7 +19,7 @@ import {
   RESCUE_BROADCAST_DAY, RESCUE_DAY, RESCUE_DELAY_DAYS, ANTENNA_STAGES,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE,
-  INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES,
+  INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, FARM_INGREDIENTS, FARM_YIELD_INGREDIENTS,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
 } from "./data.js";
 import {
@@ -627,7 +627,7 @@ function rollExpeditionIngredient(state, location, success) {
     (success ? EXPEDITION_INGREDIENT_CHANCE + (location.ingredientBonus || 0) : EXPEDITION_INGREDIENT_CHANCE_FAILED) +
     techPerk(state, "ingredientChance");
   if (Math.random() >= chance) return null;
-  const id = pick(Object.keys(INGREDIENTS));
+  const id = pick(SCAVENGED_INGREDIENTS); // staple crops only come from the Farm
   const qty = randInt(1, 3);
   state.pantry[id] = (state.pantry[id] || 0) + qty;
   return { id, qty };
@@ -730,7 +730,14 @@ export function resolveExploration(state) {
   if (farmWorkers.length) {
     const gain = farmWorkers.length * FARM_YIELD_FOOD;
     state.resources.food += gain;
-    addLog(state, `The Farm brings in ${gain} food from ${farmWorkers.length} student(s).`);
+    const harvest = {};
+    for (let i = 0; i < farmWorkers.length * FARM_YIELD_INGREDIENTS; i++) {
+      const id = pick(FARM_INGREDIENTS);
+      harvest[id] = (harvest[id] || 0) + 1;
+      state.pantry[id] = (state.pantry[id] || 0) + 1;
+    }
+    const crops = Object.entries(harvest).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
+    addLog(state, `The Farm brings in ${gain} food and ${crops} from ${farmWorkers.length} student(s).`);
   }
   const scrapyardWorkers = state.characters.filter((c) => c.scrapyardToday && c.alive);
   if (scrapyardWorkers.length) {
