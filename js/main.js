@@ -43,6 +43,7 @@ let lastResources = null; // resources/happiness snapshot from the previous rend
 let lastHappiness = null;
 let lastPopulation = null;
 let lastDay = state.day; // for the day-rollover chime, however the advance happened
+let lastRenderedTab = null;
 let floaties = [];
 let floatyClearTimer = null;
 let dayRecap = null; // { day, entries } shown once right after a day rolls over
@@ -233,6 +234,11 @@ function render() {
   lastDay = state.day;
 
   root.classList.toggle("mobile-forced", mobileView);
+  // Drives the time-of-day backdrop in style.css: morning, golden afternoon, starry night.
+  document.body.dataset.turn = state.gameOver ? "over" : state.victory ? "victory" : String(state.turn);
+  // Content eases in only when the tab actually changes, not on every re-render within a tab.
+  root.classList.toggle("tab-enter", activeTab !== lastRenderedTab);
+  lastRenderedTab = activeTab;
   const modalHtml = battleAnimation
     ? renderBattleAnimation(state, battleAnimation)
     : fightAnimation
@@ -706,6 +712,20 @@ root.addEventListener("click", (e) => {
       break;
   }
 });
+
+// Info-dot tooltips open rightward from the dot; slide them back when that would run off the
+// window (the bubble is at most min(280px, 76vw) wide — see .info-dot::after in style.css).
+function placeInfoTip(e) {
+  const dot = e.target.closest?.(".info-dot");
+  if (!dot) return;
+  const vw = document.documentElement.clientWidth;
+  const tipWidth = Math.min(280, vw * 0.76);
+  const left = dot.getBoundingClientRect().left - 8;
+  const shift = Math.max(8 - left, Math.min(0, vw - 8 - tipWidth - left));
+  dot.style.setProperty("--tip-shift", `${Math.round(shift)}px`);
+}
+root.addEventListener("pointerover", placeInfoTip);
+root.addEventListener("focusin", placeInfoTip);
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && (openCardId || openMissionLocationId)) {

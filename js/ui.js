@@ -18,6 +18,7 @@ import {
   techPerk, gateHp, loungeRecovery, dishCapacity, exploreStaminaCost,
 } from "./game.js";
 import { characterSprite } from "./sprite.js";
+import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
 import { isSoundEnabled } from "./sound.js";
 
 const TURN_NAMES = { 1: "Classes (Morning)", 2: "Exploration (Afternoon)", 3: "Defense (Night)" };
@@ -190,14 +191,35 @@ function rosterNameTag(c) {
   </span>`;
 }
 
-// ---------- topbar ----------
+// ---------- room scenes ----------
 
-function happinessFace(v) {
-  if (v >= 75) return "😄";
-  if (v >= 50) return "🙂";
-  if (v >= 25) return "😐";
-  return "😢";
+// Hover/focus "i" that holds a room's full rules, so the card itself only needs a one-liner.
+function infoDot(text) {
+  return `<span class="info-dot" tabindex="0" aria-label="${esc(text)}" data-tip="${esc(text)}">i</span>`;
 }
+
+// Pixel-art banner for a room with everyone working in it standing on the floor — click one to
+// open their card. Past 7 people the rest collapse into a "+N" chip so nobody overlaps too much.
+const SCENE_MAX_PEOPLE = 7;
+function roomScene(kind, people, title, info = "") {
+  const shown = people.slice(0, SCENE_MAX_PEOPLE);
+  const extra = people.length - shown.length;
+  const figures = shown
+    .map((c, i) => {
+      const left = (((i + 1) / (shown.length + 1)) * 100).toFixed(1);
+      return `<span class="scene-person" style="left:${left}%;animation-delay:-${((i * 0.43) % 1.8).toFixed(2)}s"
+        data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${characterSprite(c, 40)}</span>`;
+    })
+    .join("");
+  return `<div class="room-scene" style="background-image:${sceneBackground(kind)}">
+    <div class="scene-plaque">${title}${info ? infoDot(info) : ""}</div>
+    ${figures}
+    ${extra > 0 ? `<span class="scene-more">+${extra}</span>` : ""}
+    ${people.length ? "" : `<span class="scene-empty">empty</span>`}
+  </div>`;
+}
+
+// ---------- topbar ----------
 
 // Small "+5"/"-3" pop that floats up out of a topbar stat when it changes between renders —
 // see the `floaties` computation in main.js's render().
@@ -223,6 +245,8 @@ const TB_INFO = {
   research: "Research — produced by teachers in the Research Room and students in the Lab. Spent on the Research tech tree and the antenna.",
 };
 
+const DAY_STEPS = [["sun", "Classes"], ["dusk", "Exploration"], ["moon", "Defense"]];
+
 export function renderTopbar(state, floaties = [], activeTab = "", mobileView = false) {
   const pop = aliveChars(state).length;
   return `
@@ -247,9 +271,9 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
         </div>
       </details>
       <div class="tb-stats">
-        <span class="${tbItemClass(floaties, "population")}" title="${TB_INFO.population}">👥 <b>${pop}</b>${floatyFor(floaties, "population")}</span>
-        <span class="tb-item" title="${TB_INFO.teachers}">🎓 <b>${teacherCount(state)}</b></span>
-        <span class="${tbItemClass(floaties, "happiness")}" title="${TB_INFO.happiness}">${happinessFace(state.happiness)} <b>${state.happiness}</b>${floatyFor(floaties, "happiness")}</span>
+        <span class="${tbItemClass(floaties, "population")} res-pill" title="${TB_INFO.population}">${pixelIcon("people")}<b>${pop}</b>${floatyFor(floaties, "population")}</span>
+        <span class="tb-item res-pill" title="${TB_INFO.teachers}">${pixelIcon("teacher")}<b>${teacherCount(state)}</b></span>
+        <span class="${tbItemClass(floaties, "happiness")} res-pill" title="${TB_INFO.happiness}">${moodIcon(state.happiness)}<b>${state.happiness}</b>${floatyFor(floaties, "happiness")}</span>
         ${state.dishesToday
           .map((id) => DISHES.find((d) => d.id === id))
           .filter(Boolean)
@@ -258,9 +282,16 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
       </div>
     </div>
     <div class="topbar-center">
-      <span class="tb-day">📅 Day <b>${state.day}</b></span>
-      <span class="tb-sep">|</span>
-      <span class="tb-turn-indicator">⏰ ${state.turn}/3 · <b>${TURN_NAMES_SHORT[state.turn]}</b></span>
+      <div class="day-track">
+        <span class="tb-day">Day <b>${state.day}</b></span>
+        <span class="day-steps">
+          ${DAY_STEPS.map(
+            ([icon, name], i) =>
+              `<span class="day-step ${i + 1 === state.turn ? "now" : i + 1 < state.turn ? "done" : ""}" title="Turn ${i + 1}: ${name}">${pixelIcon(icon, 16)}</span>`
+          ).join('<span class="day-link"></span>')}
+        </span>
+        <span class="tb-turn-name">${TURN_NAMES_SHORT[state.turn]}</span>
+      </div>
       ${
         state.rescue && !state.rescue.evacuated
           ? `<button class="tb-rescue ${antennaReady(state) ? "tb-rescue-ready" : ""}" data-action="set-tab" data-tab="rescue"
@@ -272,10 +303,10 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
     </div>
     <div class="topbar-right">
       <div class="tb-stats">
-        <span class="${tbItemClass(floaties, "food")} ${state.resources.food < pop ? "tb-warn" : ""}" title="${TB_INFO.food} ${state.resources.food} on hand, ${pop} needed tonight.">🍞 <b>${state.resources.food}</b><span class="tb-sub">-${pop}</span>${floatyFor(floaties, "food")}</span>
-        <span class="${tbItemClass(floaties, "materials")}" title="${TB_INFO.materials}">🔧 <b>${state.resources.materials}</b>${floatyFor(floaties, "materials")}</span>
-        <span class="${tbItemClass(floaties, "medicine")}" title="${TB_INFO.medicine}">💊 <b>${state.resources.medicine}</b>${floatyFor(floaties, "medicine")}</span>
-        <span class="${tbItemClass(floaties, "research")}" title="${TB_INFO.research}">🧠 <b>${state.resources.research}</b>${floatyFor(floaties, "research")}</span>
+        <span class="${tbItemClass(floaties, "food")} res-pill ${state.resources.food < pop ? "tb-warn" : ""}" title="${TB_INFO.food} ${state.resources.food} on hand, ${pop} needed tonight.">${pixelIcon("food")}<b>${state.resources.food}</b><span class="tb-sub">-${pop}</span>${floatyFor(floaties, "food")}</span>
+        <span class="${tbItemClass(floaties, "materials")} res-pill" title="${TB_INFO.materials}">${pixelIcon("scrap")}<b>${state.resources.materials}</b>${floatyFor(floaties, "materials")}</span>
+        <span class="${tbItemClass(floaties, "medicine")} res-pill" title="${TB_INFO.medicine}">${pixelIcon("medicine")}<b>${state.resources.medicine}</b>${floatyFor(floaties, "medicine")}</span>
+        <span class="${tbItemClass(floaties, "research")} res-pill" title="${TB_INFO.research}">${pixelIcon("research")}<b>${state.resources.research}</b>${floatyFor(floaties, "research")}</span>
       </div>
     </div>
   </div>`;
@@ -421,11 +452,8 @@ function renderTurn1Overview(state) {
   const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
   return `
   <div class="card">
-    <h2>Turn 1 — Classes</h2>
-    <p>Students in their home classroom earn XP toward their grade in that subject. Send students to the Gym for
-    Physical Education &amp; Gymnastics training — a Gym teacher speeds that up, no teacher required. A <b>Floor 2</b>
-    classroom teacher doesn't speed up grades, but gives every seated student a standing bonus to that subject.
-    The Gym costs 20 stamina and exploring ${exploreStaminaCost(state)}; resting in the Lounge recovers ${loungeRecovery(state)}.</p>
+    <h2>Turn 1 — Classes ${infoDot(`Students in their home classroom earn XP toward their grade in that subject. Send students to the Gym for PE & Gymnastics training — a Gym teacher speeds that up, no teacher required. A Floor 2 classroom teacher doesn't speed up grades, but gives every seated student a standing bonus to that subject.`)}</h2>
+    <p class="room-tagline">Classes build grades · Gym costs 20 stamina · exploring costs ${exploreStaminaCost(state)} · the Lounge restores ${loungeRecovery(state)}</p>
     <ul class="summary-list">
       ${classroomSummaries}
       <li><b>Gym</b>: ${gymCount}/${state.rooms.gym.studentCapacity} students training today</li>
@@ -455,10 +483,8 @@ function renderTurn2Overview(state) {
 
   return `
   <div class="card">
-    <h2>Turn 2 — Exploration</h2>
-    <p>Click a location on the map to send a team there. Distance from the school sets the difficulty — closer is
-    safer, farther pays better (and is more dangerous). Teachers stay at the school. A fuller team of up to 5
-    students succeeds more often.</p>
+    <h2>Turn 2 — Exploration ${infoDot("Click a location on the map to send a team there. Distance from the school sets the difficulty — closer is safer, farther pays better (and is more dangerous). Teachers stay at the school. A fuller team of up to 5 students succeeds more often.")}</h2>
+    <p class="room-tagline">Pick a spot on the map · farther is riskier but pays better · up to 5 students a team</p>
     ${renderExplorationMap(state)}
     <div class="mission-chips">${missionChips || '<p class="muted">No teams assigned yet — click a hex on the map to start a mission.</p>'}</div>
     <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 Launch Expeditions &amp; Advance to Night</button>
@@ -835,11 +861,8 @@ function renderTurn3Overview(state) {
 
   return `
   <div class="card">
-    <h2>Turn 3 — Night Watch</h2>
-    <p>The horde climbs the grid from the bottom rows, one row per turn. Defenders hit whatever's in reach — melee
-    weapons at 1–2 squares, ranged weapons from 4–9, bare fists only point-blank. Walls block a lane until they're
-    smashed; traps hurt anything that walks over them. A zombie that gets past the top row hits the gate, then breaks
-    into the school.</p>
+    <h2>Turn 3 — Night Watch ${infoDot("The horde climbs the grid from the bottom rows, one row per turn. Defenders hit whatever's in reach — melee weapons at 1–2 squares, ranged weapons from 4–9, bare fists only point-blank. Walls block a lane until they're smashed; traps hurt anything that walks over them. A zombie that gets past the top row hits the gate, then breaks into the school.")}</h2>
+    <p class="room-tagline">Post defenders on the top rows, build in the middle — the horde climbs up from the bottom</p>
     ${boss}
     <div class="summary-list">
       <div>Tonight's horde: <b>${zombies} zombies</b> — ${mix}. A walker has ${z.hp} HP and hits for about ${z.damage}.</div>
@@ -1171,9 +1194,9 @@ export function renderFloor1(state) {
     <h2>Floor 1 — Commons</h2>
     <div class="floor-grid floor1-grid">
       <div class="room room-gym">
-        <h3>🏋 Gym <span class="muted">(PE &amp; Gymnastics)</span></h3>
-        <p class="muted">Up to ${gymRoom.studentCapacity} students/day, ${gymRoom.teacherCapacity} teachers. No teacher
-        required — one assigned just adds a training bonus. Training costs 20 stamina.</p>
+        ${roomScene("gym", [...gymTeachers, ...gymStudents], "Gym",
+          `Up to ${gymRoom.studentCapacity} students/day, ${gymRoom.teacherCapacity} teachers. No teacher required — one assigned just adds a training bonus. Training costs 20 stamina.`)}
+        <p class="room-tagline">Trains PE &amp; Gymnastics · 20 stamina each</p>
         <div class="mini-label">Teachers (optional)</div>
         <ul class="assign-list">
           ${gymTeachers.map((t) => `<li>${nameTag(t)} — PE ${teachBonusLabel(t.grades.PE)}, Gym ${teachBonusLabel(t.grades.Gymnastics)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
@@ -1188,9 +1211,9 @@ export function renderFloor1(state) {
         ${upgradeButton(state, "gym", null, "student", "Student slot")}
       </div>
       <div class="room room-cafeteria">
-        <h3>🍽 Cafeteria</h3>
-        <p class="muted">Up to ${cafeRoom.teacherCapacity} teachers (cooks). Each cook can serve one dish a day — its buff
-        covers the whole school until tonight — stretches the rations (+6 food), and recovers 50 stamina while cooking.</p>
+        ${roomScene("cafeteria", cooks, "Cafeteria",
+          `Up to ${cafeRoom.teacherCapacity} teachers (cooks). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+6 food), and recovers 50 stamina while cooking.`)}
+        <p class="room-tagline">Each cook serves one buff dish a day</p>
         <div class="mini-label">Cooks (${cooks.length}/${cafeRoom.teacherCapacity})</div>
         <ul class="assign-list">
           ${cooks.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} ${staminaBar(t)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
@@ -1202,10 +1225,9 @@ export function renderFloor1(state) {
         <div class="dish-list">${menu}</div>
       </div>
       <div class="room room-infirmary">
-        <h3>🩺 Nurse's Office</h3>
-        <p class="muted">Up to ${infRoom.studentCapacity} patients/day. Each patient heals ${Math.round(INFIRMARY_HEAL_BASE * 100)}% of
-        their max HP${nurses.length ? ` +${nurseBonus}% from the nurse's Biology` : " (a nurse's Biology adds up to 25% more)"} for
-        ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare they only get bed rest (10%).</p>
+        ${roomScene("infirmary", [...nurses, ...patients], "Nurse's Office",
+          `Up to ${infRoom.studentCapacity} patients/day. Each patient heals ${Math.round(INFIRMARY_HEAL_BASE * 100)}% of their max HP${nurses.length ? ` +${nurseBonus}% from the nurse's Biology` : " (a nurse's Biology adds up to 25% more)"} for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare they only get bed rest (10%).`)}
+        <p class="room-tagline">Heals ${Math.round(INFIRMARY_HEAL_BASE * 100) + nurseBonus}% HP per patient · ${INFIRMARY_MEDICINE_PER_PATIENT} medicine each</p>
         <div class="mini-label">Nurse (${nurses.length}/${infRoom.teacherCapacity})</div>
         <ul class="assign-list">
           ${nurses.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
@@ -1219,9 +1241,9 @@ export function renderFloor1(state) {
         ${upgradeButton(state, "infirmary", null, "student", "Bed")}
       </div>
       <div class="room room-lounge">
-        <h3>🛋 Lounge</h3>
-        <p class="muted">Up to ${lounge.studentCapacity} students/day. Everyone resting here recovers
-        <b>${loungeRecovery(state)} stamina</b> — students only; teachers recover by cooking.</p>
+        ${roomScene("lounge", resting, "Lounge",
+          `Up to ${lounge.studentCapacity} students/day. Everyone resting here recovers ${loungeRecovery(state)} stamina — students only; teachers recover by cooking.`)}
+        <p class="room-tagline">Resting students recover <b>${loungeRecovery(state)} stamina</b></p>
         <div class="mini-label">Resting today (${resting.length}/${lounge.studentCapacity})</div>
         <ul class="assign-list">
           ${resting.map((s) => `<li>${nameTag(s)} ${staminaBar(s)} <button class="btn-x" data-action="remove-lounge" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
@@ -1238,11 +1260,10 @@ export function renderFloor1(state) {
 
 export function renderFloor2(state) {
   const rooms = CLASSROOM_IDS.map((roomId) => renderClassroom(state, roomId)).join("");
-  return `<div class="card"><h2>Floor 2 — Classrooms &amp; Dorms</h2>
-  <p class="muted">Students live and sleep in their assigned classroom. Each room is unassigned ("Classroom N") until a
-  teacher is posted there, then it takes on whichever subject that teacher is best qualified to teach — and reverts to
-  unassigned if it goes unstaffed, so rooms can be freely repurposed. Deskmates who fight together bond — opposite-gender
-  deskmates may become a couple at bond ${BOND_COUPLE_THRESHOLD}+.</p>
+  return `<div class="card"><h2>Floor 2 — Classrooms &amp; Dorms ${infoDot(
+    `Students live and sleep in their assigned classroom. Each room is unassigned ("Classroom N") until a teacher is posted there, then it takes on whichever subject that teacher is best qualified to teach — and reverts to unassigned if it goes unstaffed, so rooms can be freely repurposed. Deskmates who fight together bond — opposite-gender deskmates may become a couple at bond ${BOND_COUPLE_THRESHOLD}+.`
+  )}</h2>
+  <p class="room-tagline">The teacher posted in a room picks its subject · deskmates bond</p>
   <div class="floor2-grid">${rooms}</div></div>`;
 }
 
@@ -1286,8 +1307,12 @@ function renderClassroom(state, roomId) {
 
   return `
   <div class="room room-classroom">
-    <h3>${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`} <span class="muted">(${count}/${room.seats.length})</span></h3>
-    ${!subject ? '<p class="muted">Unassigned — the one teacher posted here decides the subject.</p>' : ""}
+    ${roomScene(
+      "classroom",
+      [...teachers, ...room.seats.filter(Boolean).map((id) => getChar(state, id)).filter((c) => c && c.alive)],
+      `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`} <span class="plaque-sub">${count}/${room.seats.length}</span>`,
+      subject ? "" : "Unassigned — the one teacher posted here decides the subject."
+    )}
     <div class="mini-label">Teacher (grade boost per student, 1 max)</div>
     <ul class="assign-list">
       ${teachers.map((t) => `<li>${nameTag(t)} — ${teachBonusLabel(t.grades[subject])} ${staminaBar(t)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
@@ -1341,10 +1366,10 @@ export function renderFloor3(state) {
   const crafter = state.characters.find((c) => c.role === "teacher" && c.post === "crafting" && c.alive);
   const council = state.characters.find((c) => c.role === "teacher" && c.post === "council" && c.alive);
 
-  const utilityRoom = (title, desc, current, postKey, statLabel, statKey) => {
+  const utilityRoom = (scene, title, desc, current, postKey, statLabel, statKey) => {
     return `<div class="room room-utility">
-      <h3>${title}</h3>
-      <p class="muted">${desc}</p>
+      ${roomScene(scene, current ? [current] : [], title)}
+      <p class="room-tagline">${desc}</p>
       <div class="mini-label">Assigned</div>
       <ul class="assign-list">
         ${current ? `<li>${nameTag(current)} — ${statLabel} ${gradeLetter(current.grades[statKey])} <button class="btn-x" data-action="clear-post" data-id="${current.id}">✕</button></li>` : '<li class="muted">none</li>'}
@@ -1357,9 +1382,8 @@ export function renderFloor3(state) {
   <div class="card">
     <h2>Floor 3 — Headmaster's Office &amp; Special Rooms</h2>
     <div class="subcard">
-      <h3>🧑‍💼 Headmaster's Office</h3>
-      <p class="muted">Promote high-achieving students (Level ${PROMOTE_LEVEL_THRESHOLD}+) to teachers, or expel anyone.
-      The school has room for ${MAX_TEACHERS} teachers at most — currently ${teacherCount(state)}/${MAX_TEACHERS}.</p>
+      <h3>🧑‍💼 Headmaster's Office ${infoDot(`Promote high-achieving students (Level ${PROMOTE_LEVEL_THRESHOLD}+) to teachers, or expel anyone. The school has room for ${MAX_TEACHERS} teachers at most.`)}</h3>
+      <p class="room-tagline">Promote Level ${PROMOTE_LEVEL_THRESHOLD}+ students · teachers ${teacherCount(state)}/${MAX_TEACHERS}</p>
       <div class="table-wrap">
         <table class="roster-table">
           <thead><tr><th>Name</th><th>Level</th><th>Stats</th><th>Actions</th></tr></thead>
@@ -1373,9 +1397,9 @@ export function renderFloor3(state) {
     </div>
     <div class="floor3-grid">
       <div class="room room-utility">
-        <h3>🔬 Research Room</h3>
-        <p class="muted">Produces research points each day: 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT (Physics grade) across every
-        teacher posted here. Currently <b>${researchRoomYield(state)} research/day</b>.</p>
+        ${roomScene("research", researchers, "Research Room",
+          `Produces research points each day: 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT (Physics grade) across every teacher posted here.`)}
+        <p class="room-tagline">Producing <b>${researchRoomYield(state)} research/day</b> from the team's INT</p>
         <div class="mini-label">Researchers (${researchers.length}/${researchSlots})</div>
         <ul class="assign-list">
           ${researchers.map((t) => `<li>${nameTag(t)} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)}) <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
@@ -1383,22 +1407,22 @@ export function renderFloor3(state) {
         ${researchers.length < researchSlots ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="research">+ Assign teacher…</button>` : ""}
         ${upgradeButton(state, "research", null, "teacher", "Researcher slot")}
       </div>
-      ${utilityRoom("🛠 Crafting Room", "Converts scrap into permanent entrance Fortification, scaled by Gymnastics (DEX).", crafter, "crafting", "DEX", "Gymnastics")}
-      ${utilityRoom("🗳 Student Council Room", "Chance each day to hear of a survivor wanting to join, scaled by Social Studies (CHA).", council, "council", "CHA", "SocialStudies")}
+      ${utilityRoom("crafting", "Crafting Room", "Turns scrap into permanent Fortification · scales with DEX", crafter, "crafting", "DEX", "Gymnastics")}
+      ${utilityRoom("council", "Student Council", "Daily chance a survivor asks to join · scales with CHA", council, "council", "CHA", "SocialStudies")}
     </div>
   </div>`;
 }
 
 // ---------- outside facilities (Turn 2) ----------
 
-function renderOutsideFacility(state, roomKey, flagKey, icon, title, desc) {
+function renderOutsideFacility(state, roomKey, flagKey, title, tagline, desc) {
   const room = state.rooms[roomKey];
   const workers = state.characters.filter((c) => c[flagKey] && c.alive);
 
   return `
-  <div class="card">
-    <h2>${icon} ${title}</h2>
-    <p class="muted">${desc}</p>
+  <div class="card room-outside">
+    ${roomScene(roomKey, workers, title, desc)}
+    <p class="room-tagline">${tagline}</p>
     <div class="mini-label">Working today (${workers.length}/${room.studentCapacity})</div>
     <ul class="assign-list">
       ${workers.map((s) => `<li>${nameTag(s)} ${statusTag(s)} <button class="btn-x" data-action="remove-${roomKey}" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
@@ -1410,21 +1434,21 @@ function renderOutsideFacility(state, roomKey, flagKey, icon, title, desc) {
 
 export function renderFarm(state) {
   return renderOutsideFacility(
-    state, "farm", "farmToday", "🌾", "Farm",
+    state, "farm", "farmToday", "Farm", `Each worker grows <b>${FARM_YIELD_FOOD} food</b> by the end of the day`,
     `Assign students to grow food instead of sending them out to explore today. Each worker yields ${FARM_YIELD_FOOD} food when the day ends.`
   );
 }
 
 export function renderScrapyard(state) {
   return renderOutsideFacility(
-    state, "scrapyard", "scrapyardToday", "🔩", "Scrapyard",
+    state, "scrapyard", "scrapyardToday", "Scrapyard", `Each worker salvages <b>${SCRAPYARD_YIELD_MATERIALS} scrap</b> by the end of the day`,
     `Assign students to strip nearby wrecks for parts instead of exploring today. Each worker yields ${SCRAPYARD_YIELD_MATERIALS} scrap when the day ends.`
   );
 }
 
 export function renderLab(state) {
   return renderOutsideFacility(
-    state, "lab", "labToday", "🧪", "Lab",
+    state, "lab", "labToday", "Lab", `Each worker produces <b>${LAB_YIELD_RESEARCH} research</b> by the end of the day`,
     `Assign students to run experiments instead of exploring today. Each worker yields ${LAB_YIELD_RESEARCH} research when the day ends — spend it in the Research tab.`
   );
 }
@@ -1449,10 +1473,8 @@ export function renderDefenseTab(state) {
   ).join("");
   return `
   <div class="card">
-    <h2>🛡 Entrance Defenses</h2>
-    <p class="muted">Click an empty middle-row cell to build, or a top-row cell to post a defender. Smashed walls are
-    gone for good; damaged ones get patched up by morning. Fortification (${state.fortification}) makes the gate worth
-    ${gateHp(state)} HP.</p>
+    <h2>🛡 Entrance Defenses ${infoDot("Click an empty middle-row cell to build, or a top-row cell to post a defender. Smashed walls are gone for good; damaged ones get patched up by morning. Fortification makes the gate sturdier.")}</h2>
+    <p class="room-tagline">Fortification ${state.fortification} · gate <b>${gateHp(state)} HP</b></p>
     ${renderEntranceGrid(state)}
     <div class="mini-label">What you can build</div>
     <div class="armory-list">${structures}</div>
@@ -1531,8 +1553,7 @@ export function renderResearch(state) {
   return `
   <div class="card">
     <h2>🧠 Research</h2>
-    <p class="muted">Permanent buffs for the whole school. Research comes from teachers in the Research Room (Floor 3) and
-    students working the Lab during Turn 2. Each branch unlocks top to bottom.</p>
+    <p class="room-tagline">Permanent buffs for the whole school · each branch unlocks top to bottom ${infoDot("Research comes from teachers in the Research Room (Floor 3) and students working the Lab during Turn 2.")}</p>
     <div class="summary-list">
       <div>Research banked: <b>${state.resources.research}</b></div>
     </div>
@@ -1645,8 +1666,8 @@ export function renderItemList() {
   };
 
   return `<div class="card">
-    <h2>📖 Item List</h2>
-    <p class="muted">Every piece of equipment that can turn up in the game — common gear brought back by expeditions (harder locations turn up better gear, and the Hardware Store and Police Station lean toward weapons), plus the rare ✨ legendary items carried by legendary survivors. Every student can equip one melee weapon and one ranged weapon at once — melee needs enough STR (PE grade) to hold, ranged needs enough DEX (Gymnastics grade).</p>
+    <h2>📖 Item List ${infoDot("Common gear is brought back by expeditions — harder locations turn up better gear, and the Hardware Store and Police Station lean toward weapons. The rare ✨ legendary items are carried by legendary survivors.")}</h2>
+    <p class="room-tagline">Everything that can turn up · one melee (needs STR) and one ranged weapon (needs DEX) per student</p>
     ${section("melee")}
     ${section("ranged")}
     ${section("armor")}

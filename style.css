@@ -20,18 +20,75 @@
 
 body {
   margin: 0;
+  --turn-accent: #f4c542;
+  --sky-glow: rgba(255, 196, 120, 0.1);
+  --sky-low: rgba(76, 175, 125, 0.05);
   background-color: var(--bg);
   background-image:
-    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(76, 175, 125, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 700px 500px at 100% 100%, rgba(214, 69, 69, 0.05) 0%, transparent 55%);
+    radial-gradient(ellipse 1100px 520px at 50% -12%, var(--sky-glow) 0%, transparent 65%),
+    radial-gradient(ellipse 700px 500px at 100% 100%, var(--sky-low) 0%, transparent 55%);
   background-attachment: fixed;
   color: var(--text);
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   font-size: 14px;
   padding-bottom: 40px;
+  transition: background-color 0.8s ease;
+}
+
+/* Time of day follows the turn (set on <body> by main.js): a warm morning for classes, a golden
+   afternoon while teams are out, and a deep blue starry night for the watch. */
+body[data-turn="2"] {
+  --turn-accent: #f08a3a;
+  --sky-glow: rgba(240, 138, 58, 0.16);
+  --sky-low: rgba(160, 61, 92, 0.08);
+  background-color: #17151a;
+}
+body[data-turn="3"] {
+  --turn-accent: #7d95e8;
+  --sky-glow: rgba(90, 115, 200, 0.18);
+  --sky-low: rgba(60, 40, 120, 0.1);
+  background-color: #0c0f1a;
+}
+body[data-turn="over"] { --turn-accent: #d64545; --sky-glow: rgba(214, 69, 69, 0.14); --sky-low: transparent; background-color: #150e10; }
+body[data-turn="victory"] { --turn-accent: #f4c542; --sky-glow: rgba(244, 197, 66, 0.2); --sky-low: rgba(255, 150, 90, 0.08); }
+
+/* Two star layers with different tile sizes so the pattern doesn't read as a grid. */
+body::before, body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+body::before {
+  background-image:
+    radial-gradient(1.2px 1.2px at 22px 34px, #fff 60%, transparent 100%),
+    radial-gradient(1px 1px at 131px 88px, #dfe6ff 60%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 208px 21px, #fff 60%, transparent 100%),
+    radial-gradient(1px 1px at 77px 170px, #fff 60%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 180px 214px, #cfd8ff 60%, transparent 100%),
+    radial-gradient(1px 1px at 245px 140px, #fff 60%, transparent 100%);
+  background-size: 260px 260px;
+}
+body::after {
+  background-image:
+    radial-gradient(1px 1px at 60px 110px, #fff 60%, transparent 100%),
+    radial-gradient(1.4px 1.4px at 290px 60px, #fff6d8 60%, transparent 100%),
+    radial-gradient(1px 1px at 190px 300px, #fff 60%, transparent 100%),
+    radial-gradient(1.2px 1.2px at 330px 250px, #dfe6ff 60%, transparent 100%);
+  background-size: 370px 370px;
+}
+body[data-turn="3"]::before { opacity: 0.55; animation: twinkle 3.8s ease-in-out infinite alternate; }
+body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out -2s infinite alternate; }
+@keyframes twinkle {
+  from { opacity: 0.2; }
+  to { opacity: 0.6; }
 }
 
 #app {
+  position: relative;
+  z-index: 1;
   max-width: 1100px;
   margin: 0 auto;
   padding: 0 14px;
@@ -52,13 +109,25 @@ body {
   gap: 8px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
+  border-image: linear-gradient(90deg, var(--border), var(--turn-accent), var(--border)) 1;
 }
 .topbar-left { display: flex; align-items: center; gap: 12px; }
 .topbar-center { display: flex; align-items: center; gap: 10px; justify-content: center; }
 .topbar-right { display: flex; justify-content: flex-end; }
 .tb-title { font-size: 18px; font-weight: 700; }
-.tb-stats { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; }
+.tb-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
 .tb-item { position: relative; }
+.res-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  cursor: help;
+}
+.res-pill.tb-warn { border-color: rgba(214, 69, 69, 0.6); background: rgba(214, 69, 69, 0.1); }
 .tb-item b { color: #fff; display: inline-block; }
 .tb-sub { color: var(--muted); font-size: 11px; margin-left: 1px; }
 .tb-warn b, .tb-warn .tb-sub { color: var(--accent-2); }
@@ -141,11 +210,41 @@ body {
   box-shadow: 0 2px 10px rgba(76, 175, 125, 0.35);
 }
 
-.tb-day { display: flex; align-items: center; font-size: 13.5px; color: var(--muted); }
-.tb-day b { color: #fff; }
-.tb-turn-indicator { display: flex; align-items: center; gap: 3px; font-size: 12px; color: var(--muted); white-space: nowrap; }
-.tb-turn-indicator b { color: #fff; }
-.tb-sep { color: var(--muted); opacity: 0.6; font-size: 13px; }
+/* Day N  ☀ — ◐ — ☾  Classes: the current turn's icon glows in the time-of-day accent. */
+.day-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 12px 3px 11px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.tb-day { font-size: 13px; color: var(--muted); }
+.tb-day b { color: #fff; font-size: 15px; }
+.day-steps { display: flex; align-items: center; }
+.day-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  opacity: 0.3;
+  filter: grayscale(0.8);
+  transition: opacity 0.3s, box-shadow 0.3s;
+}
+.day-step.done { opacity: 0.55; filter: grayscale(0.3); }
+.day-step.now {
+  opacity: 1;
+  filter: none;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 1px var(--turn-accent), 0 0 12px -2px var(--turn-accent);
+}
+.day-link { width: 8px; height: 2px; border-radius: 1px; background: var(--border); }
+.tb-turn-name { font-size: 12.5px; font-weight: 600; color: var(--turn-accent); min-width: 72px; }
+.px-icon { display: block; flex: none; }
 .tb-rescue {
   background: rgba(224, 165, 54, 0.12);
   border: 1px solid rgba(224, 165, 54, 0.45);
@@ -181,6 +280,19 @@ body {
   background: linear-gradient(135deg, #5cc491, var(--accent));
   color: #06210f;
 }
+body[data-turn="2"] .tab-btn-turn {
+  background: linear-gradient(135deg, #f0a24a, #c9702a);
+  border-color: #f08a3a;
+  color: #2a1400;
+  box-shadow: 0 0 0 1px rgba(240, 138, 58, 0.3), 0 2px 10px rgba(240, 138, 58, 0.35);
+}
+body[data-turn="3"] .tab-btn-turn {
+  background: linear-gradient(135deg, #8aa0f0, #5068c4);
+  border-color: #7d95e8;
+  color: #0a1030;
+  box-shadow: 0 0 0 1px rgba(125, 149, 232, 0.35), 0 2px 12px rgba(125, 149, 232, 0.4);
+}
+body[data-turn="2"] .tab-btn-turn:hover, body[data-turn="3"] .tab-btn-turn:hover { filter: brightness(1.1); }
 
 .options-dropdown { position: relative; display: flex; align-items: stretch; margin: 0; }
 .options-summary {
@@ -404,6 +516,132 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .room-infirmary { --room-accent: #ef8fb3; }
 .room-lounge { --room-accent: #9b7fd6; }
 .room-utility { --room-accent: #a03d5c; }
+
+/* Pixel-art banner across the top of a room card (scenes.js), bleeding to the card edges. The
+   96x24 scene tiles sideways so wide cards get a longer room rather than a blurry stretch. */
+.room-scene {
+  position: relative;
+  height: 112px;
+  margin: -12px -12px 10px;
+  border-radius: 7px 7px 0 0;
+  background-repeat: repeat-x;
+  background-size: auto 100%;
+  background-position: center bottom;
+  image-rendering: pixelated;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.3), inset 0 18px 22px -14px rgba(0, 0, 0, 0.45);
+}
+.room-outside .room-scene { height: 128px; margin: -18px -18px 12px; border-radius: 11px 11px 0 0; }
+.scene-plaque {
+  position: absolute;
+  top: 7px;
+  left: 8px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(14, 16, 22, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.scene-plaque:hover, .scene-plaque:focus-within { z-index: 30; }
+.plaque-sub { color: var(--muted); font-weight: 500; font-size: 12px; }
+.scene-person {
+  position: absolute;
+  bottom: 3px;
+  z-index: 1;
+  cursor: pointer;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35));
+  animation: idle-bob 1.8s ease-in-out infinite;
+}
+.scene-person svg { display: block; }
+.scene-person:hover { z-index: 2; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8)); }
+@keyframes idle-bob {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -2px); }
+}
+.scene-more, .scene-empty {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  z-index: 2;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(10, 12, 18, 0.75);
+  font-size: 11.5px;
+}
+.scene-more { font-weight: 700; color: #fff; }
+.scene-empty { color: rgba(255, 255, 255, 0.7); font-style: italic; }
+.room-tagline { margin: 0 0 8px; font-size: 12.5px; color: #c3c8d4; }
+.room-tagline b { color: #fff; }
+
+/* The full rules for a room live behind this "i" — hover on desktop, tap (focus) on touch. */
+.info-dot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #dfe3ea;
+  font: italic 700 11px Georgia, "Times New Roman", serif;
+  vertical-align: middle;
+  cursor: help;
+  outline: none;
+}
+.info-dot:hover, .info-dot:focus { background: var(--turn-accent); color: #111; border-color: var(--turn-accent); }
+/* Only generated while open — a hidden-but-present bubble would still widen the page near the
+   right edge. main.js sets --tip-shift to slide it back inside the window when it would spill. */
+.info-dot:hover::after, .info-dot:focus::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: calc(-8px + var(--tip-shift, 0px));
+  z-index: 40;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(280px, 76vw);
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: #0f1218;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  color: var(--text);
+  font: 400 12.5px/1.45 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+  animation: tip-in 0.12s ease-out;
+}
+@keyframes tip-in {
+  from { opacity: 0; transform: translateY(-3px); }
+}
+
+/* Switching tabs eases the new screen in; staggered so a floor's rooms arrive one after another.
+   `backwards` fill only, so nothing keeps a transform (and a stacking context) afterwards. */
+.tab-enter .content > * { animation: content-in 0.32s ease-out backwards; }
+.tab-enter .content .room { animation: content-in 0.38s ease-out backwards; }
+.tab-enter .content .room:nth-child(2) { animation-delay: 0.05s; }
+.tab-enter .content .room:nth-child(3) { animation-delay: 0.1s; }
+.tab-enter .content .room:nth-child(4) { animation-delay: 0.15s; }
+.tab-enter .content .room:nth-child(n + 5) { animation-delay: 0.2s; }
+@keyframes content-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-enter .content > *, .tab-enter .content .room, .scene-person, body::before, body::after { animation: none; }
+}
 
 .entrance-grid { display: grid; gap: 4px; margin: 10px auto 6px; max-width: 50%; }
 .entrance-cell {

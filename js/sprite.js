@@ -60,14 +60,14 @@ function toRgb(hex) {
 function toHex(rgb) {
   return `#${rgb.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("")}`;
 }
-function mix(a, b, t) {
+export function mix(a, b, t) {
   const A = toRgb(a);
   const B = toRgb(b);
   return toHex(A.map((v, i) => v + (B[i] - v) * t));
 }
-const shadowOf = (c) => mix(c, "#2a1f3d", 0.32);
-const lightOf = (c) => mix(c, "#fff4dc", 0.28);
-const outlineOf = (c) => mix(c, "#120c18", 0.75);
+export const shadowOf = (c) => mix(c, "#2a1f3d", 0.32);
+export const lightOf = (c) => mix(c, "#fff4dc", 0.28);
+export const outlineOf = (c) => mix(c, "#120c18", 0.75);
 function grayOf(c) {
   const [r, g, b] = toRgb(c);
   const v = (r * 0.3 + g * 0.59 + b * 0.11) * 0.8;
