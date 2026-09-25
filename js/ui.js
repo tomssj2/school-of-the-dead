@@ -6,7 +6,7 @@ import {
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
   DISHES, INGREDIENTS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
-  RESEARCH_ROOM_INT_PER_POINT,
+  RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -15,6 +15,7 @@ import {
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
+  techPerk, gateHp, loungeRecovery, dishCapacity, exploreStaminaCost,
 } from "./game.js";
 import { characterSprite } from "./sprite.js";
 import { isSoundEnabled } from "./sound.js";
@@ -424,7 +425,7 @@ function renderTurn1Overview(state) {
     <p>Students in their home classroom earn XP toward their grade in that subject. Send students to the Gym for
     Physical Education &amp; Gymnastics training — a Gym teacher speeds that up, no teacher required. A <b>Floor 2</b>
     classroom teacher doesn't speed up grades, but gives every seated student a standing bonus to that subject.
-    Gym and exploring cost 20 stamina; resting in the Lounge recovers ${state.rooms.lounge.recovery}.</p>
+    The Gym costs 20 stamina and exploring ${exploreStaminaCost(state)}; resting in the Lounge recovers ${loungeRecovery(state)}.</p>
     <ul class="summary-list">
       ${classroomSummaries}
       <li><b>Gym</b>: ${gymCount}/${state.rooms.gym.studentCapacity} students training today</li>
@@ -809,6 +810,8 @@ function renderTurn3Overview(state) {
   const zombies = zombieCountForDay(state.day);
   const z = zombieStatsForDay(state.day);
   const unarmed = defenders.filter((c) => !c.equipment?.meleeWeapon && !c.equipment?.rangedWeapon).length;
+  const stabilizeCost = MEDICINE_PER_STABILIZE - techPerk(state, "stabilizeDiscount");
+  const saves = Math.floor(state.resources.medicine / stabilizeCost);
   const comp = hordeComposition(state.day);
   const mix = ["walker", "runner", "brute", "spitter"]
     .filter((t) => comp[t])
@@ -840,9 +843,9 @@ function renderTurn3Overview(state) {
     ${boss}
     <div class="summary-list">
       <div>Tonight's horde: <b>${zombies} zombies</b> — ${mix}. A walker has ${z.hp} HP and hits for about ${z.damage}.</div>
-      <div>Gate: <b>${state.fortification * 2} HP</b> ${state.fortification ? "(fortification ×2)" : "— no fortification yet, so anything that slips past gets straight in"}</div>
+      <div>Gate: <b>${gateHp(state)} HP</b> ${state.fortification ? "(from fortification)" : "— no fortification yet, so anything that slips past gets straight in"}</div>
       <div>Defenders on the grid: <b>${defenders.length}</b>${unarmed ? ` · ⚠️ ${unarmed} fighting bare-handed — hand out weapons from each student's Inventory tab` : ""}</div>
-      <div>Medicine: <b>${state.resources.medicine}</b> — enough to patch up <b>${Math.floor(state.resources.medicine / 5)}</b> defender${Math.floor(state.resources.medicine / 5) === 1 ? "" : "s"} who go down (without it, they might not get back up)</div>
+      <div>Medicine: <b>${state.resources.medicine}</b> — enough to patch up <b>${saves}</b> defender${saves === 1 ? "" : "s"} who go down (${stabilizeCost} each; without it, they might not get back up)</div>
     </div>
     ${renderEntranceGrid(state)}
     <div class="mini-label">Quick assign — drops them on the front line</div>
@@ -1194,7 +1197,7 @@ export function renderFloor1(state) {
         </ul>
         ${cooks.length < cafeRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-teacher">+ Assign cook…</button>` : ""}
         ${upgradeButton(state, "cafeteria", null, "teacher", "Cook slot")}
-        <div class="mini-label">Today's menu (${state.dishesToday.length}/${cooks.length} dish${cooks.length === 1 ? "" : "es"} served)</div>
+        <div class="mini-label">Today's menu (${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served)</div>
         <div class="pantry">${pantry}</div>
         <div class="dish-list">${menu}</div>
       </div>
@@ -1218,7 +1221,7 @@ export function renderFloor1(state) {
       <div class="room room-lounge">
         <h3>🛋 Lounge</h3>
         <p class="muted">Up to ${lounge.studentCapacity} students/day. Everyone resting here recovers
-        <b>${lounge.recovery} stamina</b> — students only; teachers recover by cooking.</p>
+        <b>${loungeRecovery(state)} stamina</b> — students only; teachers recover by cooking.</p>
         <div class="mini-label">Resting today (${resting.length}/${lounge.studentCapacity})</div>
         <ul class="assign-list">
           ${resting.map((s) => `<li>${nameTag(s)} ${staminaBar(s)} <button class="btn-x" data-action="remove-lounge" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
@@ -1449,7 +1452,7 @@ export function renderDefenseTab(state) {
     <h2>🛡 Entrance Defenses</h2>
     <p class="muted">Click an empty middle-row cell to build, or a top-row cell to post a defender. Smashed walls are
     gone for good; damaged ones get patched up by morning. Fortification (${state.fortification}) makes the gate worth
-    ${state.fortification * 2} HP.</p>
+    ${gateHp(state)} HP.</p>
     ${renderEntranceGrid(state)}
     <div class="mini-label">What you can build</div>
     <div class="armory-list">${structures}</div>
@@ -1492,51 +1495,44 @@ export function renderEventTab(state) {
 // ---------- research ----------
 
 const TECH_EFFECT_ICON = { food: "🍞", materials: "🔧", medicine: "💊", research: "🧠", fortification: "🛡", happiness: "🙂" };
-function techEffectSummary(effect) {
-  return Object.keys(effect)
-    .filter((k) => TECH_EFFECT_ICON[k])
-    .map((k) => `${TECH_EFFECT_ICON[k]} +${effect[k]}`)
-    .join("  ");
-}
 
-function renderTechNode(state, node) {
+function renderTechNode(state, node, tier) {
   const owned = state.techUnlocked;
   const isOwned = owned.includes(node.id);
   const lockedBy = node.requires && !owned.includes(node.requires) ? TECH_TREE.find((t) => t.id === node.requires) : null;
   const affordable = state.resources.research >= node.cost;
 
   let action;
-  if (isOwned) action = `<span class="tag tag-ok">✓ Owned</span>`;
-  else if (lockedBy) action = `<span class="tag tag-injured">🔒 Needs ${esc(lockedBy.name)}</span>`;
-  else action = `<button class="btn btn-sm btn-primary" data-action="buy-tech" data-id="${node.id}" ${affordable ? "" : "disabled"}>🧠 Buy (${node.cost})</button>`;
+  if (isOwned) action = `<span class="tag tag-ok">✓ Active</span>`;
+  else if (lockedBy) action = `<span class="tag tag-injured">🔒 ${node.cost}</span>`;
+  else action = `<button class="btn btn-sm btn-primary" data-action="buy-tech" data-id="${node.id}" ${affordable ? "" : "disabled"}>🧠 ${node.cost}</button>`;
 
-  return `<div class="subcard tech-node ${isOwned ? "tech-owned" : ""}">
+  return `<div class="subcard tech-node ${isOwned ? "tech-owned" : lockedBy ? "tech-locked" : ""}" title="${lockedBy ? `Needs ${esc(lockedBy.name)} first` : ""}">
     <div class="tech-node-main">
-      <div><span class="tech-icon">${node.icon}</span> <b>${esc(node.name)}</b></div>
+      <div><span class="tech-tier">${tier}</span><span class="tech-icon">${node.icon}</span> <b>${esc(node.name)}</b></div>
       ${action}
     </div>
-    <p class="muted">${esc(node.desc)}</p>
-    <div class="tech-effect">${techEffectSummary(node.effect)}</div>
+    <div class="tech-effect">${esc(node.desc)}</div>
   </div>`;
 }
 
 export function renderResearch(state) {
-  const branches = TECH_TREE.filter((t) => !t.requires)
-    .map((root) => {
-      const chain = [root];
-      let next = TECH_TREE.find((t) => t.requires === root.id);
-      while (next) {
-        chain.push(next);
-        next = TECH_TREE.find((t) => t.requires === next.id);
-      }
-      return `<div class="tech-branch">${chain.map((t) => renderTechNode(state, t)).join("")}</div>`;
-    })
-    .join("");
+  const branches = TECH_BRANCHES.map((branch) => {
+    const nodes = TECH_TREE.filter((t) => t.branch === branch.id);
+    const chain = [nodes.find((t) => !t.requires)];
+    for (let next = nodes.find((t) => t.requires === chain[0].id); next; next = nodes.find((t) => t.requires === next.id)) chain.push(next);
+    const owned = chain.filter((t) => state.techUnlocked.includes(t.id)).length;
+    return `<div class="tech-branch">
+      <div class="tech-branch-head"><b>${branch.name}</b> <span class="muted">${owned}/${chain.length}</span><div class="muted">${esc(branch.desc)}</div></div>
+      ${chain.map((t, i) => renderTechNode(state, t, i + 1)).join("")}
+    </div>`;
+  }).join("");
 
   return `
   <div class="card">
     <h2>🧠 Research</h2>
-    <p class="muted">Produced by teachers in the Research Room (Floor 3) and students working the Lab during Turn 2. Spend it below on permanent, one-time upgrades.</p>
+    <p class="muted">Permanent buffs for the whole school. Research comes from teachers in the Research Room (Floor 3) and
+    students working the Lab during Turn 2. Each branch unlocks top to bottom.</p>
     <div class="summary-list">
       <div>Research banked: <b>${state.resources.research}</b></div>
     </div>

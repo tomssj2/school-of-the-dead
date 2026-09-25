@@ -464,28 +464,34 @@ export const EVENTS = [
 ];
 
 // ===== Research tech tree =====
-// One-time purchases spending banked Research (from staffing the Lab) on an instant, permanent
-// effect — interpreted the same generic way as EVENTS' `effect` (applyEffect() in game.js), so
-// this stays data-only. Two loose tiers: `requires` gates a node behind owning another one first.
+// Permanent buffs bought with banked research. Each node's `perk` holds numbers that stack
+// across owned nodes and are read through techPerk() in game.js at the point in the game they
+// affect (battle damage, expedition odds, XP, ...). Nodes in a branch unlock in order: each
+// `requires` the one before it.
+export const TECH_BRANCHES = [
+  { id: "combat", name: "⚔ Night Watch", desc: "Hold the entrance." },
+  { id: "scavenging", name: "🧭 Scavenging", desc: "Bring more home, lose fewer people." },
+  { id: "school", name: "🏫 School Life", desc: "Grow faster, recover better." },
+];
 export const TECH_TREE = [
-  { id: "fortify_walls", name: "Fortify Walls", icon: "🧱", desc: "Reinforce the main entrance.", cost: 15, requires: null, effect: { fortification: 15 } },
-  { id: "stockpile", name: "Stockpile", icon: "📦", desc: "Organize the storerooms.", cost: 15, requires: null, effect: { materials: 30 } },
-  { id: "field_rations", name: "Field Rations", icon: "🍱", desc: "Better food preservation.", cost: 15, requires: null, effect: { food: 40 } },
-  { id: "reinforced_gates", name: "Reinforced Gates", icon: "🚪", desc: "A second line of defense at the entrance.", cost: 30, requires: "fortify_walls", effect: { fortification: 25 } },
-  { id: "grain_silos", name: "Grain Silos", icon: "🌾", desc: "Bulk food storage.", cost: 30, requires: "field_rations", effect: { food: 60 } },
-  { id: "surplus_trade", name: "Surplus Trade", icon: "💰", desc: "Trade excess supplies with other survivors.", cost: 30, requires: "stockpile", effect: { materials: 50, medicine: 15 } },
-  // Tier 3
-  { id: "watchtowers", name: "Watchtowers", icon: "🗼", desc: "Spot trouble before it reaches the gates.", cost: 50, requires: "reinforced_gates", effect: { fortification: 40 } },
-  { id: "greenhouse", name: "Greenhouse", icon: "🌱", desc: "Grow food indoors, safe from raids.", cost: 50, requires: "grain_silos", effect: { food: 90 } },
-  { id: "scrap_refinery", name: "Scrap Refinery", icon: "⚙️", desc: "Turn junk into usable parts.", cost: 50, requires: "surplus_trade", effect: { materials: 70 } },
-  // Tier 4
-  { id: "barricade_network", name: "Barricade Network", icon: "🚧", desc: "Choke points funnel attackers into kill zones.", cost: 75, requires: "watchtowers", effect: { fortification: 60 } },
-  { id: "livestock_pens", name: "Livestock Pens", icon: "🐄", desc: "A steady supply of meat and milk.", cost: 75, requires: "greenhouse", effect: { food: 120 } },
-  { id: "trade_caravan", name: "Trade Caravan", icon: "🐎", desc: "Run supply routes to nearby survivor camps.", cost: 75, requires: "scrap_refinery", effect: { materials: 90, medicine: 20 } },
-  // Tier 5
-  { id: "bastion_walls", name: "Bastion Walls", icon: "🏯", desc: "The school becomes a fortress.", cost: 110, requires: "barricade_network", effect: { fortification: 100 } },
-  { id: "cold_storage", name: "Cold Storage", icon: "🧊", desc: "Nothing spoils, nothing goes to waste.", cost: 110, requires: "livestock_pens", effect: { food: 160 } },
-  { id: "black_market", name: "Black Market Contacts", icon: "🕶️", desc: "Discreet dealers who can get almost anything.", cost: 110, requires: "trade_caravan", effect: { materials: 130, medicine: 40 } },
+  // ⚔ Night Watch
+  { id: "whetstones", branch: "combat", name: "Whetstones", icon: "🗡", cost: 15, requires: null, perk: { meleeDamage: 0.15 }, desc: "+15% melee damage in the night battle." },
+  { id: "archery_club", branch: "combat", name: "Archery Club", icon: "🏹", cost: 30, requires: "whetstones", perk: { rangedRange: 1, rangedDamage: 0.1 }, desc: "Ranged weapons reach 1 square further and deal +10% damage." },
+  { id: "fortified_works", branch: "combat", name: "Fortified Works", icon: "🧱", cost: 50, requires: "archery_club", perk: { wallHp: 0.5, gateHp: 0.5 }, desc: "Walls and the gate hold 50% more HP." },
+  { id: "field_medics", branch: "combat", name: "Field Medics", icon: "⛑", cost: 75, requires: "fortified_works", perk: { stabilizeDiscount: 2, untreatedDeathReduction: 0.5 }, desc: "Saving a downed defender costs 3 medicine instead of 5, and without medicine their death chance is halved." },
+  { id: "last_stand", branch: "combat", name: "Last Stand", icon: "🔥", cost: 110, requires: "field_medics", perk: { lastStand: 1 }, desc: "Defenders below 25% HP deal double damage." },
+  // 🧭 Scavenging
+  { id: "scouts_eye", branch: "scavenging", name: "Scout's Eye", icon: "👁", cost: 15, requires: null, perk: { expeditionSuccess: 0.1 }, desc: "Expeditions are 10% more likely to succeed." },
+  { id: "deep_pockets", branch: "scavenging", name: "Deep Pockets", icon: "🎒", cost: 30, requires: "scouts_eye", perk: { expeditionLoot: 0.25 }, desc: "Expeditions bring back 25% more food, scrap and medicine." },
+  { id: "treasure_hunters", branch: "scavenging", name: "Treasure Hunters", icon: "🗺", cost: 50, requires: "deep_pockets", perk: { itemChance: 0.2, ingredientChance: 0.2 }, desc: "+20% chance to find gear and cooking ingredients on every expedition." },
+  { id: "word_of_mouth", branch: "scavenging", name: "Word of Mouth", icon: "🗣", cost: 75, requires: "treasure_hunters", perk: { recruitChance: 0.5 }, desc: "Expeditions are 50% more likely to find survivors who want to join." },
+  { id: "ghost_walkers", branch: "scavenging", name: "Ghost Walkers", icon: "👣", cost: 110, requires: "word_of_mouth", perk: { casualtyReduction: 0.5, exploreStaminaReduction: 0.5 }, desc: "Expedition casualties are halved, and expeditions cost half the stamina." },
+  // 🏫 School Life
+  { id: "study_groups", branch: "school", name: "Study Groups", icon: "📚", cost: 15, requires: null, perk: { classXp: 0.25 }, desc: "Classes grant 25% more XP." },
+  { id: "power_naps", branch: "school", name: "Power Naps", icon: "😴", cost: 30, requires: "study_groups", perk: { loungeRecovery: 20 }, desc: "Resting in the Lounge recovers 20 more stamina." },
+  { id: "school_spirit", branch: "school", name: "School Spirit", icon: "🎉", cost: 50, requires: "power_naps", perk: { happinessLossReduction: 0.5 }, desc: "Happiness losses are halved." },
+  { id: "home_economics", branch: "school", name: "Home Economics", icon: "🍳", cost: 75, requires: "school_spirit", perk: { extraDishesPerCook: 1 }, desc: "Each cook can serve two dishes a day instead of one." },
+  { id: "honor_roll", branch: "school", name: "Honor Roll", icon: "🏅", cost: 110, requires: "home_economics", perk: { xp: 0.25 }, desc: "Every action earns 25% more XP." },
 ];
 
 // ===== Exploration locations =====

@@ -32,7 +32,8 @@ const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 export function adjustHappiness(state, amount) {
-  state.happiness = clamp(state.happiness + amount, HAPPINESS_MIN, HAPPINESS_MAX);
+  const change = amount < 0 ? Math.round(amount * (1 - techPerk(state, "happinessLossReduction"))) : amount;
+  state.happiness = clamp(state.happiness + change, HAPPINESS_MIN, HAPPINESS_MAX);
 }
 
 // A character dying affects happiness no matter which turn/system caused it, so every death
@@ -436,7 +437,7 @@ export function cooksOnDuty(state) {
 
 export function canCookDish(state, dish) {
   if (state.dishesToday.includes(dish.id)) return false;
-  if (state.dishesToday.length >= cooksOnDuty(state).length) return false;
+  if (state.dishesToday.length >= dishCapacity(state)) return false;
   if (state.resources.food < dish.food) return false;
   return Object.entries(dish.ingredients).every(([id, n]) => (state.pantry[id] || 0) >= n);
 }
@@ -455,7 +456,7 @@ function grantXp(state, charId, subject, amount) {
   const c = getChar(state, charId);
   if (!c || !c.alive) return;
   if (c.grades[subject] >= 100) return;
-  c.xp[subject] += amount * traitGrowthMultiplier(c, subject) * dishMultiplier(state, "xp");
+  c.xp[subject] += amount * traitGrowthMultiplier(c, subject) * dishMultiplier(state, "xp") * (1 + techPerk(state, "xp"));
   let guard = 0;
   while (c.xp[subject] >= xpThreshold(c.grades[subject]) && c.grades[subject] < 100 && guard < 50) {
     c.xp[subject] -= xpThreshold(c.grades[subject]);
@@ -463,6 +464,27 @@ function grantXp(state, charId, subject, amount) {
     guard++;
   }
   c.maxHp = maxHpFor(c.grades);
+}
+
+// Sum of a perk across every owned research node (0 if none give it) — see TECH_TREE in data.js.
+export function techPerk(state, key) {
+  return state.techUnlocked.reduce((sum, id) => sum + (TECH_TREE.find((t) => t.id === id)?.perk[key] || 0), 0);
+}
+
+export function gateHp(state) {
+  return Math.round(state.fortification * 2 * (1 + techPerk(state, "gateHp")));
+}
+
+export function loungeRecovery(state) {
+  return state.rooms.lounge.recovery + techPerk(state, "loungeRecovery");
+}
+
+export function dishCapacity(state) {
+  return cooksOnDuty(state).length * (1 + techPerk(state, "extraDishesPerCook"));
+}
+
+export function exploreStaminaCost(state) {
+  return Math.round(STAMINA_COST_EXPLORE * (1 - techPerk(state, "exploreStaminaReduction")));
 }
 
 // One research point per RESEARCH_ROOM_INT_PER_POINT of the posted teachers' combined INT.
@@ -487,7 +509,7 @@ export function resolveTraining(state) {
     for (const sid of studentIds) {
       const c = getChar(state, sid);
       if (!c || !c.alive) continue;
-      const gain = 4 + randInt(0, 2);
+      const gain = (4 + randInt(0, 2)) * (1 + techPerk(state, "classXp"));
       grantXp(state, sid, subject, gain);
     }
     if (studentIds.length) {
@@ -533,8 +555,9 @@ export function resolveTraining(state) {
 
   // lounge — students resting here recover stamina
   const resting = state.characters.filter((c) => c.loungeToday && c.alive);
-  for (const c of resting) c.stamina = Math.min(c.maxStamina, c.stamina + state.rooms.lounge.recovery);
-  if (resting.length) addLog(state, `${resting.length} student(s) rested in the lounge (+${state.rooms.lounge.recovery} stamina).`);
+  const recovery = loungeRecovery(state);
+  for (const c of resting) c.stamina = Math.min(c.maxStamina, c.stamina + recovery);
+  if (resting.length) addLog(state, `${resting.length} student(s) rested in the lounge (+${recovery} stamina).`);
 
   // nurse's office — patients heal a big chunk of HP for a little medicine each; a nurse's Biology
   // adds on top. Without medicine to spare, they only get bed rest.
@@ -589,7 +612,7 @@ function itemTier(t) {
 
 // Legendary gear never drops here — it only arrives on legendary survivors.
 function rollExpeditionItem(state, location, success) {
-  const chance = success ? EXPEDITION_ITEM_CHANCE + location.difficulty * 0.08 : EXPEDITION_ITEM_CHANCE_FAILED;
+  const chance = (success ? EXPEDITION_ITEM_CHANCE + location.difficulty * 0.08 : EXPEDITION_ITEM_CHANCE_FAILED) + techPerk(state, "itemChance");
   if (Math.random() >= chance) return null;
   const maxTier = Math.min(4, Math.ceil(location.difficulty * 0.8));
   const pool = ITEM_TEMPLATES.filter((t) => itemTier(t) <= maxTier);
@@ -600,7 +623,9 @@ function rollExpeditionItem(state, location, success) {
 }
 
 function rollExpeditionIngredient(state, location, success) {
-  const chance = success ? EXPEDITION_INGREDIENT_CHANCE + (location.ingredientBonus || 0) : EXPEDITION_INGREDIENT_CHANCE_FAILED;
+  const chance =
+    (success ? EXPEDITION_INGREDIENT_CHANCE + (location.ingredientBonus || 0) : EXPEDITION_INGREDIENT_CHANCE_FAILED) +
+    techPerk(state, "ingredientChance");
   if (Math.random() >= chance) return null;
   const id = pick(Object.keys(INGREDIENTS));
   const qty = randInt(1, 3);
@@ -627,12 +652,13 @@ export function resolveExploration(state) {
     const cha = avg("SocialStudies");
 
     const requirement = location.difficulty * 15;
-    const successChance = clamp01(0.3 + (power - requirement) / 100);
+    const successChance = clamp01(0.3 + (power - requirement) / 100 + techPerk(state, "expeditionSuccess"));
     const success = Math.random() < successChance;
 
-    const lootMult = (0.5 + wis / 100) * (success ? 1 : 0.35);
+    const lootMult = (0.5 + wis / 100) * (success ? 1 : 0.35) * (1 + techPerk(state, "expeditionLoot"));
     const dangerReq = location.danger * 15;
-    const baseCasualty = clamp01(0.05 + (dangerReq - safety) / 150) * (success ? 0.5 : 1.2);
+    const baseCasualty =
+      clamp01(0.05 + (dangerReq - safety) / 150) * (success ? 0.5 : 1.2) * (1 - techPerk(state, "casualtyReduction"));
 
     const stewMult = (key) => (key === "materials" ? dishMultiplier(state, "expeditionMaterials") : 1);
     if (success) {
@@ -663,8 +689,9 @@ export function resolveExploration(state) {
       addLog(state, `The team brought back ${info.icon} ${info.name} ×${ingredient.qty} from the ${location.name} for the pantry.`);
     }
 
+    const staminaCost = exploreStaminaCost(state);
     for (const c of members) {
-      c.stamina = Math.max(0, c.stamina - STAMINA_COST_EXPLORE);
+      c.stamina = Math.max(0, c.stamina - staminaCost);
       const roll = Math.random();
       const personalCasualty = clamp01(baseCasualty - (effectiveGrade(state, c, "Biology") - 40) / 400);
       if (roll < personalCasualty) {
@@ -684,7 +711,9 @@ export function resolveExploration(state) {
     }
 
     const recruitBonus = location.recruitBonus || 1;
-    const recruitChance = clamp01((cha - 20) / 150 * recruitBonus * (success ? 1 : 0.4) * dishMultiplier(state, "recruitChance"));
+    const recruitChance = clamp01(
+      ((cha - 20) / 150) * recruitBonus * (success ? 1 : 0.4) * dishMultiplier(state, "recruitChance") * (1 + techPerk(state, "recruitChance"))
+    );
     if (Math.random() < recruitChance) {
       const role = rollRecruitRole(state);
       const recruit = makeCharacter(role, Math.random() < 0.5 ? "M" : "F");
@@ -755,11 +784,12 @@ export function firstFreeEntranceCell(state) {
 function battleStats(state, c) {
   const eq = c.equipment || {};
   const chili = dishMultiplier(state, "battleDamage");
+  const ranged = eq.rangedWeapon ? { ...eq.rangedWeapon, range: eq.rangedWeapon.range + techPerk(state, "rangedRange") } : null;
   return {
     melee: eq.meleeWeapon || FIST_WEAPON,
-    ranged: eq.rangedWeapon || null,
-    meleeMult: (0.5 + effectiveGrade(state, c, "PE") / 100) * chili,
-    rangedMult: (0.5 + effectiveGrade(state, c, "Gymnastics") / 100) * chili,
+    ranged,
+    meleeMult: (0.5 + effectiveGrade(state, c, "PE") / 100) * chili * (1 + techPerk(state, "meleeDamage")),
+    rangedMult: (0.5 + effectiveGrade(state, c, "Gymnastics") / 100) * chili * (1 + techPerk(state, "rangedDamage")),
     hitChance: Math.min(0.95, 0.7 + effectiveGrade(state, c, "Gymnastics") / 500),
     armorMult: Math.max(0.4, 1 - effectiveGrade(state, c, "Biology") / 250),
   };
@@ -788,9 +818,12 @@ export function simulateEntranceBattle(state) {
     const def = DEFENSE_STRUCTURES.find((d) => d.id === structureId);
     if (!def) continue;
     const [row, col] = key.split(",").map(Number);
-    structures[key] = { key, row, col, def, hp: def.hp || 0, destroyed: false };
+    const maxHp = Math.round((def.hp || 0) * (1 + techPerk(state, "wallHp")));
+    structures[key] = { key, row, col, def, hp: maxHp, maxHp, destroyed: false };
   }
-  const gate = { hp: state.fortification * 2, max: state.fortification * 2 };
+  const gateMax = gateHp(state);
+  const gate = { hp: gateMax, max: gateMax };
+  const lastStand = techPerk(state, "lastStand") > 0;
 
   const zombies = [];
   let spawned = 0;
@@ -815,7 +848,7 @@ export function simulateEntranceBattle(state) {
     events,
     zombies: zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp })),
     students: students.map((s) => ({ id: s.id, row: s.row, col: s.col, hp: Math.max(0, s.hp), maxHp: s.maxHp, downed: s.downed })),
-    structures: Object.values(structures).map((st) => ({ key: st.key, id: st.def.id, hp: st.hp, maxHp: st.def.hp || 0, destroyed: st.destroyed })),
+    structures: Object.values(structures).map((st) => ({ key: st.key, id: st.def.id, hp: st.hp, maxHp: st.maxHp, destroyed: st.destroyed })),
     gate: { ...gate },
     killed,
     breached,
@@ -857,7 +890,10 @@ export function simulateEntranceBattle(state) {
       if (useMelee) s.usedMelee = true;
       else s.usedRanged = true;
       const hit = Math.random() < s.hitChance;
-      const dmg = hit ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * (0.85 + Math.random() * 0.3))) : 0;
+      const desperate = lastStand && s.hp < s.maxHp * 0.25 ? 2 : 1;
+      const dmg = hit
+        ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * desperate * (0.85 + Math.random() * 0.3)))
+        : 0;
       target.hp -= dmg;
       events.push({ type: "attack", from: [s.row, s.col], to: [target.row, target.col], zid: target.id, dmg, hit, kind: useMelee ? "melee" : "ranged", icon: weapon.icon });
       if (target.hp <= 0) {
@@ -1007,6 +1043,7 @@ export function resolveDefense(state) {
   }
 
   let downedCount = 0;
+  const stabilizeCost = MEDICINE_PER_STABILIZE - techPerk(state, "stabilizeDiscount");
   for (const s of battle.students) {
     const c = getChar(state, s.id);
     if (!c) continue;
@@ -1014,19 +1051,20 @@ export function resolveDefense(state) {
       downedCount++;
       c.defending = false; // too hurt to join any chase afterwards
       clearEntranceCellForChar(state, c.id);
-      const stabilized = state.resources.medicine >= MEDICINE_PER_STABILIZE;
-      const deathChance = clamp01(DOWNED_DEATH_CHANCE - (effectiveGrade(state, c, "Biology") - 40) / 200);
+      const stabilized = state.resources.medicine >= stabilizeCost;
+      const deathChance =
+        clamp01(DOWNED_DEATH_CHANCE - (effectiveGrade(state, c, "Biology") - 40) / 200) * (1 - techPerk(state, "untreatedDeathReduction"));
       if (!stabilized && Math.random() < deathChance) {
         killCharacter(state, c);
         addLog(state, `${c.name} fell defending the entrance.`);
       } else {
-        if (stabilized) state.resources.medicine -= MEDICINE_PER_STABILIZE;
+        if (stabilized) state.resources.medicine -= stabilizeCost;
         c.hp = Math.max(1, Math.round(c.maxHp * 0.1));
         c.injured = true;
         addLog(
           state,
           stabilized
-            ? `${c.name} went down at the entrance — patched up with ${MEDICINE_PER_STABILIZE} medicine.`
+            ? `${c.name} went down at the entrance — patched up with ${stabilizeCost} medicine.`
             : `${c.name} went down at the entrance but was dragged to safety.`
         );
       }
@@ -1386,8 +1424,7 @@ export function buyTech(state, techId) {
 
   state.resources.research -= node.cost;
   state.techUnlocked.push(techId);
-  applyEffect(state, node.effect);
-  addLog(state, `Research complete: ${node.name} (-${node.cost} research).`);
+  addLog(state, `Research complete: ${node.name} — ${node.desc} (-${node.cost} research).`);
   return true;
 }
 

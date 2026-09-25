@@ -11,6 +11,17 @@ import {
 
 const SAVE_KEY = "school-apocalypse-save-v1";
 
+// Costs of the original resource-granting Research tree, which was replaced by buffs. Research
+// spent on those nodes is refunded so it can go into the new tree; what they granted is kept.
+// Declared before the save loads because migrateState() runs immediately below.
+const LEGACY_TECH_COST = {
+  fortify_walls: 15, stockpile: 15, field_rations: 15,
+  reinforced_gates: 30, grain_silos: 30, surplus_trade: 30,
+  watchtowers: 50, greenhouse: 50, scrap_refinery: 50,
+  barricade_network: 75, livestock_pens: 75, trade_caravan: 75,
+  bastion_walls: 110, cold_storage: 110, black_market: 110,
+};
+
 let state = loadGame() || G.createInitialState();
 migrateState(state);
 let activeTab = "overview";
@@ -111,6 +122,13 @@ function migrateState(s) {
   if (!s.eventLog) s.eventLog = [];
   if (!s.exploredHexes) s.exploredHexes = [];
   if (!s.techUnlocked) s.techUnlocked = [];
+  const legacyTech = s.techUnlocked.filter((id) => LEGACY_TECH_COST[id]);
+  if (legacyTech.length) {
+    const refund = legacyTech.reduce((sum, id) => sum + LEGACY_TECH_COST[id], 0);
+    s.resources.research += refund;
+    s.techUnlocked = s.techUnlocked.filter((id) => !LEGACY_TECH_COST[id]);
+    G.addLog(s, `🧠 The Research tree was redesigned around permanent buffs — ${refund} research refunded from ${legacyTech.length} old project(s).`);
+  }
   if (!s.entranceGrid) s.entranceGrid = { size: ENTRANCE_GRID_SIZE, students: {}, defenses: {} };
   if (s.rescue === undefined) s.rescue = null; // an older save past day 3 gets its broadcast at the next day rollover
   if (s.victory === undefined) s.victory = false;
