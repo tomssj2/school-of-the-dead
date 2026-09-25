@@ -7,7 +7,7 @@ import {
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
-  LANDMARKS, BOARDED_ROOMS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -17,7 +17,7 @@ import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, loungeRecovery, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
-  gymTeachers, gymGain, teacherRank, isBoarded, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
+  gymTeachers, gymGain, teacherRank, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
@@ -299,8 +299,109 @@ function renderBoardedRoom(state, roomKey, scene, cls = "") {
       <div class="boards"></div>
       <div class="scene-plaque">🔒 ${b.name}</div>
     </div>
-    <p class="room-tagline">Boarded up — this part of the school was overrun on the first night. Clear it out to open it up.</p>
-    <button class="btn btn-sm btn-primary" data-action="clear-boarded" data-room="${roomKey}" ${afford ? "" : "disabled"}>🔨 Clear it out (${b.cost} scrap)</button>
+    <p class="room-tagline">Boarded up — overrun on the first night, and ${b.zombies.length} zombies are still inside. Fight them out, then spend the scrap to board the windows back up.</p>
+    <button class="btn btn-sm btn-primary" data-action="open-clear-room" data-room="${roomKey}">🔨 Clear it out (${b.cost} scrap)</button>
+    ${afford ? "" : `<span class="muted"> — you have ${state.resources.materials}/${b.cost} scrap</span>`}
+  </div>`;
+}
+
+// Picking a squad to clear a boarded-up room: who's inside, what it costs, and the odds.
+export function renderClearRoomModal(state, clear) {
+  const b = BOARDED_ROOMS[clear.roomKey];
+  const squad = clear.ids.map((id) => getChar(state, id)).filter(canFightForRoom);
+  const afford = state.resources.materials >= b.cost;
+  const rows = state.characters
+    .filter((c) => c.role === "student" && c.alive)
+    .map((c) => {
+      const able = canFightForRoom(c);
+      const picked = clear.ids.includes(c.id);
+      const full = !picked && clear.ids.length >= ROOM_FIGHT_SQUAD;
+      return `<label class="check-row ${able ? "" : "check-row-disabled"}">
+        <input type="checkbox" data-action="toggle-clear-member" data-id="${c.id}" ${picked ? "checked" : ""} ${!able || full ? "disabled" : ""}/>
+        <span class="assign-who">${nameTag(c)} — Lv${overallLevel(c)} ${statusTag(c)}${able ? "" : ' <span class="tag tag-injured">too tired</span>'}</span>${hpBar(c)}
+      </label>`;
+    })
+    .join("");
+  const pct = Math.round(roomFightOdds(state, clear.roomKey, squad) * 100);
+  const zombies = b.zombies.map((z) => `<div class="clear-zombie">${zombieSprite(z.look, 44)}<span>${z.type === "walker" ? "Walker" : z.type === "runner" ? "Runner" : "Brute"}</span></div>`).join("");
+  return `<div class="modal-overlay" data-action="close-clear-room">
+    <div class="char-card mission-card" data-action="noop">
+      <button class="cc-close" data-action="close-clear-room" title="Close">✕</button>
+      <h3>🔨 Clear out ${esc(roomLabel(clear.roomKey))}</h3>
+      <p class="muted">Pick up to ${ROOM_FIGHT_SQUAD} students (${ROOM_FIGHT_STAMINA} stamina each) to fight their way in. Win, and ${b.cost} scrap boards the broken windows back up — the room is yours. Lose, and they fall back with nothing spent. Nobody dies in here: anyone who goes down gets dragged out.</p>
+      <div class="mini-label">Still inside</div>
+      <div class="clear-zombies">${zombies}</div>
+      <div class="mission-stats-row"><span class="${afford ? "" : "plot-warn"}">🔧 ${state.resources.materials}/${b.cost} scrap</span></div>
+      ${squad.length ? `<div class="mission-success ${pct >= 70 ? "mission-good" : pct >= 40 ? "mission-ok" : "mission-bad"}">Chance to clear it: <b>${pct}%</b></div>` : ""}
+      <div class="mini-label">Squad (${squad.length}/${ROOM_FIGHT_SQUAD})</div>
+      <div class="check-list">${rows}</div>
+      <div class="row-actions">
+        <button class="btn btn-sm" data-action="close-clear-room">Not now</button>
+        <button class="btn btn-primary" data-action="go-clear-room" ${squad.length && afford ? "" : "disabled"}>${afford ? "⚔ Go in" : `Need ${b.cost - state.resources.materials} more scrap`}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// What the tutorial fight explains, one tip per round.
+const ROOM_FIGHT_TIPS = [
+  "Every fight in the game works like this one. Your squad strikes first each round — melee hits harder with STR, ranged with DEX, and gear adds its own damage.",
+  "Then the zombies swing back. High DEX lets a student dodge, high CON soaks up the damage. Watch the HP bars.",
+  "The squad fights as a team: its most charismatic member (CHA) leads, so everyone hits harder, and its most aware (WIS) warns the others, so they take less damage.",
+  "Clearing a room is the safe way to learn: nobody dies in here. Out in the city — and at the gate at night — students can.",
+];
+
+export function renderRoomFight(state, anim) {
+  const { report } = anim;
+  const b = BOARDED_ROOMS[report.roomKey];
+  const frame = report.frames[anim.frameIndex];
+  const hitById = new Map(frame.hits.map((h) => [h.id, h]));
+  const members = report.memberIds
+    .map((id, i) => {
+      const c = getChar(state, id);
+      if (!c) return "";
+      const hp = frame.hp[i];
+      const hit = hitById.get(id);
+      return `<div class="raid-member ${hp <= 0 ? "raid-member-down" : ""} ${hit && hit.dmg ? "raid-member-hit" : ""}">
+        ${characterSprite(c, 40)}
+        <div class="raid-hp"><div style="width:${Math.max(0, Math.round((hp / c.maxHp) * 100))}%"></div></div>
+        <span class="raid-name">${esc(c.name.split(" ")[0])}</span>
+        ${hit ? (hit.dodged ? '<span class="raid-float raid-float-dodge">dodge!</span>' : hit.dmg ? `<span class="raid-float raid-float-bad">-${hit.dmg}</span>` : '<span class="raid-float raid-float-dodge">miss</span>') : ""}
+      </div>`;
+    })
+    .join("");
+  const hitsOn = (zi) => frame.zHits.filter((h) => h.zi === zi).reduce((sum, h) => sum + h.dmg, 0);
+  const zombies = report.zombies
+    .map((z, zi) => {
+      const hp = frame.zHp[zi];
+      const took = hitsOn(zi);
+      return `<div class="raid-member room-zombie ${hp <= 0 ? "raid-member-down" : ""} ${took ? "raid-member-hit" : ""}">
+        ${zombieSprite(z.look, 52)}
+        <div class="raid-hp room-zombie-hp"><div style="width:${Math.round((hp / z.maxHp) * 100)}%"></div></div>
+        ${took ? `<span class="raid-float raid-float-good">-${took}</span>` : ""}
+      </div>`;
+    })
+    .join("");
+  const done = anim.phase === "result";
+  const tip = report.tutorial && !done ? ROOM_FIGHT_TIPS[Math.min(anim.frameIndex, ROOM_FIGHT_TIPS.length - 1)] : "";
+  return `<div class="modal-overlay raid-overlay room-fight-overlay">
+    <div class="raid-stage">
+      <div class="raid-title">🔨 Clearing ${esc(roomLabel(report.roomKey))}</div>
+      <div class="raid-arena room-arena">
+        <div class="raid-squad">${members}</div>
+        <div class="room-zombies">${zombies}</div>
+      </div>
+      <div class="raid-log">${esc(frame.text)}</div>
+      ${tip ? `<div class="fight-tip">💡 ${tip}</div>` : ""}
+      ${done
+        ? `<div class="raid-result ${report.won ? "raid-won" : "raid-lost"}">
+            <div class="raid-result-title">${report.won ? `${esc(roomLabel(report.roomKey).replace(/^./, (ch) => ch.toUpperCase()))} is clear!` : "The squad fell back."}</div>
+            <div class="muted">${report.won ? `-${report.cost} scrap to board the windows back up. It's ready to use.` : "Nothing was spent — rest up and try again, maybe with more students or better gear."}</div>
+            ${report.hurt.length ? `<div class="exp-hurt">${report.hurt.map(esc).join(" · ")}</div>` : ""}
+            <button class="btn btn-primary" data-action="finish-room-fight">Continue</button>
+          </div>`
+        : '<button class="btn btn-sm raid-skip" data-action="skip-room-fight">⏭ Skip</button>'}
+    </div>
   </div>`;
 }
 
@@ -517,9 +618,24 @@ function renderVictory(state) {
 export function renderOverview(state) {
   if (state.gameOver) return renderGameOver(state);
   if (state.victory) return renderVictory(state);
-  if (state.turn === 1) return renderTurn1Overview(state);
-  if (state.turn === 2) return renderTurn2Overview(state);
-  return renderTurn3Overview(state);
+  const banner = renderObjectiveBanner(state);
+  if (state.turn === 1) return banner + renderTurn1Overview(state);
+  if (state.turn === 2) return banner + renderTurn2Overview(state);
+  return banner + renderTurn3Overview(state);
+}
+
+const REWARD_ICON = { food: "🍞", materials: "🔧", medicine: "💊", research: "🧠" };
+function renderObjectiveBanner(state) {
+  const o = currentObjective(state);
+  if (!o) return "";
+  const progress = objectiveProgress(state, o);
+  const reward = Object.entries(o.reward).map(([k, v]) => `${REWARD_ICON[k]} +${v}`).join(" ");
+  const step = state.objectivesDone.length + 1;
+  return `<div class="objective-banner">
+    <div class="objective-head"><span class="objective-tag">📋 Objective ${step}</span><b>${esc(o.title)}</b><span class="objective-reward">Reward: ${reward}</span></div>
+    <div class="objective-hint">${esc(o.hint)}</div>
+    ${progress ? `<div class="objective-progress">${esc(progress)}</div>` : ""}
+  </div>`;
 }
 
 function renderTurn1Overview(state) {

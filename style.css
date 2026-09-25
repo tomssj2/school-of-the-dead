@@ -1737,3 +1737,36 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 }
 .room-boarded .scene-plaque { color: #d9c5a8; }
 .room-boarded .room-tagline { color: var(--muted); }
+
+/* Room-clearing fights */
+.clear-zombies { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 8px; }
+.clear-zombie { display: flex; flex-direction: column; align-items: center; font-size: 11px; color: var(--muted); }
+.room-arena { align-items: flex-end; }
+.room-zombies { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: flex-end; gap: 6px; max-width: 55%; }
+.room-zombie svg { filter: drop-shadow(0 0 8px rgba(214, 69, 69, 0.4)); }
+.room-zombie-hp div { background: #d64545; }
+.fight-tip {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(244, 211, 94, 0.08);
+  border: 1px solid rgba(244, 211, 94, 0.4);
+  color: #f1e3b0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Objective banner above the turn screen */
+.objective-banner {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(79, 163, 255, 0.12), rgba(79, 163, 255, 0.03));
+  border: 1px solid rgba(79, 163, 255, 0.45);
+  border-left: 4px solid #4fa3ff;
+}
+.objective-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 15px; }
+.objective-tag { padding: 1px 8px; border-radius: 999px; background: #4fa3ff; color: #06142a; font-size: 11px; font-weight: 800; letter-spacing: 0.3px; }
+.objective-reward { margin-left: auto; font-size: 12px; color: #f4d35e; }
+.objective-hint { margin-top: 4px; font-size: 13px; color: #c9d4e3; }
+.objective-progress { margin-top: 6px; font-size: 12.5px; font-weight: 700; color: #8fc8ff; }

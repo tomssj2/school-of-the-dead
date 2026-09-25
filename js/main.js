@@ -1,13 +1,14 @@
 import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
-  renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport } from "./ui.js";
+  renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
+  renderClearRoomModal, renderRoomFight } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, ROOM_UPGRADE_INCREMENT, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, ROOM_UPGRADE_INCREMENT, OBJECTIVES, ROOM_FIGHT_SQUAD, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -38,6 +39,8 @@ let openScoutHex = null; // { q, r } or null
 let fightAnimation = null; // { studentId, ambushed, phase: "clash" | "result" } or null
 let battleAnimation = null; // { kind: "defense" | "exploration", summary, phase: "clash" | "result" } or null
 let openPicker = null; // { kind, roomId, seatIndex, postKey } or null
+let clearRoom = null; // { roomKey, ids } while picking a squad to clear a boarded-up room
+let roomFight = null; // { report, frameIndex, phase } while a room-clearing fight replays
 let scoutReport = null; // { q, r, scoutName, result } — what the last scout found
 let openNest = null; // { q, r, ids } while picking a squad to clear a zombie nest
 let openRaid = null; // LANDMARKS id whose raid screen is open
@@ -192,6 +195,10 @@ function migrateState(s) {
     s.gymSplit = true;
   }
   if (!s.boardedRooms) s.boardedRooms = []; // older saves already had every room open
+  // Objectives and the room-fight tutorial are for new schools; an older save starts past them.
+  if (!s.objectivesDone) s.objectivesDone = OBJECTIVES.map((o) => o.id);
+  if (s.roomFightsDone === undefined) s.roomFightsDone = 1;
+  if (s.expeditionsSent === undefined) s.expeditionsSent = 1;
   if (!s.nests) s.nests = [];
   if (s.raidTarget === undefined) s.raidTarget = null;
   if (!s.raidCooldowns) s.raidCooldowns = {};
@@ -306,13 +313,23 @@ function render() {
   }
   lastDay = state.day;
 
+  // Held while a fight or report is on screen, so finishing an objective never spoils the result.
+  const busy = roomFight || raidFight || battleAnimation || fightAnimation || expeditionReport;
+  const finished = busy ? [] : G.checkObjectives(state);
+  if (finished.length) {
+    playSuccess();
+    flash(`✅ Objective complete: ${finished.map((o) => o.title).join(", ")}`);
+  }
+
   root.classList.toggle("mobile-forced", mobileView);
   // Drives the time-of-day backdrop in style.css: morning, golden afternoon, starry night.
   document.body.dataset.turn = state.gameOver ? "over" : state.victory ? "victory" : String(state.turn);
   // Content eases in only when the tab actually changes, not on every re-render within a tab.
   root.classList.toggle("tab-enter", activeTab !== lastRenderedTab);
   lastRenderedTab = activeTab;
-  const modalHtml = raidFight
+  const modalHtml = roomFight
+    ? renderRoomFight(state, roomFight)
+    : raidFight
     ? renderRaidFight(state, raidFight)
     : expeditionReport
     ? renderExpeditionReport(state, expeditionReport)
@@ -324,6 +341,8 @@ function render() {
     ? renderDayRecap(dayRecap)
     : card
     ? renderCharacterCard(state, card, cardTab)
+    : clearRoom
+    ? renderClearRoomModal(state, clearRoom)
     : scoutReport
     ? renderScoutReport(state, scoutReport)
     : openRaid
@@ -431,6 +450,35 @@ function showRaidResult() {
   raidFight.phase = "result";
   raidFight.frameIndex = raidFight.report.frames.length - 1;
   (raidFight.report.won ? playSuccess : playFail)();
+  render();
+}
+
+// Replays a room-clearing fight a round at a time (slower on the tutorial fight, to read the tips).
+let roomFightTimer = null;
+function playRoomFight(report) {
+  roomFight = { report, frameIndex: 0, phase: "battle" };
+  playHit();
+  render();
+  const tick = report.tutorial ? 2200 : 900;
+  const step = () => {
+    if (!roomFight || roomFight.phase !== "battle") return;
+    if (roomFight.frameIndex >= report.frames.length - 1) {
+      showRoomFightResult();
+      return;
+    }
+    roomFight.frameIndex++;
+    playHit();
+    render();
+    roomFightTimer = setTimeout(step, tick);
+  };
+  roomFightTimer = setTimeout(step, tick);
+}
+function showRoomFightResult() {
+  if (!roomFight || roomFight.phase !== "battle") return;
+  clearTimeout(roomFightTimer);
+  roomFight.phase = "result";
+  roomFight.frameIndex = roomFight.report.frames.length - 1;
+  (roomFight.report.won ? playSuccess : playFail)();
   render();
 }
 
@@ -708,8 +756,32 @@ root.addEventListener("click", (e) => {
       render();
       break;
     }
-    case "clear-boarded":
-      if (!G.clearBoardedRoom(state, el.dataset.room)) flash("Not enough scrap to clear it out yet.");
+    case "open-clear-room":
+      openCardId = null;
+      clearRoom = { roomKey: el.dataset.room, ids: [] };
+      render();
+      break;
+    case "close-clear-room":
+      clearRoom = null;
+      render();
+      break;
+    case "go-clear-room": {
+      if (!clearRoom || !clearRoom.ids.length) break;
+      const report = G.fightForRoom(state, clearRoom.roomKey, clearRoom.ids);
+      clearRoom = null;
+      if (!report) {
+        flash("Can't clear it right now.");
+        render();
+        break;
+      }
+      playRoomFight(report);
+      break;
+    }
+    case "skip-room-fight":
+      showRoomFightResult();
+      break;
+    case "finish-room-fight":
+      roomFight = null;
       render();
       break;
     case "close-scout-report":
@@ -957,8 +1029,9 @@ root.addEventListener("pointerover", placeInfoTip);
 root.addEventListener("focusin", placeInfoTip);
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openRaid || openNest || scoutReport)) {
+  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
+    clearRoom = null;
     openPlot = null;
     openRaid = null;
     openNest = null;
@@ -990,6 +1063,13 @@ root.addEventListener("change", (e) => {
     case "set-team-location": {
       const teamIndex = Number(el.dataset.team);
       G.setTeamLocation(state, teamIndex, el.value || null);
+      render();
+      break;
+    }
+    case "toggle-clear-member": {
+      if (!clearRoom) break;
+      const id = el.dataset.id;
+      clearRoom.ids = el.checked ? [...clearRoom.ids, id].slice(0, ROOM_FIGHT_SQUAD) : clearRoom.ids.filter((x) => x !== id);
       render();
       break;
     }

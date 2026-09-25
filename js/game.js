@@ -22,7 +22,8 @@ import {
   INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
-  STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
+  OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING,
 } from "./data.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
@@ -75,7 +76,7 @@ export function createInitialState() {
   const state = {
     day: 1,
     turn: 1, // 1=training, 2=exploration, 3=defense
-    resources: { food: 60, materials: 30, medicine: 20, research: 0 },
+    resources: { food: 60, materials: 15, medicine: 20, research: 0 },
     fortification: 0,
     happiness: HAPPINESS_START,
     pendingRaid: null, // { facility } once a facility raid triggers post-battle, until resolved
@@ -93,7 +94,10 @@ export function createInitialState() {
     plots: { farm: [emptyPlot()], ranch: [emptyPlot()] }, // Farm plots and Ranch pens
     dishesToday: [], // DISHES ids served today; their buffs last until the day rolls over
     gymSplit: true, // the Gym has separate PE / Gymnastics sides (see migrateState)
-    boardedRooms: Object.keys(BOARDED_ROOMS), // rooms still overrun — cleared out with scrap
+    boardedRooms: Object.keys(BOARDED_ROOMS), // rooms still overrun — cleared by fighting, then scrap
+    roomFightsDone: 0, // the first room-clearing fight shows tutorial tips
+    objectivesDone: [], // OBJECTIVES ids finished (see checkObjectives)
+    expeditionsSent: 0,
     nests: [], // "q,r" keys of zombie nests found while scouting
     raidTarget: null, // LANDMARKS id today's raid squad is going after
     raidCooldowns: {}, // landmark id -> day its boss is back after being killed
@@ -196,15 +200,155 @@ export function isBoarded(state, roomKey) {
   return (state.boardedRooms || []).includes(roomKey);
 }
 
-// Clears out a boarded-up room for scrap, opening it (and its teacher job) for good.
-export function clearBoardedRoom(state, roomKey) {
+// ---------- clearing boarded-up rooms ----------
+// A squad fights whatever's still inside, round by round, with the same stats as every other fight.
+// Win and the scrap goes into boarding the broken windows back up — the room is open for good.
+// Lose and they fall back with nothing spent. Nobody dies clearing a room: anyone who goes down
+// is dragged back out.
+
+// "the Research Room" but just "Classroom 2".
+export function roomLabel(roomKey) {
+  const name = BOARDED_ROOMS[roomKey].name;
+  return roomKey.startsWith("classroom:") ? name : `the ${name}`;
+}
+
+function roomZombies(roomKey) {
+  return BOARDED_ROOMS[roomKey].zombies.map((z) => {
+    const T = ZOMBIE_TYPES[z.type];
+    const hp = Math.round(ROOM_ZOMBIE.hp * T.hpMult);
+    return { ...z, hp, maxHp: hp, dmg: Math.max(1, Math.round(ROOM_ZOMBIE.damage * T.dmgMult)) };
+  });
+}
+
+// Pure: plays a fight out without touching the state (used for the odds, and for the real thing).
+function simulateRoomFight(state, squad, roomKey) {
+  const mods = squadModifiers(state, squad);
+  const fighters = squad.map((c) => ({ id: c.id, hp: c.hp, down: false, ...raidAttack(state, c) }));
+  const zombies = roomZombies(roomKey);
+  const snapshot = (extra) => ({ zHp: zombies.map((z) => Math.max(0, z.hp)), hp: fighters.map((f) => f.hp), hits: [], zHits: [], ...extra });
+  const frames = [snapshot({ text: `The squad pushes the door open. ${zombies.length} zombies turn toward them.` })];
+  for (let round = 1; round <= ROOM_FIGHT_MAX_ROUNDS; round++) {
+    const zHits = [];
+    const hits = [];
+    let dealt = 0;
+    for (const f of fighters) {
+      const target = zombies.find((z) => z.hp > 0);
+      if (!target || f.down) continue;
+      const zi = zombies.indexOf(target);
+      if (Math.random() > f.hitChance) {
+        zHits.push({ zi, dmg: 0 });
+        continue;
+      }
+      const dmg = Math.max(1, Math.round(f.damage * mods.damageDealt * (0.85 + Math.random() * 0.3)));
+      target.hp -= dmg;
+      dealt += dmg;
+      zHits.push({ zi, dmg });
+    }
+    for (const z of zombies.filter((x) => x.hp > 0)) {
+      const standing = fighters.filter((f) => !f.down);
+      if (!standing.length) break;
+      const f = pick(standing);
+      if (Math.random() > ZOMBIE_HIT_CHANCE) {
+        hits.push({ id: f.id, dmg: 0 });
+        continue;
+      }
+      if (Math.random() < f.dodge) {
+        hits.push({ id: f.id, dmg: 0, dodged: true });
+        continue;
+      }
+      const dmg = Math.max(1, Math.round(z.dmg * f.armorMult * mods.damageTaken * (0.85 + Math.random() * 0.3)));
+      f.hp = Math.max(0, f.hp - dmg);
+      if (f.hp === 0) f.down = true;
+      hits.push({ id: f.id, dmg, down: f.down });
+    }
+    const left = zombies.filter((z) => z.hp > 0).length;
+    const text = left === 0
+      ? `Round ${round}: the squad deals ${dealt} damage — the last one goes down. The room is clear!`
+      : `Round ${round}: the squad deals ${dealt} damage; ${left} zombie${left === 1 ? "" : "s"} still standing.`;
+    frames.push(snapshot({ hits, zHits, text }));
+    if (!left || fighters.every((f) => f.down)) break;
+  }
+  return { won: zombies.every((z) => z.hp <= 0), fighters, frames };
+}
+
+// Rough win chance for the squad picker (plays the fight out a few times).
+export function roomFightOdds(state, roomKey, squad, trials = 120) {
+  if (!squad.length || !BOARDED_ROOMS[roomKey]) return 0;
+  let wins = 0;
+  for (let i = 0; i < trials; i++) if (simulateRoomFight(state, squad, roomKey).won) wins++;
+  return wins / trials;
+}
+
+export function canFightForRoom(c) {
+  return c && c.alive && c.role === "student" && c.stamina >= ROOM_FIGHT_STAMINA && c.hp > 1;
+}
+
+export function fightForRoom(state, roomKey, ids) {
   const room = BOARDED_ROOMS[roomKey];
-  if (!room || !isBoarded(state, roomKey)) return false;
-  if (state.resources.materials < room.cost) return false;
-  state.resources.materials -= room.cost;
-  state.boardedRooms = state.boardedRooms.filter((k) => k !== roomKey);
-  addLog(state, `The students cleared out the ${room.name} (-${room.cost} scrap) — it's ready to use.`);
-  return true;
+  if (!room || !isBoarded(state, roomKey) || state.resources.materials < room.cost) return null;
+  const squad = ids.map((id) => getChar(state, id)).filter(canFightForRoom).slice(0, ROOM_FIGHT_SQUAD);
+  if (!squad.length) return null;
+  const tutorial = !state.roomFightsDone;
+  const sim = simulateRoomFight(state, squad, roomKey);
+  state.roomFightsDone = (state.roomFightsDone || 0) + 1;
+  const hurt = [];
+  for (const f of sim.fighters) {
+    const c = getChar(state, f.id);
+    c.stamina = Math.max(0, c.stamina - ROOM_FIGHT_STAMINA);
+    c.hp = Math.max(1, f.hp);
+    c.injured = c.hp < c.maxHp * 0.5;
+    if (f.down) hurt.push(`${c.name} was dragged out`);
+    grantXp(state, c.id, "PE", 2 + randInt(0, 2));
+    grantXp(state, c.id, "Gymnastics", 2 + randInt(0, 2));
+  }
+  if (sim.won) {
+    state.resources.materials -= room.cost;
+    state.boardedRooms = state.boardedRooms.filter((k) => k !== roomKey);
+    addLog(state, `The squad cleared the zombies out of ${roomLabel(roomKey)} and boarded the windows back up (-${room.cost} scrap). It's ready to use.`);
+  } else {
+    addLog(state, `The squad couldn't clear ${roomLabel(roomKey)} and fell back.`);
+  }
+  return { roomKey, won: sim.won, frames: sim.frames, memberIds: squad.map((c) => c.id), zombies: roomZombies(roomKey), hurt, cost: room.cost, tutorial };
+}
+
+// ---------- objectives ----------
+const OBJECTIVE_CHECKS = {
+  clear_research: (state) => !isBoarded(state, "research"),
+  staff_research: (state) => state.characters.some((c) => c.alive && c.role === "teacher" && c.post === "research"),
+  first_expedition: (state) => (state.expeditionsSent || 0) > 0,
+  first_tech: (state) => state.techUnlocked.length > 0,
+  second_classroom: (state) => CLASSROOM_IDS.filter((id) => !isBoarded(state, `classroom:${id}`)).length >= 2,
+  survive_week: (state) => state.day >= 7,
+};
+
+export function currentObjective(state) {
+  return OBJECTIVES.find((o) => !(state.objectivesDone || []).includes(o.id)) || null;
+}
+
+// A short progress line for the active objective, where there's something to count.
+export function objectiveProgress(state, objective) {
+  if (objective.id === "clear_research" && isBoarded(state, "research")) {
+    const cost = BOARDED_ROOMS.research.cost;
+    const have = state.resources.materials;
+    return have >= cost ? `Scrap: ${cost}/${cost} ✓ — now clear the room on Floor 3` : `Scrap: ${have}/${cost}`;
+  }
+  if (objective.id === "survive_week") return `Day ${state.day} of 7`;
+  return "";
+}
+
+// Finishes (and pays out) the active objective whenever it's been met — and the next, and so on.
+// Returns the objectives just finished, for a message.
+export function checkObjectives(state) {
+  const done = [];
+  let objective = currentObjective(state);
+  while (objective && OBJECTIVE_CHECKS[objective.id](state)) {
+    state.objectivesDone.push(objective.id);
+    for (const [key, amt] of Object.entries(objective.reward)) state.resources[key] += amt;
+    addLog(state, `✅ Objective complete: ${objective.title} (${Object.entries(objective.reward).map(([k, v]) => `+${v} ${RESOURCE_NAME[k]}`).join(", ")}).`);
+    done.push(objective);
+    objective = currentObjective(state);
+  }
+  return done;
 }
 
 export function assignSeat(state, studentId, roomId, index) {
@@ -951,6 +1095,7 @@ export function resolveExploration(state) {
     addLog(state, `The Scrapyard salvages ${gain} scrap from ${scrapyardWorkers.length} student(s).`);
   }
 
+  state.expeditionsSent = (state.expeditionsSent || 0) + teamsSent;
   addLog(state, `Turn 2 (Exploration) resolved.`);
   return { teamsSent, successes, teams, raid, itemsFound, ingredientsFound, stockFound };
 }

@@ -366,15 +366,33 @@ export const CLASSROOM_SUBJECTS = ["Biology", "Physics", "History", "SocialStudi
 export const CLASSROOM_IDS = ["1", "2", "3", "4"];
 
 // A new game opens with part of the school still overrun: these rooms (keyed like teacher posts)
-// start boarded up and cost scrap to clear out, so there are fewer jobs than teachers early on.
+// start boarded up, so there are fewer jobs than teachers early on. Clearing one means fighting
+// the zombies still inside (see fightForRoom() in game.js) and then spending the scrap to board up
+// the broken windows behind them. `look` picks the zombie sprite (zombies.js).
 export const BOARDED_ROOMS = {
-  "classroom:2": { name: "Classroom 2", cost: 20 },
-  "classroom:3": { name: "Classroom 3", cost: 30 },
-  "classroom:4": { name: "Classroom 4", cost: 40 },
-  research: { name: "Research Room", cost: 40 },
-  crafting: { name: "Crafting Room", cost: 35 },
-  council: { name: "Student Council", cost: 35 },
+  "classroom:2": { name: "Classroom 2", cost: 10, zombies: [{ type: "walker", look: "walker" }, { type: "walker", look: "walker" }] },
+  "classroom:3": { name: "Classroom 3", cost: 20, zombies: [{ type: "walker", look: "walker" }, { type: "walker", look: "walker" }, { type: "walker", look: "jersey" }] },
+  "classroom:4": { name: "Classroom 4", cost: 30, zombies: [{ type: "walker", look: "walker" }, { type: "runner", look: "walker" }, { type: "walker", look: "jersey" }, { type: "walker", look: "walker" }] },
+  research: { name: "Research Room", cost: 25, zombies: [{ type: "walker", look: "labcoat" }, { type: "walker", look: "labcoat" }] },
+  crafting: { name: "Crafting Room", cost: 20, zombies: [{ type: "walker", look: "walker" }, { type: "brute", look: "soldier" }] },
+  council: { name: "Student Council", cost: 20, zombies: [{ type: "walker", look: "jersey" }, { type: "runner", look: "walker" }, { type: "walker", look: "jersey" }] },
 };
+export const ROOM_ZOMBIE = { hp: 24, damage: 5 }; // before ZOMBIE_TYPES multipliers
+export const ROOM_FIGHT_SQUAD = 4; // students per room-clearing squad
+export const ROOM_FIGHT_STAMINA = 10; // each
+export const ROOM_FIGHT_MAX_ROUNDS = 10;
+
+// ===== Objectives =====
+// A short chain of goals that doubles as the tutorial. Only the first unfinished one is active;
+// finishing it pays its reward and moves on. Their checks live in OBJECTIVE_CHECKS in game.js.
+export const OBJECTIVES = [
+  { id: "clear_research", title: "Take back the Research Room", hint: "Gather 25 scrap — work the Scrapyard in the afternoon or bring some home from an expedition — then clear the zombies out of the Research Room on Floor 3.", reward: { research: 10 } },
+  { id: "staff_research", title: "Put a scientist to work", hint: "Post a teacher in the Research Room. Their INT turns into research every day — you'll need it for the rescue antenna.", reward: { materials: 10 } },
+  { id: "first_expedition", title: "Head out into the city", hint: "In the afternoon, scout the fog around the school and send a team to a location you find.", reward: { food: 15 } },
+  { id: "first_tech", title: "Put the research to use", hint: "Buy your first project in the Research tab.", reward: { medicine: 10 } },
+  { id: "second_classroom", title: "Make room for more students", hint: "Clear out a second classroom on Floor 2.", reward: { materials: 15 } },
+  { id: "survive_week", title: "Hold out for a week", hint: "Keep the school standing until day 7.", reward: { materials: 20, food: 20 } },
+];
 
 export const CLASSROOM_DESKS_PER_ROW = 3;
 export const CLASSROOM_SEATS_PER_ROW = CLASSROOM_DESKS_PER_ROW * 2; // 6
