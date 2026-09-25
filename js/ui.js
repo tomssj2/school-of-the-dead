@@ -506,7 +506,7 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
 // screens on Turn 3.
 const LEFT_TABS_BY_TURN = {
   1: [
-    ["floor1", "🍽 Commons"],
+    ["floor1", "🎒 Lobby"],
     ["floor2", "🏫 Classrooms"],
     ["floor3", "🏢 Facilities"],
   ],
@@ -1743,7 +1743,7 @@ export function renderFloor1(state) {
 
   return `
   <div class="card">
-    <h2>Floor 1 — Commons</h2>
+    <h2>Floor 1 — Lobby</h2>
     <div class="floor-grid floor1-grid">
       <div class="room room-gym room-wide">
         ${roomScene("gym", [], "Gym",
