@@ -2,7 +2,7 @@ import {
   SUBJECTS, MALE_NAMES, FEMALE_NAMES, LAST_NAMES, GRADE_TIERS, GRADE_RANGES,
   STUDENT_TIER_WEIGHTS, TEACHER_SECONDARY_TIERS, TEACHER_SECONDARY_WEIGHTS, TRAITS,
   STAT_OF_SUBJECT, TEACH_BONUS_BY_TIER, ITEM_TEMPLATES, STARTER_ARMORY_IDS, CLASSROOM_SUBJECTS,
-  MAX_STAMINA, STAMINA_STAT_DIVISOR, LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING,
+  LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING,
 } from "./data.js";
 
 let _idCounter = 1;
@@ -219,9 +219,11 @@ export function conOf(grades) {
   return grades.Biology;
 }
 
-// Max stamina: 100, plus a quarter of DEX + WIS (Gymnastics + History), plus Gym training.
+// Max stamina is built like max HP: mostly DEX, partly WIS (Gymnastics + History), plus Gym
+// training — about 20 for a level-1 student.
 export function maxStaminaFor(c) {
-  return MAX_STAMINA + Math.round((c.grades.Gymnastics + c.grades.History) / STAMINA_STAT_DIVISOR) + (c.trainedStamina || 0);
+  const fromStats = Math.round(c.grades.Gymnastics * STAT_TUNING.staminaPerDex + c.grades.History * STAT_TUNING.staminaPerWis);
+  return Math.max(STAT_TUNING.staminaMin, fromStats) + (c.trainedStamina || 0);
 }
 
 // Max HP is mostly CON, partly STR (before any Gym training).
@@ -262,8 +264,8 @@ export function makeCharacter(role, gender) {
     xp: emptyXp(),
     hp: maxHpFor(grades),
     maxHp: maxHpFor(grades),
-    stamina: MAX_STAMINA + Math.round((grades.Gymnastics + grades.History) / STAMINA_STAT_DIVISOR),
-    maxStamina: MAX_STAMINA + Math.round((grades.Gymnastics + grades.History) / STAMINA_STAT_DIVISOR),
+    stamina: maxStaminaFor({ grades }),
+    maxStamina: maxStaminaFor({ grades }),
     alive: true,
     injured: false,
     seat: null, // { subject, index } for floor2 classroom seating (students only, persistent "home")

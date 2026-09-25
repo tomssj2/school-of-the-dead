@@ -4,7 +4,7 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
 import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
-  SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
+  SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, ROOM_UPGRADE_INCREMENT, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
@@ -92,7 +92,7 @@ function migrateState(s) {
     migrateWeaponItem(c.equipment.meleeWeapon);
     migrateWeaponItem(c.equipment.rangedWeapon);
     if (!c.skills) c.skills = [];
-    if (c.stamina === undefined) c.stamina = MAX_STAMINA;
+    if (c.stamina === undefined) c.stamina = maxStaminaFor(c);
     // Max stamina now grows with DEX + WIS (and Gym training) — recomputed on every load so it
     // always matches the grades.
     c.maxStamina = maxStaminaFor(c);

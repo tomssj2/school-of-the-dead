@@ -33,10 +33,10 @@ export const STAT_LABEL = {
 // job in a fight and one outside it; the numbers live in STAT_TUNING below.
 export const STAT_EFFECTS = {
   STR: "Fights: melee damage, and the strength to hold melee weapons. Also: part of max HP, how much food and scrap an expedition can carry home, and more output at the Farm and Scrapyard. Half of a team's power.",
-  DEX: "Fights: ranged damage, hit chance, dodging hits, and the dexterity to hold ranged weapons. Also: stealth — fewer zombies while scouting and fewer ambushes on expeditions. With WIS, max stamina. Half of a team's power.",
+  DEX: "Fights: ranged damage, hit chance, dodging hits, and the dexterity to hold ranged weapons. Also: most of max stamina, and stealth — fewer zombies while scouting and fewer ambushes on expeditions. Half of a team's power.",
   CON: "Fights: less damage taken, and a better chance to survive going down. Also: most of max HP, and faster healing overnight and in the Nurse's Office.",
   INT: "Fights: the defenders' smarts make traps hit harder and walls hold longer. Also: faster learning (more XP from everything) and better odds of finding gear on expeditions. For teachers, research.",
-  WIS: "Fights: the most aware defender warns everyone, so the whole team takes less damage. Also: keeps expedition teams safe and finds more loot. With DEX, max stamina.",
+  WIS: "Fights: the most aware defender warns everyone, so the whole team takes less damage. Also: part of max stamina, keeps expedition teams safe, and finds more loot.",
   CHA: "Fights: the most charismatic defender leads — the whole team hits harder. Also: finding survivors, faster friendships, and a daily lift to the school's mood. For teachers, recruiting.",
 };
 
@@ -45,6 +45,9 @@ export const STAT_TUNING = {
   hpBase: 40,
   hpPerCon: 0.8, // max HP = 40 + CON × 0.8 + STR × 0.4 (+ Gym training)
   hpPerStr: 0.4,
+  staminaPerDex: 1.2, // max stamina = DEX × 1.2 + WIS × 0.8 (+ Gym training): 20 at level 1, ~90 for
+  staminaPerWis: 0.8, // a typical new student, 200 with both maxed
+  staminaMin: 10,
   carryPerStr: 1 / 250, // expedition food & scrap × (0.8 + avg STR / 250): ×1.0 at 50, ×1.2 at 100
   yieldStrStep: 25, // +1 Farm food / Scrapyard scrap per worker for every 25 STR
   dodgePerDex: 1 / 500, // chance to dodge a hit: up to 20% at 100 DEX
@@ -73,8 +76,6 @@ export const SKILL_EFFECTS = {
   History: { per: 0.08, what: "expedition loot" },
   SocialStudies: { per: 0.1, what: "chance to find survivors" },
 };
-// Max stamina: the base plus (DEX + WIS) / 4 — up to +50 — plus whatever was trained in the Gym.
-export const STAMINA_STAT_DIVISOR = 4;
 
 // Letter-grade tiers a numeric grade (0-100) falls into. F is the default/most common, S the
 // rarest and best. Ranges are contiguous and cover the full 0-100 scale.
@@ -544,7 +545,7 @@ export const ROOM_UPGRADE_INCREMENT = {
 export const BOND_COUPLE_THRESHOLD = 6;
 
 // ===== Stamina =====
-export const MAX_STAMINA = 100;
+// Max stamina comes from DEX and WIS — see STAT_TUNING and maxStaminaFor() in characters.js.
 export const STAMINA_COST_GYM = 20; // students, per day trained
 export const STAMINA_COST_EXPLORE = 20; // students, per expedition
 export const STAMINA_COST_TEACH = 20; // teachers, per day assigned to a classroom
