@@ -944,6 +944,7 @@ export function renderScoutModal(state, q, r) {
   const cost = scoutCost(q, r);
   const danger = Math.round(scoutEncounterChance(state, q, r) * 100);
   const eligible = state.characters.filter((c) => c.role === "student" && c.alive && c.stamina >= cost);
+  const canEverGo = state.characters.some((c) => c.role === "student" && c.alive && c.maxStamina >= cost);
   const rows = eligible
     .map(
       (s) => `<div class="check-row scout-row">
@@ -961,7 +962,7 @@ export function renderScoutModal(state, q, r) {
       <p class="muted">Every hex hides something — supplies, gear, seeds, animals, survivors, or a zombie nest. The further from the school, the more it costs to get there.</p>
       <div class="mission-stats-row"><span>⚡ ${cost} stamina</span><span class="${danger >= 40 ? "plot-warn" : ""}">🧟 ${danger}% chance of a zombie</span></div>
       <div class="mini-label">Send a scout</div>
-      <div class="check-list">${rows || `<p class="muted">Nobody has the ${cost} stamina it takes to get this far out.</p>`}</div>
+      <div class="check-list">${rows || `<p class="muted">Nobody has the ${cost} stamina it takes to get this far out${canEverGo ? " right now — let someone rest first." : ". Raise a student's max stamina on the Gym's Gymnastics side to reach it."}</p>`}</div>
     </div>
   </div>`;
 }

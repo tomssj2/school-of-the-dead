@@ -462,8 +462,9 @@ export const FORTIFICATION_CAP = 300;
 
 // ===== Scouting =====
 // Stamina to scout the ring right outside the school fence; it doubles for every ring further out
-// (3, 6, 12, 24, 48, 96 at the edge of the map) — see scoutCost() in game.js.
-export const SCOUT_STAMINA_COST = 3;
+// (5, 10, 20, 40, 80, 160 at the edge of the map) — see scoutCost() in game.js. The outer rings
+// take a student whose max stamina has been raised in the Gym's Gymnastics side.
+export const SCOUT_STAMINA_COST = 5;
 // Chance of a zombie encounter while scouting a new tile, growing +10% per ring beyond the school
 // grounds (10% right outside the fence, 60% at the edge of the radius-7 map). More encounter types
 // will be added later — this is the first.
