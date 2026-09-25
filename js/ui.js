@@ -11,7 +11,7 @@ import {
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
-  classroomTeachingBonus,
+  classroomTeachingBonus, bestClassroomSubjectFor,
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
@@ -1468,6 +1468,18 @@ const STUDENT_SORT_FIELDS = [
 ];
 const TEACHER_SORT_FIELDS = STUDENT_SORT_FIELDS.filter((f) => f.key !== "level");
 
+// Classrooms only teach the four desk subjects, so say which one a teacher would take on — and
+// point a teacher whose best grade is PE or Gymnastics toward the Gym, where it actually counts.
+function classroomTeacherNote(t) {
+  const subject = bestClassroomSubjectFor(t);
+  let note = `<div class="picker-note">📚 Would teach <b>${SUBJECT_LABEL[subject]}</b> here (${gradeLetter(t.grades[subject])})</div>`;
+  const gym = ["PE", "Gymnastics"].filter((s) => t.grades[s] > t.grades[subject]).sort((a, b) => t.grades[b] - t.grades[a])[0];
+  if (gym) {
+    note += `<div class="picker-note picker-note-warn">${gym === "PE" ? "💪" : "🤸"} Best at ${SUBJECT_LABEL[gym]} (${gradeLetter(t.grades[gym])}) — classrooms don't teach it. They'd do more coaching the ${gym === "PE" ? "PE" : "Gymnastics"} side of the Gym.</div>`;
+  }
+  return note;
+}
+
 function pickerSortValue(c, sortKey) {
   if (sortKey === "level") return overallLevel(c);
   const subject = SUBJECTS.find((s) => STAT_OF_SUBJECT[s] === sortKey);
@@ -1528,7 +1540,7 @@ function resolvePickerCandidates(state, picker) {
       return {
         role: "teacher", title: "Assign a Classroom Teacher",
         list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== post)
-          .map((c) => ({ c, reason: teacherBusyLabel(state, c, post) || (c.stamina <= 0 ? "Exhausted" : null) })),
+          .map((c) => ({ c, reason: teacherBusyLabel(state, c, post) || (c.stamina <= 0 ? "Exhausted" : null), note: classroomTeacherNote(c) })),
       };
     }
     case "classroom-seat":
@@ -1579,12 +1591,13 @@ export function renderPickerModal(state, picker, sortKey, sortDir) {
 
   const rows = sorted
     .map(
-      ({ c, reason }) => `
+      ({ c, reason, note }) => `
     <div class="picker-row ${reason ? "picker-row-disabled" : ""}">
       <div class="picker-row-main">
         <span>${nameTag(c)} ${role === "student" ? `<span class="muted">Lv${overallLevel(c)}</span>` : ""}</span>
         ${reason ? `<span class="tag tag-injured">${esc(reason)}</span>` : `<button class="btn btn-sm btn-primary" data-action="confirm-picker" data-id="${c.id}">✓ Assign</button>`}
       </div>
+      ${note || ""}
       ${statChips(c)}
     </div>`
     )
