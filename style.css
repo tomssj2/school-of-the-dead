@@ -711,7 +711,11 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .mini-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 10px 0 4px; }
 
 .assign-list { list-style: none; padding: 0; margin: 4px 0; }
-.assign-list li { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 13px; }
+.assign-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; }
+/* Name (+ any label) takes the flexible space so the HP/stamina bar after it always starts at the
+   same x — bars line up down the list no matter how long each name is. */
+.assign-who { flex: 1; min-width: 0; }
+.assign-who + .hpbar { flex: none; }
 
 .seat-grid { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
 .seat-row { display: flex; gap: 10px; }

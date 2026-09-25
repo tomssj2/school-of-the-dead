@@ -553,7 +553,7 @@ export function renderScoutModal(state, q, r) {
   const rows = eligible
     .map(
       (s) => `<div class="check-row scout-row">
-        <span>${nameTag(s)} ${staminaBar(s)} ${statusTag(s)}</span>
+        <span class="assign-who">${nameTag(s)} ${statusTag(s)}</span>${staminaBar(s)}
         <button class="btn btn-sm btn-primary" data-action="confirm-scout" data-id="${s.id}" data-q="${q}" data-r="${r}">Send (−${SCOUT_STAMINA_COST} stamina)</button>
       </div>`
     )
@@ -788,7 +788,7 @@ export function renderMissionModal(state, locationId) {
       const disabled = (members.length >= 5 && s.exploreTeam !== teamIndex) || exhausted ? "disabled" : "";
       return `<label class="check-row ${exhausted ? "check-row-disabled" : ""}">
         <input type="checkbox" data-action="toggle-team-member" data-team="${teamIndex}" data-id="${s.id}" ${checked} ${disabled}/>
-        ${nameTag(s)} — Lv${overallLevel(s)} ${staminaBar(s)} ${statusTag(s)}${exhausted ? ' <span class="tag tag-injured">exhausted</span>' : ""}
+        <span class="assign-who">${nameTag(s)} — Lv${overallLevel(s)} ${statusTag(s)}${exhausted ? ' <span class="tag tag-injured">exhausted</span>' : ""}</span>${staminaBar(s)}
       </label>`;
     })
     .join("");
@@ -1205,7 +1205,7 @@ export function renderFloor1(state) {
         ${upgradeButton(state, "gym", null, "teacher", "Teacher slot")}
         <div class="mini-label">Training today (${gymStudents.length}/${gymRoom.studentCapacity})</div>
         <ul class="assign-list">
-          ${gymStudents.map((s) => `<li>${nameTag(s)} ${staminaBar(s)} <button class="btn-x" data-action="remove-gym" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+          ${gymStudents.map((s) => `<li><span class="assign-who">${nameTag(s)}</span>${staminaBar(s)}<button class="btn-x" data-action="remove-gym" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
         </ul>
         ${gymStudents.length < gymRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-student">+ Send student…</button>` : ""}
         ${upgradeButton(state, "gym", null, "student", "Student slot")}
@@ -1216,7 +1216,7 @@ export function renderFloor1(state) {
         <p class="room-tagline">Each cook serves one buff dish a day</p>
         <div class="mini-label">Cooks (${cooks.length}/${cafeRoom.teacherCapacity})</div>
         <ul class="assign-list">
-          ${cooks.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} ${staminaBar(t)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
+          ${cooks.map((t) => `<li><span class="assign-who">${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)}</span>${staminaBar(t)}<button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
         </ul>
         ${cooks.length < cafeRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-teacher">+ Assign cook…</button>` : ""}
         ${upgradeButton(state, "cafeteria", null, "teacher", "Cook slot")}
@@ -1235,7 +1235,7 @@ export function renderFloor1(state) {
         ${nurses.length < infRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-teacher">+ Assign nurse…</button>` : ""}
         <div class="mini-label">Patients today (${patients.length}/${infRoom.studentCapacity})</div>
         <ul class="assign-list">
-          ${patients.map((s) => `<li>${nameTag(s)} ${hpBar(s)} <button class="btn-x" data-action="remove-infirmary" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+          ${patients.map((s) => `<li><span class="assign-who">${nameTag(s)}</span>${hpBar(s)}<button class="btn-x" data-action="remove-infirmary" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
         </ul>
         ${patients.length < infRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-student">+ Admit patient…</button>` : ""}
         ${upgradeButton(state, "infirmary", null, "student", "Bed")}
@@ -1246,7 +1246,7 @@ export function renderFloor1(state) {
         <p class="room-tagline">Resting students recover <b>${loungeRecovery(state)} stamina</b></p>
         <div class="mini-label">Resting today (${resting.length}/${lounge.studentCapacity})</div>
         <ul class="assign-list">
-          ${resting.map((s) => `<li>${nameTag(s)} ${staminaBar(s)} <button class="btn-x" data-action="remove-lounge" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+          ${resting.map((s) => `<li><span class="assign-who">${nameTag(s)}</span>${staminaBar(s)}<button class="btn-x" data-action="remove-lounge" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
         </ul>
         ${resting.length < lounge.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="lounge-student">+ Send student…</button>` : ""}
         ${upgradeButton(state, "lounge", null, "student", "Rest slots")}
@@ -1315,7 +1315,7 @@ function renderClassroom(state, roomId) {
     )}
     <div class="mini-label">Teacher (grade boost per student, 1 max)</div>
     <ul class="assign-list">
-      ${teachers.map((t) => `<li>${nameTag(t)} — ${teachBonusLabel(t.grades[subject])} ${staminaBar(t)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+      ${teachers.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${teachBonusLabel(t.grades[subject])}</span>${staminaBar(t)}<button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
     </ul>
     ${teachers.length < CLASSROOM_MAX_TEACHERS ? `<button class="btn btn-sm" data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}">+ Assign teacher…</button>` : ""}
     <div class="mini-label">Seating (${rowCount} rows × 3 desks)</div>
