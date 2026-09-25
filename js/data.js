@@ -368,8 +368,10 @@ export const CLASSROOM_IDS = ["1", "2", "3", "4"];
 // A new game opens with part of the school still overrun: these rooms (keyed like teacher posts)
 // start boarded up and cost scrap to clear out, so there are fewer jobs than teachers early on.
 export const BOARDED_ROOMS = {
-  "classroom:3": { name: "Classroom 3", cost: 25 },
+  "classroom:2": { name: "Classroom 2", cost: 20 },
+  "classroom:3": { name: "Classroom 3", cost: 30 },
   "classroom:4": { name: "Classroom 4", cost: 40 },
+  research: { name: "Research Room", cost: 40 },
   crafting: { name: "Crafting Room", cost: 35 },
   council: { name: "Student Council", cost: 35 },
 };

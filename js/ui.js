@@ -1836,7 +1836,7 @@ export function renderFloor3(state) {
       <div class="recruit-list">${recruits || '<p class="muted">No one is waiting to join right now. Explore the city or staff the Student Council room to find survivors.</p>'}</div>
     </div>
     <div class="floor3-grid">
-      <div class="room room-utility">
+      ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
         ${roomScene("research", researchers, "Research Room",
           `Produces research points each day: 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT (Physics grade) across every teacher posted here.`)}
         <p class="room-tagline">Producing <b>${researchRoomYield(state)} research/day</b> from the team's INT</p>
@@ -1846,7 +1846,7 @@ export function renderFloor3(state) {
         </ul>
         ${researchers.length < researchSlots ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="research">+ Assign teacher…</button>` : ""}
         ${upgradeButton(state, "research", null, "teacher", "Researcher slot")}
-      </div>
+      </div>`}
       ${utilityRoom("crafting", "Crafting Room", "Turns scrap into permanent Fortification · scales with DEX", crafter, "crafting", "DEX", "Gymnastics")}
       ${utilityRoom("council", "Student Council", "Daily chance a survivor asks to join · scales with CHA", council, "council", "CHA", "SocialStudies")}
     </div>
