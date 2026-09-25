@@ -22,7 +22,7 @@ import {
   INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
-  STAT_TUNING, SKILL_EFFECTS, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING,
 } from "./data.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
@@ -93,6 +93,7 @@ export function createInitialState() {
     plots: { farm: [emptyPlot()], ranch: [emptyPlot()] }, // Farm plots and Ranch pens
     dishesToday: [], // DISHES ids served today; their buffs last until the day rolls over
     gymSplit: true, // the Gym has separate PE / Gymnastics sides (see migrateState)
+    boardedRooms: Object.keys(BOARDED_ROOMS), // rooms still overrun — cleared out with scrap
     nests: [], // "q,r" keys of zombie nests found while scouting
     raidTarget: null, // LANDMARKS id today's raid squad is going after
     raidCooldowns: {}, // landmark id -> day its boss is back after being killed
@@ -191,9 +192,25 @@ export function availableChars(state) {
 
 // ---------- room / seat assignment ----------
 
+export function isBoarded(state, roomKey) {
+  return (state.boardedRooms || []).includes(roomKey);
+}
+
+// Clears out a boarded-up room for scrap, opening it (and its teacher job) for good.
+export function clearBoardedRoom(state, roomKey) {
+  const room = BOARDED_ROOMS[roomKey];
+  if (!room || !isBoarded(state, roomKey)) return false;
+  if (state.resources.materials < room.cost) return false;
+  state.resources.materials -= room.cost;
+  state.boardedRooms = state.boardedRooms.filter((k) => k !== roomKey);
+  addLog(state, `The students cleared out the ${room.name} (-${room.cost} scrap) — it's ready to use.`);
+  return true;
+}
+
 export function assignSeat(state, studentId, roomId, index) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
+  if (isBoarded(state, `classroom:${roomId}`)) return false;
   const room = state.rooms.classrooms[roomId];
   if (!room || room.seats[index]) return false;
   // vacate old seat
@@ -231,6 +248,7 @@ export function deskPartner(state, studentId) {
 export function setTeacherPost(state, teacherId, post) {
   const t = getChar(state, teacherId);
   if (!t || t.role !== "teacher") return false;
+  if (post && isBoarded(state, post)) return false;
   const oldPost = t.post;
 
   // capacity checks

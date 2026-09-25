@@ -365,6 +365,15 @@ export const SKILL_TREE = {
 export const CLASSROOM_SUBJECTS = ["Biology", "Physics", "History", "SocialStudies"];
 export const CLASSROOM_IDS = ["1", "2", "3", "4"];
 
+// A new game opens with part of the school still overrun: these rooms (keyed like teacher posts)
+// start boarded up and cost scrap to clear out, so there are fewer jobs than teachers early on.
+export const BOARDED_ROOMS = {
+  "classroom:3": { name: "Classroom 3", cost: 25 },
+  "classroom:4": { name: "Classroom 4", cost: 40 },
+  crafting: { name: "Crafting Room", cost: 35 },
+  council: { name: "Student Council", cost: 35 },
+};
+
 export const CLASSROOM_DESKS_PER_ROW = 3;
 export const CLASSROOM_SEATS_PER_ROW = CLASSROOM_DESKS_PER_ROW * 2; // 6
 export const CLASSROOM_CAPACITY = 4 * CLASSROOM_SEATS_PER_ROW; // 24 (base: 4 rows)

@@ -1725,3 +1725,15 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 
 .skill-effect { display: block; font-size: 10.5px; font-weight: 400; color: var(--muted); }
 .raid-float-dodge { color: #8fd4f4; font-size: 11px; }
+
+/* A boarded-up room: planks nailed across its darkened scene. */
+.room-scene-boarded .boards {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    repeating-linear-gradient(-14deg, transparent 0 26px, #8a5a30 26px 38px, #6b4423 38px 40px, transparent 40px 64px),
+    rgba(10, 10, 14, 0.6);
+}
+.room-boarded .scene-plaque { color: #d9c5a8; }
+.room-boarded .room-tagline { color: var(--muted); }

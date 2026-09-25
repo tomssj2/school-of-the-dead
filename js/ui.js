@@ -7,7 +7,7 @@ import {
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
-  LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  LANDMARKS, BOARDED_ROOMS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -17,7 +17,7 @@ import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, loungeRecovery, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
-  gymTeachers, gymGain, teacherRank, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
+  gymTeachers, gymGain, teacherRank, isBoarded, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
@@ -290,6 +290,20 @@ function roomScene(kind, people, title, info = "", split = null) {
   </div>`;
 }
 
+// A room still overrun from the first night: its scene boarded over, and the cost to clear it.
+function renderBoardedRoom(state, roomKey, scene, cls = "") {
+  const b = BOARDED_ROOMS[roomKey];
+  const afford = state.resources.materials >= b.cost;
+  return `<div class="room ${cls} room-boarded">
+    <div class="room-scene room-scene-boarded" style="background-image:${sceneBackground(scene)}">
+      <div class="boards"></div>
+      <div class="scene-plaque">🔒 ${b.name}</div>
+    </div>
+    <p class="room-tagline">Boarded up — this part of the school was overrun on the first night. Clear it out to open it up.</p>
+    <button class="btn btn-sm btn-primary" data-action="clear-boarded" data-room="${roomKey}" ${afford ? "" : "disabled"}>🔨 Clear it out (${b.cost} scrap)</button>
+  </div>`;
+}
+
 // ---------- topbar ----------
 
 // Small "+5"/"-3" pop that floats up out of a topbar stat when it changes between renders —
@@ -511,6 +525,7 @@ export function renderOverview(state) {
 function renderTurn1Overview(state) {
   const classroomSummaries = CLASSROOM_IDS.map((roomId) => {
     const room = state.rooms.classrooms[roomId];
+    if (isBoarded(state, `classroom:${roomId}`)) return `<li><b>Classroom ${roomId}</b>: <span class="muted">boarded up</span></li>`;
     const n = room.seats.filter(Boolean).length;
     const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === `classroom:${roomId}`);
     return `<li><b>${roomDisplayName(state, roomId)}</b>: ${n}/${room.seats.length} students, ${teachers.length} teacher(s)</li>`;
@@ -1694,6 +1709,7 @@ function renderClassroom(state, roomId) {
   const room = state.rooms.classrooms[roomId];
   const subject = room.subject; // null until a teacher claims this room
   const post = `classroom:${roomId}`;
+  if (isBoarded(state, post)) return renderBoardedRoom(state, post, "classroom", "room-classroom");
   const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === post && c.alive);
 
   const rowCount = room.seats.length / 6;
@@ -1790,6 +1806,7 @@ export function renderFloor3(state) {
   const council = state.characters.find((c) => c.role === "teacher" && c.post === "council" && c.alive);
 
   const utilityRoom = (scene, title, desc, current, postKey, statLabel, statKey) => {
+    if (isBoarded(state, postKey)) return renderBoardedRoom(state, postKey, scene, "room-utility");
     return `<div class="room room-utility">
       ${roomScene(scene, current ? [current] : [], title)}
       <p class="room-tagline">${desc}</p>

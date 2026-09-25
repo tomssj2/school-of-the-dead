@@ -191,6 +191,7 @@ function migrateState(s) {
     }
     s.gymSplit = true;
   }
+  if (!s.boardedRooms) s.boardedRooms = []; // older saves already had every room open
   if (!s.nests) s.nests = [];
   if (s.raidTarget === undefined) s.raidTarget = null;
   if (!s.raidCooldowns) s.raidCooldowns = {};
@@ -707,6 +708,10 @@ root.addEventListener("click", (e) => {
       render();
       break;
     }
+    case "clear-boarded":
+      if (!G.clearBoardedRoom(state, el.dataset.room)) flash("Not enough scrap to clear it out yet.");
+      render();
+      break;
     case "close-scout-report":
       scoutReport = null;
       render();
