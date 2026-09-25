@@ -2,7 +2,7 @@ import {
   SUBJECTS, MALE_NAMES, FEMALE_NAMES, LAST_NAMES, GRADE_TIERS, GRADE_RANGES,
   STUDENT_TIER_WEIGHTS, TEACHER_SECONDARY_TIERS, TEACHER_SECONDARY_WEIGHTS, TRAITS,
   STAT_OF_SUBJECT, TEACH_BONUS_BY_TIER, ITEM_TEMPLATES, STARTER_ARMORY_IDS, CLASSROOM_SUBJECTS,
-  MAX_STAMINA, LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES,
+  MAX_STAMINA, STAMINA_STAT_DIVISOR, LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES,
 } from "./data.js";
 
 let _idCounter = 1;
@@ -219,6 +219,11 @@ export function conOf(grades) {
   return grades.Biology;
 }
 
+// Max stamina: 100, plus a quarter of DEX + WIS (Gymnastics + History), plus Gym training.
+export function maxStaminaFor(c) {
+  return MAX_STAMINA + Math.round((c.grades.Gymnastics + c.grades.History) / STAMINA_STAT_DIVISOR) + (c.trainedStamina || 0);
+}
+
 export function maxHpFor(grades) {
   return 40 + Math.round(conOf(grades) * 1.2);
 }
@@ -251,8 +256,8 @@ export function makeCharacter(role, gender) {
     xp: emptyXp(),
     hp: maxHpFor(grades),
     maxHp: maxHpFor(grades),
-    stamina: MAX_STAMINA,
-    maxStamina: MAX_STAMINA,
+    stamina: MAX_STAMINA + Math.round((grades.Gymnastics + grades.History) / STAMINA_STAT_DIVISOR),
+    maxStamina: MAX_STAMINA + Math.round((grades.Gymnastics + grades.History) / STAMINA_STAT_DIVISOR),
     alive: true,
     injured: false,
     seat: null, // { subject, index } for floor2 classroom seating (students only, persistent "home")
@@ -279,6 +284,8 @@ export function makeLegendaryCharacter(role, gender) {
   for (const s of SUBJECTS) c.grades[s] = bumpTier(c.grades[s]);
   c.maxHp = maxHpFor(c.grades);
   c.hp = c.maxHp;
+  c.maxStamina = maxStaminaFor(c);
+  c.stamina = c.maxStamina;
   c.legendary = true;
 
   const title = pick(LEGENDARY_TITLES);

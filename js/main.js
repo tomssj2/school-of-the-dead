@@ -1,7 +1,7 @@
 import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport } from "./ui.js";
-import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds } from "./characters.js";
+import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
@@ -93,7 +93,10 @@ function migrateState(s) {
     migrateWeaponItem(c.equipment.rangedWeapon);
     if (!c.skills) c.skills = [];
     if (c.stamina === undefined) c.stamina = MAX_STAMINA;
-    if (c.maxStamina === undefined) c.maxStamina = MAX_STAMINA;
+    // Max stamina now grows with DEX + WIS (and Gym training) — recomputed on every load so it
+    // always matches the grades.
+    c.maxStamina = maxStaminaFor(c);
+    c.stamina = Math.min(c.stamina, c.maxStamina);
     // students used to rest in the cafeteria; that moved to the lounge
     if (c.loungeToday === undefined) c.loungeToday = !!c.cafeteriaToday;
     delete c.cafeteriaToday;

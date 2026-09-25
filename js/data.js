@@ -29,6 +29,18 @@ export const STAT_LABEL = {
   CHA: "Charisma",
 };
 
+// What each stat does in play, shown when hovering a stat on a character card.
+export const STAT_EFFECTS = {
+  STR: "Melee damage, and the strength needed to hold melee weapons. Half of a team's power on expeditions, raids and nest fights.",
+  DEX: "Ranged damage, hit chance, and the dexterity needed to hold ranged weapons. Half of a team's power. With WIS, raises max stamina.",
+  CON: "Max HP, less damage taken in fights, and a better chance to survive going down. Keeps expedition teams safer.",
+  INT: "Keeps expedition teams safer. For teachers, produces research in the Research Room.",
+  WIS: "How much loot an expedition brings home. With DEX, raises max stamina.",
+  CHA: "The chance an expedition finds survivors. For teachers, recruiting from the Student Council room.",
+};
+// Max stamina: the base plus (DEX + WIS) / 4 — up to +50 — plus whatever was trained in the Gym.
+export const STAMINA_STAT_DIVISOR = 4;
+
 // Letter-grade tiers a numeric grade (0-100) falls into. F is the default/most common, S the
 // rarest and best. Ranges are contiguous and cover the full 0-100 scale.
 export const GRADE_TIERS = ["F", "D", "C", "B", "A", "S"];

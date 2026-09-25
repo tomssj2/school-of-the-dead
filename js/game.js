@@ -7,7 +7,7 @@ import {
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
   ROOM_UPGRADE_MAX_LEVEL, ROOM_UPGRADE_INCREMENT, roomUpgradeCost,
-  MAX_STAMINA, STAMINA_COST_GYM, STAMINA_COST_EXPLORE, STAMINA_COST_TEACH, STAMINA_RECHARGE_CAFETERIA,
+  STAMINA_COST_GYM, STAMINA_COST_EXPLORE, STAMINA_COST_TEACH, STAMINA_RECHARGE_CAFETERIA,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE,
@@ -29,7 +29,7 @@ import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, isSchoolHex, SCHOOL_
 import {
   makeCharacter, makeLegendaryCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, teachingBonus,
-  bestClassroomSubjectFor, emptyEquipment, makeItem, makeLegendaryItem,
+  bestClassroomSubjectFor, emptyEquipment, makeItem, makeLegendaryItem, maxStaminaFor,
 } from "./characters.js";
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -280,9 +280,11 @@ export function gymGain(state, side) {
   return 1 + gymTeachers(state, side).reduce((sum, t) => sum + teacherRank(t, side), 0);
 }
 
-// Max HP comes from the grades, plus whatever was built up in the Gym.
-function refreshMaxHp(c) {
+// Max HP and max stamina come from the grades, plus whatever was built up in the Gym. Raising a
+// max doesn't refill the bar — the new headroom fills with rest like the rest of it.
+function refreshMaxStats(c) {
   c.maxHp = maxHpFor(c.grades) + (c.trainedHp || 0);
+  c.maxStamina = maxStaminaFor(c);
 }
 
 // Resting in the lounge recharges stamina (state.rooms.lounge.recovery) — anyone can rest
@@ -568,7 +570,7 @@ function grantXp(state, charId, subject, amount) {
     c.grades[subject] = Math.min(100, c.grades[subject] + 1);
     guard++;
   }
-  refreshMaxHp(c);
+  refreshMaxStats(c);
 }
 
 // Sum of a perk across every owned research node (0 if none give it) — see TECH_TREE in data.js.
@@ -647,12 +649,12 @@ export function resolveTraining(state) {
       if (side === "PE") {
         const add = Math.max(0, Math.min(gain, GYM_MAX_BONUS - (c.trainedHp || 0)));
         c.trainedHp = (c.trainedHp || 0) + add;
-        refreshMaxHp(c);
+        refreshMaxStats(c);
         c.hp = Math.min(c.maxHp, c.hp + add);
       } else {
         const add = Math.max(0, Math.min(gain, GYM_MAX_BONUS - (c.trainedStamina || 0)));
         c.trainedStamina = (c.trainedStamina || 0) + add;
-        c.maxStamina = MAX_STAMINA + c.trainedStamina;
+        refreshMaxStats(c);
       }
       c.stamina = Math.max(0, c.stamina - STAMINA_COST_GYM);
     }

@@ -6,7 +6,7 @@ import {
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
-  RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES,
+  RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS,
   LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
@@ -2384,7 +2384,7 @@ function renderStudentStatsTab(state, c) {
     if (classBonus) bonusParts.push(`+${classBonus} from classroom teacher`);
     const tooltip = bonusParts.join(", ");
     return `<div class="grade-row-v2 ${isBest ? "grade-row-best" : ""}">
-      <span class="gr-col gr-name">${isBest ? "🌟 " : ""}${SUBJECT_LABEL[s]}</span>
+      <span class="gr-col gr-name" title="${stat}: ${esc(STAT_EFFECTS[stat])}">${isBest ? "🌟 " : ""}${SUBJECT_LABEL[s]}</span>
       <span class="gr-sep">|</span>
       <span class="gr-col gr-letter grade-letter-${letter}">${letter}</span>
       <span class="gr-sep">|</span>
@@ -2395,7 +2395,7 @@ function renderStudentStatsTab(state, c) {
   }).join("");
   return `<div class="cc-section-label">Grades</div><div class="grade-list">${gradeRows}</div>
     <p class="muted cc-grade-note">The letter grade reflects academic performance only. A highlighted number includes a
-    bonus from equipped gear or a classroom teacher — hover it to see the breakdown. The 🌟 marks their strongest stat.</p>`;
+    bonus from equipped gear or a classroom teacher — hover it to see the breakdown. Hover a subject to see what its stat does. The 🌟 marks their strongest stat.</p>`;
 }
 
 // Teachers don't have combat stats — their grades only matter as a teaching bonus for whatever
