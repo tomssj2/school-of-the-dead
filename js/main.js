@@ -1,7 +1,7 @@
 import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport } from "./ui.js";
-import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
+import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
@@ -25,6 +25,7 @@ const LEGACY_TECH_COST = {
 
 let state = loadGame() || G.createInitialState();
 migrateState(state);
+repairIds(state);
 let activeTab = "overview";
 let openCardId = null;
 let cardTab = "stats";

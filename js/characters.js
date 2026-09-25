@@ -15,6 +15,41 @@ export function nextItemUid() {
   return "i" + _itemUidCounter++;
 }
 
+// The counters above start from 1 on every page load, but a loaded save already uses ids — so
+// after loading, move them past the highest ones in the save, and give a fresh id to anything
+// that an older build (which didn't do this) let share an id. Returns how many were repaired.
+export function repairIds(state) {
+  const num = (id) => Number(String(id).slice(1)) || 0;
+  const chars = [...state.characters, ...(state.recruitPool || [])];
+  const gear = (ch) => {
+    const e = ch.equipment || {};
+    return [e.meleeWeapon, e.rangedWeapon, e.armor, ...(e.accessories || [])];
+  };
+  const items = [...(state.armory || []), ...chars.flatMap(gear)].filter(Boolean);
+  _idCounter = Math.max(_idCounter, ...chars.map((ch) => num(ch.id) + 1));
+  _itemUidCounter = Math.max(_itemUidCounter, ...items.map((it) => num(it.uid) + 1));
+
+  let repaired = 0;
+  const seenChars = new Set();
+  for (const ch of chars) {
+    if (seenChars.has(ch.id)) {
+      ch.id = nextId();
+      ch.seat = null; // the classroom seat still points at the other holder of the old id
+      repaired++;
+    }
+    seenChars.add(ch.id);
+  }
+  const seenItems = new Set();
+  for (const it of items) {
+    if (seenItems.has(it.uid)) {
+      it.uid = nextItemUid();
+      repaired++;
+    }
+    seenItems.add(it.uid);
+  }
+  return repaired;
+}
+
 // Creates a fresh item instance (with its own uid) from a template id.
 export function makeItem(templateId) {
   const template = ITEM_TEMPLATES.find((t) => t.id === templateId);
