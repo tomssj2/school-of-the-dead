@@ -453,7 +453,9 @@ export const RESOURCE_NAME = { food: "food", materials: "scrap", medicine: "medi
 export const FORTIFICATION_CAP = 300;
 
 // ===== Scouting =====
-export const SCOUT_STAMINA_COST = 5;
+// Stamina to scout the ring right outside the school fence; it doubles for every ring further out
+// (3, 6, 12, 24, 48, 96 at the edge of the map) — see scoutCost() in game.js.
+export const SCOUT_STAMINA_COST = 3;
 // Chance of a zombie encounter while scouting a new tile, growing +10% per ring beyond the school
 // grounds (10% right outside the fence, 60% at the edge of the radius-7 map). More encounter types
 // will be added later — this is the first.
@@ -669,6 +671,98 @@ export const LOCATIONS = [
     animals: ["chicken", "sheep", "cow"],
     animalChance: 0.5,
     hex: { q: -3, r: 3 }, // distance 3
+  },
+  // --- further out: rings 4-6 ---
+  {
+    id: "gas_station",
+    name: "Gas Station",
+    desc: "Pumps long since dry, but the shop shelves and the garage out back still hold plenty.",
+    difficulty: 3,
+    danger: 3,
+    rewards: { food: 10, materials: 18, medicine: 2 },
+    ingredientBonus: 0.25, // snack aisle
+    hex: { q: -2, r: 4 }, // distance 4
+  },
+  {
+    id: "garden_center",
+    name: "Garden Center",
+    desc: "Greenhouses full of overgrown plants and racks of seed packets nobody came back for.",
+    difficulty: 2,
+    danger: 2,
+    rewards: { food: 14, materials: 6, medicine: 2 },
+    seedBonus: 0.6,
+    hex: { q: -4, r: 0 }, // distance 4
+  },
+  {
+    id: "fire_station",
+    name: "Fire Station",
+    desc: "The crews left in a hurry. Their turnout gear and medical kits are still on the hooks.",
+    difficulty: 4,
+    danger: 3,
+    rewards: { food: 4, materials: 16, medicine: 14 },
+    lootBias: "armor",
+    hex: { q: 3, r: -5 }, // distance 5
+  },
+  {
+    id: "church",
+    name: "St. Mary's Church",
+    desc: "The bells stopped ringing weeks ago, but people still hide in the crypt. Mind the congregation upstairs.",
+    difficulty: 3,
+    danger: 4,
+    rewards: { food: 12, materials: 4, medicine: 10 },
+    recruitBonus: 2,
+    hex: { q: -5, r: 5 }, // distance 5
+  },
+  {
+    id: "marina",
+    name: "Riverside Marina",
+    desc: "Boats bobbing at the docks, a bait shop and a lot of fish nobody's been catching.",
+    difficulty: 4,
+    danger: 4,
+    rewards: { food: 24, materials: 12, medicine: 2 },
+    ingredientBonus: 0.2,
+    hex: { q: 5, r: -4 }, // distance 5, on the riverbank
+  },
+  {
+    id: "warehouse",
+    name: "Distribution Warehouse",
+    desc: "Aisle after aisle of pallets for the whole city's stores. Big, dark and very, very crowded.",
+    difficulty: 5,
+    danger: 5,
+    rewards: { food: 32, materials: 26, medicine: 4 },
+    ingredientBonus: 0.4,
+    hex: { q: 4, r: 2 }, // distance 6
+  },
+  {
+    id: "radio_station",
+    name: "Radio Station",
+    desc: "The transmitter still hums. The engineers' notes and spare parts would help the rescue antenna — and your research.",
+    difficulty: 5,
+    danger: 4,
+    rewards: { food: 2, materials: 20, medicine: 2, research: 12 },
+    hex: { q: -5, r: -1 }, // distance 6
+  },
+  {
+    id: "petting_zoo",
+    name: "Petting Zoo",
+    desc: "The keepers are gone, but some of the animals are still wandering the pens.",
+    difficulty: 4,
+    danger: 3,
+    rewards: { food: 14, materials: 4, medicine: 2 },
+    seedBonus: 0.2,
+    animals: ["chicken", "sheep", "cow"],
+    animalChance: 0.8,
+    hex: { q: -2, r: 6 }, // distance 6
+  },
+  {
+    id: "army_surplus",
+    name: "Army Surplus Store",
+    desc: "Racks of real gear behind a steel shutter someone already tried to pry open.",
+    difficulty: 5,
+    danger: 5,
+    rewards: { food: 6, materials: 22, medicine: 6 },
+    lootBias: "weapon",
+    hex: { q: 5, r: -6 }, // distance 6
   },
 ];
 

@@ -2,7 +2,7 @@ import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
   CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, LOCATIONS,
   BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_UPGRADE_MAX_LEVEL,
-  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, ROOM_UPGRADE_INCREMENT, SCOUT_STAMINA_COST, TECH_TREE,
+  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, ROOM_UPGRADE_INCREMENT, TECH_TREE,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
@@ -17,7 +17,7 @@ import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, loungeRecovery, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
-  isNest, nextToNest, nestClearChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
+  isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
@@ -42,6 +42,15 @@ const LOCATION_ICON = {
   mall: "🛍",
   neighborhood: "🏘",
   farmstead: "🚜",
+  gas_station: "⛽",
+  garden_center: "🌻",
+  fire_station: "🚒",
+  church: "⛪",
+  marina: "⚓",
+  warehouse: "📦",
+  radio_station: "📻",
+  petting_zoo: "🐐",
+  army_surplus: "🎖",
   checkpoint: "🪖",
   stadium: "🏟",
   institute: "🧬",
@@ -584,7 +593,7 @@ function renderExplorationMap(state) {
       hexesHtml += `<div class="hex hex-fog ${reachable ? "hex-fog-reachable" : ""}" ${reachable ? `data-action="open-scout" data-q="${q}" data-r="${r}"` : ""} style="${style}">
         <div class="hex-tile hex-fog-tile"></div>
         ${reachable ? `<span class="hex-fog-icon">?</span>` : ""}
-        ${reachable ? `<div class="${tipClass(pos)}"><b>Unexplored</b><p class="muted">Send a scout (${SCOUT_STAMINA_COST} stamina) to see what's here.${danger ? " ⚠ Next to a zombie nest — expect trouble." : ""}</p></div>` : ""}
+        ${reachable ? `<div class="${tipClass(pos)}"><b>Unexplored</b><p class="muted">Send a scout (${scoutCost(q, r)} stamina) to see what's here.${danger ? " ⚠ Next to a zombie nest — expect trouble." : ""}</p></div>` : ""}
       </div>`;
       continue;
     }
@@ -922,12 +931,14 @@ export function renderExpeditionReport(state, anim) {
 }
 
 export function renderScoutModal(state, q, r) {
-  const eligible = state.characters.filter((c) => c.role === "student" && c.alive && c.stamina >= SCOUT_STAMINA_COST);
+  const cost = scoutCost(q, r);
+  const danger = Math.round(scoutEncounterChance(state, q, r) * 100);
+  const eligible = state.characters.filter((c) => c.role === "student" && c.alive && c.stamina >= cost);
   const rows = eligible
     .map(
       (s) => `<div class="check-row scout-row">
         <span class="assign-who">${nameTag(s)} ${statusTag(s)}</span>${staminaBar(s)}
-        <button class="btn btn-sm btn-primary" data-action="confirm-scout" data-id="${s.id}" data-q="${q}" data-r="${r}">Send (−${SCOUT_STAMINA_COST} stamina)</button>
+        <button class="btn btn-sm btn-primary" data-action="confirm-scout" data-id="${s.id}" data-q="${q}" data-r="${r}">Send (−${cost} stamina)</button>
       </div>`
     )
     .join("");
@@ -937,9 +948,10 @@ export function renderScoutModal(state, q, r) {
     <div class="char-card mission-card" data-action="noop">
       <button class="cc-close" data-action="close-scout" title="Close">✕</button>
       <h3>🌫 Unexplored Territory</h3>
-      <p class="muted">Send a student to scout this hex. Most turn up nothing, but it's the only way to find loot.</p>
+      <p class="muted">Every hex hides something — supplies, gear, seeds, animals, survivors, or a zombie nest. The further from the school, the more it costs to get there.</p>
+      <div class="mission-stats-row"><span>⚡ ${cost} stamina</span><span class="${danger >= 40 ? "plot-warn" : ""}">🧟 ${danger}% chance of a zombie</span></div>
       <div class="mini-label">Send a scout</div>
-      <div class="check-list">${rows || '<p class="muted">No student has enough stamina to scout right now.</p>'}</div>
+      <div class="check-list">${rows || `<p class="muted">Nobody has the ${cost} stamina it takes to get this far out.</p>`}</div>
     </div>
   </div>`;
 }

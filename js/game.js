@@ -1810,16 +1810,27 @@ export function canScoutHex(state, q, r) {
 // Reveals whatever's on a fogged hex; only a discovered LOCATIONS hex becomes lootable via the
 // normal setTeamLocation/setExploreTeam flow afterward. Every new tile risks a zombie encounter
 // that grows more likely the farther it is from the school (more encounter types come later).
+// Scouting costs double for every ring further from the school fence (see SCOUT_STAMINA_COST).
+export function scoutCost(q, r) {
+  return SCOUT_STAMINA_COST * 2 ** (hexDistance(q, r) - SCHOOL_RADIUS - 1);
+}
+
+// Chance a scout runs into a zombie: +10% per ring out, more next to a nest.
+export function scoutEncounterChance(state, q, r) {
+  const ringsOut = hexDistance(q, r) - SCHOOL_RADIUS; // 1 right outside the school fence
+  return clamp01(ringsOut * SCOUT_ENCOUNTER_CHANCE_PER_HEX + (nextToNest(state, q, r) ? NEST_SCOUT_DANGER : 0));
+}
+
 export function scoutHex(state, studentId, q, r) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student" || !c.alive) return null;
-  if (c.stamina < SCOUT_STAMINA_COST) return null;
+  const cost = scoutCost(q, r);
+  if (c.stamina < cost) return null;
   if (!canScoutHex(state, q, r)) return null;
 
-  c.stamina -= SCOUT_STAMINA_COST;
+  c.stamina -= cost;
 
-  const ringsOut = hexDistance(q, r) - SCHOOL_RADIUS; // 1 right outside the school fence
-  const encounterChance = clamp01(ringsOut * SCOUT_ENCOUNTER_CHANCE_PER_HEX + (nextToNest(state, q, r) ? NEST_SCOUT_DANGER : 0));
+  const encounterChance = scoutEncounterChance(state, q, r);
   const encountered = Math.random() < encounterChance;
   if (encountered) {
     const power = (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2;
