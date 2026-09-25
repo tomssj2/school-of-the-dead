@@ -1813,7 +1813,7 @@ function renderClassroom(state, roomId) {
   const room = state.rooms.classrooms[roomId];
   const subject = room.subject; // null until a teacher claims this room
   const post = `classroom:${roomId}`;
-  if (isBoarded(state, post)) return renderBoardedRoom(state, post, "classroom", "room-classroom");
+  if (isBoarded(state, post)) return renderBoardedRoom(state, post, "classroom_empty", "room-classroom");
   const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === post && c.alive);
 
   const rowCount = room.seats.length / 6;
@@ -1851,7 +1851,7 @@ function renderClassroom(state, roomId) {
   return `
   <div class="room room-classroom">
     ${roomScene(
-      "classroom",
+      subject ? `classroom_${subject}` : "classroom_empty",
       [...teachers, ...room.seats.filter(Boolean).map((id) => getChar(state, id)).filter((c) => c && c.alive)],
       `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`} <span class="plaque-sub">${count}/${room.seats.length}</span>`,
       subject ? "" : "Unassigned — the one teacher posted here decides the subject."

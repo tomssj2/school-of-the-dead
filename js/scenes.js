@@ -159,6 +159,154 @@ const SCENES = {
     r(6, 9, 8, 10, "#e84a4a");
     r(7, 8, 7, 8, "#4caf7d");
   },
+  // A classroom looks like whatever its teacher teaches (the subject a room takes on when a
+  // teacher is posted there), or abandoned while nobody is.
+  classroom_empty(r) {
+    indoor(r, "#7d8c80", "#6a786d", "#9a8266", "#86705a", "wood");
+    r(18, 2, 72, 11, "#6b4a2f");
+    r(19, 3, 71, 10, "#3a4540");
+    for (const [x0, x1, y] of [[24, 40, 5], [46, 60, 7], [30, 36, 8]]) r(x0, y, x1, y, "#56625c");
+    r(19, 11, 71, 11, "#5a3b24");
+    // chairs stacked in the corner
+    for (let i = 0; i < 3; i++) {
+      r(4, 12 - i * 3, 12, 12 - i * 3, "#8a5a3a");
+      r(4, 12 - i * 3, 4, 15 - i * 3, "#6b4a2f");
+      r(12, 12 - i * 3, 12, 15 - i * 3, "#6b4a2f");
+    }
+    // cobwebs and scattered papers
+    for (const [x, y] of [[0, 0], [1, 1], [2, 0], [0, 2], [93, 0], [94, 1], [95, 0], [95, 2]]) r(x, y, x, y, "#c9ccd2");
+    for (const [x, y] of [[30, 20], [52, 22], [70, 19], [84, 21]]) r(x, y, x + 2, y, "#e8e2d0");
+    r(80, 2, 86, 8, "#c9ccd2");
+    r(83, 3, 83, 5, "#555555");
+  },
+  classroom_Biology(r) {
+    indoor(r, "#9cc9a8", "#86b594", "#d9dfe2", "#c2cacd", "tile");
+    // plant-cell poster
+    r(4, 2, 16, 11, "#f4f6f8");
+    r(5, 3, 15, 10, "#b8e0b0");
+    r(8, 5, 11, 8, "#4caf7d");
+    r(9, 6, 10, 7, "#8a5ad6");
+    // chalkboard with a DNA doodle
+    r(20, 2, 58, 11, "#6b4a2f");
+    r(21, 3, 57, 10, "#2f4a3a");
+    for (let x = 24; x < 54; x += 2) {
+      r(x, 4 + Math.round(Math.sin(x / 2) * 2 + 2), x, 4 + Math.round(Math.sin(x / 2) * 2 + 2), "#e8efe8");
+      r(x, 4 + Math.round(-Math.sin(x / 2) * 2 + 2), x, 4 + Math.round(-Math.sin(x / 2) * 2 + 2), "#f4d35e");
+    }
+    // skeleton model
+    r(63, 2, 65, 4, "#f4f4f4");
+    r(64, 5, 64, 11, "#f4f4f4");
+    for (const y of [6, 8]) r(62, y, 66, y, "#f4f4f4");
+    r(61, 6, 61, 9, "#f4f4f4");
+    r(67, 6, 67, 9, "#f4f4f4");
+    r(63, 12, 63, 14, "#f4f4f4");
+    r(65, 12, 65, 14, "#f4f4f4");
+    r(62, 15, 66, 15, "#8a8e96");
+    // lab bench with a microscope and flasks
+    r(72, 10, 94, 11, "#3a4a4a");
+    r(73, 12, 74, 15, "#5a6a6a");
+    r(92, 12, 93, 15, "#5a6a6a");
+    r(76, 6, 77, 9, "#3a3f48");
+    r(75, 9, 79, 9, "#3a3f48");
+    r(77, 5, 79, 5, "#3a3f48");
+    for (const [x, c] of [[83, "#4caf7d"], [87, "#3fa7d6"], [90, "#e0602a"]]) {
+      r(x, 7, x + 1, 9, c);
+      r(x, 6, x + 1, 6, "#dfe4ea");
+    }
+    // potted plant
+    r(18, 12, 20, 15, "#b04a3a");
+    r(17, 9, 21, 11, "#4caf7d");
+    r(19, 8, 19, 8, "#6fcf97");
+  },
+  classroom_Physics(r) {
+    indoor(r, "#5a6f9a", "#4a5e87", "#4b5569", "#3f485b", "tile");
+    // whiteboard with formulas
+    r(14, 2, 60, 11, "#c9ccd2");
+    r(15, 3, 59, 10, "#f4f6f8");
+    for (const [x0, x1, y, c] of [[17, 27, 4, "#3f6fb5"], [30, 34, 4, "#d64545"], [17, 23, 6, "#222222"], [26, 40, 6, "#3f6fb5"], [17, 31, 8, "#222222"], [44, 57, 5, "#3f6fb5"], [44, 50, 8, "#d64545"]]) r(x0, y, x1, y, c);
+    r(52, 7, 52, 9, "#222222");
+    r(51, 8, 53, 8, "#222222");
+    // atom model
+    r(4, 5, 10, 5, "#f4d35e");
+    r(3, 6, 3, 8, "#f4d35e");
+    r(11, 6, 11, 8, "#f4d35e");
+    r(4, 9, 10, 9, "#f4d35e");
+    r(6, 6, 8, 8, "#d64545");
+    r(7, 3, 7, 11, "#8fd4f4");
+    // tesla coil with a spark
+    r(68, 12, 72, 15, "#6b6f78");
+    r(69, 6, 71, 11, "#c49a64");
+    for (let y = 7; y < 11; y++) r(69, y, 71, y, y % 2 ? "#a8753f" : "#c49a64");
+    r(68, 4, 72, 5, "#b6bbc3");
+    for (const [x, y] of [[73, 3], [74, 2], [75, 3], [76, 1], [66, 2], [65, 1]]) r(x, y, x, y, "#f4f4a0");
+    // desk with a newton's cradle
+    r(80, 10, 94, 11, "#8a5a3a");
+    r(81, 12, 82, 15, "#6b4a2f");
+    r(92, 12, 93, 15, "#6b4a2f");
+    r(83, 5, 91, 5, "#9aa0a8");
+    r(83, 5, 83, 9, "#9aa0a8");
+    r(91, 5, 91, 9, "#9aa0a8");
+    for (let x = 85; x <= 89; x += 2) {
+      r(x, 6, x, 7, "#c9ccd2");
+      r(x, 8, x, 8, "#e0e4ea");
+    }
+  },
+  classroom_History(r) {
+    indoor(r, "#a8825a", "#8f6a45", "#7a3a3a", "#6a2f2f", "carpet");
+    for (let x = 0; x < 96; x += 8) r(x, 10, x, 14, "#7a5a3a");
+    // world map
+    r(20, 2, 62, 11, "#8a5a3a");
+    r(21, 3, 61, 10, "#e8d8b0");
+    for (const [x0, y0, x1, y1] of [[24, 4, 31, 7], [26, 8, 29, 9], [36, 4, 41, 6], [38, 7, 40, 9], [44, 4, 54, 7], [50, 8, 53, 9], [57, 8, 59, 9]]) r(x0, y0, x1, y1, "#8fae6a");
+    r(33, 6, 35, 6, "#d64545");
+    // bookshelf
+    r(3, 2, 15, 15, "#5a3b24");
+    for (const y of [6, 10, 14]) r(3, y, 15, y, "#3a2618");
+    const books = ["#d64545", "#3f6fb5", "#4caf7d", "#e0a536", "#8a5ad6", "#e8d8b0"];
+    for (const y0 of [3, 7, 11]) for (let x = 4; x <= 14; x += 2) r(x, y0, x, y0 + 2, books[(x + y0) % books.length]);
+    // globe on a stand
+    r(70, 4, 76, 10, "#3f6fb5");
+    r(71, 5, 73, 7, "#8fae6a");
+    r(74, 8, 75, 9, "#8fae6a");
+    r(69, 7, 69, 7, "#c9a03a");
+    r(77, 7, 77, 7, "#c9a03a");
+    r(73, 11, 73, 14, "#c9a03a");
+    r(71, 15, 75, 15, "#8a6a3a");
+    // bust on a plinth
+    r(85, 3, 89, 7, "#c9ccd2");
+    r(84, 8, 90, 10, "#b6bbc3");
+    r(84, 11, 90, 15, "#e8e2d0");
+  },
+  classroom_SocialStudies(r) {
+    indoor(r, "#e0c08a", "#cda870", "#bf8f5c", "#a87a4a", "wood");
+    // bunting
+    const flags = ["#d64545", "#3f6fb5", "#4caf7d", "#f4d35e", "#8a5ad6", "#f08a3a"];
+    r(0, 1, 95, 1, "#8a5a3a");
+    for (let x = 1; x < 96; x += 6) {
+      const c = flags[(x / 6 | 0) % flags.length];
+      r(x, 2, x + 3, 2, c);
+      r(x + 1, 3, x + 2, 3, c);
+    }
+    // corkboard with pinned notes and photos
+    r(20, 4, 56, 12, "#8a5f33");
+    r(21, 5, 55, 11, "#c49a64");
+    for (const [x, y, c] of [[23, 6, "#f4f4a0"], [29, 7, "#a8d8f0"], [35, 6, "#f4b8c8"], [41, 8, "#f4f4a0"], [47, 6, "#f4f6f8"], [51, 8, "#a8e8b0"]]) {
+      r(x, y, x + 3, y + 2, c);
+      r(x + 1, y, x + 1, y, "#d64545");
+    }
+    // clock
+    r(64, 5, 68, 9, "#f4f6f8");
+    r(66, 6, 66, 7, "#222222");
+    r(66, 7, 67, 7, "#222222");
+    // round discussion table
+    r(74, 11, 92, 12, "#8a5a3a");
+    r(74, 11, 92, 11, "#a8753f");
+    r(82, 13, 84, 15, "#6b4a2f");
+    for (const x of [72, 94]) r(x, 12, x + 1, 15, "#c0583a");
+    // potted plant by the window
+    r(6, 12, 9, 15, "#b04a3a");
+    r(5, 8, 10, 11, "#4caf7d");
+  },
   research(r) {
     indoor(r, "#3c465c", "#30394d", "#4b5569", "#3f485b", "tile");
     const vials = ["#4caf7d", "#8a5ad6", "#3fa7d6", "#e0a536", "#d64545"];
