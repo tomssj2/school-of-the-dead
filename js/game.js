@@ -25,7 +25,7 @@ import {
   HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING,
 } from "./data.js";
-import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt } from "./map.js";
+import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, teachingBonus,
@@ -1799,10 +1799,10 @@ const HEX_NEIGHBOR_OFFSETS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]
 // The frontier rule: a hex can only be scouted once it borders the school or a hex someone has
 // already scouted — you can't jump into unconnected fog.
 export function canScoutHex(state, q, r) {
-  if (isHexExplored(state, q, r)) return false;
+  if (isSchoolHex(q, r) || hexDistance(q, r) > MAP_RADIUS || isHexExplored(state, q, r)) return false;
   return HEX_NEIGHBOR_OFFSETS.some(([dq, dr]) => {
     const nq = q + dq, nr = r + dr;
-    return (nq === 0 && nr === 0) || isHexExplored(state, nq, nr);
+    return isSchoolHex(nq, nr) || isHexExplored(state, nq, nr);
   });
 }
 
@@ -1818,7 +1818,8 @@ export function scoutHex(state, studentId, q, r) {
 
   c.stamina -= SCOUT_STAMINA_COST;
 
-  const encounterChance = clamp01(hexDistance(q, r) * SCOUT_ENCOUNTER_CHANCE_PER_HEX + (nextToNest(state, q, r) ? NEST_SCOUT_DANGER : 0));
+  const ringsOut = hexDistance(q, r) - SCHOOL_RADIUS; // 1 right outside the school fence
+  const encounterChance = clamp01(ringsOut * SCOUT_ENCOUNTER_CHANCE_PER_HEX + (nextToNest(state, q, r) ? NEST_SCOUT_DANGER : 0));
   const encountered = Math.random() < encounterChance;
   if (encountered) {
     const power = (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2;

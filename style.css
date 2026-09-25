@@ -1695,3 +1695,15 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 @media (prefers-reduced-motion: reduce) {
   .hex-fog-tile, .hex-routes path, .hex-landmark, .hex-nest .hex-tile::after, .exp-walker, .exp-walker svg { animation: none; }
 }
+
+/* The school grounds: one campus over seven hexes, raised above the map with a gold outline. */
+.hex-campus {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  filter: drop-shadow(0 0 10px rgba(244, 211, 94, 0.5)) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.65));
+}
+.hex-campus svg { display: block; overflow: visible; }
+.hex-campus image { image-rendering: pixelated; }
+.campus-edge { fill: none; stroke: #f4d35e; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.hex-name-school { bottom: -8px; font-size: 11px; padding: 2px 8px; }

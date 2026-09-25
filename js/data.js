@@ -454,8 +454,8 @@ export const FORTIFICATION_CAP = 300;
 
 // ===== Scouting =====
 export const SCOUT_STAMINA_COST = 5;
-// Chance of a zombie encounter while scouting a new tile, growing +10% per hex of distance from
-// the school (10% right next door, 50% at the edge of the radius-5 map). More encounter types
+// Chance of a zombie encounter while scouting a new tile, growing +10% per ring beyond the school
+// grounds (10% right outside the fence, 60% at the edge of the radius-7 map). More encounter types
 // will be added later — this is the first.
 export const SCOUT_ENCOUNTER_CHANCE_PER_HEX = 0.1;
 export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout loses their fight
@@ -564,8 +564,12 @@ export const TECH_TREE = [
 // ===== Exploration locations =====
 // Map rule: no two points of interest (locations, raid landmarks, the school) may touch — there's
 // always at least one plain hex between them. map.js warns in the console if one breaks it.
-// Where locations stood before the no-touching rule, so saves that had explored them keep them.
-export const LEGACY_POI_HEXES = { corner_store: "1,0", pharmacy: "2,0", checkpoint: "5,-2" };
+// Every earlier spot of a location that has moved (the no-touching rule, the bigger school grounds
+// and the bigger map), so saves that had explored one of them still know where it is.
+export const LEGACY_POI_HEXES = {
+  corner_store: ["1,0", "1,1"], pharmacy: ["2,0", "2,-2"], neighborhood: ["-1,-1"],
+  checkpoint: ["5,-2", "5,-3"], stadium: ["-5,5"], institute: ["0,-5"],
+};
 export const LOCATIONS = [
   {
     id: "corner_store",
@@ -576,7 +580,7 @@ export const LOCATIONS = [
     rewards: { food: 12, materials: 4, medicine: 2 },
     ingredientBonus: 0.15,
     seedBonus: 0.1,
-    hex: { q: 1, r: 1 }, // distance 2 — the closest a location can be without touching the school
+    hex: { q: 2, r: 1 }, // distance 3 — the closest a location can be without touching the school grounds
   },
   {
     id: "pharmacy",
@@ -585,7 +589,7 @@ export const LOCATIONS = [
     difficulty: 2,
     danger: 2,
     rewards: { food: 2, materials: 2, medicine: 14 },
-    hex: { q: 2, r: -2 }, // distance 2
+    hex: { q: 3, r: -2 }, // distance 3
   },
   {
     id: "supermarket",
@@ -652,7 +656,7 @@ export const LOCATIONS = [
     seedBonus: 0.3, // backyard vegetable patches
     animals: ["chicken"], // ...and backyard coops
     animalChance: 0.15,
-    hex: { q: -1, r: -1 }, // distance 2
+    hex: { q: -2, r: -1 }, // distance 3
   },
   {
     id: "farmstead",
@@ -695,7 +699,7 @@ export const NEST_CLEAR_STAMINA = 15;
 export const NEST_CLEAR_MAX = 3; // students per nest-clearing squad
 
 // ===== Raid landmarks =====
-// Hidden at the edge of the map until scouted. Each holds a raid boss that needs a bigger,
+// Hidden at the very edge of the map (distance 7) until scouted. Each holds a raid boss that needs a bigger,
 // higher-level team than an expedition (a separate raid squad of up to RAID_MAX_TEAM, launched
 // with the day's expeditions). Beating it drops legendary gear and can free a legendary survivor;
 // it comes back `respawnDays` later, 25% tougher for every time it's been killed.
@@ -704,21 +708,21 @@ export const RAID_MAX_ROUNDS = 15;
 export const RAID_BOSS_SCALING = 0.25;
 export const LANDMARKS = [
   {
-    id: "checkpoint", name: "Military Checkpoint", hex: { q: 5, r: -3 },
+    id: "checkpoint", name: "Military Checkpoint", hex: { q: 7, r: -3 },
     desc: "An army roadblock that fell on the first night. Something in there still wears the sergeant's stripes.",
     boss: { name: "Sergeant Rot", look: "soldier", hp: 600, damage: 19, attacks: 2 },
     minTeam: 6, minLevel: 4, legendaryItems: 1, legendaryRecruitChance: 0.35,
     rewards: { food: 25, materials: 45, medicine: 20 }, respawnDays: 4,
   },
   {
-    id: "stadium", name: "City Stadium", hex: { q: -5, r: 5 },
+    id: "stadium", name: "City Stadium", hex: { q: -7, r: 7 },
     desc: "The evacuation shelter that became a feeding ground. Its king still wears the team jersey.",
     boss: { name: "The Linebacker", look: "jersey", hp: 1000, damage: 20, attacks: 3 },
     minTeam: 7, minLevel: 5, legendaryItems: 1, legendaryRecruitChance: 0.5,
     rewards: { food: 40, materials: 40, medicine: 30 }, respawnDays: 5,
   },
   {
-    id: "institute", name: "Research Institute", hex: { q: 0, r: -5 },
+    id: "institute", name: "Research Institute", hex: { q: 0, r: -7 },
     desc: "Where the outbreak may have started. Patient zero never left the building.",
     boss: { name: "Subject Zero", look: "labcoat", hp: 1350, damage: 24, attacks: 3 },
     minTeam: 8, minLevel: 6, legendaryItems: 2, legendaryRecruitChance: 0.7,

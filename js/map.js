@@ -8,6 +8,11 @@ import { shadowOf, lightOf } from "./sprite.js";
 
 // ---------- terrain ----------
 
+export const MAP_RADIUS = 7;
+// The school's grounds cover its own hex and the six around it.
+export const SCHOOL_RADIUS = 1;
+export const isSchoolHex = (q, r) => hexDistance(q, r) <= SCHOOL_RADIUS;
+
 // A stable 0..1 hash of a hex, so the layout never shuffles between renders or saves.
 function hexHash(q, r, salt = 0) {
   let h = Math.imul(q + 97, 374761393) ^ Math.imul(r - 51, 668265263) ^ Math.imul(salt + 13, 2246822519);
@@ -21,9 +26,10 @@ export function isRiverHex(q, r) {
   return band === -6 || band === -5;
 }
 
+// Downtown right outside the school fence, suburbs beyond, woods and fields out at the edge.
 const RINGS = [
-  { maxDist: 2, table: [["street", 0.3], ["apartments", 0.3], ["shops", 0.2], ["parking", 0.2]] },
-  { maxDist: 4, table: [["houses", 0.4], ["park", 0.2], ["street", 0.15], ["ruins", 0.15], ["parking", 0.1]] },
+  { maxDist: 3, table: [["street", 0.3], ["apartments", 0.3], ["shops", 0.2], ["parking", 0.2]] },
+  { maxDist: 5, table: [["houses", 0.4], ["park", 0.2], ["street", 0.15], ["ruins", 0.15], ["parking", 0.1]] },
   { maxDist: 99, table: [["woods", 0.4], ["field", 0.3], ["houses", 0.15], ["ruins", 0.15]] },
 ];
 
@@ -31,9 +37,12 @@ export function hexDistance(q, r) {
   return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
 }
 
-// The map rule from data.js: no two points of interest touch. Flags a mistake while editing the data.
-const POIS = [{ id: "school", hex: { q: 0, r: 0 } }, ...LOCATIONS, ...LANDMARKS];
+// The map rule from data.js: no two points of interest touch (and none touches the school
+// grounds). Flags a mistake while editing the data.
+const POIS = [...LOCATIONS, ...LANDMARKS];
 POIS.forEach((a, i) => {
+  if (hexDistance(a.hex.q, a.hex.r) <= SCHOOL_RADIUS + 1) console.warn(`Map rule broken: ${a.id} touches the school grounds.`);
+  if (hexDistance(a.hex.q, a.hex.r) > MAP_RADIUS) console.warn(`Map rule broken: ${a.id} is off the map.`);
   for (const b of POIS.slice(i + 1)) {
     if (hexDistance(a.hex.q - b.hex.q, a.hex.r - b.hex.r) <= 1) console.warn(`Map rule broken: ${a.id} and ${b.id} touch.`);
   }
@@ -81,20 +90,20 @@ function makeRng(seed) {
   };
 }
 
-function canvas(seed) {
-  const g = Array.from({ length: TH }, () => Array(TW).fill(null));
+function canvas(seed, w = TW, h = TH) {
+  const g = Array.from({ length: h }, () => Array(w).fill(null));
   const r = (x0, y0, x1, y1, c) => {
-    for (let y = Math.max(0, y0); y <= Math.min(TH - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(TW - 1, x1); x++) g[y][x] = c;
+    for (let y = Math.max(0, y0); y <= Math.min(h - 1, y1); y++) for (let x = Math.max(0, x0); x <= Math.min(w - 1, x1); x++) g[y][x] = c;
   };
   const disc = (cx, cy, rad, c) => {
-    for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) if ((x - cx) ** 2 + (y - cy) ** 2 <= rad * rad + rad * 0.5) g[y][x] = c;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if ((x - cx) ** 2 + (y - cy) ** 2 <= rad * rad + rad * 0.5) g[y][x] = c;
   };
   const ellipse = (cx, cy, rx, ry, c) => {
-    for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1) g[y][x] = c;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1) g[y][x] = c;
   };
   const rng = makeRng(seed);
   const speckle = (c, n) => {
-    for (let i = 0; i < n; i++) g[Math.floor(rng() * TH)][Math.floor(rng() * TW)] = c;
+    for (let i = 0; i < n; i++) g[Math.floor(rng() * h)][Math.floor(rng() * w)] = c;
   };
   return { g, r, disc, ellipse, rng, speckle, px: (x, y, c) => r(x, y, x, y, c) };
 }
@@ -292,6 +301,60 @@ const TILES = {
     k.r(30, 1, 31, 3, "#4caf7d");
   },
 
+  // The school grounds, spanning its seven hexes (a CAMPUS_W x CAMPUS_H canvas).
+  campus(k) {
+    k.r(0, 0, 49, 51, "#5f9e5a");
+    k.speckle("#6fae6a", 120);
+    k.speckle("#548f50", 60);
+    // main building with its bell tower
+    k.r(10, 8, 39, 24, "#c9b18a");
+    k.r(10, 8, 10, 24, lightOf("#c9b18a"));
+    k.r(39, 8, 39, 24, shadowOf("#c9b18a"));
+    k.r(9, 6, 40, 8, "#7a3a2a");
+    k.r(9, 6, 40, 6, lightOf("#7a3a2a"));
+    k.r(21, 1, 28, 8, "#b8a07a");
+    k.r(22, 0, 27, 0, "#7a3a2a");
+    k.disc(24.5, 4, 2, "#f4f4f4");
+    k.r(24, 3, 24, 4, "#222222");
+    k.r(25, 4, 25, 4, "#222222");
+    for (const y of [11, 16]) {
+      for (let x = 12; x <= 36; x += 4) if (y === 11 || x < 21 || x > 28) k.r(x, y, x + 1, y + 2, "#9fc7e8");
+    }
+    k.r(22, 17, 27, 24, "#5a3b24");
+    k.r(24, 17, 25, 24, "#6b4a2f");
+    // courtyard, flagpole and the path out to the gate
+    k.r(12, 25, 37, 31, "#8a8e96");
+    for (let x = 13; x < 37; x += 4) k.r(x, 28, x + 1, 28, "#9aa0a8");
+    k.r(35, 18, 35, 25, "#d0d4da");
+    k.r(36, 18, 38, 20, "#4caf7d");
+    k.r(23, 32, 26, 51, "#8a8e96");
+    // school bus
+    k.r(2, 26, 11, 30, "#e0a536");
+    for (let x = 3; x <= 10; x += 2) k.r(x, 27, x, 28, "#9fc7e8");
+    k.r(3, 31, 4, 31, "#2a2420");
+    k.r(9, 31, 10, 31, "#2a2420");
+    // running track and field
+    k.ellipse(12, 41, 10, 7, "#b0503a");
+    k.ellipse(12, 41, 7.5, 4.6, "#4caf7d");
+    k.r(12, 37, 12, 45, "#f4f4f4");
+    // basketball court
+    k.r(30, 35, 45, 46, "#c48d55");
+    k.r(30, 35, 45, 35, "#f4f4f4");
+    k.r(30, 46, 45, 46, "#f4f4f4");
+    k.r(37, 35, 37, 46, "#f4f4f4");
+    k.disc(37.5, 40.5, 2, "#c48d55");
+    k.r(31, 39, 31, 42, "#d64545");
+    k.r(44, 39, 44, 42, "#d64545");
+    // trees
+    for (const [x, y] of [[4, 12], [45, 12], [5, 20], [45, 21], [44, 29], [27, 48], [20, 48]]) tree(k, x, y);
+    // barricade across the front gate: sandbags either side, a wrecked car in the gap
+    for (let x = 14; x <= 35; x += 3) if (x < 21 || x > 27) {
+      k.r(x, 49, x + 2, 50, "#c9b58c");
+      k.r(x, 50, x + 2, 50, "#a8946a");
+    }
+    car(k, 22, 48, "#7a3a2a");
+  },
+
   // --- locations (front-on buildings on a street) ---
   corner_store(k) {
     k.r(0, 0, 31, 27, "#3b3f47");
@@ -452,27 +515,36 @@ const TILES = {
   },
 };
 
+export const CAMPUS_W = 50;
+export const CAMPUS_H = 52;
+
 const tileCache = new Map();
 
-// CSS url() for a tile key from hexTileKey() (or "school").
-export function tileBackground(key) {
+// data: URI of a tile's SVG, for a key from hexTileKey() (or "school" / "campus").
+export function tileDataUri(key) {
   if (!tileCache.has(key)) {
     const [kind, variant = "0"] = key.split(":");
-    const seed = [...key].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619), 2166136261);
-    const k = canvas(seed);
+    const [w, h] = kind === "campus" ? [CAMPUS_W, CAMPUS_H] : [32, 28];
+    const seed = [...key].reduce((acc, ch) => Math.imul(acc ^ ch.charCodeAt(0), 16777619), 2166136261);
+    const k = canvas(seed, w, h);
     TILES[kind](k, Number(variant));
     let rects = "";
-    for (let y = 0; y < TH; y++) {
-      for (let x = 0; x < TW; ) {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; ) {
         const c = k.g[y][x];
         let run = 1;
-        while (x + run < TW && k.g[y][x + run] === c) run++;
+        while (x + run < w && k.g[y][x + run] === c) run++;
         if (c) rects += `<rect x="${x}" y="${y}" width="${run}" height="1" fill="${c}"/>`;
         x += run;
       }
     }
-    const svg = `<svg viewBox="0 0 ${TW} ${TH}" width="${TW}" height="${TH}" preserveAspectRatio="none" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
-    tileCache.set(key, `url('data:image/svg+xml,${encodeURIComponent(svg)}')`);
+    const svg = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" preserveAspectRatio="none" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
+    tileCache.set(key, `data:image/svg+xml,${encodeURIComponent(svg)}`);
   }
   return tileCache.get(key);
+}
+
+// CSS url() of a tile.
+export function tileBackground(key) {
+  return `url('${tileDataUri(key)}')`;
 }

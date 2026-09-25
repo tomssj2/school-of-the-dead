@@ -19,7 +19,9 @@ import {
   techPerk, gateHp, loungeRecovery, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   isNest, nextToNest, nestClearChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
-import { hexTileKey, tileBackground, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt } from "./map.js";
+import {
+  hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
+} from "./map.js";
 import { zombieSprite } from "./zombies.js";
 import { characterSprite } from "./sprite.js";
 import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
@@ -62,18 +64,56 @@ function hexDistance(q, r) {
   return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
 }
 
-// All axial hexes within `radius` of the school (excluding the school's own tile), for a full
-// fog-of-war field rather than just the sparse curated LOCATIONS.
-const HEX_RADIUS = 5;
+// All axial hexes within `radius` of the school, minus the school grounds themselves (drawn as
+// one big campus), for a full fog-of-war field rather than just the sparse curated LOCATIONS.
+const HEX_RADIUS = MAP_RADIUS;
 function hexesInRadius(radius) {
   const hexes = [];
   for (let q = -radius; q <= radius; q++) {
     for (let r = -radius; r <= radius; r++) {
-      if (q === 0 && r === 0) continue;
+      if (isSchoolHex(q, r)) continue;
       if (hexDistance(q, r) <= radius) hexes.push({ q, r });
     }
   }
   return hexes;
+}
+
+// The school spans its own hex and the six around it: one pixel-art campus clipped to that
+// seven-hex flower, with a gold outline traced around just its outer edge.
+const SCHOOL_CELLS = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+function renderCampus(mapWidth, mapHeight) {
+  const size = HEX_SIZE;
+  const half = (Math.sqrt(3) / 2) * size;
+  const boxW = 5 * size;
+  const boxH = 6 * half;
+  const corners = [[size, 0], [size / 2, half], [-size / 2, half], [-size, 0], [-size / 2, -half], [size / 2, -half]];
+  const hexes = SCHOOL_CELLS.map(([q, r]) => {
+    const { x, y } = hexCenter(q, r);
+    return corners.map(([dx, dy]) => [x + dx + boxW / 2, y + dy + boxH / 2]);
+  });
+  // Edges shared by two cells are inside the flower; the ones used once make up its outline.
+  const edgeCount = new Map();
+  const key = ([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`;
+  for (const pts of hexes) {
+    pts.forEach((p, i) => {
+      const q = pts[(i + 1) % 6];
+      const k = [key(p), key(q)].sort().join("|");
+      edgeCount.set(k, (edgeCount.get(k) || 0) + 1);
+    });
+  }
+  const outline = [...edgeCount].filter(([, n]) => n === 1).map(([k]) => {
+    const [a, b] = k.split("|");
+    return `M${a} L${b}`;
+  }).join(" ");
+  const polygons = hexes.map((pts) => `<polygon points="${pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ")}"/>`).join("");
+  return `<div class="hex-campus" style="left:${mapWidth / 2 - boxW / 2}px;top:${mapHeight / 2 - boxH / 2}px;width:${boxW}px;height:${boxH}px;">
+    <svg width="${boxW}" height="${boxH}" viewBox="0 0 ${boxW} ${boxH}">
+      <defs><clipPath id="campus-clip">${polygons}</clipPath></defs>
+      <image href="${tileDataUri("campus")}" x="0" y="0" width="${boxW}" height="${boxH}" preserveAspectRatio="none" clip-path="url(#campus-clip)"/>
+      <path class="campus-edge" d="${outline}"/>
+    </svg>
+    <span class="hex-name hex-name-school">🏫 School</span>
+  </div>`;
 }
 
 function esc(s) {
@@ -530,10 +570,7 @@ function renderExplorationMap(state) {
   });
   if (state.raidTarget) teamAt[state.raidTarget] = RAID_TEAM;
 
-  const schoolPos = toPos(0, 0);
-  let hexesHtml = `<div class="hex hex-school hex-poi" style="left:${schoolPos.left}px;top:${schoolPos.top}px;">
-    ${hexTile("school")}<span class="hex-name">School</span>
-  </div>`;
+  let hexesHtml = renderCampus(width, height);
   let routes = "";
 
   for (const { q, r } of hexesInRadius(HEX_RADIUS)) {

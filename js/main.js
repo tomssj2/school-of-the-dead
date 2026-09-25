@@ -178,11 +178,16 @@ function migrateState(s) {
   // Locations moved apart by the no-touching map rule: a save that had explored the old spot sees
   // the new one too, and no nest is left sitting under a location.
   const poiKey = (p) => `${p.hex.q},${p.hex.r}`;
-  for (const [id, oldKey] of Object.entries(LEGACY_POI_HEXES)) {
+  for (const [id, oldKeys] of Object.entries(LEGACY_POI_HEXES)) {
     const newKey = poiKey([...LOCATIONS, ...LANDMARKS].find((p) => p.id === id));
-    if (s.exploredHexes.includes(oldKey) && !s.exploredHexes.includes(newKey)) s.exploredHexes.push(newKey);
+    if (oldKeys.some((k) => s.exploredHexes.includes(k)) && !s.exploredHexes.includes(newKey)) s.exploredHexes.push(newKey);
   }
-  s.nests = s.nests.filter((k) => ![...LOCATIONS, ...LANDMARKS].some((p) => poiKey(p) === k));
+  // ...and nothing is left on what are now the school grounds (its hex and the six around it).
+  const onGrounds = (k) => {
+    const [q, r] = k.split(",").map(Number);
+    return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2 <= 1;
+  };
+  s.nests = s.nests.filter((k) => !onGrounds(k) && ![...LOCATIONS, ...LANDMARKS].some((p) => poiKey(p) === k));
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
