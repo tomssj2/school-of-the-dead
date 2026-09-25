@@ -558,17 +558,24 @@ const TILES = {
     k.r(19, 22, 22, 25, "#f4c542");
     k.r(22, 20, 22, 25, "#3a3a3a");
   },
-  radio_station(k) {
+  library(k) {
     k.r(0, 0, 31, 27, "#4a5448");
-    k.speckle("#556053", 25);
-    k.r(3, 15, 16, 24, "#b8b0a0");
-    k.r(2, 13, 17, 15, "#6b6f78");
-    k.r(5, 17, 8, 20, "#9fc7e8");
-    k.r(11, 18, 13, 24, "#5a3b24");
-    for (let y = 1; y <= 24; y++) k.px(22 + Math.floor((24 - y) / 12) - (y % 2), y, y % 4 < 2 ? "#d64545" : "#f4f4f4");
-    k.r(19, 23, 26, 24, "#6b6f78");
-    k.r(22, 0, 23, 0, "#ff5a3a");
-    k.r(18, 6, 27, 6, "#9aa0a8");
+    k.speckle("#556053", 20);
+    k.r(0, 25, 31, 27, "#8a8e96");
+    // stone front with a pediment, columns and a wide flight of steps
+    k.r(4, 9, 27, 22, "#d9d2c0");
+    gable(k, 3, 28, 8, "#b8b0a0");
+    k.r(10, 5, 21, 5, "#9a948a");
+    k.r(4, 9, 27, 10, "#9a948a");
+    for (let x = 6; x <= 25; x += 4) {
+      k.r(x, 11, x + 1, 21, "#f4efe4");
+      k.r(x + 1, 11, x + 1, 21, "#c9c2b2");
+    }
+    k.r(14, 15, 17, 22, "#6b4a2f");
+    k.r(15, 16, 16, 17, "#8a5f33");
+    for (let i = 0; i < 3; i++) k.r(3 - i, 22 + i, 28 + i, 22 + i, i % 2 ? "#b8b0a0" : "#c9c2b2");
+    // a stack of books by the door
+    for (const [y, c] of [[20, "#d64545"], [19, "#3f6fb5"], [18, "#4caf7d"]]) k.r(19, y, 21, y, c);
   },
   petting_zoo(k) {
     k.r(0, 0, 31, 27, "#7fbd74");

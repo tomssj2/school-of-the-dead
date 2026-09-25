@@ -48,7 +48,7 @@ const LOCATION_ICON = {
   church: "⛪",
   marina: "⚓",
   warehouse: "📦",
-  radio_station: "📻",
+  library: "📚",
   petting_zoo: "🐐",
   army_surplus: "🎖",
   checkpoint: "🪖",

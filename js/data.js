@@ -568,6 +568,8 @@ export const TECH_TREE = [
 // always at least one plain hex between them. map.js warns in the console if one breaks it.
 // Every earlier spot of a location that has moved (the no-touching rule, the bigger school grounds
 // and the bigger map), so saves that had explored one of them still know where it is.
+// Locations that were replaced by another in the same spot, for teams already sent there.
+export const LEGACY_LOCATION_IDS = { radio_station: "library" };
 export const LEGACY_POI_HEXES = {
   corner_store: ["1,0", "1,1"], pharmacy: ["2,0", "2,-2"], neighborhood: ["-1,-1"],
   checkpoint: ["5,-2", "5,-3"], stadium: ["-5,5"], institute: ["0,-5"],
@@ -734,12 +736,12 @@ export const LOCATIONS = [
     hex: { q: 4, r: 2 }, // distance 6
   },
   {
-    id: "radio_station",
-    name: "Radio Station",
-    desc: "The transmitter still hums. The engineers' notes and spare parts would help the rescue antenna — and your research.",
-    difficulty: 5,
-    danger: 4,
-    rewards: { food: 2, materials: 20, medicine: 2, research: 12 },
+    id: "library",
+    name: "Public Library",
+    desc: "Quiet stacks of textbooks, journals and technical manuals — everything a research team could want. Keep your voice down.",
+    difficulty: 4,
+    danger: 3,
+    rewards: { food: 2, materials: 6, medicine: 4, research: 18 },
     hex: { q: -5, r: -1 }, // distance 6
   },
   {
