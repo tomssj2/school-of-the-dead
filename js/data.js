@@ -105,7 +105,7 @@ export const TEACH_BONUS_BY_TIER = { S: 20, A: 10, B: 5, C: 2, D: 0, F: 0 };
 
 // Teachers stay at the school full-time (no exploring/defending) and are capped and rarer.
 export const MAX_TEACHERS = 20;
-export const TEACHER_RECRUIT_CHANCE = 0.08;
+export const TEACHER_RECRUIT_CHANCE = 0.12; // share of recruited survivors who turn out to be teachers
 
 // Traits: each character spawns with 1-3 of these. A trait speeds up grade growth in its
 // subject during training, and bumps that subject's starting letter grade up one tier.
