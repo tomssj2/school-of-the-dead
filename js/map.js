@@ -301,58 +301,110 @@ const TILES = {
     k.r(30, 1, 31, 3, "#4caf7d");
   },
 
-  // The school grounds, spanning its seven hexes (a CAMPUS_W x CAMPUS_H canvas).
+  // The school grounds, spanning its seven hexes (a CAMPUS_W x CAMPUS_H canvas). Each outer hex
+  // gets one feature — sports pitch, gym, pool, tennis court, trees, the front plaza — around the
+  // main building in the middle. Hex centres on this canvas: middle (25,26), top (25,9),
+  // bottom (25,43), upper-left (10,17), lower-left (10,35), upper-right (40,17), lower-right (40,35).
   campus(k) {
-    k.r(0, 0, 49, 51, "#5f9e5a");
-    k.speckle("#6fae6a", 120);
-    k.speckle("#548f50", 60);
-    // main building with its bell tower
-    k.r(10, 8, 39, 24, "#c9b18a");
-    k.r(10, 8, 10, 24, lightOf("#c9b18a"));
-    k.r(39, 8, 39, 24, shadowOf("#c9b18a"));
-    k.r(9, 6, 40, 8, "#7a3a2a");
-    k.r(9, 6, 40, 6, lightOf("#7a3a2a"));
-    k.r(21, 1, 28, 8, "#b8a07a");
-    k.r(22, 0, 27, 0, "#7a3a2a");
-    k.disc(24.5, 4, 2, "#f4f4f4");
-    k.r(24, 3, 24, 4, "#222222");
-    k.r(25, 4, 25, 4, "#222222");
-    for (const y of [11, 16]) {
-      for (let x = 12; x <= 36; x += 4) if (y === 11 || x < 21 || x > 28) k.r(x, y, x + 1, y + 2, "#9fc7e8");
+    // lawn with mowing stripes
+    k.r(0, 0, 49, 51, "#6aa85f");
+    for (let x = 0; x < 50; x += 4) k.r(x, 0, x + 1, 51, "#63a158");
+
+    // upper-left: soccer pitch inside a running track
+    k.ellipse(10, 17, 8.5, 6.5, "#c0583a");
+    k.ellipse(10, 17, 7.2, 5.2, "#d0694a");
+    k.ellipse(10, 17, 6.2, 4.3, "#4caf50");
+    for (let x = 5; x <= 15; x += 2) k.r(x, 13, x, 21, "#56bb5a");
+    k.r(10, 13, 10, 21, "#f4f4f4");
+    k.r(4, 16, 4, 18, "#f4f4f4");
+    k.r(16, 16, 16, 18, "#f4f4f4");
+
+    // upper-right: the gym, with a curved roof
+    k.r(33, 13, 46, 22, "#d9d2c0");
+    k.r(33, 13, 33, 22, lightOf("#d9d2c0"));
+    k.r(46, 13, 46, 22, shadowOf("#d9d2c0"));
+    k.r(34, 12, 45, 13, "#3f7fa8");
+    k.r(35, 11, 44, 11, "#3f7fa8");
+    k.r(37, 10, 42, 10, lightOf("#3f7fa8"));
+    for (const x of [35, 43]) k.r(x, 15, x + 1, 17, "#7fc0ea");
+    k.r(38, 17, 41, 22, "#6b4a2f");
+    k.r(39, 17, 40, 22, "#8a5f33");
+
+    // lower-left: swimming pool
+    k.r(2, 29, 17, 40, "#e2dccb");
+    k.r(3, 30, 16, 39, "#4fb3e0");
+    k.r(3, 30, 16, 30, "#3a8fbf");
+    for (const y of [33, 36]) k.r(4, y, 15, y, "#8fd4f4");
+    k.r(6, 32, 7, 32, "#d6f0fb");
+    k.r(12, 38, 13, 38, "#d6f0fb");
+    k.r(16, 31, 16, 33, "#d0d4da");
+
+    // lower-right: tennis court
+    k.r(33, 29, 47, 40, "#3f8f6a");
+    k.r(33, 29, 47, 29, "#f4f4f4");
+    k.r(33, 40, 47, 40, "#f4f4f4");
+    k.r(33, 29, 33, 40, "#f4f4f4");
+    k.r(47, 29, 47, 40, "#f4f4f4");
+    k.r(35, 34, 45, 34, "#f4f4f4");
+    for (let y = 29; y <= 40; y += 2) k.px(40, y, "#e9e9e9");
+
+    // top: trees behind the tower
+    for (const [x, y] of [[17, 6], [33, 6], [20, 2], [30, 2]]) tree(k, x, y);
+
+    // middle: the main building — two wings, a taller entrance block and a clock tower
+    k.r(12, 33, 38, 34, "#4f8a4a"); // shadow on the lawn
+    k.r(12, 19, 38, 32, "#ece4d0");
+    k.r(12, 19, 12, 32, lightOf("#ece4d0"));
+    k.r(38, 19, 38, 32, shadowOf("#ece4d0"));
+    k.r(11, 17, 39, 19, "#2f6f9f");
+    k.r(11, 17, 39, 17, lightOf("#2f6f9f"));
+    for (const y of [21, 26]) {
+      for (let x = 14; x <= 36; x += 3) {
+        if (x > 19 && x < 30) continue;
+        k.r(x, y, x + 1, y + 2, "#7fc0ea");
+        k.px(x, y, "#b8def5");
+      }
     }
-    k.r(22, 17, 27, 24, "#5a3b24");
-    k.r(24, 17, 25, 24, "#6b4a2f");
-    // courtyard, flagpole and the path out to the gate
-    k.r(12, 25, 37, 31, "#8a8e96");
-    for (let x = 13; x < 37; x += 4) k.r(x, 28, x + 1, 28, "#9aa0a8");
-    k.r(35, 18, 35, 25, "#d0d4da");
-    k.r(36, 18, 38, 20, "#4caf7d");
-    k.r(23, 32, 26, 51, "#8a8e96");
-    // school bus
-    k.r(2, 26, 11, 30, "#e0a536");
-    for (let x = 3; x <= 10; x += 2) k.r(x, 27, x, 28, "#9fc7e8");
-    k.r(3, 31, 4, 31, "#2a2420");
-    k.r(9, 31, 10, 31, "#2a2420");
-    // running track and field
-    k.ellipse(12, 41, 10, 7, "#b0503a");
-    k.ellipse(12, 41, 7.5, 4.6, "#4caf7d");
-    k.r(12, 37, 12, 45, "#f4f4f4");
-    // basketball court
-    k.r(30, 35, 45, 46, "#c48d55");
-    k.r(30, 35, 45, 35, "#f4f4f4");
-    k.r(30, 46, 45, 46, "#f4f4f4");
-    k.r(37, 35, 37, 46, "#f4f4f4");
-    k.disc(37.5, 40.5, 2, "#c48d55");
-    k.r(31, 39, 31, 42, "#d64545");
-    k.r(44, 39, 44, 42, "#d64545");
-    // trees
-    for (const [x, y] of [[4, 12], [45, 12], [5, 20], [45, 21], [44, 29], [27, 48], [20, 48]]) tree(k, x, y);
-    // barricade across the front gate: sandbags either side, a wrecked car in the gap
-    for (let x = 14; x <= 35; x += 3) if (x < 21 || x > 27) {
+    k.r(20, 12, 30, 32, "#f4efe2");
+    k.r(20, 12, 20, 32, "#fbf8f0");
+    k.r(30, 12, 30, 32, shadowOf("#f4efe2"));
+    k.r(19, 10, 31, 12, "#2f6f9f");
+    k.r(19, 10, 31, 10, lightOf("#2f6f9f"));
+    k.r(22, 3, 28, 10, "#f4efe2");
+    k.r(28, 3, 28, 10, shadowOf("#f4efe2"));
+    k.r(22, 1, 28, 2, "#2f6f9f");
+    k.r(24, 0, 26, 0, "#2f6f9f");
+    k.disc(25, 6, 2.2, "#2f6f9f");
+    k.disc(25, 6, 1.6, "#fdfdfd");
+    k.r(25, 5, 25, 6, "#222222");
+    k.px(26, 6, "#222222");
+    for (let x = 22; x <= 28; x += 3) k.r(x, 14, x + 1, 16, "#7fc0ea");
+    k.r(24, 17, 26, 22, "#d64545");
+    k.px(25, 23, "#d64545");
+    k.px(25, 19, "#f4d35e");
+    k.r(22, 25, 28, 25, "#2f6f9f");
+    k.r(23, 26, 27, 32, "#5a7fa0");
+    k.r(25, 26, 25, 32, "#3f5f7f");
+    k.r(22, 33, 28, 34, "#d9d2c0");
+
+    // bottom: front plaza, the path out, cherry trees and a barricaded gate
+    k.r(18, 35, 32, 41, "#d9d2c0");
+    for (let x = 19; x < 32; x += 3) k.r(x, 38, x + 1, 38, "#c9c2b2");
+    k.r(23, 41, 27, 51, "#d9d2c0");
+    for (const x of [17, 33]) {
+      k.r(x, 41, x, 44, "#6b4a2f");
+      k.disc(x + 0.5, 39.5, 3, "#e98fb0");
+      k.disc(x - 0.5, 38.5, 1.5, "#fbd0de");
+    }
+    for (const [x, y, c] of [[20, 43, "#f4d35e"], [29, 43, "#d64545"], [21, 45, "#8a5ad6"], [28, 46, "#f4d35e"]]) k.px(x, y, c);
+    k.r(21, 47, 21, 51, "#8a8e96");
+    k.r(29, 47, 29, 51, "#8a8e96");
+    striped(k, 22, 28, 48, 48, "#d64545", "#f4f4f4");
+    for (let x = 12; x <= 38; x += 3) {
+      if (x > 18 && x < 31) continue;
       k.r(x, 49, x + 2, 50, "#c9b58c");
       k.r(x, 50, x + 2, 50, "#a8946a");
     }
-    car(k, 22, 48, "#7a3a2a");
   },
 
   // --- locations (front-on buildings on a street) ---
