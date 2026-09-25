@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, ROOM_UPGRADE_INCREMENT, TECH_TREE,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
-  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
+  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES,
   LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
@@ -17,7 +17,7 @@ import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, loungeRecovery, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
-  isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
+  gymTeachers, gymGain, teacherRank, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
@@ -214,7 +214,8 @@ function roomDisplayName(state, roomId) {
 }
 
 const TEACHER_POST_LABEL = {
-  gym: "Gym",
+  "gym:PE": "Gym (PE)",
+  "gym:Gymnastics": "Gym (Gymnastics)",
   cafeteria: "Cafeteria",
   infirmary: "Nurse's Office",
   research: "Research Room",
@@ -234,7 +235,7 @@ function occupationLabel(state, c) {
   if (c.exploreTeam !== null) return c.exploreTeam === RAID_TEAM ? "Raiding" : `Exploring (Team ${c.exploreTeam + 1})`;
   if (c.infirmaryToday) return "Nurse's Office";
   if (c.loungeToday) return "Lounge";
-  if (c.gymToday) return "Gym";
+  if (c.gymToday) return `Gym (${c.gymToday})`;
   if (c.farmToday) return "Farm";
   if (c.scrapyardToday) return "Scrapyard";
   if (c.ranchToday) return "Ranch";
@@ -262,21 +263,30 @@ function infoDot(text) {
 // Pixel-art banner for a room with everyone working in it standing on the floor — click one to
 // open their card. Past 7 people the rest collapse into a "+N" chip so nobody overlaps too much.
 const SCENE_MAX_PEOPLE = 7;
-function roomScene(kind, people, title, info = "") {
-  const shown = people.slice(0, SCENE_MAX_PEOPLE);
-  const extra = people.length - shown.length;
-  const figures = shown
-    .map((c, i) => {
-      const left = (((i + 1) / (shown.length + 1)) * 100).toFixed(1);
-      return `<span class="scene-person" style="left:${left}%;animation-delay:-${((i * 0.43) % 1.8).toFixed(2)}s"
-        data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${characterSprite(c, 40)}</span>`;
+// `split` stands two groups in the two halves of the scene instead (the Gym's two sides).
+function roomScene(kind, people, title, info = "", split = null) {
+  const groups = split || [people];
+  const perGroup = split ? 5 : SCENE_MAX_PEOPLE;
+  let extra = 0;
+  const figures = groups
+    .map((group, g) => {
+      const shown = group.slice(0, perGroup);
+      extra += group.length - shown.length;
+      const span = 100 / groups.length;
+      return shown
+        .map((c, i) => {
+          const left = (g * span + ((i + 1) / (shown.length + 1)) * span).toFixed(1);
+          return `<span class="scene-person" style="left:${left}%;animation-delay:-${((i * 0.43 + g * 0.2) % 1.8).toFixed(2)}s"
+            data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${characterSprite(c, 40)}</span>`;
+        })
+        .join("");
     })
     .join("");
-  return `<div class="room-scene" style="background-image:${sceneBackground(kind)}">
+  return `<div class="room-scene ${split ? "room-scene-cover" : ""}" style="background-image:${sceneBackground(kind)}">
     <div class="scene-plaque">${title}${info ? infoDot(info) : ""}</div>
     ${figures}
     ${extra > 0 ? `<span class="scene-more">+${extra}</span>` : ""}
-    ${people.length ? "" : `<span class="scene-empty">empty</span>`}
+    ${groups.flat().length ? "" : `<span class="scene-empty">empty</span>`}
   </div>`;
 }
 
@@ -505,7 +515,7 @@ function renderTurn1Overview(state) {
     const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === `classroom:${roomId}`);
     return `<li><b>${roomDisplayName(state, roomId)}</b>: ${n}/${room.seats.length} students, ${teachers.length} teacher(s)</li>`;
   }).join("");
-  const gymCount = state.characters.filter((c) => c.gymToday).length;
+  const gymCount = (side) => state.characters.filter((c) => c.gymToday === side).length;
   const restCount = state.characters.filter((c) => c.loungeToday).length;
   const cooks = cooksOnDuty(state);
   const patientCount = state.characters.filter((c) => c.infirmaryToday).length;
@@ -513,11 +523,11 @@ function renderTurn1Overview(state) {
   const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
   return `
   <div class="card">
-    <h2>Turn 1 — Classes ${infoDot(`Students in their home classroom earn XP toward their grade in that subject. Send students to the Gym for PE & Gymnastics training — a Gym teacher speeds that up, no teacher required. A Floor 2 classroom teacher doesn't speed up grades, but gives every seated student a standing bonus to that subject.`)}</h2>
+    <h2>Turn 1 — Classes ${infoDot(`Students in their home classroom earn XP toward their grade in that subject. Send students to the Gym: the PE side builds max HP, the Gymnastics side max stamina, and the better the teachers on a side, the more each session gives. A Floor 2 classroom teacher doesn't speed up grades, but gives every seated student a standing bonus to that subject.`)}</h2>
     <p class="room-tagline">Classes build grades · Gym costs 20 stamina · exploring costs ${exploreStaminaCost(state)} · the Lounge restores ${loungeRecovery(state)}</p>
     <ul class="summary-list">
       ${classroomSummaries}
-      <li><b>Gym</b>: ${gymCount}/${state.rooms.gym.studentCapacity} students training today</li>
+      <li><b>Gym</b>: PE ${gymCount("PE")}/${state.rooms.gym.studentCapacity} · Gymnastics ${gymCount("Gymnastics")}/${state.rooms.gym.studentCapacity} training today</li>
       <li><b>Cafeteria</b>: ${cooks.length ? cooks.map((c) => esc(c.name)).join(", ") : "no cooks assigned"}</li>
       <li><b>Lounge</b>: ${restCount}/${state.rooms.lounge.studentCapacity} students resting today</li>
       <li><b>Today's meals</b>: ${served.length ? served.map((d) => `${d.icon} ${esc(d.name)}`).join(", ") : `none yet${cooks.length ? " — cook something in the Cafeteria" : ""}`}</li>
@@ -1337,7 +1347,7 @@ function teacherBusyLabel(state, c, exceptPost) {
 }
 
 function studentBusyLabel(c, exceptFlag) {
-  if (exceptFlag !== "gymToday" && c.gymToday) return "Training in the Gym";
+  if (exceptFlag !== "gymToday" && c.gymToday) return `Training ${c.gymToday} in the Gym`;
   if (exceptFlag !== "loungeToday" && c.loungeToday) return "Resting in the Lounge";
   if (exceptFlag !== "infirmaryToday" && c.infirmaryToday) return "In the Nurse's Office";
   if (exceptFlag !== "farmToday" && c.farmToday) return "Working the Farm";
@@ -1356,13 +1366,13 @@ function resolvePickerCandidates(state, picker) {
   switch (kind) {
     case "gym-teacher":
       return {
-        role: "teacher", title: "Assign a Gym Teacher",
-        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "gym").map((c) => teacherRow(c, "gym")),
+        role: "teacher", title: `Assign a ${postKey} Coach`,
+        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== `gym:${postKey}`).map((c) => teacherRow(c, `gym:${postKey}`)),
       };
     case "gym-student":
       return {
-        role: "student", title: "Send a Student to the Gym",
-        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.gymToday)
+        role: "student", title: `Send a Student to ${postKey} Training`,
+        list: state.characters.filter((c) => c.role === "student" && c.alive && c.gymToday !== postKey)
           .map((c) => studentRow(c, "gymToday", (c) => (c.stamina <= 0 ? "Exhausted" : null))),
       };
     case "cafeteria-teacher":
@@ -1549,8 +1559,30 @@ export function renderFloor1(state) {
   const gymRoom = state.rooms.gym;
   const cafeRoom = state.rooms.cafeteria;
 
-  const gymStudents = state.characters.filter((c) => c.gymToday && c.alive);
-  const gymTeachers = state.characters.filter((c) => c.role === "teacher" && c.post === "gym" && c.alive);
+  const gymSide = (side) => {
+    const students = state.characters.filter((c) => c.gymToday === side && c.alive);
+    const teachers = gymTeachers(state, side);
+    const info = GYM_SIDES[side];
+    const bar = side === "PE" ? hpBar : staminaBar;
+    const trained = (c) => (side === "PE" ? c.trainedHp || 0 : c.trainedStamina || 0);
+    const html = `<div class="gym-side gym-side-${side.toLowerCase()}">
+      <div class="gym-side-head">${info.icon} ${info.label} <span>builds ${info.gains}</span></div>
+      <div class="gym-gain">+${gymGain(state, side)} ${info.gains} per session${teachers.length ? ` <span class="muted">(1 + teachers' ranks)</span>` : ` <span class="muted">— a teacher adds their rank</span>`}</div>
+      <div class="mini-label">Teachers (${teachers.length}/${gymRoom.teacherCapacity})</div>
+      <ul class="assign-list">
+        ${teachers.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${side} ${gradeLetter(t.grades[side])} <span class="muted">(+${teacherRank(t, side)})</span></span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+      </ul>
+      ${teachers.length < gymRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-teacher" data-post="${side}">+ Assign teacher…</button>` : ""}
+      <div class="mini-label">Training today (${students.length}/${gymRoom.studentCapacity})</div>
+      <ul class="assign-list">
+        ${students.map((s) => `<li><span class="assign-who">${nameTag(s)} <span class="muted">+${trained(s)}/${GYM_MAX_BONUS}</span></span>${bar(s)}<button class="btn-x" data-action="remove-gym" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+      </ul>
+      ${students.length < gymRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-student" data-post="${side}">+ Send student…</button>` : ""}
+    </div>`;
+    return { students, teachers, html };
+  };
+  const pe = gymSide("PE");
+  const gymnastics = gymSide("Gymnastics");
 
   const cooks = cooksOnDuty(state);
   const lounge = state.rooms.lounge;
@@ -1589,22 +1621,16 @@ export function renderFloor1(state) {
   <div class="card">
     <h2>Floor 1 — Commons</h2>
     <div class="floor-grid floor1-grid">
-      <div class="room room-gym">
-        ${roomScene("gym", [...gymTeachers, ...gymStudents], "Gym",
-          `Up to ${gymRoom.studentCapacity} students/day, ${gymRoom.teacherCapacity} teachers. No teacher required — one assigned just adds a training bonus. Training costs 20 stamina.`)}
-        <p class="room-tagline">Trains PE &amp; Gymnastics · 20 stamina each</p>
-        <div class="mini-label">Teachers (optional)</div>
-        <ul class="assign-list">
-          ${gymTeachers.map((t) => `<li>${nameTag(t)} — PE ${teachBonusLabel(t.grades.PE)}, Gym ${teachBonusLabel(t.grades.Gymnastics)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
-        </ul>
-        ${gymTeachers.length < gymRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-teacher">+ Assign teacher…</button>` : ""}
-        ${upgradeButton(state, "gym", null, "teacher", "Teacher slot")}
-        <div class="mini-label">Training today (${gymStudents.length}/${gymRoom.studentCapacity})</div>
-        <ul class="assign-list">
-          ${gymStudents.map((s) => `<li><span class="assign-who">${nameTag(s)}</span>${staminaBar(s)}<button class="btn-x" data-action="remove-gym" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
-        </ul>
-        ${gymStudents.length < gymRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-student">+ Send student…</button>` : ""}
-        ${upgradeButton(state, "gym", null, "student", "Student slot")}
+      <div class="room room-gym room-wide">
+        ${roomScene("gym", [], "Gym",
+          `Split down the middle. The PE side builds max HP and the Gymnastics side builds max stamina: every session gives each student there 1 + the combined rank of that side's teachers (F 0, D 1, C 2, B 3, A 4, S 5), up to +${GYM_MAX_BONUS} each. Students also earn that subject's grade XP. Up to ${gymRoom.studentCapacity} students and ${gymRoom.teacherCapacity} teachers per side; training costs 20 stamina.`,
+          [[...pe.teachers, ...pe.students], [...gymnastics.teachers, ...gymnastics.students]])}
+        <p class="room-tagline">💪 PE builds max HP · 🤸 Gymnastics builds max stamina · 20 stamina a session</p>
+        <div class="gym-sides">${pe.html}${gymnastics.html}</div>
+        <div class="row-actions">
+          ${upgradeButton(state, "gym", null, "teacher", "Teacher slots (each side)")}
+          ${upgradeButton(state, "gym", null, "student", "Student slots (each side)")}
+        </div>
       </div>
       <div class="room room-cafeteria">
         ${roomScene("cafeteria", cooks, "Cafeteria",

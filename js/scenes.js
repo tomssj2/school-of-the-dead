@@ -9,32 +9,32 @@ import { shadowOf, lightOf, outlineOf } from "./sprite.js";
 const SW = 96;
 const SH = 24;
 
-function indoor(r, wall, wallLow, floor, floorLine, style) {
-  r(0, 0, 95, 15, wall);
-  r(0, 10, 95, 14, wallLow);
-  r(0, 10, 95, 10, shadowOf(wallLow));
-  r(0, 15, 95, 15, "#2a2230");
-  r(0, 16, 95, 23, floor);
+function indoor(r, wall, wallLow, floor, floorLine, style, w = SW) {
+  r(0, 0, w - 1, 15, wall);
+  r(0, 10, w - 1, 14, wallLow);
+  r(0, 10, w - 1, 10, shadowOf(wallLow));
+  r(0, 15, w - 1, 15, "#2a2230");
+  r(0, 16, w - 1, 23, floor);
   if (style === "wood") {
-    for (const y of [18, 21]) r(0, y, 95, y, floorLine);
-    for (let x = 5; x < SW; x += 16) {
+    for (const y of [18, 21]) r(0, y, w - 1, y, floorLine);
+    for (let x = 5; x < w; x += 16) {
       r(x, 16, x, 17, floorLine);
       r(x + 8, 19, x + 8, 20, floorLine);
       r(x + 4, 22, x + 4, 23, floorLine);
     }
   } else if (style === "checker") {
-    for (let x = 0; x < SW; x += 4) for (let y = 16; y < SH; y += 4) if ((x / 4 + (y - 16) / 4) % 2) r(x, y, x + 3, y + 3, floorLine);
+    for (let x = 0; x < w; x += 4) for (let y = 16; y < SH; y += 4) if ((x / 4 + (y - 16) / 4) % 2) r(x, y, x + 3, y + 3, floorLine);
   } else if (style === "tile") {
-    for (let x = 0; x < SW; x += 6) r(x, 16, x, 23, floorLine);
-    r(0, 19, 95, 19, floorLine);
-    r(0, 22, 95, 22, floorLine);
+    for (let x = 0; x < w; x += 6) r(x, 16, x, 23, floorLine);
+    r(0, 19, w - 1, 19, floorLine);
+    r(0, 22, w - 1, 22, floorLine);
   } else if (style === "carpet") {
-    for (let x = 1; x < SW; x += 4) for (let y = 17; y < SH; y += 3) r(x + (y % 2), y, x + (y % 2), y, floorLine);
+    for (let x = 1; x < w; x += 4) for (let y = 17; y < SH; y += 3) r(x + (y % 2), y, x + (y % 2), y, floorLine);
   } else if (style === "concrete") {
-    r(0, 19, 95, 19, floorLine);
+    r(0, 19, w - 1, 19, floorLine);
     for (const [x, y0, y1] of [[30, 16, 18], [62, 20, 23], [14, 20, 23], [80, 16, 18]]) r(x, y0, x, y1, floorLine);
   }
-  r(0, 16, 95, 16, shadowOf(floor));
+  r(0, 16, w - 1, 16, shadowOf(floor));
 }
 
 function outdoor(r, sky, ground) {
@@ -54,23 +54,60 @@ function bed(r, x0) {
 }
 
 const SCENES = {
+  // Twice as wide as the other rooms: the PE side (weights, bench, punching bag) on the left and
+  // the Gymnastics side (rings, balance beam, crash mats) on the right, a folding partition between.
   gym(r) {
-    indoor(r, "#7d9cc4", "#6384ad", "#c48d55", "#ad7a45", "wood");
-    for (let x = 4; x <= 14; x += 2) r(x, 3, x, 14, "#d8b27a");
-    for (const y of [5, 8, 11]) r(4, y, 14, y, "#b58a55");
-    r(38, 2, 58, 5, "#d64545");
-    r(40, 3, 56, 3, "#f4d35e");
-    r(44, 6, 52, 6, "#d64545");
-    r(47, 7, 49, 7, "#d64545");
-    r(90, 2, 91, 15, "#6b6f76");
-    r(78, 3, 89, 9, "#f4f4f4");
-    r(78, 3, 89, 3, "#c43d3d");
-    for (const [x0, y0, x1, y1] of [[82, 5, 85, 5], [82, 7, 85, 7], [82, 5, 82, 7], [85, 5, 85, 7]]) r(x0, y0, x1, y1, "#c43d3d");
-    r(81, 10, 86, 10, "#e0602a");
-    for (let x = 81; x <= 86; x += 2) r(x, 11, x, 12, "#e8e8e8");
-    r(0, 19, 95, 19, "#efe6cf");
-    r(66, 20, 68, 22, "#e0602a");
-    r(67, 20, 67, 22, "#7a2f10");
+    indoor(r, "#7d9cc4", "#6384ad", "#c48d55", "#ad7a45", "wood", 192);
+    // PE side
+    r(4, 2, 22, 5, "#d64545");
+    r(6, 3, 20, 3, "#f4d35e");
+    r(6, 7, 26, 14, "#6b6f78");
+    r(6, 7, 26, 7, "#8a8e96");
+    for (const y of [9, 12]) {
+      r(7, y, 25, y, "#3a3a3a");
+      for (let x = 8; x <= 24; x += 4) r(x, y - 1, x + 1, y + 1, "#2a2d33");
+    }
+    r(40, 12, 58, 13, "#8a5f33");
+    r(41, 14, 42, 15, "#6b4a2f");
+    r(56, 14, 57, 15, "#6b4a2f");
+    r(44, 6, 45, 12, "#9aa0a8");
+    r(53, 6, 54, 12, "#9aa0a8");
+    r(40, 5, 58, 5, "#3a3a3a");
+    r(38, 4, 40, 7, "#2a2d33");
+    r(58, 4, 60, 7, "#2a2d33");
+    r(76, 0, 76, 3, "#5d6168");
+    r(73, 4, 79, 13, "#b03030");
+    r(73, 4, 73, 13, "#d0453e");
+    r(73, 13, 79, 13, "#7a2020");
+    r(62, 20, 66, 21, "#2a2d33");
+    r(63, 19, 65, 19, "#2a2d33");
+    // the partition down the middle
+    r(95, 0, 96, 15, "#5a4a3a");
+    for (let y = 1; y < 15; y += 3) r(94, y, 97, y, "#6b5a48");
+    r(95, 16, 96, 23, "#3a3030");
+    // Gymnastics side
+    r(170, 2, 188, 5, "#3f6fb5");
+    r(172, 3, 186, 3, "#f4d35e");
+    for (const x of [108, 116]) {
+      r(x, 0, x, 7, "#9aa0a8");
+      r(x - 1, 8, x + 1, 8, "#c9b58c");
+      r(x - 2, 9, x - 2, 10, "#c9b58c");
+      r(x + 2, 9, x + 2, 10, "#c9b58c");
+      r(x - 1, 11, x + 1, 11, "#c9b58c");
+    }
+    r(126, 11, 152, 12, "#c49a64");
+    r(126, 11, 152, 11, "#e0b884");
+    r(129, 13, 130, 15, "#6b6f78");
+    r(148, 13, 149, 15, "#6b6f78");
+    r(160, 9, 172, 12, "#8a5f33");
+    r(160, 9, 172, 9, "#a8753f");
+    r(162, 13, 163, 15, "#6b4a2f");
+    r(169, 13, 170, 15, "#6b4a2f");
+    r(104, 18, 150, 22, "#3f6fd6");
+    r(104, 18, 150, 18, "#6f9ae8");
+    for (let x = 112; x < 150; x += 12) r(x, 18, x, 22, "#2f5ab8");
+    r(0, 19, 94, 19, "#efe6cf");
+    r(178, 20, 180, 22, "#e0602a");
   },
   cafeteria(r) {
     indoor(r, "#eadfc4", "#d6c39c", "#d9d9d9", "#a9a9a9", "checker");
@@ -308,6 +345,8 @@ const SCENES = {
   },
 };
 
+// Scenes are SW pixels wide unless listed here.
+const SCENE_WIDTHS = { gym: 192 };
 const sceneCache = new Map();
 
 // Returned as a CSS url() so the banner can tile it sideways — full-width cards get a longer
@@ -319,7 +358,8 @@ export function sceneBackground(kind) {
       rects += `<rect x="${x0}" y="${y0}" width="${x1 - x0 + 1}" height="${y1 - y0 + 1}" fill="${c}"/>`;
     };
     SCENES[kind](r);
-    const svg = `<svg viewBox="0 0 ${SW} ${SH}" width="${SW}" height="${SH}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
+    const w = SCENE_WIDTHS[kind] || SW;
+    const svg = `<svg viewBox="0 0 ${w} ${SH}" width="${w}" height="${SH}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
     sceneCache.set(kind, `url('data:image/svg+xml,${encodeURIComponent(svg)}')`);
   }
   return sceneCache.get(kind);

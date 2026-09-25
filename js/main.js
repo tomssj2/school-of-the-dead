@@ -7,7 +7,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, ROOM_UPGRADE_INCREMENT, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -171,6 +171,19 @@ function migrateState(s) {
   if (s.rooms.farm.plots === undefined) s.rooms.farm.plots = FACILITY_PLOTS.farm;
   G.syncPlots(s, "farm");
   G.syncPlots(s, "ranch");
+  // The Gym was split into PE / Gymnastics sides with per-side capacities: keep the upgrade
+  // levels already bought, move gym teachers to the PE side, and send today's trainees there too.
+  if (!s.gymSplit) {
+    const studentLevel = Math.max(0, Math.round((s.rooms.gym.studentCapacity - 10) / 5));
+    const teacherLevel = Math.max(0, s.rooms.gym.teacherCapacity - 3);
+    s.rooms.gym.studentCapacity = GYM_CAPACITY + ROOM_UPGRADE_INCREMENT.gymStudent * studentLevel;
+    s.rooms.gym.teacherCapacity = GYM_MAX_TEACHERS + teacherLevel;
+    for (const c of s.characters) {
+      if (c.post === "gym") c.post = "gym:PE";
+      if (c.gymToday === true) c.gymToday = "PE";
+    }
+    s.gymSplit = true;
+  }
   if (!s.nests) s.nests = [];
   if (s.raidTarget === undefined) s.raidTarget = null;
   if (!s.raidCooldowns) s.raidCooldowns = {};
@@ -849,8 +862,8 @@ root.addEventListener("click", (e) => {
       const id = el.dataset.id;
       const { kind, roomId, postKey, seatIndex } = openPicker;
       switch (kind) {
-        case "gym-teacher": G.setTeacherPost(state, id, "gym"); break;
-        case "gym-student": G.setGymToday(state, id, true); break;
+        case "gym-teacher": G.setTeacherPost(state, id, `gym:${postKey}`); break;
+        case "gym-student": G.setGymToday(state, id, postKey); break;
         case "cafeteria-teacher": G.setTeacherPost(state, id, "cafeteria"); break;
         case "lounge-student": G.setLoungeToday(state, id, true); break;
         case "infirmary-teacher": G.setTeacherPost(state, id, "infirmary"); break;

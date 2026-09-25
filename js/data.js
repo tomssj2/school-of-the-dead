@@ -318,8 +318,16 @@ export const CLASSROOM_SEATS_PER_ROW = CLASSROOM_DESKS_PER_ROW * 2; // 6
 export const CLASSROOM_CAPACITY = 4 * CLASSROOM_SEATS_PER_ROW; // 24 (base: 4 rows)
 export const CLASSROOM_MAX_TEACHERS = 1; // one teacher = one subject, kept simple and not upgradeable
 
-export const GYM_CAPACITY = 10; // base student slots/day
-export const GYM_MAX_TEACHERS = 3; // base teacher slots (gym works fine with none assigned)
+// The Gym is split down the middle: the PE side builds max HP, the Gymnastics side max stamina.
+// Capacities are per side. Each session adds 1 + the combined rank of that side's teachers
+// (F=0, D=1, C=2, B=3, A=4, S=5) to every student there, up to GYM_MAX_BONUS in total.
+export const GYM_CAPACITY = 5; // base student slots per side
+export const GYM_MAX_TEACHERS = 2; // base teacher slots per side (the gym works fine with none)
+export const GYM_MAX_BONUS = 100; // most max HP / max stamina a student can gain from training
+export const GYM_SIDES = {
+  PE: { label: "PE", icon: "💪", gains: "max HP" },
+  Gymnastics: { label: "Gymnastics", icon: "🤸", gains: "max stamina" },
+};
 
 export const CAFETERIA_MAX_TEACHERS = 3; // base teacher (cook) slots — each cook makes one dish a day
 
@@ -469,7 +477,7 @@ export const roomUpgradeCost = (level) => 15 * (level + 1);
 // How much capacity one upgrade level adds, per room/slot type.
 export const ROOM_UPGRADE_INCREMENT = {
   classroomStudent: CLASSROOM_SEATS_PER_ROW, // +1 row
-  gymStudent: 5,
+  gymStudent: 3, // per side
   gymTeacher: 1,
   cafeteriaTeacher: 1,
   loungeStudent: 5,

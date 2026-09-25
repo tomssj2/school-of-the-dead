@@ -1,6 +1,6 @@
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS,
-  GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY,
+  GYM_CAPACITY, GYM_MAX_TEACHERS, GYM_MAX_BONUS, CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY,
   RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME,
   FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
@@ -72,6 +72,7 @@ export function createInitialState() {
     stock: { ...STARTING_STOCK }, // PRODUCERS id -> seeds / livestock waiting to be planted or penned
     plots: { farm: [emptyPlot()], ranch: [emptyPlot()] }, // Farm plots and Ranch pens
     dishesToday: [], // DISHES ids served today; their buffs last until the day rolls over
+    gymSplit: true, // the Gym has separate PE / Gymnastics sides (see migrateState)
     nests: [], // "q,r" keys of zombie nests found while scouting
     raidTarget: null, // LANDMARKS id today's raid squad is going after
     raidCooldowns: {}, // landmark id -> day its boss is back after being killed
@@ -219,8 +220,8 @@ export function setTeacherPost(state, teacherId, post) {
     if (!state.rooms.classrooms[roomId]) return false;
     const count = state.characters.filter((c) => c.role === "teacher" && c.post === post).length;
     if (count >= CLASSROOM_MAX_TEACHERS) return false;
-  } else if (post === "gym") {
-    const count = state.characters.filter((c) => c.role === "teacher" && c.post === "gym").length;
+  } else if (post && post.startsWith("gym:")) {
+    const count = state.characters.filter((c) => c.role === "teacher" && c.post === post).length;
     if (count >= state.rooms.gym.teacherCapacity) return false;
   } else if (post === "cafeteria") {
     const count = state.characters.filter((c) => c.role === "teacher" && c.post === "cafeteria").length;
@@ -254,16 +255,34 @@ export function setTeacherPost(state, teacherId, post) {
   return true;
 }
 
-export function setGymToday(state, studentId, value) {
+// `side` is "PE" or "Gymnastics" (a student trains on one side a day), or false to leave.
+export function setGymToday(state, studentId, side) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
-  if (value) {
+  if (side) {
     if (c.stamina <= 0) return false; // too exhausted to train
-    const count = state.characters.filter((x) => x.gymToday).length;
+    const count = state.characters.filter((x) => x.gymToday === side && x.id !== c.id).length;
     if (count >= state.rooms.gym.studentCapacity) return false;
   }
-  c.gymToday = value;
+  c.gymToday = side || false;
   return true;
+}
+
+export function gymTeachers(state, side) {
+  return state.characters.filter((c) => c.role === "teacher" && c.post === `gym:${side}` && c.alive);
+}
+
+// A teacher's rank in a subject: F=0, D=1, C=2, B=3, A=4, S=5.
+export const teacherRank = (t, subject) => GRADE_TIERS.indexOf(gradeLetter(t.grades[subject]));
+
+// Max HP (PE) or max stamina (Gymnastics) each student gains from one session on that side.
+export function gymGain(state, side) {
+  return 1 + gymTeachers(state, side).reduce((sum, t) => sum + teacherRank(t, side), 0);
+}
+
+// Max HP comes from the grades, plus whatever was built up in the Gym.
+function refreshMaxHp(c) {
+  c.maxHp = maxHpFor(c.grades) + (c.trainedHp || 0);
 }
 
 // Resting in the lounge recharges stamina (state.rooms.lounge.recovery) — anyone can rest
@@ -549,7 +568,7 @@ function grantXp(state, charId, subject, amount) {
     c.grades[subject] = Math.min(100, c.grades[subject] + 1);
     guard++;
   }
-  c.maxHp = maxHpFor(c.grades);
+  refreshMaxHp(c);
 }
 
 // Sum of a perk across every owned research node (0 if none give it) — see TECH_TREE in data.js.
@@ -615,20 +634,31 @@ export function resolveTraining(state) {
     }
   }
 
-  // gym — no teacher required; one who's assigned adds a training bonus on top.
-  const gymTeacherIds = state.characters
-    .filter((c) => c.role === "teacher" && c.post === "gym" && c.alive)
-    .map((c) => c.id);
-  const peBonus = gymTeacherIds.reduce((sum, id) => sum + teachingBonus(getChar(state, id).grades.PE), 0);
-  const gymBonus = gymTeacherIds.reduce((sum, id) => sum + teachingBonus(getChar(state, id).grades.Gymnastics), 0);
-  const gymStudents = state.characters.filter((c) => c.gymToday && c.alive);
-  for (const c of gymStudents) {
-    grantXp(state, c.id, "PE", 3 + peBonus + randInt(0, 2));
-    grantXp(state, c.id, "Gymnastics", 3 + gymBonus + randInt(0, 2));
-    c.stamina = Math.max(0, c.stamina - STAMINA_COST_GYM);
+  // gym — split down the middle. The PE side builds max HP and the Gymnastics side max stamina,
+  // by 1 + the combined rank of that side's teachers; students also earn that subject's grade XP
+  // (faster with a good teacher). No teacher is required.
+  for (const side of ["PE", "Gymnastics"]) {
+    const students = state.characters.filter((c) => c.gymToday === side && c.alive);
+    if (!students.length) continue;
+    const xpBonus = gymTeachers(state, side).reduce((sum, t) => sum + teachingBonus(t.grades[side]), 0);
+    const gain = gymGain(state, side);
+    for (const c of students) {
+      grantXp(state, c.id, side, 3 + xpBonus + randInt(0, 2));
+      if (side === "PE") {
+        const add = Math.max(0, Math.min(gain, GYM_MAX_BONUS - (c.trainedHp || 0)));
+        c.trainedHp = (c.trainedHp || 0) + add;
+        refreshMaxHp(c);
+        c.hp = Math.min(c.maxHp, c.hp + add);
+      } else {
+        const add = Math.max(0, Math.min(gain, GYM_MAX_BONUS - (c.trainedStamina || 0)));
+        c.trainedStamina = (c.trainedStamina || 0) + add;
+        c.maxStamina = MAX_STAMINA + c.trainedStamina;
+      }
+      c.stamina = Math.max(0, c.stamina - STAMINA_COST_GYM);
+    }
+    addLog(state, `${side} training for ${students.length} student(s): +${gain} ${side === "PE" ? "max HP" : "max stamina"} each.`);
+    teamBondBumps(state, students.map((c) => c.id));
   }
-  if (gymStudents.length) addLog(state, `Gym session held for ${gymStudents.length} student(s).`);
-  teamBondBumps(state, gymStudents.map((c) => c.id));
 
   // cafeteria — cooks stretch the rations (their dishes are served on demand, see cookDish) and
   // recharge their own stamina; cooking is how teachers recover.
