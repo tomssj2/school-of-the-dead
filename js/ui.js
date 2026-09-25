@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, ROOM_UPGRADE_INCREMENT, TECH_TREE,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
-  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
+  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_NURSE_BONUS, INFIRMARY_HEAL_BY_LEVEL, INFIRMARY_REST_BY_LEVEL,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
@@ -16,7 +16,7 @@ import {
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, loungeRecovery, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHealShare, infirmaryRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymGain, teacherRank, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -213,6 +213,10 @@ function roomDisplayName(state, roomId) {
   return room.subject ? SUBJECT_LABEL[room.subject] : `Classroom ${roomId}`;
 }
 
+// What the next Care upgrade brings the Nurse's Office to, by current level.
+const INFIRMARY_HEAL_NEXT = INFIRMARY_HEAL_BY_LEVEL.slice(1);
+const INFIRMARY_REST_NEXT = INFIRMARY_REST_BY_LEVEL.slice(1);
+
 const TEACHER_POST_LABEL = {
   "gym:PE": "Gym (PE)",
   "gym:Gymnastics": "Gym (Gymnastics)",
@@ -233,8 +237,7 @@ function occupationLabel(state, c) {
   }
   if (c.defending) return "Defending";
   if (c.exploreTeam !== null) return c.exploreTeam === RAID_TEAM ? "Raiding" : `Exploring (Team ${c.exploreTeam + 1})`;
-  if (c.infirmaryToday) return "Nurse's Office";
-  if (c.loungeToday) return "Lounge";
+  if (c.infirmaryToday) return c.infirmaryToday === "rest" ? "Resting (Nurse)" : "Nurse's Office";
   if (c.gymToday) return `Gym (${c.gymToday})`;
   if (c.farmToday) return "Farm";
   if (c.scrapyardToday) return "Scrapyard";
@@ -647,7 +650,6 @@ function renderTurn1Overview(state) {
     return `<li><b>${roomDisplayName(state, roomId)}</b>: ${n}/${room.seats.length} students, ${teachers.length} teacher(s)</li>`;
   }).join("");
   const gymCount = (side) => state.characters.filter((c) => c.gymToday === side).length;
-  const restCount = state.characters.filter((c) => c.loungeToday).length;
   const cooks = cooksOnDuty(state);
   const patientCount = state.characters.filter((c) => c.infirmaryToday).length;
   const nurse = state.characters.find((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
@@ -655,12 +657,11 @@ function renderTurn1Overview(state) {
   return `
   <div class="card">
     <h2>Turn 1 — Classes ${infoDot(`Students in their home classroom earn XP toward their grade in that subject. Send students to the Gym: the PE side builds max HP, the Gymnastics side max stamina, and the better the teachers on a side, the more each session gives. A Floor 2 classroom teacher doesn't speed up grades, but gives every seated student a standing bonus to that subject.`)}</h2>
-    <p class="room-tagline">Classes build grades · Gym costs 20 stamina · exploring costs ${exploreStaminaCost(state)} · the Lounge restores ${loungeRecovery(state)}</p>
+    <p class="room-tagline">Classes build grades · Gym costs 20 stamina · exploring costs ${exploreStaminaCost(state)} · resting at the nurse's restores ${infirmaryRest(state)}</p>
     <ul class="summary-list">
       ${classroomSummaries}
       <li><b>Gym</b>: PE ${gymCount("PE")}/${state.rooms.gym.studentCapacity} · Gymnastics ${gymCount("Gymnastics")}/${state.rooms.gym.studentCapacity} training today</li>
       <li><b>Cafeteria</b>: ${cooks.length ? cooks.map((c) => esc(c.name)).join(", ") : "no cooks assigned"}</li>
-      <li><b>Lounge</b>: ${restCount}/${state.rooms.lounge.studentCapacity} students resting today</li>
       <li><b>Today's meals</b>: ${served.length ? served.map((d) => `${d.icon} ${esc(d.name)}`).join(", ") : `none yet${cooks.length ? " — cook something in the Cafeteria" : ""}`}</li>
       <li><b>Nurse's Office</b>: ${nurse ? esc(nurse.name) : "no nurse"}, ${patientCount}/${state.rooms.infirmary.studentCapacity} patients today</li>
     </ul>
@@ -1480,7 +1481,6 @@ function teacherBusyLabel(state, c, exceptPost) {
 
 function studentBusyLabel(c, exceptFlag) {
   if (exceptFlag !== "gymToday" && c.gymToday) return `Training ${c.gymToday} in the Gym`;
-  if (exceptFlag !== "loungeToday" && c.loungeToday) return "Resting in the Lounge";
   if (exceptFlag !== "infirmaryToday" && c.infirmaryToday) return "In the Nurse's Office";
   if (exceptFlag !== "farmToday" && c.farmToday) return "Working the Farm";
   if (exceptFlag !== "scrapyardToday" && c.scrapyardToday) return "Working the Scrapyard";
@@ -1512,12 +1512,6 @@ function resolvePickerCandidates(state, picker) {
         role: "teacher", title: "Assign a Cook",
         list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "cafeteria").map((c) => teacherRow(c, "cafeteria")),
       };
-    case "lounge-student":
-      return {
-        role: "student", title: "Send a Student to the Lounge",
-        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.loungeToday)
-          .map((c) => studentRow(c, "loungeToday", (c) => (c.stamina >= c.maxStamina ? "Already fully rested" : null))),
-      };
     case "infirmary-teacher":
       return {
         role: "teacher", title: "Assign a Nurse",
@@ -1527,7 +1521,7 @@ function resolvePickerCandidates(state, picker) {
       return {
         role: "student", title: "Send a Student to the Nurse",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infirmaryToday)
-          .map((c) => studentRow(c, "infirmaryToday", (c) => (c.hp >= c.maxHp ? "Already at full HP" : null))),
+          .map((c) => studentRow(c, "infirmaryToday", (c) => (c.hp >= c.maxHp && c.stamina >= c.maxStamina ? "Already fully rested and healed" : null))),
       };
     case "classroom-teacher": {
       const post = `classroom:${roomId}`;
@@ -1717,8 +1711,6 @@ export function renderFloor1(state) {
   const gymnastics = gymSide("Gymnastics");
 
   const cooks = cooksOnDuty(state);
-  const lounge = state.rooms.lounge;
-  const resting = state.characters.filter((c) => c.loungeToday && c.alive);
 
   const infRoom = state.rooms.infirmary;
   const nurses = state.characters.filter((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
@@ -1780,8 +1772,8 @@ export function renderFloor1(state) {
       </div>
       <div class="room room-infirmary">
         ${roomScene("infirmary", [...nurses, ...patients], "Nurse's Office",
-          `Up to ${infRoom.studentCapacity} patients/day. Each patient heals ${Math.round(INFIRMARY_HEAL_BASE * 100)}% of their max HP${nurses.length ? ` +${nurseBonus}% from the nurse's Biology` : " (a nurse's Biology adds up to 25% more)"} for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare they only get bed rest (10%).`)}
-        <p class="room-tagline">Heals ${Math.round(INFIRMARY_HEAL_BASE * 100) + nurseBonus}% HP per patient · ${INFIRMARY_MEDICINE_PER_PATIENT} medicine each</p>
+          `Up to ${infRoom.studentCapacity} patients/day, each either healed or resting. 💊 Heal: ${Math.round(infirmaryHealShare(state) * 100)}% of max HP${nurses.length ? ` +${nurseBonus}% from the nurse's Biology` : " (a nurse's Biology adds up to 25% more)"} for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (10%). 😴 Rest: +${infirmaryRest(state)} stamina, free. The Care upgrade raises both (HP 30/50/70%, stamina 20/50/80). Everyone also gets a little stamina and HP back on nights the school is fed.`)}
+        <p class="room-tagline">💊 Heal <b>${Math.round(infirmaryHealShare(state) * 100) + nurseBonus}% HP</b> for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine · 😴 Rest <b>+${infirmaryRest(state)} stamina</b></p>
         <div class="mini-label">Nurse (${nurses.length}/${infRoom.teacherCapacity})</div>
         <ul class="assign-list">
           ${nurses.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
@@ -1789,22 +1781,18 @@ export function renderFloor1(state) {
         ${nurses.length < infRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-teacher">+ Assign nurse…</button>` : ""}
         <div class="mini-label">Patients today (${patients.length}/${infRoom.studentCapacity})</div>
         <ul class="assign-list">
-          ${patients.map((s) => `<li><span class="assign-who">${nameTag(s)}</span>${hpBar(s)}<button class="btn-x" data-action="remove-infirmary" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+          ${patients.map((s) => {
+            const mode = s.infirmaryToday === "rest" ? "rest" : "heal";
+            return `<li><span class="assign-who">${nameTag(s)}
+              <span class="treat-toggle">
+                <button class="treat-btn ${mode === "heal" ? "treat-on" : ""}" data-action="set-treatment" data-id="${s.id}" data-mode="heal" title="Heal HP for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine">💊 Heal</button>
+                <button class="treat-btn ${mode === "rest" ? "treat-on" : ""}" data-action="set-treatment" data-id="${s.id}" data-mode="rest" title="Rest for stamina">😴 Rest</button>
+              </span></span>${mode === "rest" ? staminaBar(s) : hpBar(s)}<button class="btn-x" data-action="remove-infirmary" data-id="${s.id}">✕</button></li>`;
+          }).join("") || '<li class="muted">none</li>'}
         </ul>
         ${patients.length < infRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-student">+ Admit patient…</button>` : ""}
         ${upgradeButton(state, "infirmary", null, "student", "Bed")}
-      </div>
-      <div class="room room-lounge">
-        ${roomScene("lounge", resting, "Lounge",
-          `Up to ${lounge.studentCapacity} students/day. Everyone resting here recovers ${loungeRecovery(state)} stamina — students only; teachers recover by cooking. On nights the school is fed, everyone also gets a little stamina back (5 + 10% of their max) and some HP.`)}
-        <p class="room-tagline">Resting students recover <b>${loungeRecovery(state)} stamina</b></p>
-        <div class="mini-label">Resting today (${resting.length}/${lounge.studentCapacity})</div>
-        <ul class="assign-list">
-          ${resting.map((s) => `<li><span class="assign-who">${nameTag(s)}</span>${staminaBar(s)}<button class="btn-x" data-action="remove-lounge" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
-        </ul>
-        ${resting.length < lounge.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="lounge-student">+ Send student…</button>` : ""}
-        ${upgradeButton(state, "lounge", null, "student", "Rest slots")}
-        ${upgradeButton(state, "lounge", null, "recovery", "Recovery +15")}
+        ${upgradeButton(state, "infirmary", null, "care", (state.rooms.infirmary.care || 0) < INFIRMARY_HEAL_NEXT.length ? `Care (HP ${Math.round(INFIRMARY_HEAL_NEXT[state.rooms.infirmary.care || 0] * 100)}% · stamina ${INFIRMARY_REST_NEXT[state.rooms.infirmary.care || 0]})` : "Care")}
       </div>
     </div>
   </div>`;

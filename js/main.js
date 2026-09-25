@@ -6,9 +6,9 @@ import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStam
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
-  CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
+  CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, ROOM_UPGRADE_INCREMENT, OBJECTIVES, ROOM_FIGHT_SQUAD, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, ROOM_UPGRADE_INCREMENT, OBJECTIVES, ROOM_FIGHT_SQUAD, roomUpgradeCost, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -103,10 +103,11 @@ function migrateState(s) {
     // Max HP now comes from CON and STR (plus Gym training) — also recomputed on every load.
     c.maxHp = maxHpFor(c.grades) + (c.trainedHp || 0);
     if (c.alive !== false) c.hp = Math.min(c.hp, c.maxHp);
-    // students used to rest in the cafeteria; that moved to the lounge
-    if (c.loungeToday === undefined) c.loungeToday = !!c.cafeteriaToday;
+    // Resting moved from the cafeteria to the lounge, and then to the Nurse's Office.
     delete c.cafeteriaToday;
+    delete c.loungeToday;
     if (c.infirmaryToday === undefined) c.infirmaryToday = false;
+    if (c.infirmaryToday === true) c.infirmaryToday = "heal";
     if (c.farmToday === undefined) c.farmToday = false;
     if (c.scrapyardToday === undefined) c.scrapyardToday = false;
     delete c.labToday; // the Lab was replaced by the Ranch
@@ -124,11 +125,20 @@ function migrateState(s) {
   migrateClassroomRooms(s);
   if (!s.rooms.gym) s.rooms.gym = { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS };
   if (!s.rooms.cafeteria) s.rooms.cafeteria = { teacherCapacity: CAFETERIA_MAX_TEACHERS };
-  if (!s.rooms.lounge) {
-    // carry any rest-slot upgrades bought for the old cafeteria over to the lounge
-    s.rooms.lounge = { studentCapacity: s.rooms.cafeteria.studentCapacity || LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY };
-  }
   delete s.rooms.cafeteria.studentCapacity;
+  // The Lounge is gone (students rest in the Nurse's Office now): refund what its upgrades cost.
+  if (s.rooms.lounge) {
+    const slotLevels = Math.max(0, Math.round((s.rooms.lounge.studentCapacity - 10) / 5));
+    const restLevels = Math.max(0, Math.round((s.rooms.lounge.recovery - 50) / 15));
+    let refund = 0;
+    for (let l = 0; l < slotLevels; l++) refund += roomUpgradeCost(l);
+    for (let l = 0; l < restLevels; l++) refund += roomUpgradeCost(l);
+    if (refund) {
+      s.resources.materials += refund;
+      G.addLog(s, `🛏 The Lounge was turned over to the Nurse's Office — students rest there now. ${refund} scrap from its upgrades was refunded.`);
+    }
+    delete s.rooms.lounge;
+  }
   if (!s.rooms.research) s.rooms.research = { teacherCapacity: RESEARCH_ROOM_TEACHERS };
   if (!s.rooms.farm) s.rooms.farm = { studentCapacity: FARM_CAPACITY };
   if (!s.rooms.scrapyard) s.rooms.scrapyard = { studentCapacity: SCRAPYARD_CAPACITY };
@@ -155,6 +165,7 @@ function migrateState(s) {
   if (s.victory === undefined) s.victory = false;
   if (!s.bossesSlain) s.bossesSlain = [];
   if (!s.rooms.infirmary) s.rooms.infirmary = { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS };
+  if (s.rooms.infirmary.care === undefined) s.rooms.infirmary.care = 0;
   if (!s.pantry) s.pantry = { ...STARTING_PANTRY };
   if (!s.dishesToday) s.dishesToday = [];
   // Ingredients that no longer exist (honey, chocolate) are dropped; new ones start at the
@@ -610,8 +621,8 @@ root.addEventListener("click", (e) => {
       G.setGymToday(state, el.dataset.id, false);
       render();
       break;
-    case "remove-lounge":
-      G.setLoungeToday(state, el.dataset.id, false);
+    case "set-treatment":
+      G.setInfirmaryToday(state, el.dataset.id, el.dataset.mode);
       render();
       break;
     case "remove-infirmary":
@@ -949,9 +960,8 @@ root.addEventListener("click", (e) => {
         case "gym-teacher": G.setTeacherPost(state, id, `gym:${postKey}`); break;
         case "gym-student": G.setGymToday(state, id, postKey); break;
         case "cafeteria-teacher": G.setTeacherPost(state, id, "cafeteria"); break;
-        case "lounge-student": G.setLoungeToday(state, id, true); break;
         case "infirmary-teacher": G.setTeacherPost(state, id, "infirmary"); break;
-        case "infirmary-student": G.setInfirmaryToday(state, id, true); break;
+        case "infirmary-student": G.setInfirmaryToday(state, id, G.suggestedTreatment(G.getChar(state, id))); break;
         case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;
         case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
         case "utility": G.setTeacherPost(state, id, postKey); break;

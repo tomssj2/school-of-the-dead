@@ -1,12 +1,12 @@
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS,
-  GYM_CAPACITY, GYM_MAX_TEACHERS, GYM_MAX_BONUS, CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY,
+  GYM_CAPACITY, GYM_MAX_TEACHERS, GYM_MAX_BONUS, CAFETERIA_MAX_TEACHERS,
   RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME,
   FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
-  ROOM_UPGRADE_MAX_LEVEL, ROOM_UPGRADE_INCREMENT, roomUpgradeCost,
+  ROOM_UPGRADE_MAX_LEVEL, ROOM_UPGRADE_INCREMENT, ROOM_UPGRADE_LEVELS, roomUpgradeCost,
   STAMINA_COST_GYM, STAMINA_COST_EXPLORE, STAMINA_COST_TEACH, STAMINA_RECHARGE_CAFETERIA,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
@@ -18,7 +18,7 @@ import {
   zombieStatsForDay, ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
   RESCUE_BROADCAST_DAY, RESCUE_DAY, RESCUE_DELAY_DAYS, ANTENNA_STAGES,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, INFIRMARY_REST_BY_LEVEL,
   INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
@@ -109,9 +109,8 @@ export function createInitialState() {
       ),
       gym: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
       cafeteria: { teacherCapacity: CAFETERIA_MAX_TEACHERS },
-      lounge: { studentCapacity: LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY },
       research: { teacherCapacity: RESEARCH_ROOM_TEACHERS },
-      infirmary: { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS },
+      infirmary: { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS, care: 0 },
       farm: { studentCapacity: FARM_CAPACITY, plots: FACILITY_PLOTS.farm },
       scrapyard: { studentCapacity: SCRAPYARD_CAPACITY },
       ranch: { studentCapacity: RANCH_CAPACITY, plots: FACILITY_PLOTS.ranch },
@@ -469,28 +468,31 @@ function refreshMaxStats(c) {
   c.maxStamina = maxStaminaFor(c);
 }
 
-// Resting in the lounge recharges stamina (state.rooms.lounge.recovery) — anyone can rest
-// regardless of their current stamina, unlike Gym/exploring which require some left to spend.
-export function setLoungeToday(state, studentId, value) {
+
+// `mode` is "heal" (HP, for medicine) or "rest" (stamina), or false to send them back out.
+export function setInfirmaryToday(state, studentId, mode) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
-  if (value) {
-    const count = state.characters.filter((x) => x.loungeToday).length;
-    if (count >= state.rooms.lounge.studentCapacity) return false;
+  if (mode === true) mode = "heal";
+  if (mode) {
+    const count = state.characters.filter((x) => x.infirmaryToday && x.id !== c.id).length;
+    if (count >= state.rooms.infirmary.studentCapacity) return false;
   }
-  c.loungeToday = value;
+  c.infirmaryToday = mode || false;
   return true;
 }
 
-export function setInfirmaryToday(state, studentId, value) {
-  const c = getChar(state, studentId);
-  if (!c || c.role !== "student") return false;
-  if (value) {
-    const count = state.characters.filter((x) => x.infirmaryToday).length;
-    if (count >= state.rooms.infirmary.studentCapacity) return false;
-  }
-  c.infirmaryToday = value;
-  return true;
+// Whichever a student needs more — the bigger share missing, HP or stamina.
+export function suggestedTreatment(c) {
+  return 1 - c.hp / c.maxHp >= 1 - c.stamina / c.maxStamina ? "heal" : "rest";
+}
+
+// What a treatment gives at the Nurse's Office's current care level.
+export function infirmaryHealShare(state) {
+  return INFIRMARY_HEAL_BY_LEVEL[state.rooms.infirmary.care || 0];
+}
+export function infirmaryRest(state) {
+  return INFIRMARY_REST_BY_LEVEL[state.rooms.infirmary.care || 0] + techPerk(state, "restRecovery");
 }
 
 // Outside facilities worked during Turn 2 as an alternative to exploring — a student can do one
@@ -515,7 +517,7 @@ export const setRanchToday = makeOutsideFacilitySetter("ranchToday", "ranch");
 
 // ---------- room upgrades ----------
 // Spends scrap to raise one of a room's stats, up to ROOM_UPGRADE_MAX_LEVEL times. A "kind"
-// is student/teacher capacity, or the lounge's per-day stamina recovery. Classroom teacher
+// is student/teacher capacity, the Nurse's Office care level, or Farm plots / Ranch pens. Classroom teacher
 // capacity is fixed at 1 and can't be upgraded.
 
 // Base (unupgraded) value per room type/kind, used to work out the current upgrade level from the
@@ -523,18 +525,17 @@ export const setRanchToday = makeOutsideFacilitySetter("ranchToday", "ranch");
 const ROOM_BASE_CAPACITY = {
   gym: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
   cafeteria: { teacher: CAFETERIA_MAX_TEACHERS },
-  lounge: { student: LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY },
   research: { teacher: RESEARCH_ROOM_TEACHERS },
-  infirmary: { student: INFIRMARY_CAPACITY }, // one nurse, not upgradeable
+  infirmary: { student: INFIRMARY_CAPACITY, care: 0 }, // one nurse, not upgradeable
   farm: { student: FARM_CAPACITY, plot: FACILITY_PLOTS.farm },
   scrapyard: { student: SCRAPYARD_CAPACITY },
   ranch: { student: RANCH_CAPACITY, plot: FACILITY_PLOTS.ranch },
 };
 const ROOM_LABELS = {
-  gym: "the Gym", cafeteria: "the Cafeteria", lounge: "the Lounge", infirmary: "the Nurse's Office", research: "the Research Room",
+  gym: "the Gym", cafeteria: "the Cafeteria", infirmary: "the Nurse's Office", research: "the Research Room",
   farm: "the Farm", scrapyard: "the Scrapyard", ranch: "the Ranch",
 };
-const UPGRADE_FIELD = { student: "studentCapacity", teacher: "teacherCapacity", recovery: "recovery", plot: "plots" };
+const UPGRADE_FIELD = { student: "studentCapacity", teacher: "teacherCapacity", care: "care", plot: "plots" };
 const upgradeIncrement = (roomType, kind) => ROOM_UPGRADE_INCREMENT[`${roomType}${kind[0].toUpperCase()}${kind.slice(1)}`];
 
 function roomUpgradeLevel(state, roomType, roomId, kind) {
@@ -554,7 +555,8 @@ export function roomUpgradeInfo(state, roomType, roomId, kind) {
   if (roomType === "classroom" && kind === "teacher") return { level: 0, maxed: true, cost: null };
   const level = roomUpgradeLevel(state, roomType, roomId, kind);
   if (level === null) return { level: 0, maxed: true, cost: null };
-  const maxed = level >= ROOM_UPGRADE_MAX_LEVEL;
+  const maxLevel = ROOM_UPGRADE_LEVELS[`${roomType}${kind[0].toUpperCase()}${kind.slice(1)}`] ?? ROOM_UPGRADE_MAX_LEVEL;
+  const maxed = level >= maxLevel;
   return { level, maxed, cost: maxed ? null : roomUpgradeCost(level) };
 }
 
@@ -576,7 +578,7 @@ export function upgradeRoom(state, roomType, roomId, kind) {
   }
 
   state.resources.materials -= cost;
-  const what = kind === "recovery" ? "stamina recovery" : kind === "plot" ? (roomType === "ranch" ? "pens" : "plots") : `${kind} capacity`;
+  const what = kind === "care" ? "care" : kind === "plot" ? (roomType === "ranch" ? "pens" : "plots") : `${kind} capacity`;
   addLog(state, `Upgraded ${label}'s ${what} to level ${level + 1} (-${cost} scrap).`);
   return true;
 }
@@ -769,9 +771,7 @@ export function gateHp(state) {
   return Math.round(state.fortification * 2 * (1 + techPerk(state, "gateHp")));
 }
 
-export function loungeRecovery(state) {
-  return state.rooms.lounge.recovery + techPerk(state, "loungeRecovery");
-}
+
 
 export function dishCapacity(state) {
   return cooksOnDuty(state).length * (1 + techPerk(state, "extraDishesPerCook"));
@@ -858,21 +858,19 @@ export function resolveTraining(state) {
   }
   for (const c of cooks) c.stamina = Math.min(c.maxStamina, c.stamina + STAMINA_RECHARGE_CAFETERIA);
 
-  // lounge — students resting here recover stamina
-  const resting = state.characters.filter((c) => c.loungeToday && c.alive);
-  const recovery = loungeRecovery(state);
-  for (const c of resting) c.stamina = Math.min(c.maxStamina, c.stamina + recovery);
-  if (resting.length) addLog(state, `${resting.length} student(s) rested in the lounge (+${recovery} stamina).`);
-
-  // nurse's office — patients heal a big chunk of HP for a little medicine each; a nurse's Biology
-  // adds on top. Without medicine to spare, they only get bed rest.
+  // nurse's office — each patient is either healed (HP, for medicine; a nurse's Biology adds on top,
+  // and with no medicine to spare they only get bed rest) or rests (stamina, free).
   const nurse = state.characters.find((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
   const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
-  for (const c of patients) {
+  const resting = patients.filter((c) => c.infirmaryToday === "rest");
+  const rest = infirmaryRest(state);
+  for (const c of resting) c.stamina = Math.min(c.maxStamina, c.stamina + rest);
+  if (resting.length) addLog(state, `${resting.length} student(s) rested in the Nurse's Office (+${rest} stamina).`);
+  for (const c of patients.filter((x) => x.infirmaryToday !== "rest")) {
     const treated = state.resources.medicine >= INFIRMARY_MEDICINE_PER_PATIENT;
     if (treated) state.resources.medicine -= INFIRMARY_MEDICINE_PER_PATIENT;
     const share = treated
-      ? INFIRMARY_HEAL_BASE + (nurse ? (nurse.grades.Biology / 100) * INFIRMARY_NURSE_BONUS : 0) + c.grades.Biology * TUNE.nursePerCon
+      ? infirmaryHealShare(state) + (nurse ? (nurse.grades.Biology / 100) * INFIRMARY_NURSE_BONUS : 0) + c.grades.Biology * TUNE.nursePerCon
       : INFIRMARY_BED_REST;
     const healed = Math.min(c.maxHp - c.hp, Math.round(c.maxHp * share));
     c.hp += healed;
@@ -1717,7 +1715,6 @@ export function advanceTurn(state) {
   }
   for (const c of state.characters) {
     c.gymToday = false;
-    c.loungeToday = false;
     c.infirmaryToday = false;
     c.farmToday = false;
     c.scrapyardToday = false;

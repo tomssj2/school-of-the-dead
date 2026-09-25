@@ -55,7 +55,7 @@ export const STAT_TUNING = {
   expeditionStealthPerDex: 1 / 400, // expedition casualties × (1 − avg DEX / 400): −25% at 100
   recoveryBase: 0.1, // overnight healing = 10% + CON / 500 of max HP (30% at 100)
   recoveryPerCon: 1 / 500,
-  staminaRecoveryFlat: 5, // overnight stamina when fed = 5 + 10% of max (the Lounge is the real refill)
+  staminaRecoveryFlat: 5, // overnight stamina when fed = 5 + 10% of max (resting at the nurse's is the real refill)
   staminaRecoveryShare: 0.1,
   nursePerCon: 1 / 500, // a treated patient heals an extra CON / 500 of max HP
   xpPerInt: 1 / 250, // all XP × (1 + INT / 250): +40% at 100
@@ -417,17 +417,15 @@ export const CAFETERIA_MAX_TEACHERS = 3; // base teacher (cook) slots — each c
 export const RESEARCH_ROOM_TEACHERS = 1;
 export const RESEARCH_ROOM_INT_PER_POINT = 20;
 
-// Lounge: students rest here to recover stamina. Both the slots and the amount recovered upgrade.
-export const LOUNGE_CAPACITY = 10;
-export const LOUNGE_RECOVERY = 50; // stamina per student per day, before upgrades
-
-// Nurse's Office: one nurse (a teacher) and a few beds. A patient heals INFIRMARY_HEAL_BASE of their
-// max HP plus up to INFIRMARY_NURSE_BONUS more from the nurse's Biology, spending medicine; with
-// none to spare they only get bed rest.
+// Nurse's Office: one nurse (a teacher) and a few beds. Each patient either gets healed — a share
+// of their max HP, plus up to INFIRMARY_NURSE_BONUS more from the nurse's Biology, for some
+// medicine (with none to spare, only bed rest) — or rests to get stamina back. The "care" upgrade
+// raises both, one step per level.
 export const INFIRMARY_CAPACITY = 4;
 export const INFIRMARY_MAX_TEACHERS = 1;
 export const INFIRMARY_MEDICINE_PER_PATIENT = 3;
-export const INFIRMARY_HEAL_BASE = 0.3;
+export const INFIRMARY_HEAL_BY_LEVEL = [0.3, 0.5, 0.7]; // share of max HP healed, by care level
+export const INFIRMARY_REST_BY_LEVEL = [20, 50, 80]; // stamina rested back, by care level
 export const INFIRMARY_NURSE_BONUS = 0.25; // at Biology 100
 export const INFIRMARY_BED_REST = 0.1;
 
@@ -556,14 +554,15 @@ export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout 
 // Scrap cost to go from a given upgrade level to the next; capped at ROOM_UPGRADE_MAX_LEVEL.
 export const ROOM_UPGRADE_MAX_LEVEL = 3;
 export const roomUpgradeCost = (level) => 15 * (level + 1);
+// Upgrades with fewer levels than ROOM_UPGRADE_MAX_LEVEL.
+export const ROOM_UPGRADE_LEVELS = { infirmaryCare: INFIRMARY_HEAL_BY_LEVEL.length - 1 };
 // How much capacity one upgrade level adds, per room/slot type.
 export const ROOM_UPGRADE_INCREMENT = {
   classroomStudent: CLASSROOM_SEATS_PER_ROW, // +1 row
   gymStudent: 3, // per side
   gymTeacher: 1,
   cafeteriaTeacher: 1,
-  loungeStudent: 5,
-  loungeRecovery: 15,
+  infirmaryCare: 1,
   researchTeacher: 1,
   infirmaryStudent: 2,
   farmStudent: 5,
@@ -647,7 +646,7 @@ export const TECH_TREE = [
   { id: "ghost_walkers", branch: "scavenging", name: "Ghost Walkers", icon: "👣", cost: 110, requires: "word_of_mouth", perk: { casualtyReduction: 0.5, exploreStaminaReduction: 0.5 }, desc: "Expedition casualties are halved, and expeditions cost half the stamina." },
   // 🏫 School Life
   { id: "study_groups", branch: "school", name: "Study Groups", icon: "📚", cost: 15, requires: null, perk: { classXp: 0.25 }, desc: "Classes grant 25% more XP." },
-  { id: "power_naps", branch: "school", name: "Power Naps", icon: "😴", cost: 30, requires: "study_groups", perk: { loungeRecovery: 20 }, desc: "Resting in the Lounge recovers 20 more stamina." },
+  { id: "power_naps", branch: "school", name: "Power Naps", icon: "😴", cost: 30, requires: "study_groups", perk: { restRecovery: 20 }, desc: "Resting in the Nurse's Office recovers 20 more stamina." },
   { id: "school_spirit", branch: "school", name: "School Spirit", icon: "🎉", cost: 50, requires: "power_naps", perk: { happinessLossReduction: 0.5 }, desc: "Happiness losses are halved." },
   { id: "home_economics", branch: "school", name: "Home Economics", icon: "🍳", cost: 75, requires: "school_spirit", perk: { extraDishesPerCook: 1 }, desc: "Each cook can serve two dishes a day instead of one." },
   { id: "honor_roll", branch: "school", name: "Honor Roll", icon: "🏅", cost: 110, requires: "home_economics", perk: { xp: 0.25 }, desc: "Every action earns 25% more XP." },
