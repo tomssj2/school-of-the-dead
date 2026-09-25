@@ -702,6 +702,40 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .pantry-label { width: 70px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
 .pantry-item { font-size: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
 .pantry-empty { opacity: 0.45; }
+
+.plot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin: 6px 0 8px; }
+.plot {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(107, 74, 47, 0.28), rgba(107, 74, 47, 0.12));
+}
+.plot-empty { background: rgba(255, 255, 255, 0.02); border-style: dashed; }
+.plot-waiting { border-color: rgba(224, 165, 54, 0.5); }
+.plot-tended { border-color: rgba(76, 175, 125, 0.55); }
+.plot-idle { opacity: 0.8; }
+.plot-icon {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  border-radius: 8px;
+  background: #5a3b24;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+}
+.plot-empty .plot-icon { background: rgba(90, 59, 36, 0.4); font-size: 16px; }
+.plot-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.plot-body select { width: 100%; }
+.plot-status { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: #c3c8d4; }
+.plot-warn { color: var(--warn); }
+.plot-bar { height: 6px; border-radius: 3px; background: #10131a; overflow: hidden; }
+.plot-bar div { height: 100%; background: linear-gradient(90deg, #6fae6a, #a5d86a); }
 .dish-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .dish-row { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; }
 .dish-row .muted { font-size: 11.5px; margin-top: 2px; }

@@ -6,7 +6,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, FARM_INGREDIENTS, LEGACY_DISH_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, FARM_INGREDIENTS, LEGACY_DISH_IDS, STARTING_SEEDS, FARM_PLOTS, CROPS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -144,6 +144,11 @@ function migrateState(s) {
     for (const id of FARM_INGREDIENTS) s.pantry[id] = STARTING_PANTRY[id];
   }
   s.dishesToday = s.dishesToday.map((id) => LEGACY_DISH_IDS[id] || id);
+  // Farm plots + seeds: an older farm gets the starting plots (empty) and starting seed stock.
+  if (!s.seeds) s.seeds = { ...STARTING_SEEDS };
+  if (s.rooms.farm.plots === undefined) s.rooms.farm.plots = FARM_PLOTS;
+  if (!s.farmPlots) s.farmPlots = [];
+  G.syncFarmPlots(s);
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -758,6 +763,13 @@ root.addEventListener("change", (e) => {
       break;
     case "toggle-gym": {
       G.setGymToday(state, el.dataset.id, el.checked);
+      render();
+      break;
+    }
+    case "set-plot-crop": {
+      const plot = state.farmPlots[Number(el.dataset.plot)];
+      const losing = plot?.planted && !CROPS[plot.crop].perennial;
+      if (!losing || confirm("Dig up this crop? Its seed will be lost.")) G.setPlotCrop(state, Number(el.dataset.plot), el.value || null);
       render();
       break;
     }

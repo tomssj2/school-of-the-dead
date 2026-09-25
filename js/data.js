@@ -358,8 +358,28 @@ export const INGREDIENTS = {
 export const FARM_INGREDIENTS = Object.keys(INGREDIENTS).filter((id) => INGREDIENTS[id].source === "farm");
 export const SCAVENGED_INGREDIENTS = Object.keys(INGREDIENTS).filter((id) => INGREDIENTS[id].source === "scavenged");
 export const STARTING_PANTRY = { potatoes: 2, tomatoes: 2, wheat: 2, eggs: 2, canned_meat: 1, spices: 1, coffee: 1 };
-// Every farm worker harvests this many crops a day (a random staple each) on top of their food.
-export const FARM_YIELD_INGREDIENTS = 1;
+
+// ===== Farm plots =====
+// Each plot grows one chosen crop. Planting uses up one seed of that crop (seeds come from
+// expeditions and events), and a plot only grows on days a farm worker tends it. Annual crops are
+// harvested into the pantry after `growDays` tended days and the plot needs a new seed — replanted
+// automatically while seeds last. Hens are "perennial": once settled in they lay `yield` eggs
+// every `growDays` tended days and never need replacing.
+export const CROPS = {
+  potatoes: { plotName: "Potatoes", seedName: "Seed Potatoes", seedIcon: "🌱", growDays: 3, yield: 4 },
+  tomatoes: { plotName: "Tomatoes", seedName: "Tomato Seeds", seedIcon: "🌱", growDays: 2, yield: 3 },
+  wheat: { plotName: "Wheat", seedName: "Wheat Seeds", seedIcon: "🌱", growDays: 3, yield: 4 },
+  eggs: { plotName: "Hen Coop", seedName: "Hen", seedIcon: "🐔", growDays: 1, yield: 1, perennial: true },
+};
+export const PLANT_CROPS = Object.keys(CROPS).filter((id) => !CROPS[id].perennial); // what seed finds roll
+export const FARM_PLOTS = 3; // plots before any upgrade (+2 per upgrade level)
+export const FARM_PLOTS_PER_WORKER = 2; // plots one farm worker can tend a day
+export const SEED_SAVE_CHANCE = 0.5; // chance an annual harvest saves one seed for replanting
+export const STARTING_SEEDS = { potatoes: 2, tomatoes: 2, wheat: 2, eggs: 1 };
+// Expedition seed finds: a base chance on a success (lower on a failure) + a location's
+// seedBonus; locations with henChance sometimes turn up a live hen instead of seeds.
+export const EXPEDITION_SEED_CHANCE = 0.25;
+export const EXPEDITION_SEED_CHANCE_FAILED = 0.08;
 export const DISHES = [
   {
     id: "meat_stew", name: "Meat & Potato Stew", icon: "🍲", ingredients: { canned_meat: 1, potatoes: 2 }, food: 6,
@@ -428,6 +448,7 @@ export const ROOM_UPGRADE_INCREMENT = {
   researchTeacher: 1,
   infirmaryStudent: 2,
   farmStudent: 5,
+  farmPlot: 2,
   scrapyardStudent: 5,
   labStudent: 5,
 };
@@ -470,6 +491,9 @@ export const EVENTS = [
   { id: "wanderer", kind: "good", title: "A Wanderer Arrives", desc: "A survivor asks to join the school.", effect: { recruit: "student" } },
   { id: "medic", kind: "good", title: "A Medic Passes Through", desc: "A traveling medic shares supplies before moving on.", effect: { medicine: 15 } },
   { id: "research_breakthrough", kind: "good", title: "A Breakthrough", desc: "Notes left behind by a university team advance your research.", effect: { research: 10 } },
+  { id: "gardener", kind: "good", title: "A Gardener's Gift", desc: "An old gardener trades a pouch of saved seeds for news from the city.", effect: { seeds: 4 } },
+  { id: "stray_hen", kind: "good", title: "A Stray Hen", desc: "A hen wanders up to the gate, clucking. Someone builds her a coop.", effect: { seed: { eggs: 1 } } },
+  { id: "blight", kind: "bad", title: "Crop Blight", desc: "Pests get into the farm overnight.", effect: { blight: true } },
   { id: "theft", kind: "bad", title: "Supplies Go Missing", desc: "Someone was careless — or someone stole from the stores overnight.", effect: { materials: -15 } },
   { id: "spoiled_food", kind: "bad", title: "Spoiled Rations", desc: "A batch of food spoils before anyone notices.", effect: { food: -15 } },
   { id: "bad_news", kind: "bad", title: "Bad News on the Radio", desc: "A broadcast describes a nearby town overrun. The school grows anxious.", effect: { happiness: -12 } },
@@ -518,6 +542,7 @@ export const LOCATIONS = [
     danger: 1,
     rewards: { food: 12, materials: 4, medicine: 2 },
     ingredientBonus: 0.15,
+    seedBonus: 0.1,
     hex: { q: 1, r: 0 }, // distance 1 — right next door
   },
   {
@@ -537,6 +562,7 @@ export const LOCATIONS = [
     danger: 3,
     rewards: { food: 28, materials: 6, medicine: 4 },
     ingredientBonus: 0.35,
+    seedBonus: 0.15,
     hex: { q: 0, r: 3 }, // distance 3
   },
   {
@@ -547,6 +573,7 @@ export const LOCATIONS = [
     danger: 2,
     rewards: { food: 2, materials: 24, medicine: 1 },
     lootBias: "weapon",
+    seedBonus: 0.25, // the garden aisle
     hex: { q: -3, r: 1 }, // distance 3
   },
   {
@@ -589,6 +616,8 @@ export const LOCATIONS = [
     rewards: { food: 10, materials: 6, medicine: 4 },
     recruitBonus: 1.5,
     ingredientBonus: 0.15,
+    seedBonus: 0.3, // backyard vegetable patches
+    henChance: 0.15, // ...and backyard coops
     hex: { q: -1, r: -1 }, // distance 2
   },
 ];
