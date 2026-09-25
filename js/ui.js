@@ -323,8 +323,8 @@ const LEFT_TABS_BY_TURN = {
   ],
   2: [
     ["farm", "🌾 Farm"],
-    ["scrapyard", "🔩 Scrapyard"],
     ["ranch", "🐄 Ranch"],
+    ["scrapyard", "🔩 Scrapyard"],
   ],
   3: [
     ["defense", "🛡 Defense"],
