@@ -1,7 +1,7 @@
 import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport } from "./ui.js";
-import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor } from "./characters.js";
+import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
@@ -97,6 +97,9 @@ function migrateState(s) {
     // always matches the grades.
     c.maxStamina = maxStaminaFor(c);
     c.stamina = Math.min(c.stamina, c.maxStamina);
+    // Max HP now comes from CON and STR (plus Gym training) — also recomputed on every load.
+    c.maxHp = maxHpFor(c.grades) + (c.trainedHp || 0);
+    if (c.alive !== false) c.hp = Math.min(c.hp, c.maxHp);
     // students used to rest in the cafeteria; that moved to the lounge
     if (c.loungeToday === undefined) c.loungeToday = !!c.cafeteriaToday;
     delete c.cafeteriaToday;

@@ -29,14 +29,49 @@ export const STAT_LABEL = {
   CHA: "Charisma",
 };
 
-// What each stat does in play, shown when hovering a stat on a character card.
+// What each stat does in play, shown when hovering a stat on a character card. Every stat has a
+// job in a fight and one outside it; the numbers live in STAT_TUNING below.
 export const STAT_EFFECTS = {
-  STR: "Melee damage, and the strength needed to hold melee weapons. Half of a team's power on expeditions, raids and nest fights.",
-  DEX: "Ranged damage, hit chance, and the dexterity needed to hold ranged weapons. Half of a team's power. With WIS, raises max stamina.",
-  CON: "Max HP, less damage taken in fights, and a better chance to survive going down. Keeps expedition teams safer.",
-  INT: "Keeps expedition teams safer. For teachers, produces research in the Research Room.",
-  WIS: "How much loot an expedition brings home. With DEX, raises max stamina.",
-  CHA: "The chance an expedition finds survivors. For teachers, recruiting from the Student Council room.",
+  STR: "Fights: melee damage, and the strength to hold melee weapons. Also: part of max HP, how much food and scrap an expedition can carry home, and more output at the Farm and Scrapyard. Half of a team's power.",
+  DEX: "Fights: ranged damage, hit chance, dodging hits, and the dexterity to hold ranged weapons. Also: stealth — fewer zombies while scouting and fewer ambushes on expeditions. With WIS, max stamina. Half of a team's power.",
+  CON: "Fights: less damage taken, and a better chance to survive going down. Also: most of max HP, and faster healing overnight and in the Nurse's Office.",
+  INT: "Fights: the defenders' smarts make traps hit harder and walls hold longer. Also: faster learning (more XP from everything) and better odds of finding gear on expeditions. For teachers, research.",
+  WIS: "Fights: the most aware defender warns everyone, so the whole team takes less damage. Also: keeps expedition teams safe and finds more loot. With DEX, max stamina.",
+  CHA: "Fights: the most charismatic defender leads — the whole team hits harder. Also: finding survivors, faster friendships, and a daily lift to the school's mood. For teachers, recruiting.",
+};
+
+// How much each stat point is worth. "best" = the squad's highest, "avg" = its average.
+export const STAT_TUNING = {
+  hpBase: 40,
+  hpPerCon: 0.8, // max HP = 40 + CON × 0.8 + STR × 0.4 (+ Gym training)
+  hpPerStr: 0.4,
+  carryPerStr: 1 / 250, // expedition food & scrap × (0.8 + avg STR / 250): ×1.0 at 50, ×1.2 at 100
+  yieldStrStep: 25, // +1 Farm food / Scrapyard scrap per worker for every 25 STR
+  dodgePerDex: 1 / 500, // chance to dodge a hit: up to 20% at 100 DEX
+  stealthPerDex: 1 / 250, // scouting encounter chance × (1 − DEX / 250): −40% at 100
+  expeditionStealthPerDex: 1 / 400, // expedition casualties × (1 − avg DEX / 400): −25% at 100
+  recoveryBase: 0.1, // overnight healing = 10% + CON / 500 of max HP (30% at 100)
+  recoveryPerCon: 1 / 500,
+  nursePerCon: 1 / 500, // a treated patient heals an extra CON / 500 of max HP
+  xpPerInt: 1 / 250, // all XP × (1 + INT / 250): +40% at 100
+  trapPerInt: 1 / 150, // trap damage × (1 + avg INT / 150)
+  wallPerInt: 1 / 300, // wall HP × (1 + avg INT / 300)
+  itemChancePerInt: 1 / 400, // expedition gear chance + avg INT / 400: +25% at 100
+  awarenessPerWis: 1 / 700, // whole squad takes (best WIS / 700) less damage, capped below
+  awarenessCap: 0.15,
+  leadershipPerCha: 1 / 800, // whole squad hits (best CHA / 800) harder: +12.5% at 100
+  bondPerCha: 1 / 150, // chance a shared day builds an extra point of friendship: avg CHA / 150
+  moralePerCha: 50, // each morning: +1 happiness per 50 CHA of the school's most charismatic student
+};
+
+// Every skill learned on a subject's path stacks this bonus (see skillBonus() in game.js).
+export const SKILL_EFFECTS = {
+  PE: { per: 0.08, what: "melee damage" },
+  Gymnastics: { per: 0.03, what: "chance to dodge" },
+  Biology: { per: 0.05, what: "less damage taken" },
+  Physics: { per: 0.05, what: "XP from everything" },
+  History: { per: 0.08, what: "expedition loot" },
+  SocialStudies: { per: 0.1, what: "chance to find survivors" },
 };
 // Max stamina: the base plus (DEX + WIS) / 4 — up to +50 — plus whatever was trained in the Gym.
 export const STAMINA_STAT_DIVISOR = 4;
@@ -216,11 +251,13 @@ export const FIST_WEAPON = { name: "Fists", icon: "👊", damage: 4, range: 1, c
 export const BATTLE_MAX_TICKS = 40;
 export const DOWNED_DEATH_CHANCE = 0.2; // before the Biology modifier, when there's no medicine to spare
 export const MEDICINE_PER_STABILIZE = 5; // spent automatically to save a downed defender outright
+// Raised alongside the stat rework (dodging, leadership, awareness, smarter traps) to keep an
+// engaged player at roughly a 90% rescue rate over 30 days — re-run the balance harness if changed.
 export function zombieCountForDay(day) {
-  return 3 + Math.floor(day * 0.7);
+  return 3 + Math.floor(day * 0.8);
 }
 export function zombieStatsForDay(day) {
-  return { hp: 18 + Math.round(day * 1.2), damage: 4 + Math.floor(day / 2) };
+  return { hp: 22 + Math.round(day * 1.4), damage: 5 + Math.floor(day / 2) };
 }
 
 // Multipliers are applied to zombieStatsForDay. `speed` = rows moved per turn, `wallMult` scales
@@ -827,21 +864,21 @@ export const LANDMARKS = [
   {
     id: "checkpoint", name: "Military Checkpoint", hex: { q: 7, r: -3 },
     desc: "An army roadblock that fell on the first night. Something in there still wears the sergeant's stripes.",
-    boss: { name: "Sergeant Rot", look: "soldier", hp: 600, damage: 19, attacks: 2 },
+    boss: { name: "Sergeant Rot", look: "soldier", hp: 650, damage: 22, attacks: 2 },
     minTeam: 6, minLevel: 4, legendaryItems: 1, legendaryRecruitChance: 0.35,
     rewards: { food: 25, materials: 45, medicine: 20 }, respawnDays: 4,
   },
   {
     id: "stadium", name: "City Stadium", hex: { q: -7, r: 7 },
     desc: "The evacuation shelter that became a feeding ground. Its king still wears the team jersey.",
-    boss: { name: "The Linebacker", look: "jersey", hp: 1000, damage: 20, attacks: 3 },
+    boss: { name: "The Linebacker", look: "jersey", hp: 1080, damage: 23, attacks: 3 },
     minTeam: 7, minLevel: 5, legendaryItems: 1, legendaryRecruitChance: 0.5,
     rewards: { food: 40, materials: 40, medicine: 30 }, respawnDays: 5,
   },
   {
     id: "institute", name: "Research Institute", hex: { q: 0, r: -7 },
     desc: "Where the outbreak may have started. Patient zero never left the building.",
-    boss: { name: "Subject Zero", look: "labcoat", hp: 1350, damage: 24, attacks: 3 },
+    boss: { name: "Subject Zero", look: "labcoat", hp: 1520, damage: 28, attacks: 3 },
     minTeam: 8, minLevel: 6, legendaryItems: 2, legendaryRecruitChance: 0.7,
     rewards: { food: 30, materials: 50, medicine: 50, research: 40 }, respawnDays: 6,
   },

@@ -2,7 +2,7 @@ import {
   SUBJECTS, MALE_NAMES, FEMALE_NAMES, LAST_NAMES, GRADE_TIERS, GRADE_RANGES,
   STUDENT_TIER_WEIGHTS, TEACHER_SECONDARY_TIERS, TEACHER_SECONDARY_WEIGHTS, TRAITS,
   STAT_OF_SUBJECT, TEACH_BONUS_BY_TIER, ITEM_TEMPLATES, STARTER_ARMORY_IDS, CLASSROOM_SUBJECTS,
-  MAX_STAMINA, STAMINA_STAT_DIVISOR, LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES,
+  MAX_STAMINA, STAMINA_STAT_DIVISOR, LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING,
 } from "./data.js";
 
 let _idCounter = 1;
@@ -224,8 +224,14 @@ export function maxStaminaFor(c) {
   return MAX_STAMINA + Math.round((c.grades.Gymnastics + c.grades.History) / STAMINA_STAT_DIVISOR) + (c.trainedStamina || 0);
 }
 
+// Max HP is mostly CON, partly STR (before any Gym training).
 export function maxHpFor(grades) {
-  return 40 + Math.round(conOf(grades) * 1.2);
+  return STAT_TUNING.hpBase + Math.round(conOf(grades) * STAT_TUNING.hpPerCon + grades.PE * STAT_TUNING.hpPerStr);
+}
+
+// How many skills a character has learned on one subject's path.
+export function skillCount(c, subject) {
+  return (c.skills || []).filter((key) => key.startsWith(`${subject}:`)).length;
 }
 
 export function makeCharacter(role, gender) {

@@ -22,17 +22,37 @@ import {
   INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
-  HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  STAT_TUNING, SKILL_EFFECTS, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING,
 } from "./data.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, teachingBonus,
-  bestClassroomSubjectFor, emptyEquipment, makeItem, makeLegendaryItem, maxStaminaFor,
+  bestClassroomSubjectFor, emptyEquipment, makeItem, makeLegendaryItem, maxStaminaFor, skillCount,
 } from "./characters.js";
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const TUNE = STAT_TUNING;
+
+// The stacked bonus from every skill a character has learned on a subject's path.
+export function skillBonus(c, subject) {
+  return skillCount(c, subject) * SKILL_EFFECTS[subject].per;
+}
+
+// A squad's shared fight modifiers: the most aware member warns everyone (less damage taken), the
+// most charismatic leads (more damage dealt), and their average smarts sharpen traps and walls.
+export function squadModifiers(state, members) {
+  const grade = (c, s) => effectiveGrade(state, c, s);
+  const best = (s) => members.reduce((m, c) => Math.max(m, grade(c, s)), 0);
+  const avgInt = members.length ? members.reduce((sum, c) => sum + grade(c, "Physics"), 0) / members.length : 0;
+  return {
+    damageTaken: 1 - Math.min(TUNE.awarenessCap, best("History") * TUNE.awarenessPerWis),
+    damageDealt: 1 + best("SocialStudies") * TUNE.leadershipPerCha,
+    trapMult: 1 + avgInt * TUNE.trapPerInt,
+    wallMult: 1 + avgInt * TUNE.wallPerInt,
+  };
+}
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 export function adjustHappiness(state, amount) {
@@ -428,10 +448,14 @@ function maybeFormCouple(state, a, b) {
   }
 }
 
+// Charming people make friends faster: each pair may bond an extra point, by their average CHA.
 function teamBondBumps(state, memberIds) {
   for (let i = 0; i < memberIds.length; i++) {
     for (let j = i + 1; j < memberIds.length; j++) {
-      bumpBond(state, memberIds[i], memberIds[j], 1);
+      const a = getChar(state, memberIds[i]);
+      const b = getChar(state, memberIds[j]);
+      const avgCha = a && b ? (a.grades.SocialStudies + b.grades.SocialStudies) / 2 : 0;
+      bumpBond(state, memberIds[i], memberIds[j], 1 + (Math.random() < avgCha * TUNE.bondPerCha ? 1 : 0));
     }
   }
 }
@@ -563,7 +587,8 @@ function grantXp(state, charId, subject, amount) {
   const c = getChar(state, charId);
   if (!c || !c.alive) return;
   if (c.grades[subject] >= 100) return;
-  c.xp[subject] += amount * traitGrowthMultiplier(c, subject) * dishMultiplier(state, "xp") * (1 + techPerk(state, "xp"));
+  const learning = 1 + c.grades.Physics * TUNE.xpPerInt + skillBonus(c, "Physics");
+  c.xp[subject] += amount * traitGrowthMultiplier(c, subject) * dishMultiplier(state, "xp") * (1 + techPerk(state, "xp")) * learning;
   let guard = 0;
   while (c.xp[subject] >= xpThreshold(c.grades[subject]) && c.grades[subject] < 100 && guard < 50) {
     c.xp[subject] -= xpThreshold(c.grades[subject]);
@@ -684,7 +709,9 @@ export function resolveTraining(state) {
   for (const c of patients) {
     const treated = state.resources.medicine >= INFIRMARY_MEDICINE_PER_PATIENT;
     if (treated) state.resources.medicine -= INFIRMARY_MEDICINE_PER_PATIENT;
-    const share = treated ? INFIRMARY_HEAL_BASE + (nurse ? (nurse.grades.Biology / 100) * INFIRMARY_NURSE_BONUS : 0) : INFIRMARY_BED_REST;
+    const share = treated
+      ? INFIRMARY_HEAL_BASE + (nurse ? (nurse.grades.Biology / 100) * INFIRMARY_NURSE_BONUS : 0) + c.grades.Biology * TUNE.nursePerCon
+      : INFIRMARY_BED_REST;
     const healed = Math.min(c.maxHp - c.hp, Math.round(c.maxHp * share));
     c.hp += healed;
     c.injured = c.hp < c.maxHp * 0.5;
@@ -729,8 +756,8 @@ function itemTier(t) {
 }
 
 // Legendary gear never drops here — it only arrives on legendary survivors.
-function rollExpeditionItem(state, location, success) {
-  const chance = (success ? EXPEDITION_ITEM_CHANCE + location.difficulty * 0.08 : EXPEDITION_ITEM_CHANCE_FAILED) + techPerk(state, "itemChance");
+function rollExpeditionItem(state, location, success, bonus = 0) {
+  const chance = (success ? EXPEDITION_ITEM_CHANCE + location.difficulty * 0.08 : EXPEDITION_ITEM_CHANCE_FAILED) + techPerk(state, "itemChance") + bonus;
   if (Math.random() >= chance) return null;
   const maxTier = Math.min(4, Math.ceil(location.difficulty * 0.8));
   const pool = ITEM_TEMPLATES.filter((t) => itemTier(t) <= maxTier);
@@ -784,7 +811,9 @@ export function resolveExploration(state) {
 
     const avg = (statKey) => members.reduce((sum, c) => sum + effectiveGrade(state, c, statKey), 0) / members.length;
     const power = (avg("PE") + avg("Gymnastics")) / 2;
-    const safety = (avg("Biology") + avg("Physics")) / 2;
+    const safety = (avg("Biology") + avg("History")) / 2; // CON and WIS keep a team safe
+    const avgSkill = (subject) => members.reduce((sum, c) => sum + skillBonus(c, subject), 0) / members.length;
+    const bestSkill = (subject) => members.reduce((m, c) => Math.max(m, skillBonus(c, subject)), 0);
     const wis = avg("History");
     const cha = avg("SocialStudies");
 
@@ -795,23 +824,26 @@ export function resolveExploration(state) {
     const success = Math.random() < successChance;
     report.success = success;
 
-    const lootMult = (0.5 + wis / 100) * (success ? 1 : 0.35) * (1 + techPerk(state, "expeditionLoot"));
+    const lootMult = (0.5 + wis / 100) * (success ? 1 : 0.35) * (1 + techPerk(state, "expeditionLoot")) * (1 + avgSkill("History"));
+    // What the team can physically carry home: STR, for the bulky stuff.
+    const carry = (key) => (key === "food" || key === "materials" ? 0.8 + avg("PE") * TUNE.carryPerStr : 1);
     const dangerReq = location.danger * 15;
     const baseCasualty =
-      clamp01(0.05 + (dangerReq - safety) / 150 + (nearNest ? NEST_EXPEDITION_PENALTY : 0)) * (success ? 0.5 : 1.2) * (1 - techPerk(state, "casualtyReduction"));
+      clamp01(0.05 + (dangerReq - safety) / 150 + (nearNest ? NEST_EXPEDITION_PENALTY : 0)) * (success ? 0.5 : 1.2) * (1 - techPerk(state, "casualtyReduction")) *
+      (1 - avg("Gymnastics") * TUNE.expeditionStealthPerDex); // a stealthy team gets jumped less
 
     const stewMult = (key) => (key === "materials" ? dishMultiplier(state, "expeditionMaterials") : 1);
     if (success) {
       successes++;
       for (const key of Object.keys(location.rewards)) {
-        const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * (0.8 + Math.random() * 0.4));
+        const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * carry(key) * (0.8 + Math.random() * 0.4));
         state.resources[key] += amt;
         report.loot[key] = amt;
       }
       addLog(state, `${location.name}: expedition succeeded! Loot brought home.`);
     } else {
       for (const key of Object.keys(location.rewards)) {
-        const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * (0.5 + Math.random() * 0.5));
+        const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * carry(key) * (0.5 + Math.random() * 0.5));
         state.resources[key] += amt;
         report.loot[key] = amt;
       }
@@ -819,7 +851,7 @@ export function resolveExploration(state) {
       adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL);
     }
 
-    const found = rollExpeditionItem(state, location, success);
+    const found = rollExpeditionItem(state, location, success, avg("Physics") * TUNE.itemChancePerInt);
     if (found) {
       itemsFound.push(found);
       report.finds.push(`${found.icon} ${found.name}`);
@@ -864,7 +896,8 @@ export function resolveExploration(state) {
 
     const recruitBonus = location.recruitBonus || 1;
     const recruitChance = clamp01(
-      ((cha - 20) / 150) * recruitBonus * (success ? 1 : 0.4) * dishMultiplier(state, "recruitChance") * (1 + techPerk(state, "recruitChance"))
+      ((cha - 20) / 150) * recruitBonus * (success ? 1 : 0.4) * dishMultiplier(state, "recruitChance") * (1 + techPerk(state, "recruitChance")) *
+        (1 + bestSkill("SocialStudies"))
     );
     if (Math.random() < recruitChance) {
       const role = rollRecruitRole(state);
@@ -884,7 +917,10 @@ export function resolveExploration(state) {
   for (const [facility, foodEach, label] of [["farm", FARM_YIELD_FOOD, "Farm"], ["ranch", RANCH_YIELD_FOOD, "Ranch"]]) {
     const workers = facilityWorkers(state, facility);
     if (!workers) continue;
-    const gain = workers * foodEach;
+    // Strong workers get more done on the Farm (the Ranch is about the animals).
+    const gain = state.characters
+      .filter((c) => c[`${facility}Today`] && c.alive)
+      .reduce((sum, c) => sum + foodEach + (facility === "farm" ? Math.floor(c.grades.PE / TUNE.yieldStrStep) : 0), 0);
     state.resources.food += gain;
     const { produced, kept } = tendPlots(state, facility, workers);
     const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
@@ -892,7 +928,7 @@ export function resolveExploration(state) {
   }
   const scrapyardWorkers = state.characters.filter((c) => c.scrapyardToday && c.alive);
   if (scrapyardWorkers.length) {
-    const gain = scrapyardWorkers.length * SCRAPYARD_YIELD_MATERIALS;
+    const gain = scrapyardWorkers.reduce((sum, c) => sum + SCRAPYARD_YIELD_MATERIALS + Math.floor(c.grades.PE / TUNE.yieldStrStep), 0);
     state.resources.materials += gain;
     addLog(state, `The Scrapyard salvages ${gain} scrap from ${scrapyardWorkers.length} student(s).`);
   }
@@ -940,10 +976,11 @@ function battleStats(state, c) {
   return {
     melee: eq.meleeWeapon || FIST_WEAPON,
     ranged,
-    meleeMult: (0.5 + effectiveGrade(state, c, "PE") / 100) * chili * (1 + techPerk(state, "meleeDamage")),
+    meleeMult: (0.5 + effectiveGrade(state, c, "PE") / 100) * chili * (1 + techPerk(state, "meleeDamage")) * (1 + skillBonus(c, "PE")),
     rangedMult: (0.5 + effectiveGrade(state, c, "Gymnastics") / 100) * chili * (1 + techPerk(state, "rangedDamage")),
     hitChance: Math.min(0.95, 0.7 + effectiveGrade(state, c, "Gymnastics") / 500),
-    armorMult: Math.max(0.4, 1 - effectiveGrade(state, c, "Biology") / 250),
+    armorMult: Math.max(0.3, (1 - effectiveGrade(state, c, "Biology") / 250) * (1 - skillBonus(c, "Biology"))),
+    dodge: Math.min(0.5, effectiveGrade(state, c, "Gymnastics") * TUNE.dodgePerDex + skillBonus(c, "Gymnastics")),
   };
 }
 
@@ -964,13 +1001,14 @@ export function simulateEntranceBattle(state) {
       const [row, col] = key.split(",").map(Number);
       return { id: c.id, row, col, hp: c.hp, maxHp: c.maxHp, downed: false, kills: 0, usedMelee: false, usedRanged: false, ...battleStats(state, c) };
     });
+  const squad = squadModifiers(state, students.map((s) => getChar(state, s.id)));
 
   const structures = {};
   for (const [key, structureId] of Object.entries(grid.defenses)) {
     const def = DEFENSE_STRUCTURES.find((d) => d.id === structureId);
     if (!def) continue;
     const [row, col] = key.split(",").map(Number);
-    const maxHp = Math.round((def.hp || 0) * (1 + techPerk(state, "wallHp")));
+    const maxHp = Math.round((def.hp || 0) * (1 + techPerk(state, "wallHp")) * squad.wallMult);
     structures[key] = { key, row, col, def, hp: maxHp, maxHp, destroyed: false };
   }
   const gateMax = gateHp(state);
@@ -1044,7 +1082,7 @@ export function simulateEntranceBattle(state) {
       const hit = Math.random() < s.hitChance;
       const desperate = lastStand && s.hp < s.maxHp * 0.25 ? 2 : 1;
       const dmg = hit
-        ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * desperate * (0.85 + Math.random() * 0.3)))
+        ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * desperate * squad.damageDealt * (0.85 + Math.random() * 0.3)))
         : 0;
       target.hp -= dmg;
       events.push({ type: "attack", from: [s.row, s.col], to: [target.row, target.col], zid: target.id, dmg, hit, kind: useMelee ? "melee" : "ranged", icon: weapon.icon });
@@ -1056,10 +1094,12 @@ export function simulateEntranceBattle(state) {
 
     // 3. the horde advances, front-most first so the ones behind can step up
     const hurtStudent = (z, s, dmgBase, type, events) => {
-      const hit = Math.random() < ZOMBIE_HIT_CHANCE;
-      const dmg = hit ? Math.max(1, Math.round(dmgBase * s.armorMult * (0.85 + Math.random() * 0.3))) : 0;
+      const connects = Math.random() < ZOMBIE_HIT_CHANCE;
+      const dodged = connects && Math.random() < s.dodge; // a nimble (high-DEX) defender slips it
+      const hit = connects && !dodged;
+      const dmg = hit ? Math.max(1, Math.round(dmgBase * s.armorMult * squad.damageTaken * (0.85 + Math.random() * 0.3))) : 0;
       s.hp -= dmg;
-      events.push({ type, from: [z.row, z.col], to: [s.row, s.col], dmg, hit });
+      events.push({ type, from: [z.row, z.col], to: [s.row, s.col], dmg, hit, dodged });
       if (s.hp <= 0) {
         s.downed = true;
         events.push({ type: "downed", at: [s.row, s.col], id: s.id });
@@ -1105,8 +1145,9 @@ export function simulateEntranceBattle(state) {
 
       const trap = structures[`${ahead},${destCol}`];
       if (trap && !trap.def.blocks && trap.def.enterDamage) {
-        z.hp -= trap.def.enterDamage;
-        events.push({ type: "trap", at: [ahead, destCol], dmg: trap.def.enterDamage });
+        const trapDmg = Math.round(trap.def.enterDamage * squad.trapMult);
+        z.hp -= trapDmg;
+        events.push({ type: "trap", at: [ahead, destCol], dmg: trapDmg });
         if (trap.def.slows && !T.unsnaggable) z.snagged = true;
         if (z.hp <= 0) {
           killZombie(z, events);
@@ -1429,10 +1470,10 @@ function resolveDailyFoodUpkeep(state) {
 
 // A fed school gets a night's rest: everyone recovers a slice of their max HP, so battle damage
 // doesn't just stack up night after night. Going hungry skips it.
-const OVERNIGHT_RECOVERY = 0.15;
+// Overnight healing when fed: 10% of max HP plus more for a high CON (see STAT_TUNING).
 function resolveOvernightRecovery(state) {
   for (const c of aliveChars(state)) {
-    c.hp = Math.min(c.maxHp, c.hp + Math.round(c.maxHp * OVERNIGHT_RECOVERY));
+    c.hp = Math.min(c.maxHp, c.hp + Math.round(c.maxHp * (TUNE.recoveryBase + c.grades.Biology * TUNE.recoveryPerCon)));
     c.injured = c.hp < c.maxHp * 0.5;
   }
 }
@@ -1504,6 +1545,9 @@ export function advanceTurn(state) {
     state.turn = 1;
     state.day++;
     addLog(state, `Day ${state.day} begins.`);
+    // The school's most charismatic student keeps spirits up.
+    const bestCha = aliveChars(state).filter((c) => c.role === "student").reduce((m, c) => Math.max(m, c.grades.SocialStudies), 0);
+    if (bestCha >= TUNE.moralePerCha) adjustHappiness(state, Math.floor(bestCha / TUNE.moralePerCha));
     rollRandomEvent(state);
   }
   for (const c of state.characters) {
@@ -1527,6 +1571,7 @@ export function advanceTurn(state) {
 // removes the chance of either outright.
 
 function rollRandomEvent(state) {
+  if (state.victory) return; // already evacuated this morning — nothing left to happen to them
   if (Math.random() >= EVENT_CHANCE) return;
   const goodChance = clamp01(0.5 + (state.happiness - 50) / 100);
   const kind = Math.random() < goodChance ? "good" : "bad";
@@ -1847,10 +1892,12 @@ export function scoutCost(q, r) {
   return SCOUT_STAMINA_COST * 2 ** (hexDistance(q, r) - SCHOOL_RADIUS - 1);
 }
 
-// Chance a scout runs into a zombie: +10% per ring out, more next to a nest.
-export function scoutEncounterChance(state, q, r) {
+// Chance a scout runs into a zombie: +10% per ring out, more next to a nest, less for a sneaky
+// (high-DEX) scout.
+export function scoutEncounterChance(state, q, r, scout = null) {
   const ringsOut = hexDistance(q, r) - SCHOOL_RADIUS; // 1 right outside the school fence
-  return clamp01(ringsOut * SCOUT_ENCOUNTER_CHANCE_PER_HEX + (nextToNest(state, q, r) ? NEST_SCOUT_DANGER : 0));
+  const stealth = scout ? 1 - effectiveGrade(state, scout, "Gymnastics") * TUNE.stealthPerDex : 1;
+  return clamp01((ringsOut * SCOUT_ENCOUNTER_CHANCE_PER_HEX + (nextToNest(state, q, r) ? NEST_SCOUT_DANGER : 0)) * stealth);
 }
 
 export function scoutHex(state, studentId, q, r) {
@@ -1862,7 +1909,7 @@ export function scoutHex(state, studentId, q, r) {
 
   c.stamina -= cost;
 
-  const encounterChance = scoutEncounterChance(state, q, r);
+  const encounterChance = scoutEncounterChance(state, q, r, c);
   const encountered = Math.random() < encounterChance;
   if (encountered) {
     const power = (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2;
@@ -2030,15 +2077,16 @@ export function raidAttack(state, c) {
   const s = battleStats(state, c);
   const melee = s.melee.damage * s.meleeMult;
   const ranged = s.ranged ? s.ranged.damage * s.rangedMult : 0;
-  return { damage: Math.max(melee, ranged), hitChance: s.hitChance, armorMult: s.armorMult };
+  return { damage: Math.max(melee, ranged), hitChance: s.hitChance, armorMult: s.armorMult, dodge: s.dodge };
 }
 
 // Rough rounds-to-kill for the raid screen's estimate (expected damage per round vs boss HP).
 export function raidEstimate(state, landmark, squad) {
   const boss = raidBoss(state, landmark);
+  const lead = squadModifiers(state, squad).damageDealt;
   const perRound = squad.reduce((sum, c) => {
     const a = raidAttack(state, c);
-    return sum + a.damage * a.hitChance * 1.12;
+    return sum + a.damage * a.hitChance * 1.12 * lead;
   }, 0);
   return { boss, perRound: Math.round(perRound), rounds: perRound ? Math.ceil(boss.hp / perRound) : Infinity };
 }
@@ -2048,6 +2096,7 @@ function simulateRaid(state, landmark, squad) {
   let bossHp = boss.hp;
   let enraged = false;
   const fighters = squad.map((c) => ({ id: c.id, hp: c.hp, maxHp: c.maxHp, down: false, ...raidAttack(state, c) }));
+  const mods = squadModifiers(state, squad);
   const frames = [{ bossHp, hp: fighters.map((f) => f.hp), hits: [], dealt: 0, text: `${boss.name} lurches out to meet the squad.` }];
   for (let round = 1; round <= RAID_MAX_ROUNDS && bossHp > 0 && fighters.some((f) => !f.down); round++) {
     let dealt = 0;
@@ -2056,7 +2105,7 @@ function simulateRaid(state, landmark, squad) {
       if (f.down || Math.random() > f.hitChance) continue;
       const crit = Math.random() < 0.12;
       if (crit) crits++;
-      dealt += Math.round(f.damage * (0.85 + Math.random() * 0.3) * (crit ? 2 : 1));
+      dealt += Math.round(f.damage * mods.damageDealt * (0.85 + Math.random() * 0.3) * (crit ? 2 : 1));
     }
     bossHp = Math.max(0, bossHp - dealt);
     let text = `Round ${round}: the squad deals ${dealt} damage${crits ? ` (${crits} critical hit${crits > 1 ? "s" : ""})` : ""}.`;
@@ -2067,7 +2116,11 @@ function simulateRaid(state, landmark, squad) {
         text += ` ${boss.name} goes berserk!`;
       }
       for (const f of shuffled(fighters.filter((x) => !x.down)).slice(0, boss.attacks)) {
-        const dmg = Math.round(boss.damage * (enraged ? 1.3 : 1) * (0.8 + Math.random() * 0.4) * f.armorMult);
+        if (Math.random() < f.dodge) {
+          hits.push({ id: f.id, dmg: 0, dodged: true, down: false });
+          continue;
+        }
+        const dmg = Math.round(boss.damage * (enraged ? 1.3 : 1) * (0.8 + Math.random() * 0.4) * f.armorMult * mods.damageTaken);
         f.hp = Math.max(0, f.hp - dmg);
         if (f.hp === 0) f.down = true;
         hits.push({ id: f.id, dmg, down: f.down });

@@ -6,7 +6,7 @@ import {
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
-  RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS,
+  RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
@@ -849,7 +849,7 @@ export function renderRaidFight(state, anim) {
         ${characterSprite(c, 40)}
         <div class="raid-hp"><div style="width:${pct}%"></div></div>
         <span class="raid-name">${esc(c.name.split(" ")[0])}</span>
-        ${hit ? `<span class="raid-float raid-float-bad">-${hit.dmg}</span>` : ""}
+        ${hit ? (hit.dodged ? `<span class="raid-float raid-float-dodge">dodge!</span>` : `<span class="raid-float raid-float-bad">-${hit.dmg}</span>`) : ""}
       </div>`;
     })
     .join("");
@@ -948,7 +948,7 @@ export function renderScoutModal(state, q, r) {
   const rows = eligible
     .map(
       (s) => `<div class="check-row scout-row">
-        <span class="assign-who">${nameTag(s)} ${statusTag(s)}</span>${staminaBar(s)}
+        <span class="assign-who">${nameTag(s)} ${statusTag(s)} <span class="muted" title="Their own chance of running into a zombie — high DEX sneaks past">🧟 ${Math.round(scoutEncounterChance(state, q, r, s) * 100)}%</span></span>${staminaBar(s)}
         <button class="btn btn-sm btn-primary" data-action="confirm-scout" data-id="${s.id}" data-q="${q}" data-r="${r}">Send (−${cost} stamina)</button>
       </div>`
     )
@@ -960,7 +960,7 @@ export function renderScoutModal(state, q, r) {
       <button class="cc-close" data-action="close-scout" title="Close">✕</button>
       <h3>🌫 Unexplored Territory</h3>
       <p class="muted">Every hex hides something — supplies, gear, seeds, animals, survivors, or a zombie nest. The further from the school, the more it costs to get there.</p>
-      <div class="mission-stats-row"><span>⚡ ${cost} stamina</span><span class="${danger >= 40 ? "plot-warn" : ""}">🧟 ${danger}% chance of a zombie</span></div>
+      <div class="mission-stats-row"><span>⚡ ${cost} stamina</span><span class="${danger >= 40 ? "plot-warn" : ""}">🧟 up to ${danger}% chance of a zombie — less for a high-DEX scout</span></div>
       <div class="mini-label">Send a scout</div>
       <div class="check-list">${rows || `<p class="muted">Nobody has the ${cost} stamina it takes to get this far out${canEverGo ? " right now — let someone rest first." : ". Raise a student's max stamina on the Gym's Gymnastics side to reach it."}</p>`}</div>
     </div>
@@ -2515,7 +2515,7 @@ function renderSkillsTab(c) {
             ? "skill-buyable"
             : "skill-locked";
         const clickAttr = status === "buyable" ? `data-action="buy-skill" data-id="${c.id}" data-subject="${s}" data-tier="${node.tier}"` : "";
-        const title = `${node.name} (${node.tier}) — ${node.desc}. ${SKILL_STATUS_REASON[status]}`;
+        const title = `${node.name} (${node.tier}) — ${node.desc} +${Math.round(SKILL_EFFECTS[s].per * 100)}% ${SKILL_EFFECTS[s].what}. ${SKILL_STATUS_REASON[status]}`;
         return `<button type="button" class="skill-node ${cls}" ${clickAttr} ${status === "buyable" ? "" : "disabled"} title="${esc(title)}">
           <span class="skill-node-tier">${status === "owned" ? "✓" : node.tier}</span>
           <span class="skill-node-name">${esc(node.name)}</span>
@@ -2525,8 +2525,11 @@ function renderSkillsTab(c) {
     const hiddenChip = hiddenCount
       ? `<span class="skill-node skill-hidden" title="${hiddenCount} more skill${hiddenCount === 1 ? "" : "s"} on this path — raise the ${SUBJECT_LABEL[s]} grade and learn the one before it to reveal them">🔒 +${hiddenCount}</span>`
       : "";
+    const effect = SKILL_EFFECTS[s];
+    const owned = (c.skills || []).filter((k) => k.startsWith(`${s}:`)).length;
     return `<div class="skill-row">
-      <div class="skill-subject">${SUBJECT_LABEL[s]} <b class="grade-letter grade-letter-${letter}">${letter}</b></div>
+      <div class="skill-subject">${SUBJECT_LABEL[s]} <b class="grade-letter grade-letter-${letter}">${letter}</b>
+        <span class="skill-effect">each: +${Math.round(effect.per * 100)}% ${effect.what}${owned ? ` · now +${Math.round(effect.per * owned * 100)}%` : ""}</span></div>
       <div class="skill-nodes">${nodes}${hiddenChip}</div>
     </div>`;
   }).join("");
