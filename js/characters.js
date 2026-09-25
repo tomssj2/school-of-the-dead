@@ -235,6 +235,10 @@ export function makeCharacter(role, gender) {
 
 // A named, rare survivor found by winning a Turn 3 Assault boss fight — every grade is a tier
 // stronger than a normal roll, and they arrive already carrying one legendary item.
+export function makeLegendaryItem(template = pick(LEGENDARY_ITEM_TEMPLATES)) {
+  return { ...template, bonuses: { ...template.bonuses }, uid: nextItemUid() };
+}
+
 export function makeLegendaryCharacter(role, gender) {
   const c = makeCharacter(role, gender);
   for (const s of SUBJECTS) c.grades[s] = bumpTier(c.grades[s]);
@@ -246,8 +250,7 @@ export function makeLegendaryCharacter(role, gender) {
   const baseName = role === "teacher" ? stripHonorific(c.name) : c.name;
   c.name = role === "teacher" ? withTeacherHonorific(`${baseName} ${title}`, gender) : `${baseName} ${title}`;
 
-  const template = pick(LEGENDARY_ITEM_TEMPLATES);
-  const item = { ...template, bonuses: { ...template.bonuses }, uid: nextItemUid() };
+  const item = makeLegendaryItem();
   if (item.slot === "weapon") c.equipment[item.category === "ranged" ? "rangedWeapon" : "meleeWeapon"] = item;
   else if (item.slot === "armor") c.equipment.armor = item;
   else c.equipment.accessories[0] = item;

@@ -22,11 +22,14 @@ import {
   INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
+  HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING,
 } from "./data.js";
+import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, teachingBonus,
-  bestClassroomSubjectFor, emptyEquipment, makeItem,
+  bestClassroomSubjectFor, emptyEquipment, makeItem, makeLegendaryItem,
 } from "./characters.js";
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -69,6 +72,10 @@ export function createInitialState() {
     stock: { ...STARTING_STOCK }, // PRODUCERS id -> seeds / livestock waiting to be planted or penned
     plots: { farm: [emptyPlot()], ranch: [emptyPlot()] }, // Farm plots and Ranch pens
     dishesToday: [], // DISHES ids served today; their buffs last until the day rolls over
+    nests: [], // "q,r" keys of zombie nests found while scouting
+    raidTarget: null, // LANDMARKS id today's raid squad is going after
+    raidCooldowns: {}, // landmark id -> day its boss is back after being killed
+    raidKills: {}, // landmark id -> times its boss has been killed (each makes it tougher)
     characters: [],
     rooms: {
       classrooms: Object.fromEntries(
@@ -729,12 +736,19 @@ export function resolveExploration(state) {
   const itemsFound = [];
   const ingredientsFound = [];
   const stockFound = [];
+  const teams = []; // one report per team, for the expedition report screen
   for (let teamIndex = 0; teamIndex < 3; teamIndex++) {
     const locationId = state.teamLocations[teamIndex];
     const location = LOCATIONS.find((l) => l.id === locationId);
     const members = state.characters.filter((c) => c.exploreTeam === teamIndex && c.alive);
     if (!location || !members.length) continue;
     teamsSent++;
+    const nearNest = nextToNest(state, location.hex.q, location.hex.r);
+    const report = {
+      teamIndex, locationId: location.id, memberIds: members.map((c) => c.id), nearNest,
+      success: false, loot: {}, finds: [], hurt: [], lost: [], recruit: null,
+    };
+    teams.push(report);
 
     const avg = (statKey) => members.reduce((sum, c) => sum + effectiveGrade(state, c, statKey), 0) / members.length;
     const power = (avg("PE") + avg("Gymnastics")) / 2;
@@ -743,13 +757,16 @@ export function resolveExploration(state) {
     const cha = avg("SocialStudies");
 
     const requirement = location.difficulty * 15;
-    const successChance = clamp01(0.3 + (power - requirement) / 100 + techPerk(state, "expeditionSuccess"));
+    const successChance = clamp01(
+      0.3 + (power - requirement) / 100 + techPerk(state, "expeditionSuccess") - (nearNest ? NEST_EXPEDITION_PENALTY : 0)
+    );
     const success = Math.random() < successChance;
+    report.success = success;
 
     const lootMult = (0.5 + wis / 100) * (success ? 1 : 0.35) * (1 + techPerk(state, "expeditionLoot"));
     const dangerReq = location.danger * 15;
     const baseCasualty =
-      clamp01(0.05 + (dangerReq - safety) / 150) * (success ? 0.5 : 1.2) * (1 - techPerk(state, "casualtyReduction"));
+      clamp01(0.05 + (dangerReq - safety) / 150 + (nearNest ? NEST_EXPEDITION_PENALTY : 0)) * (success ? 0.5 : 1.2) * (1 - techPerk(state, "casualtyReduction"));
 
     const stewMult = (key) => (key === "materials" ? dishMultiplier(state, "expeditionMaterials") : 1);
     if (success) {
@@ -757,12 +774,14 @@ export function resolveExploration(state) {
       for (const key of Object.keys(location.rewards)) {
         const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * (0.8 + Math.random() * 0.4));
         state.resources[key] += amt;
+        report.loot[key] = amt;
       }
       addLog(state, `${location.name}: expedition succeeded! Loot brought home.`);
     } else {
       for (const key of Object.keys(location.rewards)) {
         const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * (0.5 + Math.random() * 0.5));
         state.resources[key] += amt;
+        report.loot[key] = amt;
       }
       addLog(state, `${location.name}: expedition struggled and barely scraped by.`);
       adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL);
@@ -771,17 +790,20 @@ export function resolveExploration(state) {
     const found = rollExpeditionItem(state, location, success);
     if (found) {
       itemsFound.push(found);
+      report.finds.push(`${found.icon} ${found.name}`);
       addLog(state, `The team brought back ${found.icon} ${found.name} from the ${location.name} — it's in the armory.`);
     }
     const ingredient = rollExpeditionIngredient(state, location, success);
     if (ingredient) {
       ingredientsFound.push(ingredient);
       const info = INGREDIENTS[ingredient.id];
+      report.finds.push(`${info.icon} ${info.name} ×${ingredient.qty}`);
       addLog(state, `The team brought back ${info.icon} ${info.name} ×${ingredient.qty} from the ${location.name} for the pantry.`);
     }
     const stock = rollExpeditionStock(state, location, success);
     if (stock) {
       stockFound.push(stock);
+      report.finds.push(stockLabel(stock.id, stock.qty));
       addLog(state, `The team brought back ${stockLabel(stock.id, stock.qty)} from the ${location.name} for the ${PRODUCERS[stock.id].facility}.`);
     }
 
@@ -793,11 +815,13 @@ export function resolveExploration(state) {
       if (roll < personalCasualty) {
         if (Math.random() < 0.25) {
           killCharacter(state, c);
+          report.lost.push(c.name);
           addLog(state, `${c.name} was lost during the ${location.name} run.`);
         } else {
           const dmg = randInt(15, 40);
           c.hp = Math.max(1, c.hp - dmg);
           c.injured = c.hp < c.maxHp * 0.5;
+          report.hurt.push(`${c.name} (-${dmg} HP)`);
           addLog(state, `${c.name} was injured at ${location.name} (-${dmg} HP).`);
         }
       } else {
@@ -814,11 +838,14 @@ export function resolveExploration(state) {
       const role = rollRecruitRole(state);
       const recruit = makeCharacter(role, Math.random() < 0.5 ? "M" : "F");
       state.recruitPool.push(recruit);
+      report.recruit = recruit.name;
       addLog(state, `Your team found a survivor at ${location.name}: ${recruit.name} wants to join.`);
     }
 
     teamBondBumps(state, members.map((c) => c.id));
   }
+
+  const raid = resolveRaid(state);
 
   // outside facilities — passive daily yield for students working the Farm/Scrapyard/Ranch
   // instead of exploring. Farm and Ranch workers also tend the plots/pens.
@@ -839,7 +866,7 @@ export function resolveExploration(state) {
   }
 
   addLog(state, `Turn 2 (Exploration) resolved.`);
-  return { teamsSent, successes, itemsFound, ingredientsFound, stockFound };
+  return { teamsSent, successes, teams, raid, itemsFound, ingredientsFound, stockFound };
 }
 
 // ---------- TURN 3: defense (entrance grid battle) ----------
@@ -1286,6 +1313,23 @@ export function resolveFacilityRaid(state) {
 
 // ---------- assault (boss fight) ----------
 
+// A legendary survivor for the recruit pool. Teachers never fight and have no Inventory tab to
+// manage gear from, so a legendary teacher's item goes to the shared armory instead of sitting
+// on their sheet, unusable.
+function addLegendaryRecruit(state) {
+  const role = rollRecruitRole(state);
+  const recruit = makeLegendaryCharacter(role, pick(["M", "F"]));
+  if (role === "teacher") {
+    const { meleeWeapon, rangedWeapon, armor, accessories } = recruit.equipment;
+    for (const item of [meleeWeapon, rangedWeapon, armor, ...accessories]) {
+      if (item) state.armory.push(item);
+    }
+    recruit.equipment = emptyEquipment();
+  }
+  state.recruitPool.push(recruit);
+  return recruit;
+}
+
 export function resolveAssault(state, chase) {
   if (!state.pendingAssault) return null;
   state.pendingAssault = false;
@@ -1311,18 +1355,7 @@ export function resolveAssault(state, chase) {
     addLog(state, `The squad ran down the horde's leader and looted its trail — a big haul.`);
 
     if (Math.random() < LEGENDARY_CHANCE) {
-      const role = rollRecruitRole(state);
-      const recruit = makeLegendaryCharacter(role, pick(["M", "F"]));
-      // Teachers never fight and have no Inventory tab to manage gear from — hand the item to
-      // the shared armory instead of leaving it permanently stuck, unusable, on their sheet.
-      if (role === "teacher") {
-        const { meleeWeapon, rangedWeapon, armor, accessories } = recruit.equipment;
-        for (const item of [meleeWeapon, rangedWeapon, armor, ...accessories]) {
-          if (item) state.armory.push(item);
-        }
-        recruit.equipment = emptyEquipment();
-      }
-      state.recruitPool.push(recruit);
+      const recruit = addLegendaryRecruit(state);
       addLog(state, `Among the dead, a survivor: ${recruit.name} wants to join the school.`);
     }
   } else {
@@ -1453,6 +1486,7 @@ export function advanceTurn(state) {
   }
   state.entranceGrid.students = {}; // built defenses persist; daily placements don't
   state.teamLocations = [null, null, null];
+  state.raidTarget = null;
   checkGameOver(state);
 }
 
@@ -1723,6 +1757,14 @@ export function setExploreTeam(state, charId, teamIndex) {
   if (c.role !== "student") return false; // teachers stay at the school, never explore
   if (c.stamina <= 0) return false; // too exhausted to go out
   if (c.farmToday || c.scrapyardToday || c.ranchToday) return false; // already working an outside facility today
+  if (teamIndex === RAID_TEAM) {
+    const landmark = LANDMARKS.find((l) => l.id === state.raidTarget);
+    if (!landmark || overallLevel(c) < landmark.minLevel) return false;
+    const squad = state.characters.filter((x) => x.exploreTeam === RAID_TEAM && x.id !== c.id).length;
+    if (squad >= RAID_MAX_TEAM) return false;
+    c.exploreTeam = RAID_TEAM;
+    return true;
+  }
   if (teamIndex < 0 || teamIndex > 2) return false;
   const teammateCount = state.characters.filter((x) => x.exploreTeam === teamIndex && x.id !== c.id).length;
   if (teammateCount >= 5) return false;
@@ -1776,7 +1818,7 @@ export function scoutHex(state, studentId, q, r) {
 
   c.stamina -= SCOUT_STAMINA_COST;
 
-  const encounterChance = clamp01(hexDistance(q, r) * SCOUT_ENCOUNTER_CHANCE_PER_HEX);
+  const encounterChance = clamp01(hexDistance(q, r) * SCOUT_ENCOUNTER_CHANCE_PER_HEX + (nextToNest(state, q, r) ? NEST_SCOUT_DANGER : 0));
   const encountered = Math.random() < encounterChance;
   if (encountered) {
     const power = (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2;
@@ -1796,14 +1838,263 @@ export function scoutHex(state, studentId, q, r) {
   }
 
   state.exploredHexes.push(hexKey(q, r));
-  const location = LOCATIONS.find((l) => l.hex.q === q && l.hex.r === r) || null;
-
+  const location = locationAt(q, r);
+  const landmark = landmarkAt(q, r);
+  let find = null;
   if (location) {
     addLog(state, `${c.name} discovered ${location.name} while scouting.`);
+  } else if (landmark) {
+    addLog(state, `${c.name} spotted the ${landmark.name} at the edge of town — ${landmark.boss.name} is inside. Taking it on will need a raid squad.`);
   } else {
-    addLog(state, `${c.name} scouted the area and found nothing of interest.`);
+    find = rollHexFind(state, c, q, r);
   }
-  return { ambushed: false, encountered, location };
+  return { ambushed: false, encountered, location, landmark, find };
+}
+
+// ---------- the wider map: hex finds, zombie nests, raids ----------
+
+export const RAID_TEAM = 3; // exploreTeam index of the raid squad (0-2 are the expedition teams)
+
+function weightedPick(table) {
+  const entries = Object.entries(table);
+  let roll = Math.random() * entries.reduce((sum, [, w]) => sum + w, 0);
+  for (const [key, weight] of entries) {
+    if (roll < weight) return key;
+    roll -= weight;
+  }
+  return entries[0][0];
+}
+
+// Every hex has something in it — what, depends on the terrain (see HEX_FINDS in data.js).
+function rollHexFind(state, scout, q, r) {
+  const terrain = hexTerrain(q, r);
+  const type = weightedPick(HEX_FINDS[terrain]);
+  let text;
+  if (type === "cache") {
+    const key = CACHE_RESOURCE[terrain];
+    const amt = randInt(6, 14);
+    state.resources[key] += amt;
+    text = `a stash of supplies: +${amt} ${RESOURCE_NAME[key]}`;
+  } else if (type === "gear") {
+    const item = makeItem(pick(ITEM_TEMPLATES.filter((t) => itemTier(t) <= 2)).id);
+    state.armory.push(item);
+    text = `${item.icon} ${item.name} — it's in the armory`;
+  } else if (type === "ingredient") {
+    const id = pick(SCAVENGED_INGREDIENTS);
+    const n = randInt(1, 2);
+    state.pantry[id] = (state.pantry[id] || 0) + n;
+    text = `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n} for the pantry`;
+  } else if (type === "seeds") {
+    const id = pick(FARM_CROPS);
+    const n = randInt(1, 2);
+    addStock(state, id, n);
+    text = `${stockLabel(id, n)} for the farm`;
+  } else if (type === "animal") {
+    const id = pick(["chicken", "chicken", "sheep"]);
+    addStock(state, id, 1);
+    text = `a stray ${PRODUCERS[id].stockName.toLowerCase()} — led back to the ranch`;
+  } else if (type === "survivor") {
+    const recruit = makeCharacter(rollRecruitRole(state), pick(["M", "F"]));
+    state.recruitPool.push(recruit);
+    text = `a survivor hiding out — ${recruit.name} wants to join`;
+  } else {
+    state.nests.push(hexKey(q, r));
+    text = "a zombie nest! Everything around it is more dangerous until a squad clears it out";
+  }
+  addLog(state, `${scout.name} scouted the ${TERRAIN_NAMES[terrain].toLowerCase()} and found ${text}.`);
+  return { type, terrain, text };
+}
+
+export function isNest(state, q, r) {
+  return state.nests.includes(hexKey(q, r));
+}
+
+export function nextToNest(state, q, r) {
+  return HEX_NEIGHBOR_OFFSETS.some(([dq, dr]) => isNest(state, q + dq, r + dr));
+}
+
+const squadPower = (state, squad) =>
+  squad.reduce((sum, c) => sum + (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2, 0) / squad.length;
+
+export function nestClearChance(state, squad) {
+  if (!squad.length) return 0;
+  return clamp01(0.25 + (squadPower(state, squad) - 45) / 100 + 0.15 * (squad.length - 1));
+}
+
+// A small squad (up to NEST_CLEAR_MAX) burns out a nest on the spot. Win: the nest is gone, with
+// scrap and maybe some gear from the pile; lose: the squad takes a beating and the nest stays.
+export function clearNest(state, q, r, ids) {
+  if (!isNest(state, q, r)) return null;
+  const squad = ids
+    .map((id) => getChar(state, id))
+    .filter((c) => c && c.alive && c.role === "student" && c.stamina >= NEST_CLEAR_STAMINA)
+    .slice(0, NEST_CLEAR_MAX);
+  if (!squad.length) return null;
+  const won = Math.random() < nestClearChance(state, squad);
+  for (const c of squad) c.stamina -= NEST_CLEAR_STAMINA;
+  const names = squad.map((c) => c.name.split(" ")[0]).join(", ");
+  if (won) {
+    state.nests = state.nests.filter((k) => k !== hexKey(q, r));
+    const amt = randInt(8, 16);
+    state.resources.materials += amt;
+    const item = Math.random() < 0.4 ? makeItem(pick(ITEM_TEMPLATES.filter((t) => itemTier(t) <= 3)).id) : null;
+    if (item) state.armory.push(item);
+    for (const c of squad) {
+      grantXp(state, c.id, "PE", 3 + randInt(0, 2));
+      grantXp(state, c.id, "Gymnastics", 3 + randInt(0, 2));
+    }
+    const loot = `+${amt} scrap${item ? ` and ${item.icon} ${item.name}` : ""}`;
+    addLog(state, `${names} burned out a zombie nest: ${loot}.`);
+    return { won: true, loot, hurt: [] };
+  }
+  const hurt = [];
+  for (const c of squad) {
+    if (Math.random() < 0.6) {
+      const dmg = randInt(15, 35);
+      c.hp = Math.max(1, c.hp - dmg);
+      c.injured = c.hp < c.maxHp * 0.5;
+      hurt.push(`${c.name} (-${dmg} HP)`);
+    }
+  }
+  addLog(state, `${names} couldn't clear the zombie nest and fell back${hurt.length ? ` — ${hurt.join(", ")}` : ""}.`);
+  return { won: false, loot: null, hurt };
+}
+
+export function raidCooldownLeft(state, landmarkId) {
+  return Math.max(0, (state.raidCooldowns[landmarkId] || 0) - state.day);
+}
+
+// The boss as it stands today: tougher for every time it's been killed before.
+export function raidBoss(state, landmark) {
+  const kills = state.raidKills[landmark.id] || 0;
+  return { ...landmark.boss, hp: Math.round(landmark.boss.hp * (1 + RAID_BOSS_SCALING * kills)), kills };
+}
+
+// Picks (or with null, calls off) today's raid. Switching targets sends the old squad home.
+export function setRaidTarget(state, landmarkId) {
+  if (landmarkId && raidCooldownLeft(state, landmarkId) > 0) return false;
+  if (landmarkId !== state.raidTarget) {
+    for (const c of state.characters) if (c.exploreTeam === RAID_TEAM) c.exploreTeam = null;
+  }
+  state.raidTarget = landmarkId || null;
+  return true;
+}
+
+// What one squad member hits the boss for each round, before hit/crit rolls — the better of
+// their melee and ranged weapon, same as in the night battle.
+export function raidAttack(state, c) {
+  const s = battleStats(state, c);
+  const melee = s.melee.damage * s.meleeMult;
+  const ranged = s.ranged ? s.ranged.damage * s.rangedMult : 0;
+  return { damage: Math.max(melee, ranged), hitChance: s.hitChance, armorMult: s.armorMult };
+}
+
+// Rough rounds-to-kill for the raid screen's estimate (expected damage per round vs boss HP).
+export function raidEstimate(state, landmark, squad) {
+  const boss = raidBoss(state, landmark);
+  const perRound = squad.reduce((sum, c) => {
+    const a = raidAttack(state, c);
+    return sum + a.damage * a.hitChance * 1.12;
+  }, 0);
+  return { boss, perRound: Math.round(perRound), rounds: perRound ? Math.ceil(boss.hp / perRound) : Infinity };
+}
+
+function simulateRaid(state, landmark, squad) {
+  const boss = raidBoss(state, landmark);
+  let bossHp = boss.hp;
+  let enraged = false;
+  const fighters = squad.map((c) => ({ id: c.id, hp: c.hp, maxHp: c.maxHp, down: false, ...raidAttack(state, c) }));
+  const frames = [{ bossHp, hp: fighters.map((f) => f.hp), hits: [], dealt: 0, text: `${boss.name} lurches out to meet the squad.` }];
+  for (let round = 1; round <= RAID_MAX_ROUNDS && bossHp > 0 && fighters.some((f) => !f.down); round++) {
+    let dealt = 0;
+    let crits = 0;
+    for (const f of fighters) {
+      if (f.down || Math.random() > f.hitChance) continue;
+      const crit = Math.random() < 0.12;
+      if (crit) crits++;
+      dealt += Math.round(f.damage * (0.85 + Math.random() * 0.3) * (crit ? 2 : 1));
+    }
+    bossHp = Math.max(0, bossHp - dealt);
+    let text = `Round ${round}: the squad deals ${dealt} damage${crits ? ` (${crits} critical hit${crits > 1 ? "s" : ""})` : ""}.`;
+    const hits = [];
+    if (bossHp > 0) {
+      if (!enraged && bossHp <= boss.hp / 2) {
+        enraged = true;
+        text += ` ${boss.name} goes berserk!`;
+      }
+      for (const f of shuffled(fighters.filter((x) => !x.down)).slice(0, boss.attacks)) {
+        const dmg = Math.round(boss.damage * (enraged ? 1.3 : 1) * (0.8 + Math.random() * 0.4) * f.armorMult);
+        f.hp = Math.max(0, f.hp - dmg);
+        if (f.hp === 0) f.down = true;
+        hits.push({ id: f.id, dmg, down: f.down });
+      }
+    } else {
+      text += ` ${boss.name} falls!`;
+    }
+    frames.push({ bossHp, hp: fighters.map((f) => f.hp), hits, dealt, text, enraged });
+  }
+  return { boss, won: bossHp <= 0, fighters, frames };
+}
+
+// Runs today's raid, if a big enough squad was sent. Returns the report the raid screen replays.
+function resolveRaid(state) {
+  const landmark = LANDMARKS.find((l) => l.id === state.raidTarget);
+  if (!landmark) return null;
+  const squad = state.characters.filter((c) => c.exploreTeam === RAID_TEAM && c.alive);
+  if (squad.length < landmark.minTeam) {
+    if (!squad.length) return null;
+    addLog(state, `The raid on the ${landmark.name} was called off — it needs at least ${landmark.minTeam} students.`);
+    return { calledOff: true, landmarkId: landmark.id, squadSize: squad.length, minTeam: landmark.minTeam };
+  }
+  const sim = simulateRaid(state, landmark, squad);
+  const report = {
+    landmarkId: landmark.id, bossName: sim.boss.name, look: landmark.boss.look, bossMaxHp: sim.boss.hp,
+    won: sim.won, frames: sim.frames, memberIds: squad.map((c) => c.id), loot: {}, items: [], recruit: null, hurt: [], lost: [],
+  };
+  const staminaCost = exploreStaminaCost(state);
+  const stabilizeCost = MEDICINE_PER_STABILIZE - techPerk(state, "stabilizeDiscount");
+  for (const f of sim.fighters) {
+    const c = getChar(state, f.id);
+    c.stamina = Math.max(0, c.stamina - staminaCost);
+    if (f.down) {
+      const stabilized = state.resources.medicine >= stabilizeCost;
+      if (!stabilized && Math.random() < DOWNED_DEATH_CHANCE * 1.5) {
+        killCharacter(state, c);
+        report.lost.push(c.name);
+        addLog(state, `${c.name} fell fighting ${sim.boss.name}.`);
+        continue;
+      }
+      if (stabilized) state.resources.medicine -= stabilizeCost;
+      c.hp = Math.max(1, Math.round(c.maxHp * 0.1));
+      c.injured = true;
+      report.hurt.push(`${c.name} went down${stabilized ? ` (patched up, -${stabilizeCost} medicine)` : ""}`);
+    } else {
+      c.hp = Math.max(1, f.hp);
+      c.injured = c.hp < c.maxHp * 0.5;
+    }
+    grantXp(state, c.id, "PE", 5 + randInt(0, 3));
+    grantXp(state, c.id, "Gymnastics", 5 + randInt(0, 3));
+  }
+  if (sim.won) {
+    for (const [key, amt] of Object.entries(landmark.rewards)) {
+      state.resources[key] += amt;
+      report.loot[key] = amt;
+    }
+    for (let i = 0; i < landmark.legendaryItems; i++) {
+      const item = makeLegendaryItem();
+      state.armory.push(item);
+      report.items.push(item);
+    }
+    if (Math.random() < landmark.legendaryRecruitChance) report.recruit = addLegendaryRecruit(state).name;
+    state.raidKills[landmark.id] = (state.raidKills[landmark.id] || 0) + 1;
+    state.raidCooldowns[landmark.id] = state.day + landmark.respawnDays;
+    adjustHappiness(state, HAPPINESS_GAIN_WIN * 2);
+    addLog(state, `☠ Raid on the ${landmark.name}: ${sim.boss.name} is dead! Legendary loot: ${report.items.map((i) => `${i.icon} ${i.name}`).join(", ")}.${report.recruit ? ` ${report.recruit} was freed and wants to join.` : ""}`);
+  } else {
+    adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL * 2);
+    addLog(state, `☠ Raid on the ${landmark.name}: the squad couldn't bring ${sim.boss.name} down and fell back.`);
+  }
+  return report;
 }
 
 // Removes any grid cell a character occupies, without touching their `defending` flag — used

@@ -973,92 +973,162 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 }
 .hexmap { position: relative; margin: 0 auto; }
 
+/* Each hex: an edge-coloured hexagon (::before) with the pixel-art tile inset inside it. Labels,
+   badges, team markers and tooltips sit outside the clip so nothing gets cut off. */
 .hex {
   position: absolute;
   width: 76px;
   height: 66px;
-  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-  background: #263042;
-  border: 2px solid var(--border);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05), 0 2px 5px rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.12s, filter 0.12s;
+  --edge: #232833;
+}
+.hex::before { content: ""; position: absolute; inset: 0; clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); background: var(--edge); }
+.hex-tile {
+  position: absolute;
+  inset: 2px;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  background-size: 100% 100%;
+  image-rendering: pixelated;
 }
 .hex-loc { cursor: pointer; }
-.hex-loc:hover { transform: scale(1.08); filter: brightness(1.15); z-index: 5; }
-
-.hex-school {
-  background: radial-gradient(circle at 50% 38%, #52709e 0%, #354765 75%);
-  border-color: var(--accent, #4caf7d);
-  box-shadow: 0 0 16px rgba(76, 175, 125, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  z-index: 2;
+.hex-loc:hover, .hex-fog-reachable:hover { transform: scale(1.08); filter: brightness(1.12); z-index: 20; }
+.hex-school { --edge: var(--accent, #4caf7d); filter: drop-shadow(0 0 8px rgba(76, 175, 125, 0.45)); }
+.hex-easy { --edge: #3f7a52; }
+.hex-medium { --edge: #b08a2e; }
+.hex-hard { --edge: #a03d3d; }
+.hex-assigned { --edge: var(--team); filter: drop-shadow(0 0 6px var(--team)); }
+.hex-landmark { --edge: #c0392b; animation: landmark-pulse 2.4s ease-in-out infinite; }
+.hex-landmark-cleared { --edge: #555b66; animation: none; filter: grayscale(0.6) brightness(0.85); }
+.hex-nest { --edge: #8a1f2a; }
+.hex-nest .hex-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 55%, rgba(170, 20, 40, 0.55), rgba(90, 10, 20, 0.25) 60%, transparent 80%);
+  animation: nest-pulse 1.8s ease-in-out infinite;
 }
-.hex-easy { background: #24422e; border-color: #3f7a52; }
-.hex-medium { background: #4a3f22; border-color: #b08a2e; }
-.hex-hard { background: #4a2424; border-color: #a03d3d; }
-.hex-assigned { outline: 2px solid #d9d9d9; outline-offset: 2px; }
-
-.hex-fog {
-  background: repeating-linear-gradient(135deg, #171b23 0px, #171b23 6px, #14171d 6px, #14171d 12px);
-  border-color: #20242c;
-  opacity: 0.7;
+@keyframes landmark-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(214, 69, 69, 0.4)); }
+  50% { filter: drop-shadow(0 0 11px rgba(214, 69, 69, 0.85)); }
 }
-.hex-fog-icon { font-size: 15px; font-weight: 700; color: #3a4048; }
-
-/* The scoutable frontier — hexes bordering the school or already-explored ground — reads
-   brighter and clickable, so it's obvious where you're allowed to push into the fog next. */
-.hex-fog-reachable {
-  background: repeating-linear-gradient(135deg, #1e2530 0px, #1e2530 6px, #191f28 6px, #191f28 12px);
-  border-color: #3a4552;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 8px rgba(120, 160, 220, 0.15);
-  opacity: 1;
-  cursor: pointer;
-}
-.hex-fog-reachable .hex-fog-icon { color: #93a3b8; }
-.hex-fog-reachable:hover { filter: brightness(1.35); transform: scale(1.06); z-index: 5; }
-
-.hex-explored-empty {
-  background: #171b23;
-  border-color: #232833;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+@keyframes nest-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }
 
-.hex-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  text-align: center;
+/* Fog of war: slowly drifting mist; the frontier you can scout is lighter and marked. */
+.hex-fog { --edge: #1a1e26; }
+.hex-fog-tile {
+  background-color: #10141b;
+  background-image:
+    radial-gradient(circle at 30% 35%, rgba(150, 165, 190, 0.16), transparent 45%),
+    radial-gradient(circle at 70% 70%, rgba(150, 165, 190, 0.1), transparent 50%);
+  background-size: 200% 200%;
+  animation: mist-drift 9s ease-in-out infinite alternate;
+}
+.hex-fog:nth-child(3n) .hex-fog-tile { animation-delay: -3s; }
+.hex-fog:nth-child(3n + 1) .hex-fog-tile { animation-delay: -6s; }
+.hex-fog-reachable { --edge: #3d4a5c; cursor: pointer; }
+.hex-fog-reachable .hex-fog-tile { background-color: #19202b; }
+.hex-fog-icon { position: relative; z-index: 2; font-size: 15px; font-weight: 700; color: #93a3b8; pointer-events: none; }
+@keyframes mist-drift {
+  from { background-position: 0% 0%; }
+  to { background-position: 100% 100%; }
+}
+
+.hex-name {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(10, 12, 18, 0.82);
+  color: #e6e8ec;
+  font-size: 8.5px;
+  font-weight: 700;
   pointer-events: none;
 }
-.hex-icon { font-size: 20px; line-height: 1; }
-.hex-label { font-size: 9.5px; color: var(--muted); max-width: 64px; line-height: 1.1; }
-.hex-team-badge { font-size: 9.5px; color: #fff; }
+.hex-badge {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(10, 12, 18, 0.85);
+  color: var(--muted);
+  font-size: 8.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hex-badge-boss { color: #ff8a8a; border: 1px solid rgba(214, 69, 69, 0.7); }
+.hex-badge-nest { color: #ffb0b0; background: rgba(90, 15, 25, 0.9); }
+.hex-assigned .hex-badge { display: none; }
+.hex-team {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  padding: 1px 5px 0;
+  border-radius: 8px;
+  background: rgba(10, 12, 18, 0.85);
+  border: 1px solid var(--team);
+  pointer-events: none;
+}
+.hex-team-sprite svg { display: block; margin: 0 -2px; }
+.hex-team-more { align-self: center; margin-left: 4px; color: #fff; font-size: 9px; font-weight: 700; }
+
+.hex-routes { position: absolute; left: 0; top: 0; z-index: 3; overflow: visible; pointer-events: none; }
+.hex-routes path {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-dasharray: 5 6;
+  stroke-linecap: round;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+  animation: route-march 0.9s linear infinite;
+}
+@keyframes route-march {
+  to { stroke-dashoffset: -11; }
+}
 
 .hex-tooltip {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  width: 190px;
+  width: 200px;
   background: #12151c;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 12px;
   text-align: left;
-  opacity: 0;
   pointer-events: none;
-  transition: opacity 0.12s;
   z-index: 10;
+  display: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
 }
+.hex-tip-below { bottom: auto; top: calc(100% + 8px); }
+.hex-tip-left { left: auto; right: 0; transform: none; }
+.hex-tip-right { left: 0; transform: none; }
 .hex-tooltip b { display: block; margin-bottom: 2px; }
 .hex-tooltip p { margin: 2px 0; }
-.hex:hover .hex-tooltip { opacity: 1; }
-.hex-tooltip-fog { width: 150px; }
+.hex:hover .hex-tooltip { display: block; }
 
 .scout-row { justify-content: space-between; cursor: default; }
 
@@ -1478,3 +1548,142 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .gr-bar-fill { height: 100%; background: var(--accent); }
 .grade-row-v2-teacher .gr-teacher-bonus { color: var(--muted); font-variant-numeric: tabular-nums; }
 .grade-row-v2-teacher .gr-teacher-bonus b { color: var(--text); }
+
+/* ---------- Exploration: chips, scout reports, nests, raids, expedition report ---------- */
+
+.mission-chip { border-color: var(--team, var(--border)); }
+.team-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--team); box-shadow: 0 0 6px var(--team); }
+.legend-text { color: #f4c542; }
+
+.scout-report { max-width: 380px; text-align: center; }
+.scout-report-tile { position: relative; width: 152px; height: 132px; margin: 4px auto 10px; }
+.scout-report-tile .hex-tile { inset: 0; }
+.scout-report-tile .hex-badge { top: 8px; }
+.scout-report-nest h3 { color: #ff8a8a; }
+.mission-card .scout-report-tile { filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5)); }
+
+.raid-card { max-width: 540px; }
+.raid-intro { display: flex; gap: 14px; align-items: center; }
+.raid-intro-boss { flex: none; filter: drop-shadow(0 0 10px rgba(214, 69, 69, 0.5)); }
+.raid-intro h3 { margin: 0 0 2px; color: #ff9a9a; }
+.raid-boss-stats, .raid-reqs, .raid-rewards { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; font-size: 12px; }
+.raid-boss-stats span, .raid-req, .raid-rewards span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+}
+.raid-req-ok { border-color: rgba(76, 175, 125, 0.6); color: #8fe0b0; }
+.raid-rewards .legend-text { border-color: rgba(244, 197, 66, 0.45); background: rgba(244, 197, 66, 0.08); }
+
+.raid-overlay { background: radial-gradient(ellipse at 70% 40%, rgba(120, 20, 30, 0.45), rgba(5, 6, 10, 0.93) 70%); }
+.raid-stage {
+  position: relative;
+  width: min(760px, 94vw);
+  padding: 16px;
+  border-radius: 12px;
+  background: #10131a;
+  border: 1px solid #5a2430;
+  box-shadow: 0 0 40px rgba(214, 69, 69, 0.25);
+}
+.raid-title { margin-bottom: 10px; padding: 0 64px; text-align: center; font-weight: 800; letter-spacing: 0.5px; color: #ff9a9a; }
+.raid-arena {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 210px;
+  padding: 12px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #1c2130 0%, #1a1f2a 68%, #2a2420 68%, #221d1a 100%);
+}
+.raid-squad { display: grid; grid-template-columns: repeat(4, auto); gap: 6px 8px; align-content: end; }
+.raid-member { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.raid-member svg { display: block; }
+.raid-member-down { opacity: 0.4; filter: grayscale(1); }
+.raid-member-hit svg { animation: raid-shake 0.35s; }
+.raid-hp { width: 40px; height: 4px; border-radius: 2px; background: #2a2d33; overflow: hidden; }
+.raid-hp div { height: 100%; background: #4caf7d; transition: width 0.3s; }
+.raid-name { font-size: 9.5px; color: var(--muted); }
+.raid-float {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  z-index: 2;
+  font-weight: 800;
+  font-size: 13px;
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+  animation: raid-float 0.75s ease-out forwards;
+}
+.raid-float-bad { color: #ff6b6b; }
+.raid-float-good { top: 6px; color: #f4d35e; font-size: 20px; }
+.raid-boss { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.raid-boss svg { filter: drop-shadow(0 0 12px rgba(214, 69, 69, 0.45)); }
+.raid-boss-hit svg { animation: raid-shake 0.35s; }
+.raid-boss-enraged svg { filter: drop-shadow(0 0 18px rgba(255, 50, 50, 0.95)) saturate(1.4); }
+.raid-boss-dead svg { filter: grayscale(1) brightness(0.5); opacity: 0.7; }
+.raid-boss-name { font-size: 13px; font-weight: 700; color: #ff9a9a; }
+.raid-boss-bar { position: relative; width: 150px; height: 12px; border-radius: 6px; background: #2a1418; border: 1px solid #5a2430; overflow: hidden; }
+.raid-boss-bar div { height: 100%; background: linear-gradient(90deg, #d64545, #ff7a5a); transition: width 0.4s; }
+.raid-boss-bar span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #fff; text-shadow: 0 0 2px #000; }
+.raid-log { min-height: 36px; margin-top: 10px; text-align: center; font-size: 13px; color: #d9dde6; }
+.raid-skip { position: absolute; top: 12px; right: 12px; }
+.raid-result { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 8px; text-align: center; }
+.raid-result-title { font-size: 18px; font-weight: 800; }
+.raid-won .raid-result-title { color: #f4c542; }
+.raid-lost .raid-result-title { color: #ff8a8a; }
+.raid-loot { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.raid-loot span { padding: 2px 8px; border-radius: 999px; background: rgba(244, 197, 66, 0.1); border: 1px solid rgba(244, 197, 66, 0.4); font-size: 12px; }
+@keyframes raid-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+@keyframes raid-float {
+  from { opacity: 1; transform: translate(-50%, 0); }
+  to { opacity: 0; transform: translate(-50%, -24px); }
+}
+
+.exp-report { max-width: 640px; }
+.exp-rows { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 14px; }
+.exp-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--team);
+}
+.exp-route { flex: none; display: flex; align-items: center; gap: 4px; }
+.exp-tile { position: relative; width: 38px; height: 33px; }
+.exp-tile .hex-tile { inset: 0; }
+.exp-path { position: relative; width: 64px; height: 26px; margin-bottom: 6px; border-bottom: 2px dashed var(--team); }
+.exp-walker { position: absolute; bottom: -2px; left: 0; animation: exp-walk 1.5s ease-in-out forwards; }
+.exp-walker svg { display: block; animation: idle-bob 0.35s ease-in-out infinite alternate; }
+.exp-arrived .exp-walker { left: calc(100% - 22px); animation: none; }
+.exp-arrived .exp-walker svg { animation: none; }
+@keyframes exp-walk {
+  from { left: 0; }
+  to { left: calc(100% - 22px); }
+}
+.exp-info { flex: 1; min-width: 0; }
+.exp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 4px; }
+.exp-finds { display: flex; flex-wrap: wrap; gap: 5px; }
+.exp-chip { padding: 1px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); font-size: 11.5px; }
+.exp-good { border-color: rgba(76, 175, 125, 0.6); }
+.exp-legend { color: #f4c542; border-color: rgba(244, 197, 66, 0.5); background: rgba(244, 197, 66, 0.08); }
+.exp-hurt { margin-top: 4px; font-size: 11.5px; color: var(--warn); }
+.exp-bad { margin-top: 4px; font-size: 12px; font-weight: 600; color: #ff6b6b; }
+
+@container app (max-width: 560px) {
+  .exp-row { flex-direction: column; }
+  .raid-arena { flex-direction: column-reverse; align-items: center; }
+  .raid-squad { grid-template-columns: repeat(4, auto); }
+  .raid-intro { flex-direction: column; text-align: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hex-fog-tile, .hex-routes path, .hex-landmark, .hex-nest .hex-tile::after, .exp-walker, .exp-walker svg { animation: none; }
+}

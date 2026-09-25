@@ -7,6 +7,7 @@ import {
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE, INFIRMARY_NURSE_BONUS,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES,
+  LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -16,7 +17,10 @@ import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, loungeRecovery, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
+  isNest, nextToNest, nestClearChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
+import { hexTileKey, tileBackground, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt } from "./map.js";
+import { zombieSprite } from "./zombies.js";
 import { characterSprite } from "./sprite.js";
 import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
 import { isSoundEnabled } from "./sound.js";
@@ -35,8 +39,16 @@ const LOCATION_ICON = {
   police_station: "🚓",
   mall: "🛍",
   neighborhood: "🏘",
+  farmstead: "🚜",
+  checkpoint: "🪖",
+  stadium: "🏟",
+  institute: "🧬",
 };
-const RESOURCE_ICON = { food: "🍞", materials: "🔧", medicine: "💊" };
+const RESOURCE_ICON = { food: "🍞", materials: "🔧", medicine: "💊", research: "🧠" };
+
+// Expedition teams 1-3 and the raid squad each get a colour for their route, markers and chips.
+const TEAM_COLORS = ["#4caf7d", "#3fa7d6", "#e0a536", "#e0455f"];
+const teamLabel = (i) => (i === RAID_TEAM ? "Raid squad" : `Team ${i + 1}`);
 
 const HEX_W = 76;
 const HEX_H = 66;
@@ -170,7 +182,7 @@ function occupationLabel(state, c) {
     return TEACHER_POST_LABEL[c.post] || c.post;
   }
   if (c.defending) return "Defending";
-  if (c.exploreTeam !== null) return `Exploring (Team ${c.exploreTeam + 1})`;
+  if (c.exploreTeam !== null) return c.exploreTeam === RAID_TEAM ? "Raiding" : `Exploring (Team ${c.exploreTeam + 1})`;
   if (c.infirmaryToday) return "Nurse's Office";
   if (c.loungeToday) return "Lounge";
   if (c.gymToday) return "Gym";
@@ -473,79 +485,403 @@ function renderTurn2Overview(state) {
       if (!locId) return "";
       const loc = LOCATIONS.find((l) => l.id === locId);
       const memberCount = state.characters.filter((c) => c.exploreTeam === i && c.alive).length;
-      return `<button class="mission-chip" data-action="open-mission" data-location="${locId}">
-        <span>${LOCATION_ICON[locId]} ${esc(loc.name)}</span>
+      return `<button class="mission-chip" style="--team:${TEAM_COLORS[i]}" data-action="open-mission" data-location="${locId}">
+        <span><i class="team-dot"></i>${LOCATION_ICON[locId]} ${esc(loc.name)}</span>
         <span class="muted">${memberCount}/5</span>
         <span class="btn-x" data-action="clear-mission" data-team="${i}" title="Recall team">✕</span>
       </button>`;
     })
     .join("");
+  const raidLm = LANDMARKS.find((l) => l.id === state.raidTarget);
+  const raidCount = state.characters.filter((c) => c.exploreTeam === RAID_TEAM && c.alive).length;
+  const raidChip = raidLm
+    ? `<button class="mission-chip mission-chip-raid" style="--team:${TEAM_COLORS[RAID_TEAM]}" data-action="open-raid" data-landmark="${raidLm.id}">
+        <span><i class="team-dot"></i>☠ ${esc(raidLm.boss.name)}</span>
+        <span class="${raidCount < raidLm.minTeam ? "plot-warn" : "muted"}">${raidCount}/${raidLm.minTeam}+</span>
+        <span class="btn-x" data-action="clear-raid" title="Call off the raid">✕</span>
+      </button>`
+    : "";
 
   return `
   <div class="card">
-    <h2>Turn 2 — Exploration ${infoDot("Click a location on the map to send a team there. Distance from the school sets the difficulty — closer is safer, farther pays better (and is more dangerous). Teachers stay at the school. A fuller team of up to 5 students succeeds more often.")}</h2>
-    <p class="room-tagline">Pick a spot on the map · farther is riskier but pays better · up to 5 students a team</p>
+    <h2>Turn 2 — Exploration ${infoDot("Click a location on the map to send a team there. Distance from the school sets the difficulty — closer is safer, farther pays better (and is more dangerous). Teachers stay at the school. A fuller team of up to 5 students succeeds more often. Scout the fog (?) to grow the map — every hex hides something, from supplies to survivors to zombie nests. Landmarks at the edge of town hold raid bosses that need a big, high-level squad but drop legendary gear.")}</h2>
+    <p class="room-tagline">Send teams to locations · scout the fog to grow the map · raid the landmarks at the edge of town</p>
     ${renderExplorationMap(state)}
-    <div class="mission-chips">${missionChips || '<p class="muted">No teams assigned yet — click a hex on the map to start a mission.</p>'}</div>
+    <div class="mission-chips">${missionChips + raidChip || '<p class="muted">No teams assigned yet — click a location on the map to start a mission, or a "?" to scout.</p>'}</div>
     <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 Launch Expeditions &amp; Advance to Night</button>
   </div>`;
+}
+
+function hexTile(key) {
+  return `<div class="hex-tile" style="background-image:${tileBackground(key)}"></div>`;
 }
 
 function renderExplorationMap(state) {
   const width = 1.5 * HEX_SIZE * HEX_RADIUS * 2 + HEX_W + 20;
   const height = Math.sqrt(3) * HEX_SIZE * HEX_RADIUS * 2 + HEX_H + 20;
   const toPos = (x, y) => ({ left: x + width / 2 - HEX_W / 2, top: y + height / 2 - HEX_H / 2 });
+  // Tooltips open upward and centred, except near an edge where they'd be cut off.
+  const tipClass = (pos) =>
+    `hex-tooltip ${pos.top < 120 ? "hex-tip-below" : ""} ${pos.left < 70 ? "hex-tip-right" : pos.left > width - 150 ? "hex-tip-left" : ""}`;
+
+  const teamAt = {};
+  state.teamLocations.forEach((id, i) => {
+    if (id) teamAt[id] = i;
+  });
+  if (state.raidTarget) teamAt[state.raidTarget] = RAID_TEAM;
 
   const schoolPos = toPos(0, 0);
-  let hexesHtml = `<div class="hex hex-school" style="left:${schoolPos.left}px;top:${schoolPos.top}px;" title="Your school">
-    <div class="hex-inner"><span class="hex-icon">🏫</span><span class="hex-label">School</span></div>
+  let hexesHtml = `<div class="hex hex-school" style="left:${schoolPos.left}px;top:${schoolPos.top}px;">
+    ${hexTile("school")}<span class="hex-name">School</span>
   </div>`;
+  let routes = "";
 
   for (const { q, r } of hexesInRadius(HEX_RADIUS)) {
     const { x, y } = hexCenter(q, r);
     const pos = toPos(x, y);
-    const loc = LOCATIONS.find((l) => l.hex.q === q && l.hex.r === r);
-    const explored = isHexExplored(state, q, r);
+    const style = `left:${pos.left}px;top:${pos.top}px;`;
 
-    if (!explored) {
+    if (!isHexExplored(state, q, r)) {
       const reachable = canScoutHex(state, q, r);
-      hexesHtml += `<div class="hex hex-fog ${reachable ? "hex-fog-reachable" : ""}" ${reachable ? `data-action="open-scout" data-q="${q}" data-r="${r}"` : ""} style="left:${pos.left}px;top:${pos.top}px;">
-        <div class="hex-inner"><span class="hex-icon hex-fog-icon">?</span></div>
-        ${reachable ? `<div class="hex-tooltip hex-tooltip-fog"><b>Unexplored</b><p class="muted">Click to send a scout (${SCOUT_STAMINA_COST} stamina).</p></div>` : ""}
+      const danger = reachable && nextToNest(state, q, r);
+      hexesHtml += `<div class="hex hex-fog ${reachable ? "hex-fog-reachable" : ""}" ${reachable ? `data-action="open-scout" data-q="${q}" data-r="${r}"` : ""} style="${style}">
+        <div class="hex-tile hex-fog-tile"></div>
+        ${reachable ? `<span class="hex-fog-icon">?</span>` : ""}
+        ${reachable ? `<div class="${tipClass(pos)}"><b>Unexplored</b><p class="muted">Send a scout (${SCOUT_STAMINA_COST} stamina) to see what's here.${danger ? " ⚠ Next to a zombie nest — expect trouble." : ""}</p></div>` : ""}
       </div>`;
       continue;
     }
 
-    if (!loc) {
-      hexesHtml += `<div class="hex hex-explored-empty" style="left:${pos.left}px;top:${pos.top}px;"></div>`;
-      continue;
-    }
+    const loc = locationAt(q, r);
+    const lm = landmarkAt(q, r);
+    const place = loc || lm;
+    const team = place ? teamAt[place.id] : undefined;
+    let cls = "hex";
+    let action = "";
+    let extra = "";
+    let tip = "";
 
-    const dist = hexDistance(q, r);
-    const diffClass = dist <= 2 ? "hex-easy" : dist <= 4 ? "hex-medium" : "hex-hard";
-    const teamIndex = state.teamLocations.indexOf(loc.id);
-    const assigned = teamIndex !== -1;
-    const memberCount = assigned ? state.characters.filter((c) => c.exploreTeam === teamIndex && c.alive).length : 0;
-    const rewardsStr = Object.entries(loc.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ~${v}`).join("  ");
-    const recruitStr = loc.recruitBonus ? "🙋 Good chance of finding survivors" : "🙋 Slim chance of finding survivors";
-
-    hexesHtml += `<div class="hex hex-loc ${diffClass} ${assigned ? "hex-assigned" : ""}" data-action="open-mission" data-location="${loc.id}" style="left:${pos.left}px;top:${pos.top}px;">
-      <div class="hex-inner">
-        <span class="hex-icon">${LOCATION_ICON[loc.id]}</span>
-        <span class="hex-label">${esc(loc.name)}</span>
-        ${assigned ? `<span class="hex-team-badge">👥 ${memberCount}/5</span>` : ""}
-      </div>
-      <div class="hex-tooltip">
-        <b>${esc(loc.name)}</b>
+    if (loc) {
+      const dist = hexDistance(q, r);
+      cls += ` hex-loc ${dist <= 2 ? "hex-easy" : dist <= 4 ? "hex-medium" : "hex-hard"}`;
+      action = `data-action="open-mission" data-location="${loc.id}"`;
+      const rewardsStr = Object.entries(loc.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ~${v}`).join("  ");
+      tip = `<b>${esc(loc.name)}</b>
         <p class="muted">${esc(loc.desc)}</p>
         <div>Difficulty ${loc.difficulty}/5 · Danger ${loc.danger}/5</div>
         <div>${rewardsStr}</div>
-        <div class="muted">${recruitStr}</div>
-      </div>
+        ${nextToNest(state, q, r) ? `<div class="plot-warn">⚠ A zombie nest next door makes runs here riskier.</div>` : ""}`;
+      extra = `<span class="hex-name">${esc(loc.name)}</span>`;
+    } else if (lm) {
+      const cooldown = raidCooldownLeft(state, lm.id);
+      const boss = raidBoss(state, lm);
+      cls += ` hex-loc hex-landmark ${cooldown ? "hex-landmark-cleared" : ""}`;
+      action = `data-action="open-raid" data-landmark="${lm.id}"`;
+      tip = `<b>${esc(lm.name)}</b>
+        <p class="muted">${esc(lm.desc)}</p>
+        <div>☠ ${esc(boss.name)} — ${boss.hp} HP</div>
+        <div>Raid squad: ${lm.minTeam}+ students, Lv${lm.minLevel}+</div>
+        <div class="legend-text">🌟 Legendary gear · legendary survivors</div>
+        ${cooldown ? `<div class="muted">Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}.</div>` : ""}`;
+      extra = `<span class="hex-name">${esc(lm.name)}</span>
+        <span class="hex-badge ${cooldown ? "" : "hex-badge-boss"}">${cooldown ? `💤 ${cooldown}d` : "☠ Raid"}</span>`;
+    } else {
+      const terrain = hexTerrain(q, r);
+      if (isNest(state, q, r)) {
+        cls += " hex-nest hex-loc";
+        action = `data-action="open-nest" data-q="${q}" data-r="${r}"`;
+        tip = `<b>Zombie Nest</b><p class="muted">In the ${TERRAIN_NAMES[terrain].toLowerCase()}. Everything next to it is more dangerous until a squad burns it out.</p>`;
+        extra = `<span class="hex-badge hex-badge-nest">🧟 Nest</span>`;
+      } else {
+        tip = `<b>${TERRAIN_NAMES[terrain]}</b><p class="muted">Scouted.</p>`;
+      }
+    }
+
+    if (team !== undefined) {
+      const color = TEAM_COLORS[team];
+      const members = state.characters.filter((c) => c.exploreTeam === team && c.alive);
+      cls += " hex-assigned";
+      extra += `<div class="hex-team" style="--team:${color}">
+        ${members.slice(0, 3).map((c) => `<span class="hex-team-sprite">${characterSprite(c, 16)}</span>`).join("")}
+        ${members.length > 3 || !members.length ? `<span class="hex-team-more">${members.length ? `+${members.length - 3}` : "0"}</span>` : ""}
+      </div>`;
+      // A gently curved, marching dashed route from the school to the team's target.
+      const sx = width / 2;
+      const sy = height / 2;
+      const ex = x + width / 2;
+      const ey = y + height / 2;
+      const len = Math.hypot(ex - sx, ey - sy) || 1;
+      const bend = team % 2 ? 18 : -18;
+      const cx = (sx + ex) / 2 + (-(ey - sy) / len) * bend;
+      const cy = (sy + ey) / 2 + ((ex - sx) / len) * bend;
+      routes += `<path d="M${sx},${sy} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex},${ey}" stroke="${color}"/>`;
+    }
+
+    hexesHtml += `<div class="${cls}" ${action} style="${style}${team !== undefined ? `--team:${TEAM_COLORS[team]};` : ""}">
+      ${hexTile(hexTileKey(q, r))}
+      ${extra}
+      ${tip ? `<div class="${tipClass(pos)}">${tip}</div>` : ""}
     </div>`;
   }
 
-  return `<div class="hexmap-wrap"><div class="hexmap" style="width:${width}px;height:${height}px;">${hexesHtml}</div></div>`;
+  return `<div class="hexmap-wrap"><div class="hexmap" style="width:${width}px;height:${height}px;">
+    <svg class="hex-routes" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${routes}</svg>
+    ${hexesHtml}
+  </div></div>`;
+}
+
+// What a scout turned up — the hex's tile and a line about the find.
+export function renderScoutReport(state, report) {
+  const { q, r, scoutName, result } = report;
+  let title;
+  let body;
+  if (result.location) {
+    title = `Discovered: ${esc(result.location.name)}`;
+    body = `${esc(scoutName)} found the ${esc(result.location.name)}. ${esc(result.location.desc)} Send a team there any day.`;
+  } else if (result.landmark) {
+    title = `Landmark: ${esc(result.landmark.name)}`;
+    body = `${esc(scoutName)} spotted the ${esc(result.landmark.name)} at the edge of town. ${esc(result.landmark.boss.name)} is inside — a raid needs ${result.landmark.minTeam}+ students at Lv${result.landmark.minLevel} or higher, but it's guarding legendary gear.`;
+  } else {
+    title = TERRAIN_NAMES[result.find.terrain];
+    body = `${esc(scoutName)} scouted the ${TERRAIN_NAMES[result.find.terrain].toLowerCase()} and found ${esc(result.find.text)}.`;
+  }
+  const nest = result.find?.type === "nest";
+  return `<div class="modal-overlay" data-action="close-scout-report">
+    <div class="char-card mission-card scout-report ${nest ? "scout-report-nest" : ""}" data-action="noop">
+      <div class="scout-report-tile ${nest ? "hex-nest" : ""}">${hexTile(hexTileKey(q, r))}${nest ? `<span class="hex-badge hex-badge-nest">🧟 Nest</span>` : ""}</div>
+      <h3>${title}</h3>
+      <p>${body}</p>
+      <button class="btn btn-primary" data-action="close-scout-report">Continue</button>
+    </div>
+  </div>`;
+}
+
+export function renderNestModal(state, nest) {
+  const { q, r, ids } = nest;
+  const candidates = state.characters.filter((c) => c.role === "student" && c.alive);
+  const squad = ids.map((id) => getChar(state, id)).filter(Boolean);
+  const rows = candidates
+    .map((c) => {
+      const tired = c.stamina < NEST_CLEAR_STAMINA;
+      const picked = ids.includes(c.id);
+      const full = !picked && ids.length >= NEST_CLEAR_MAX;
+      return `<label class="check-row ${tired ? "check-row-disabled" : ""}">
+        <input type="checkbox" data-action="toggle-nest-member" data-id="${c.id}" ${picked ? "checked" : ""} ${tired || full ? "disabled" : ""}/>
+        <span class="assign-who">${nameTag(c)} — Lv${overallLevel(c)} ${statusTag(c)}${tired ? ' <span class="tag tag-injured">too tired</span>' : ""}</span>${staminaBar(c)}
+      </label>`;
+    })
+    .join("");
+  const pct = Math.round(nestClearChance(state, squad) * 100);
+  return `<div class="modal-overlay" data-action="close-nest">
+    <div class="char-card mission-card" data-action="noop">
+      <button class="cc-close" data-action="close-nest" title="Close">✕</button>
+      <div class="scout-report-tile hex-nest">${hexTile(hexTileKey(q, r))}<span class="hex-badge hex-badge-nest">🧟 Nest</span></div>
+      <h3>🧟 Zombie Nest — ${TERRAIN_NAMES[hexTerrain(q, r)]}</h3>
+      <p class="muted">While it's here, scouting next to it is more dangerous and locations beside it are riskier to raid. Send up to ${NEST_CLEAR_MAX} students (${NEST_CLEAR_STAMINA} stamina each) to burn it out — win and there's scrap, maybe gear, in the pile.</p>
+      ${squad.length ? `<div class="mission-success ${pct >= 60 ? "mission-good" : pct >= 35 ? "mission-ok" : "mission-bad"}">Chance to clear it: <b>${pct}%</b></div>` : ""}
+      <div class="mini-label">Squad (${squad.length}/${NEST_CLEAR_MAX})</div>
+      <div class="check-list">${rows}</div>
+      <div class="row-actions">
+        <button class="btn btn-sm" data-action="close-nest">Not now</button>
+        <button class="btn btn-primary" data-action="attack-nest" ${squad.length ? "" : "disabled"}>🔥 Burn it out</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+export function renderRaidModal(state, landmarkId) {
+  const lm = LANDMARKS.find((l) => l.id === landmarkId);
+  if (!lm) return "";
+  const boss = raidBoss(state, lm);
+  const cooldown = raidCooldownLeft(state, lm.id);
+  const planned = state.raidTarget === lm.id;
+  const squad = state.characters.filter((c) => c.exploreTeam === RAID_TEAM && c.alive);
+  const rewards = Object.entries(lm.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ${v}`).join(" ");
+  const header = `
+    <div class="raid-intro">
+      <div class="raid-intro-boss">${zombieSprite(lm.boss.look, 88)}</div>
+      <div>
+        <h3>☠ ${esc(boss.name)}</h3>
+        <div class="muted">${esc(lm.name)}${boss.kills ? ` · killed ${boss.kills}× — tougher each time` : ""}</div>
+        <div class="raid-boss-stats"><span>❤ ${boss.hp} HP</span><span>⚔ ${boss.damage} × ${boss.attacks} a round</span><span>⏱ ${RAID_MAX_ROUNDS} rounds</span></div>
+      </div>
+    </div>
+    <p class="muted">${esc(lm.desc)}</p>
+    <div class="raid-reqs">
+      <span class="raid-req ${squad.length >= lm.minTeam ? "raid-req-ok" : ""}">👥 ${lm.minTeam}–${RAID_MAX_TEAM} students</span>
+      <span class="raid-req raid-req-ok">⭐ Lv${lm.minLevel}+ each</span>
+    </div>
+    <div class="raid-rewards">
+      <span class="legend-text">🌟 ${lm.legendaryItems} legendary item${lm.legendaryItems > 1 ? "s" : ""}</span>
+      <span class="legend-text">🙋 ${Math.round(lm.legendaryRecruitChance * 100)}% legendary survivor</span>
+      <span>${rewards}</span>
+    </div>`;
+
+  let body;
+  if (cooldown) {
+    body = `<div class="mission-success mission-ok">${esc(boss.name)} is dead — for now. Something takes its place in ${cooldown} day${cooldown === 1 ? "" : "s"}.</div>`;
+  } else if (!planned) {
+    body = `<div class="row-actions">
+      <button class="btn btn-sm" data-action="close-raid">Not today</button>
+      <button class="btn btn-primary" data-action="plan-raid" data-landmark="${lm.id}">☠ Plan a raid</button>
+    </div>`;
+  } else {
+    const rows = state.characters
+      .filter((c) => c.role === "student" && c.alive)
+      .map((c) => {
+        const lvl = overallLevel(c);
+        const onSquad = c.exploreTeam === RAID_TEAM;
+        const reason = onSquad
+          ? null
+          : lvl < lm.minLevel
+          ? `needs Lv${lm.minLevel}`
+          : c.exploreTeam !== null
+          ? `on Team ${c.exploreTeam + 1}`
+          : c.farmToday || c.scrapyardToday || c.ranchToday
+          ? "working outside"
+          : c.stamina <= 0
+          ? "exhausted"
+          : !onSquad && squad.length >= RAID_MAX_TEAM
+          ? "squad full"
+          : null;
+        return `<label class="check-row ${reason ? "check-row-disabled" : ""}">
+          <input type="checkbox" data-action="toggle-team-member" data-team="${RAID_TEAM}" data-id="${c.id}" ${onSquad ? "checked" : ""} ${reason ? "disabled" : ""}/>
+          <span class="assign-who">${nameTag(c)} — Lv${lvl} ${statusTag(c)}${reason ? ` <span class="tag tag-injured">${reason}</span>` : ""}</span>${hpBar(c)}
+        </label>`;
+      })
+      .sort((x, y) => x.includes("check-row-disabled") - y.includes("check-row-disabled"))
+      .join("");
+    let verdict = `<p class="muted">Pick at least ${lm.minTeam} students to see how the fight might go.</p>`;
+    if (squad.length) {
+      const est = raidEstimate(state, lm, squad);
+      const cls = est.rounds <= RAID_MAX_ROUNDS * 0.7 ? "mission-good" : est.rounds <= RAID_MAX_ROUNDS ? "mission-ok" : "mission-bad";
+      const say = est.rounds <= RAID_MAX_ROUNDS * 0.7 ? "should bring it down with time to spare" : est.rounds <= RAID_MAX_ROUNDS ? "a close fight — it could go either way" : "not enough firepower — they'd have to retreat";
+      verdict = `<div class="mission-success ${cls}">~${est.perRound} damage a round → about ${est.rounds === Infinity ? "∞" : est.rounds} of ${RAID_MAX_ROUNDS} rounds: <b>${say}</b>${squad.length < lm.minTeam ? ` · needs ${lm.minTeam - squad.length} more` : ""}</div>`;
+    }
+    body = `${verdict}
+      <div class="mini-label">Raid squad (${squad.length}/${RAID_MAX_TEAM})</div>
+      <div class="check-list">${rows}</div>
+      <p class="muted">The raid launches with the day's expeditions. Anyone who goes down is patched up with ${MEDICINE_PER_STABILIZE} medicine if you have it — otherwise they might not make it.</p>
+      <div class="row-actions">
+        <button class="btn btn-danger btn-sm" data-action="clear-raid">Call off</button>
+        <button class="btn btn-primary" data-action="close-raid">☠ Confirm squad &amp; close</button>
+      </div>`;
+  }
+  return `<div class="modal-overlay" data-action="close-raid">
+    <div class="char-card mission-card raid-card" data-action="noop">
+      <button class="cc-close" data-action="close-raid" title="Close">✕</button>
+      ${header}
+      ${body}
+    </div>
+  </div>`;
+}
+
+// The raid, replayed a round at a time: the squad on the left, the boss on the right.
+export function renderRaidFight(state, anim) {
+  const { report } = anim;
+  const lm = LANDMARKS.find((l) => l.id === report.landmarkId);
+  const frame = report.frames[anim.frameIndex];
+  const hitIds = new Map(frame.hits.map((h) => [h.id, h]));
+  const members = report.memberIds
+    .map((id, i) => {
+      const c = getChar(state, id);
+      if (!c) return "";
+      const hp = frame.hp[i];
+      const pct = Math.max(0, Math.round((hp / c.maxHp) * 100));
+      const hit = hitIds.get(id);
+      return `<div class="raid-member ${hp <= 0 ? "raid-member-down" : ""} ${hit ? "raid-member-hit" : ""}">
+        ${characterSprite(c, 40)}
+        <div class="raid-hp"><div style="width:${pct}%"></div></div>
+        <span class="raid-name">${esc(c.name.split(" ")[0])}</span>
+        ${hit ? `<span class="raid-float raid-float-bad">-${hit.dmg}</span>` : ""}
+      </div>`;
+    })
+    .join("");
+  const bossPct = Math.round((frame.bossHp / report.bossMaxHp) * 100);
+  const done = anim.phase === "result";
+  const loot = [
+    ...report.items.map((it) => `<span class="legend-text">${it.icon} ${esc(it.name)}</span>`),
+    ...(report.recruit ? [`<span class="legend-text">🙋 ${esc(report.recruit)} wants to join</span>`] : []),
+    ...Object.entries(report.loot).map(([k, v]) => `<span>${RESOURCE_ICON[k]} +${v}</span>`),
+  ];
+  return `<div class="modal-overlay raid-overlay">
+    <div class="raid-stage">
+      <div class="raid-title">☠ Raid — ${esc(lm.name)}</div>
+      <div class="raid-arena">
+        <div class="raid-squad">${members}</div>
+        <div class="raid-boss ${frame.enraged ? "raid-boss-enraged" : ""} ${frame.dealt ? "raid-boss-hit" : ""} ${frame.bossHp <= 0 ? "raid-boss-dead" : ""}">
+          ${frame.dealt ? `<span class="raid-float raid-float-good">-${frame.dealt}</span>` : ""}
+          ${zombieSprite(report.look, 128)}
+          <div class="raid-boss-name">${esc(report.bossName)}${frame.enraged ? " · berserk" : ""}</div>
+          <div class="raid-boss-bar"><div style="width:${bossPct}%"></div><span>${frame.bossHp} / ${report.bossMaxHp}</span></div>
+        </div>
+      </div>
+      <div class="raid-log">${esc(frame.text)}</div>
+      ${done
+        ? `<div class="raid-result ${report.won ? "raid-won" : "raid-lost"}">
+            <div class="raid-result-title">${report.won ? `${esc(report.bossName)} is dead!` : "The squad fell back."}</div>
+            ${loot.length ? `<div class="raid-loot">${loot.join("")}</div>` : ""}
+            ${report.lost.length ? `<div class="exp-bad">Lost: ${report.lost.map(esc).join(", ")}</div>` : ""}
+            ${report.hurt.length ? `<div class="exp-hurt">${report.hurt.map(esc).join(" · ")}</div>` : ""}
+            <button class="btn btn-primary" data-action="finish-raid">Continue</button>
+          </div>`
+        : `<button class="btn btn-sm raid-skip" data-action="skip-raid">⏭ Skip</button>`}
+    </div>
+  </div>`;
+}
+
+// End of Turn 2: each team walks out to its target, then reports what happened.
+export function renderExpeditionReport(state, anim) {
+  const { summary, phase } = anim;
+  const arrived = phase === "report";
+  const lootChips = (loot) => Object.entries(loot).filter(([, v]) => v).map(([k, v]) => `<span class="exp-chip">${RESOURCE_ICON[k]} +${v}</span>`).join("");
+  const row = (color, fromKey, toKey, leader, title, resultTag, details) => `
+    <div class="exp-row ${arrived ? "exp-arrived" : ""}" style="--team:${color}">
+      <div class="exp-route">
+        <div class="exp-tile">${hexTile(fromKey)}</div>
+        <div class="exp-path"><span class="exp-walker">${leader ? characterSprite(leader, 22) : ""}</span></div>
+        <div class="exp-tile">${hexTile(toKey)}</div>
+      </div>
+      <div class="exp-info">
+        <div class="exp-head"><b>${title}</b>${arrived ? resultTag : `<span class="muted">on the way…</span>`}</div>
+        ${arrived ? details : ""}
+      </div>
+    </div>`;
+
+  const rows = summary.teams.map((t) => {
+    const loc = LOCATIONS.find((l) => l.id === t.locationId);
+    const leader = getChar(state, t.memberIds[0]);
+    const tag = t.success ? `<span class="tag tag-ok">✅ Success</span>` : `<span class="tag tag-injured">⚠ Struggled</span>`;
+    const details = `<div class="exp-finds">${lootChips(t.loot)}${t.finds.map((f) => `<span class="exp-chip">${esc(f)}</span>`).join("")}${t.recruit ? `<span class="exp-chip exp-good">🙋 ${esc(t.recruit)} wants to join</span>` : ""}</div>
+      ${t.hurt.length ? `<div class="exp-hurt">🩹 ${t.hurt.map(esc).join(", ")}</div>` : ""}
+      ${t.lost.length ? `<div class="exp-bad">☠ Lost: ${t.lost.map(esc).join(", ")}</div>` : ""}
+      ${t.nearNest ? `<div class="muted">A zombie nest next door made it harder.</div>` : ""}`;
+    return row(TEAM_COLORS[t.teamIndex], "school", loc.id, leader, `${teamLabel(t.teamIndex)} → ${esc(loc.name)}`, tag, details);
+  });
+  if (summary.raid?.calledOff) {
+    const lm = LANDMARKS.find((l) => l.id === summary.raid.landmarkId);
+    rows.push(`<div class="exp-row" style="--team:${TEAM_COLORS[RAID_TEAM]}">
+      <div class="exp-info">
+        <div class="exp-head"><b>Raid squad → ${esc(lm.name)}</b><span class="tag tag-injured">Called off</span></div>
+        <div class="muted">Only ${summary.raid.squadSize} of the ${summary.raid.minTeam} students it needs — they stayed home.</div>
+      </div>
+    </div>`);
+  } else if (summary.raid) {
+    const rd = summary.raid;
+    const lm = LANDMARKS.find((l) => l.id === rd.landmarkId);
+    const tag = rd.won ? `<span class="tag tag-ok">☠ Boss slain</span>` : `<span class="tag tag-injured">Retreated</span>`;
+    const details = `<div class="exp-finds">${rd.items.map((it) => `<span class="exp-chip exp-legend">${it.icon} ${esc(it.name)}</span>`).join("")}${rd.recruit ? `<span class="exp-chip exp-legend">🙋 ${esc(rd.recruit)}</span>` : ""}${lootChips(rd.loot)}</div>
+      ${rd.hurt.length ? `<div class="exp-hurt">🩹 ${rd.hurt.map(esc).join(", ")}</div>` : ""}
+      ${rd.lost.length ? `<div class="exp-bad">☠ Lost: ${rd.lost.map(esc).join(", ")}</div>` : ""}`;
+    rows.push(row(TEAM_COLORS[RAID_TEAM], "school", lm.id, getChar(state, rd.memberIds[0]), `Raid squad → ${esc(lm.name)}`, tag, details));
+  }
+  return `<div class="modal-overlay">
+    <div class="char-card mission-card exp-report" data-action="noop">
+      <h3>🧳 Expedition Report — Day ${state.day}</h3>
+      <div class="exp-rows">${rows.join("")}</div>
+      ${arrived ? `<button class="btn btn-primary btn-big" data-action="finish-expedition">Continue to Night</button>` : ""}
+    </div>
+  </div>`;
 }
 
 export function renderScoutModal(state, q, r) {
@@ -584,7 +920,7 @@ export function renderFightAnimation(state, anim) {
       <div class="fight-scene">
         <div class="fight-combatant fight-scout">${sprite}</div>
         <div class="fight-impact">💥</div>
-        <div class="fight-combatant fight-zombie">🧟</div>
+        <div class="fight-combatant fight-zombie">${zombieSprite("walker", 80)}</div>
       </div>
       <div class="fight-caption">${c ? esc(c.name) : "Your scout"} runs into a zombie…</div>
     </div>`;
@@ -815,6 +1151,7 @@ export function renderMissionModal(state, locationId) {
         <span>Danger ${loc.danger}/5</span>
         ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
       </div>
+      ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">⚠ A zombie nest next door: lower odds and more injuries until it's cleared.</div>` : ""}
       ${successHtml}
       <div class="mini-label">Team (${members.length}/5)</div>
       <div class="check-list">${studentRows || '<p class="muted">No available students.</p>'}</div>
@@ -957,7 +1294,7 @@ function studentBusyLabel(c, exceptFlag) {
   if (exceptFlag !== "farmToday" && c.farmToday) return "Working the Farm";
   if (exceptFlag !== "scrapyardToday" && c.scrapyardToday) return "Working the Scrapyard";
   if (exceptFlag !== "ranchToday" && c.ranchToday) return "Working the Ranch";
-  if (c.exploreTeam !== null) return `Exploring (Team ${c.exploreTeam + 1})`;
+  if (c.exploreTeam !== null) return c.exploreTeam === RAID_TEAM ? "On the raid squad" : `Exploring (Team ${c.exploreTeam + 1})`;
   if (exceptFlag !== "defending" && c.defending) return "Defending the Entrance";
   return null;
 }

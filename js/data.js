@@ -664,6 +664,64 @@ export const LOCATIONS = [
   },
 ];
 
+// ===== Exploring the map =====
+// Every hex that isn't a location has a terrain (worked out from its position by map.js), and
+// scouting it always turns something up — weighted by terrain below. "cache" is a small stash of
+// the terrain's CACHE_RESOURCE; "nest" is a zombie nest that makes the hexes around it more
+// dangerous until a squad clears it out.
+export const HEX_FINDS = {
+  street: { cache: 40, gear: 25, survivor: 10, nest: 20, ingredient: 5 },
+  apartments: { cache: 30, ingredient: 20, survivor: 20, gear: 10, nest: 20 },
+  shops: { cache: 40, ingredient: 30, gear: 15, nest: 15 },
+  parking: { cache: 35, gear: 30, survivor: 10, nest: 25 },
+  houses: { cache: 25, seeds: 25, ingredient: 15, animal: 10, survivor: 15, nest: 10 },
+  park: { seeds: 35, animal: 20, cache: 15, survivor: 10, nest: 20 },
+  ruins: { gear: 30, cache: 25, survivor: 10, nest: 35 },
+  woods: { animal: 30, seeds: 20, cache: 15, nest: 35 },
+  field: { seeds: 40, animal: 30, cache: 20, nest: 10 },
+  river: { cache: 45, gear: 25, ingredient: 10, nest: 20 },
+};
+export const CACHE_RESOURCE = {
+  street: "materials", parking: "materials", ruins: "materials", apartments: "medicine",
+  shops: "food", houses: "food", park: "food", woods: "food", field: "food", river: "food",
+};
+export const NEST_SCOUT_DANGER = 0.25; // extra encounter chance scouting next to a nest
+export const NEST_EXPEDITION_PENALTY = 0.1; // less success / more casualties at a location next to one
+export const NEST_CLEAR_STAMINA = 15;
+export const NEST_CLEAR_MAX = 3; // students per nest-clearing squad
+
+// ===== Raid landmarks =====
+// Hidden at the edge of the map until scouted. Each holds a raid boss that needs a bigger,
+// higher-level team than an expedition (a separate raid squad of up to RAID_MAX_TEAM, launched
+// with the day's expeditions). Beating it drops legendary gear and can free a legendary survivor;
+// it comes back `respawnDays` later, 25% tougher for every time it's been killed.
+export const RAID_MAX_TEAM = 8;
+export const RAID_MAX_ROUNDS = 15;
+export const RAID_BOSS_SCALING = 0.25;
+export const LANDMARKS = [
+  {
+    id: "checkpoint", name: "Military Checkpoint", hex: { q: 5, r: -2 },
+    desc: "An army roadblock that fell on the first night. Something in there still wears the sergeant's stripes.",
+    boss: { name: "Sergeant Rot", look: "soldier", hp: 600, damage: 19, attacks: 2 },
+    minTeam: 6, minLevel: 4, legendaryItems: 1, legendaryRecruitChance: 0.35,
+    rewards: { food: 25, materials: 45, medicine: 20 }, respawnDays: 4,
+  },
+  {
+    id: "stadium", name: "City Stadium", hex: { q: -5, r: 5 },
+    desc: "The evacuation shelter that became a feeding ground. Its king still wears the team jersey.",
+    boss: { name: "The Linebacker", look: "jersey", hp: 1000, damage: 20, attacks: 3 },
+    minTeam: 7, minLevel: 5, legendaryItems: 1, legendaryRecruitChance: 0.5,
+    rewards: { food: 40, materials: 40, medicine: 30 }, respawnDays: 5,
+  },
+  {
+    id: "institute", name: "Research Institute", hex: { q: 0, r: -5 },
+    desc: "Where the outbreak may have started. Patient zero never left the building.",
+    boss: { name: "Subject Zero", look: "labcoat", hp: 1350, damage: 24, attacks: 3 },
+    minTeam: 8, minLevel: 6, legendaryItems: 2, legendaryRecruitChance: 0.7,
+    rewards: { food: 30, materials: 50, medicine: 50, research: 40 }, respawnDays: 6,
+  },
+];
+
 // ===== Name pools =====
 export const MALE_NAMES = [
   "James","John","Robert","Michael","David","Daniel","Matthew","Andrew","Joshua","Ryan",

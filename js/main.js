@@ -1,5 +1,6 @@
 import * as G from "./game.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
+  renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
@@ -36,6 +37,11 @@ let openScoutHex = null; // { q, r } or null
 let fightAnimation = null; // { studentId, ambushed, phase: "clash" | "result" } or null
 let battleAnimation = null; // { kind: "defense" | "exploration", summary, phase: "clash" | "result" } or null
 let openPicker = null; // { kind, roomId, seatIndex, postKey } or null
+let scoutReport = null; // { q, r, scoutName, result } — what the last scout found
+let openNest = null; // { q, r, ids } while picking a squad to clear a zombie nest
+let openRaid = null; // LANDMARKS id whose raid screen is open
+let raidFight = null; // { report, frameIndex, phase: "battle" | "result", after } while a raid replays
+let expeditionReport = null; // { summary, phase: "travel" | "report" } at the end of Turn 2
 let openPlot = null; // { facility: "farm" | "ranch", index } while choosing what to plant/pen
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
@@ -165,6 +171,10 @@ function migrateState(s) {
   if (s.rooms.farm.plots === undefined) s.rooms.farm.plots = FACILITY_PLOTS.farm;
   G.syncPlots(s, "farm");
   G.syncPlots(s, "ranch");
+  if (!s.nests) s.nests = [];
+  if (s.raidTarget === undefined) s.raidTarget = null;
+  if (!s.raidCooldowns) s.raidCooldowns = {};
+  if (!s.raidKills) s.raidKills = {};
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -267,7 +277,11 @@ function render() {
   // Content eases in only when the tab actually changes, not on every re-render within a tab.
   root.classList.toggle("tab-enter", activeTab !== lastRenderedTab);
   lastRenderedTab = activeTab;
-  const modalHtml = battleAnimation
+  const modalHtml = raidFight
+    ? renderRaidFight(state, raidFight)
+    : expeditionReport
+    ? renderExpeditionReport(state, expeditionReport)
+    : battleAnimation
     ? renderBattleAnimation(state, battleAnimation)
     : fightAnimation
     ? renderFightAnimation(state, fightAnimation)
@@ -275,6 +289,12 @@ function render() {
     ? renderDayRecap(dayRecap)
     : card
     ? renderCharacterCard(state, card, cardTab)
+    : scoutReport
+    ? renderScoutReport(state, scoutReport)
+    : openRaid
+    ? renderRaidModal(state, openRaid)
+    : openNest
+    ? renderNestModal(state, openNest)
     : openMissionLocationId
     ? renderMissionModal(state, openMissionLocationId)
     : openScoutHex
@@ -288,7 +308,16 @@ function render() {
     : state.pendingAssault
     ? renderAssaultModal()
     : "";
+  // The whole app re-renders, so keep the exploration map scrolled where the player left it
+  // (centred on the school the first time — on a phone the map is wider than the screen).
+  const oldMap = root.querySelector('.hexmap-wrap');
+  const mapScroll = oldMap ? { left: oldMap.scrollLeft, top: oldMap.scrollTop } : null;
   root.innerHTML = renderApp(state, activeTab, rosterFilter, mobileView, floaties, rosterSortKey, rosterSortDir) + modalHtml;
+  const newMap = root.querySelector('.hexmap-wrap');
+  if (newMap) {
+    newMap.scrollLeft = mapScroll ? mapScroll.left : (newMap.scrollWidth - newMap.clientWidth) / 2;
+    newMap.scrollTop = mapScroll ? mapScroll.top : (newMap.scrollHeight - newMap.clientHeight) / 2;
+  }
 }
 
 function loadGame() {
@@ -341,6 +370,51 @@ function playBattleAnimation(kind, summary, won, afterResult) {
   }, 1300);
 }
 
+// Replays a raid a round at a time; "Skip" jumps to the result, "Continue" runs `after`.
+const RAID_TICK_MS = 800;
+let raidTimer = null;
+function playRaidFight(report, after) {
+  raidFight = { report, frameIndex: 0, phase: "battle", after };
+  playHit();
+  render();
+  const step = () => {
+    if (!raidFight || raidFight.phase !== "battle") return;
+    if (raidFight.frameIndex >= report.frames.length - 1) {
+      showRaidResult();
+      return;
+    }
+    raidFight.frameIndex++;
+    playHit();
+    render();
+    raidTimer = setTimeout(step, RAID_TICK_MS);
+  };
+  raidTimer = setTimeout(step, RAID_TICK_MS);
+}
+function showRaidResult() {
+  if (!raidFight || raidFight.phase !== "battle") return;
+  clearTimeout(raidTimer);
+  raidFight.phase = "result";
+  raidFight.frameIndex = raidFight.report.frames.length - 1;
+  (raidFight.report.won ? playSuccess : playFail)();
+  render();
+}
+
+// A quick scout-vs-zombie clash, then `done` — used by scouting ambushes and nest clearing.
+function playSkirmish(studentId, lost, done) {
+  fightAnimation = { studentId, ambushed: lost, phase: "clash" };
+  playHit();
+  render();
+  setTimeout(() => {
+    fightAnimation.phase = "result";
+    (lost ? playFail : playSuccess)();
+    render();
+    setTimeout(() => {
+      fightAnimation = null;
+      done();
+    }, 900);
+  }, 1100);
+}
+
 // Replays the night battle's recorded frames on the grid, one tick at a time. The battle itself
 // is already fully resolved in `state`; "Skip" just jumps to the result, and "Continue" on the
 // result screen runs `afterResult` to finish the turn.
@@ -383,15 +457,23 @@ function resolveCurrentTurn() {
     render();
   } else if (state.turn === 2) {
     const summary = G.resolveExploration(state);
-    if (summary.teamsSent > 0) {
-      playBattleAnimation("exploration", summary, summary.successes > 0, () => {
+    const showReport = () => {
+      if (!summary.teamsSent && !summary.raid) {
         G.advanceTurn(state);
         render();
-      });
-    } else {
-      G.advanceTurn(state);
+        return;
+      }
+      expeditionReport = { summary, phase: "travel" };
       render();
-    }
+      setTimeout(() => {
+        if (!expeditionReport) return;
+        expeditionReport.phase = "report";
+        (summary.successes > 0 || summary.raid?.won ? playSuccess : playFail)();
+        render();
+      }, 1700);
+    };
+    if (summary.raid && !summary.raid.calledOff) playRaidFight(summary.raid, showReport);
+    else showReport();
   } else {
     const summary = G.resolveDefense(state);
     playGridBattle(summary, () => {
@@ -591,6 +673,74 @@ root.addEventListener("click", (e) => {
       render();
       break;
     }
+    case "close-scout-report":
+      scoutReport = null;
+      render();
+      break;
+    case "open-nest":
+      openCardId = null;
+      openMissionLocationId = null;
+      openRaid = null;
+      openNest = { q: Number(el.dataset.q), r: Number(el.dataset.r), ids: [] };
+      render();
+      break;
+    case "close-nest":
+      openNest = null;
+      render();
+      break;
+    case "attack-nest": {
+      if (!openNest || !openNest.ids.length) break;
+      const { q, r, ids } = openNest;
+      const result = G.clearNest(state, q, r, ids);
+      openNest = null;
+      if (!result) {
+        flash("Nobody fit enough to go.");
+        render();
+        break;
+      }
+      playSkirmish(ids[0], !result.won, () => {
+        flash(result.won ? `Nest burned out! ${result.loot}.` : `The squad fell back${result.hurt.length ? ` — ${result.hurt.join(", ")}` : ""}.`);
+        render();
+      });
+      break;
+    }
+    case "open-raid":
+      openCardId = null;
+      openMissionLocationId = null;
+      openNest = null;
+      openRaid = el.dataset.landmark;
+      render();
+      break;
+    case "plan-raid":
+      if (!G.setRaidTarget(state, el.dataset.landmark)) flash("That boss isn't back yet.");
+      render();
+      break;
+    case "clear-raid":
+      G.setRaidTarget(state, null);
+      openRaid = null;
+      render();
+      break;
+    case "close-raid":
+      // An empty squad shouldn't leave a phantom raid planned.
+      if (state.raidTarget === openRaid && !state.characters.some((c) => c.exploreTeam === G.RAID_TEAM)) G.setRaidTarget(state, null);
+      openRaid = null;
+      render();
+      break;
+    case "skip-raid":
+      showRaidResult();
+      break;
+    case "finish-raid": {
+      const after = raidFight?.after;
+      raidFight = null;
+      if (after) after();
+      else render();
+      break;
+    }
+    case "finish-expedition":
+      expeditionReport = null;
+      G.advanceTurn(state);
+      render();
+      break;
     case "close-scout":
       openScoutHex = null;
       render();
@@ -598,35 +748,22 @@ root.addEventListener("click", (e) => {
     case "confirm-scout": {
       if (!openScoutHex) break;
       const studentId = el.dataset.id;
-      const result = G.scoutHex(state, studentId, openScoutHex.q, openScoutHex.r);
+      const { q, r } = openScoutHex;
+      const result = G.scoutHex(state, studentId, q, r);
       openScoutHex = null;
       if (!result) {
         flash("Can't scout that hex.");
         render();
         break;
       }
+      const scoutName = G.getChar(state, studentId).name;
       const finish = () => {
         if (result.ambushed) flash("Ambushed! The scout fled back to the school.");
-        else if (result.location) flash(`Discovered ${result.location.name}!`);
-        else flash("Scouted the area — nothing there.");
+        else scoutReport = { q, r, scoutName, result };
         render();
       };
-      if (result.encountered) {
-        fightAnimation = { studentId, ambushed: result.ambushed, phase: "clash" };
-        playHit();
-        render();
-        setTimeout(() => {
-          fightAnimation.phase = "result";
-          (result.ambushed ? playFail : playSuccess)();
-          render();
-          setTimeout(() => {
-            fightAnimation = null;
-            finish();
-          }, 900);
-        }, 1100);
-      } else {
-        finish();
-      }
+      if (result.encountered) playSkirmish(studentId, result.ambushed, finish);
+      else finish();
       break;
     }
     case "open-picker": {
@@ -781,9 +918,12 @@ root.addEventListener("pointerover", placeInfoTip);
 root.addEventListener("focusin", placeInfoTip);
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot)) {
+  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openRaid || openNest || scoutReport)) {
     openCardId = null;
     openPlot = null;
+    openRaid = null;
+    openNest = null;
+    scoutReport = null;
     closeMissionModal();
     render();
   }
@@ -811,6 +951,13 @@ root.addEventListener("change", (e) => {
     case "set-team-location": {
       const teamIndex = Number(el.dataset.team);
       G.setTeamLocation(state, teamIndex, el.value || null);
+      render();
+      break;
+    }
+    case "toggle-nest-member": {
+      if (!openNest) break;
+      const id = el.dataset.id;
+      openNest.ids = el.checked ? [...openNest.ids, id].slice(0, 3) : openNest.ids.filter((x) => x !== id);
       render();
       break;
     }
