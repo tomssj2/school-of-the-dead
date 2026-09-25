@@ -55,6 +55,8 @@ export const STAT_TUNING = {
   expeditionStealthPerDex: 1 / 400, // expedition casualties × (1 − avg DEX / 400): −25% at 100
   recoveryBase: 0.1, // overnight healing = 10% + CON / 500 of max HP (30% at 100)
   recoveryPerCon: 1 / 500,
+  staminaRecoveryFlat: 5, // overnight stamina when fed = 5 + 10% of max (the Lounge is the real refill)
+  staminaRecoveryShare: 0.1,
   nursePerCon: 1 / 500, // a treated patient heals an extra CON / 500 of max HP
   xpPerInt: 1 / 250, // all XP × (1 + INT / 250): +40% at 100
   trapPerInt: 1 / 150, // trap damage × (1 + avg INT / 150)

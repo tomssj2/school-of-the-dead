@@ -1471,10 +1471,12 @@ function resolveDailyFoodUpkeep(state) {
 // A fed school gets a night's rest: everyone recovers a slice of their max HP, so battle damage
 // doesn't just stack up night after night. Going hungry skips it.
 // Overnight healing when fed: 10% of max HP plus more for a high CON (see STAT_TUNING).
+// A fed school sleeps it off: some HP (more with a high CON) and a little stamina back for everyone.
 function resolveOvernightRecovery(state) {
   for (const c of aliveChars(state)) {
     c.hp = Math.min(c.maxHp, c.hp + Math.round(c.maxHp * (TUNE.recoveryBase + c.grades.Biology * TUNE.recoveryPerCon)));
     c.injured = c.hp < c.maxHp * 0.5;
+    c.stamina = Math.min(c.maxStamina, c.stamina + TUNE.staminaRecoveryFlat + Math.round(c.maxStamina * TUNE.staminaRecoveryShare));
   }
 }
 

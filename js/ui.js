@@ -1665,7 +1665,7 @@ export function renderFloor1(state) {
       </div>
       <div class="room room-lounge">
         ${roomScene("lounge", resting, "Lounge",
-          `Up to ${lounge.studentCapacity} students/day. Everyone resting here recovers ${loungeRecovery(state)} stamina — students only; teachers recover by cooking.`)}
+          `Up to ${lounge.studentCapacity} students/day. Everyone resting here recovers ${loungeRecovery(state)} stamina — students only; teachers recover by cooking. On nights the school is fed, everyone also gets a little stamina back (5 + 10% of their max) and some HP.`)}
         <p class="room-tagline">Resting students recover <b>${loungeRecovery(state)} stamina</b></p>
         <div class="mini-label">Resting today (${resting.length}/${lounge.studentCapacity})</div>
         <ul class="assign-list">
