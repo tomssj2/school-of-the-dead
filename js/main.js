@@ -1,12 +1,12 @@
 import * as G from "./game.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
-  CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
+  CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, FARM_INGREDIENTS, LEGACY_DISH_IDS, STARTING_SEEDS, FARM_PLOTS, CROPS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -36,6 +36,7 @@ let openScoutHex = null; // { q, r } or null
 let fightAnimation = null; // { studentId, ambushed, phase: "clash" | "result" } or null
 let battleAnimation = null; // { kind: "defense" | "exploration", summary, phase: "clash" | "result" } or null
 let openPicker = null; // { kind, roomId, seatIndex, postKey } or null
+let openPlot = null; // { facility: "farm" | "ranch", index } while choosing what to plant/pen
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
 let pickerSortDir = "desc";
@@ -92,7 +93,8 @@ function migrateState(s) {
     if (c.infirmaryToday === undefined) c.infirmaryToday = false;
     if (c.farmToday === undefined) c.farmToday = false;
     if (c.scrapyardToday === undefined) c.scrapyardToday = false;
-    if (c.labToday === undefined) c.labToday = false;
+    delete c.labToday; // the Lab was replaced by the Ranch
+    if (c.ranchToday === undefined) c.ranchToday = false;
     if (c.role === "teacher") {
       if (!/^(mr|mrs)\.\s/i.test(c.name)) c.name = withTeacherHonorific(c.name, c.gender);
       if (!c.teachSubject) {
@@ -114,7 +116,9 @@ function migrateState(s) {
   if (!s.rooms.research) s.rooms.research = { teacherCapacity: RESEARCH_ROOM_TEACHERS };
   if (!s.rooms.farm) s.rooms.farm = { studentCapacity: FARM_CAPACITY };
   if (!s.rooms.scrapyard) s.rooms.scrapyard = { studentCapacity: SCRAPYARD_CAPACITY };
-  if (!s.rooms.lab) s.rooms.lab = { studentCapacity: LAB_CAPACITY };
+  delete s.rooms.lab;
+  if (!s.rooms.ranch) s.rooms.ranch = { studentCapacity: RANCH_CAPACITY, plots: FACILITY_PLOTS.ranch };
+  if (s.pendingRaid?.facility === "lab") s.pendingRaid.facility = "ranch";
   if (s.resources.research === undefined) s.resources.research = 0;
   if (s.happiness === undefined) s.happiness = HAPPINESS_START;
   if (s.pendingRaid === undefined) s.pendingRaid = null;
@@ -137,18 +141,30 @@ function migrateState(s) {
   if (!s.rooms.infirmary) s.rooms.infirmary = { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS };
   if (!s.pantry) s.pantry = { ...STARTING_PANTRY };
   if (!s.dishesToday) s.dishesToday = [];
-  // Cooking moved to farm-grown staples + three scavenged extras: honey and chocolate are gone, the
-  // new staples get the starting stock, and dishes already served today keep their buff.
-  if (s.pantry.potatoes === undefined) {
-    for (const id of Object.keys(s.pantry)) if (!INGREDIENTS[id]) delete s.pantry[id];
-    for (const id of FARM_INGREDIENTS) s.pantry[id] = STARTING_PANTRY[id];
-  }
+  // Ingredients that no longer exist (honey, chocolate) are dropped; new ones start at the
+  // starting pantry amount. Dishes already served today keep their buff under their new id.
+  for (const id of Object.keys(s.pantry)) if (!INGREDIENTS[id]) delete s.pantry[id];
+  for (const id of Object.keys(INGREDIENTS)) if (s.pantry[id] === undefined) s.pantry[id] = STARTING_PANTRY[id];
   s.dishesToday = s.dishesToday.map((id) => LEGACY_DISH_IDS[id] || id);
-  // Farm plots + seeds: an older farm gets the starting plots (empty) and starting seed stock.
-  if (!s.seeds) s.seeds = { ...STARTING_SEEDS };
-  if (s.rooms.farm.plots === undefined) s.rooms.farm.plots = FARM_PLOTS;
-  if (!s.farmPlots) s.farmPlots = [];
-  G.syncFarmPlots(s);
+  // Seeds + farm plots (with hen coops) became stock + Farm plots and Ranch pens: seeds carry
+  // over, hens — spare or cooped — become Ranch chickens, and growing crops keep growing.
+  if (!s.stock) {
+    s.stock = { ...STARTING_STOCK };
+    if (s.seeds) Object.assign(s.stock, { potatoes: s.seeds.potatoes || 0, tomatoes: s.seeds.tomatoes || 0, wheat: s.seeds.wheat || 0, chicken: s.seeds.eggs || 0 });
+    delete s.seeds;
+  }
+  if (!s.plots) {
+    s.plots = { farm: [], ranch: [] };
+    for (const old of s.farmPlots || []) {
+      if (old.crop === "eggs" && old.planted) s.stock.chicken += 1;
+      const growing = old.planted && old.crop !== "eggs";
+      s.plots.farm.push({ id: growing ? old.crop : null, growth: growing ? old.growth : 0 });
+    }
+    delete s.farmPlots;
+  }
+  if (s.rooms.farm.plots === undefined) s.rooms.farm.plots = FACILITY_PLOTS.farm;
+  G.syncPlots(s, "farm");
+  G.syncPlots(s, "ranch");
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -267,6 +283,8 @@ function render() {
     ? renderPickerModal(state, openPicker, pickerSortKey, pickerSortDir)
     : openDefenseBuild
     ? renderDefenseBuildModal(state, openDefenseBuild)
+    : openPlot
+    ? renderPlotModal(state, openPlot.facility, openPlot.index)
     : state.pendingAssault
     ? renderAssaultModal()
     : "";
@@ -475,10 +493,33 @@ root.addEventListener("click", (e) => {
       G.setScrapyardToday(state, el.dataset.id, false);
       render();
       break;
-    case "remove-lab":
-      G.setLabToday(state, el.dataset.id, false);
+    case "remove-ranch":
+      G.setRanchToday(state, el.dataset.id, false);
       render();
       break;
+    case "open-plot":
+      openPlot = { facility: el.dataset.facility, index: Number(el.dataset.index) };
+      render();
+      break;
+    case "close-plot":
+      openPlot = null;
+      render();
+      break;
+    case "plant-plot":
+      if (openPlot && !G.plantPlot(state, openPlot.facility, openPlot.index, el.dataset.id)) flash("You don't have any of those.");
+      openPlot = null;
+      render();
+      break;
+    case "clear-plot": {
+      if (!openPlot) break;
+      const plot = state.plots[openPlot.facility][openPlot.index];
+      if (openPlot.facility === "ranch" || confirm(`Dig up the ${plot.id}? The seed will be lost.`)) {
+        G.clearPlot(state, openPlot.facility, openPlot.index);
+        openPlot = null;
+      }
+      render();
+      break;
+    }
     case "upgrade-room":
       G.upgradeRoom(state, el.dataset.roomType, el.dataset.roomId || null, el.dataset.kind);
       render();
@@ -668,7 +709,7 @@ root.addEventListener("click", (e) => {
         case "utility": G.setTeacherPost(state, id, postKey); break;
         case "farm": G.setFarmToday(state, id, true); break;
         case "scrapyard": G.setScrapyardToday(state, id, true); break;
-        case "lab": G.setLabToday(state, id, true); break;
+        case "ranch": G.setRanchToday(state, id, true); break;
         case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
         default: break;
       }
@@ -740,8 +781,9 @@ root.addEventListener("pointerover", placeInfoTip);
 root.addEventListener("focusin", placeInfoTip);
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (openCardId || openMissionLocationId)) {
+  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot)) {
     openCardId = null;
+    openPlot = null;
     closeMissionModal();
     render();
   }
@@ -763,13 +805,6 @@ root.addEventListener("change", (e) => {
       break;
     case "toggle-gym": {
       G.setGymToday(state, el.dataset.id, el.checked);
-      render();
-      break;
-    }
-    case "set-plot-crop": {
-      const plot = state.farmPlots[Number(el.dataset.plot)];
-      const losing = plot?.planted && !CROPS[plot.crop].perennial;
-      if (!losing || confirm("Dig up this crop? Its seed will be lost.")) G.setPlotCrop(state, Number(el.dataset.plot), el.value || null);
       render();
       break;
     }

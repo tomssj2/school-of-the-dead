@@ -2,8 +2,8 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS,
   GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY,
   RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME,
-  FARM_CAPACITY, SCRAPYARD_CAPACITY, LAB_CAPACITY,
-  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, LAB_YIELD_RESEARCH, FORTIFICATION_CAP,
+  FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
+  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
   ROOM_UPGRADE_MAX_LEVEL, ROOM_UPGRADE_INCREMENT, roomUpgradeCost,
@@ -19,7 +19,7 @@ import {
   RESCUE_BROADCAST_DAY, RESCUE_DAY, RESCUE_DELAY_DAYS, ANTENNA_STAGES,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BASE,
-  INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, CROPS, PLANT_CROPS, FARM_PLOTS, FARM_PLOTS_PER_WORKER, SEED_SAVE_CHANCE, STARTING_SEEDS,
+  INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
 } from "./data.js";
@@ -66,8 +66,8 @@ export function createInitialState() {
     victory: false,
     bossesSlain: [], // boss names, for the epilogue
     pantry: { ...STARTING_PANTRY }, // ingredient id -> count
-    seeds: { ...STARTING_SEEDS }, // crop id -> seeds (hens for eggs) waiting to be planted
-    farmPlots: Array.from({ length: FARM_PLOTS }, emptyPlot),
+    stock: { ...STARTING_STOCK }, // PRODUCERS id -> seeds / livestock waiting to be planted or penned
+    plots: { farm: [emptyPlot()], ranch: [emptyPlot()] }, // Farm plots and Ranch pens
     dishesToday: [], // DISHES ids served today; their buffs last until the day rolls over
     characters: [],
     rooms: {
@@ -79,9 +79,9 @@ export function createInitialState() {
       lounge: { studentCapacity: LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY },
       research: { teacherCapacity: RESEARCH_ROOM_TEACHERS },
       infirmary: { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS },
-      farm: { studentCapacity: FARM_CAPACITY, plots: FARM_PLOTS },
+      farm: { studentCapacity: FARM_CAPACITY, plots: FACILITY_PLOTS.farm },
       scrapyard: { studentCapacity: SCRAPYARD_CAPACITY },
-      lab: { studentCapacity: LAB_CAPACITY },
+      ranch: { studentCapacity: RANCH_CAPACITY, plots: FACILITY_PLOTS.ranch },
     },
     recruitPool: [],
     log: [],
@@ -301,7 +301,7 @@ function makeOutsideFacilitySetter(flagKey, roomKey) {
 
 export const setFarmToday = makeOutsideFacilitySetter("farmToday", "farm");
 export const setScrapyardToday = makeOutsideFacilitySetter("scrapyardToday", "scrapyard");
-export const setLabToday = makeOutsideFacilitySetter("labToday", "lab");
+export const setRanchToday = makeOutsideFacilitySetter("ranchToday", "ranch");
 
 // ---------- room upgrades ----------
 // Spends scrap to raise one of a room's stats, up to ROOM_UPGRADE_MAX_LEVEL times. A "kind"
@@ -316,13 +316,13 @@ const ROOM_BASE_CAPACITY = {
   lounge: { student: LOUNGE_CAPACITY, recovery: LOUNGE_RECOVERY },
   research: { teacher: RESEARCH_ROOM_TEACHERS },
   infirmary: { student: INFIRMARY_CAPACITY }, // one nurse, not upgradeable
-  farm: { student: FARM_CAPACITY, plot: FARM_PLOTS },
+  farm: { student: FARM_CAPACITY, plot: FACILITY_PLOTS.farm },
   scrapyard: { student: SCRAPYARD_CAPACITY },
-  lab: { student: LAB_CAPACITY },
+  ranch: { student: RANCH_CAPACITY, plot: FACILITY_PLOTS.ranch },
 };
 const ROOM_LABELS = {
   gym: "the Gym", cafeteria: "the Cafeteria", lounge: "the Lounge", infirmary: "the Nurse's Office", research: "the Research Room",
-  farm: "the Farm", scrapyard: "the Scrapyard", lab: "the Lab",
+  farm: "the Farm", scrapyard: "the Scrapyard", ranch: "the Ranch",
 };
 const UPGRADE_FIELD = { student: "studentCapacity", teacher: "teacherCapacity", recovery: "recovery", plot: "plots" };
 const upgradeIncrement = (roomType, kind) => ROOM_UPGRADE_INCREMENT[`${roomType}${kind[0].toUpperCase()}${kind.slice(1)}`];
@@ -361,12 +361,12 @@ export function upgradeRoom(state, roomType, roomId, kind) {
     label = `Classroom ${roomId}`;
   } else {
     state.rooms[roomType][UPGRADE_FIELD[kind]] += upgradeIncrement(roomType, kind);
-    if (roomType === "farm" && kind === "plot") syncFarmPlots(state);
+    if (kind === "plot") syncPlots(state, roomType);
     label = ROOM_LABELS[roomType];
   }
 
   state.resources.materials -= cost;
-  const what = kind === "recovery" ? "stamina recovery" : kind === "plot" ? "plots" : `${kind} capacity`;
+  const what = kind === "recovery" ? "stamina recovery" : kind === "plot" ? (roomType === "ranch" ? "pens" : "plots") : `${kind} capacity`;
   addLog(state, `Upgraded ${label}'s ${what} to level ${level + 1} (-${cost} scrap).`);
   return true;
 }
@@ -425,77 +425,79 @@ function traitGrowthMultiplier(c, subject) {
   return has ? TRAIT_GROWTH_BONUS : 1;
 }
 
-// ---------- farm plots ----------
-// See CROPS in data.js. A plot remembers its chosen crop; `planted` means a seed is in the ground.
+// ---------- farm plots & ranch pens ----------
+// See PRODUCERS in data.js. state.plots.farm / .ranch hold { id, growth } — id is the crop or
+// animal in it, or null when empty. state.stock holds the seeds and livestock not yet placed.
 
 export function emptyPlot() {
-  return { crop: null, planted: false, growth: 0 };
+  return { id: null, growth: 0 };
 }
 
-export function syncFarmPlots(state) {
-  while (state.farmPlots.length < state.rooms.farm.plots) state.farmPlots.push(emptyPlot());
+export function syncPlots(state, facility) {
+  const list = state.plots[facility];
+  while (list.length < state.rooms[facility].plots) list.push(emptyPlot());
 }
 
-function plantIfPossible(state, plot) {
-  if (!plot.crop || plot.planted || !(state.seeds[plot.crop] > 0)) return false;
-  state.seeds[plot.crop] -= 1;
-  plot.planted = true;
+export function addStock(state, id, qty) {
+  state.stock[id] = (state.stock[id] || 0) + qty;
+}
+
+export function stockLabel(id, qty) {
+  const p = PRODUCERS[id];
+  return `${p.stockIcon} ${qty === 1 ? p.stockName : p.stockPlural} ×${qty}`;
+}
+
+// Plants a seed / pens an animal in an empty plot — only possible with one in stock.
+export function plantPlot(state, facility, index, id) {
+  const plot = state.plots[facility]?.[index];
+  const p = PRODUCERS[id];
+  if (!plot || plot.id || !p || p.facility !== facility || !(state.stock[id] > 0)) return false;
+  state.stock[id] -= 1;
+  plot.id = id;
   plot.growth = 0;
   return true;
 }
 
-// New seeds go straight into any plot that was waiting for that crop.
-export function addSeeds(state, cropId, qty) {
-  state.seeds[cropId] = (state.seeds[cropId] || 0) + qty;
-  for (const plot of state.farmPlots) if (plot.crop === cropId) plantIfPossible(state, plot);
-}
-
-export function seedLabel(cropId, qty) {
-  const crop = CROPS[cropId];
-  const name = crop.perennial && qty !== 1 ? `${crop.seedName}s` : crop.seedName;
-  return `${crop.seedIcon} ${name} ×${qty}`;
-}
-
-// Chooses (or with null, clears) what a plot grows. It's planted at once if a seed is on hand,
-// otherwise it waits for one. Digging up a growing crop loses its seed; a hen just goes back to
-// the coop.
-export function setPlotCrop(state, index, cropId) {
-  const plot = state.farmPlots[index];
-  if (!plot || (cropId && !CROPS[cropId])) return false;
-  if (plot.crop === (cropId || null)) return false;
-  if (plot.planted && CROPS[plot.crop].perennial) state.seeds[plot.crop] += 1;
-  Object.assign(plot, emptyPlot(), { crop: cropId || null });
-  plantIfPossible(state, plot);
+// Empties a plot. A growing crop is lost along with its seed; an animal goes back into stock.
+export function clearPlot(state, facility, index) {
+  const plot = state.plots[facility]?.[index];
+  if (!plot || !plot.id) return false;
+  if (facility === "ranch") state.stock[plot.id] += 1;
+  Object.assign(plot, emptyPlot());
   return true;
 }
 
-// Indexes of the planted plots today's farm workers can tend — the first ones, in plot order.
-export function tendedPlots(state, workerCount = state.characters.filter((c) => c.farmToday && c.alive).length) {
-  const planted = state.farmPlots.map((p, i) => (p.planted ? i : -1)).filter((i) => i >= 0);
-  return planted.slice(0, workerCount * FARM_PLOTS_PER_WORKER);
+export function facilityWorkers(state, facility) {
+  return state.characters.filter((c) => c[`${facility}Today`] && c.alive).length;
 }
 
-function tendFarm(state, workerCount) {
-  const harvest = {};
-  let saved = 0;
-  for (const i of tendedPlots(state, workerCount)) {
-    const plot = state.farmPlots[i];
-    const crop = CROPS[plot.crop];
+// Indexes of the occupied plots today's workers can tend — the first ones, in plot order.
+export function tendedPlots(state, facility, workerCount = facilityWorkers(state, facility)) {
+  const occupied = state.plots[facility].map((p, i) => (p.id ? i : -1)).filter((i) => i >= 0);
+  return occupied.slice(0, workerCount * PLOTS_PER_WORKER);
+}
+
+function tendPlots(state, facility, workerCount) {
+  const produced = {};
+  const kept = [];
+  for (const i of tendedPlots(state, facility, workerCount)) {
+    const plot = state.plots[facility][i];
+    const p = PRODUCERS[plot.id];
     plot.growth += 1;
-    if (plot.growth < crop.growDays) continue;
-    harvest[plot.crop] = (harvest[plot.crop] || 0) + crop.yield;
-    state.pantry[plot.crop] = (state.pantry[plot.crop] || 0) + crop.yield;
+    if (plot.growth < p.growDays) continue;
+    produced[p.product] = (produced[p.product] || 0) + p.yield;
+    state.pantry[p.product] = (state.pantry[p.product] || 0) + p.yield;
     plot.growth = 0;
-    if (!crop.perennial) {
-      plot.planted = false;
-      if (Math.random() < SEED_SAVE_CHANCE) {
-        state.seeds[plot.crop] += 1;
-        saved++;
-      }
-      plantIfPossible(state, plot);
+    if (p.perennial) continue;
+    const id = plot.id;
+    plot.id = null;
+    if (Math.random() < p.keepChance) {
+      addStock(state, id, 1);
+      kept.push(p.keepNote);
     }
+    plantPlot(state, facility, i, id); // replant the same thing while stock lasts
   }
-  return { harvest, saved };
+  return { produced, kept };
 }
 
 // ---------- cooking ----------
@@ -710,11 +712,14 @@ function rollExpeditionIngredient(state, location, success) {
   return { id, qty };
 }
 
-function rollExpeditionSeeds(state, location, success) {
+// Seeds for the Farm or, where a location has them, livestock for the Ranch.
+function rollExpeditionStock(state, location, success) {
   const chance = success ? EXPEDITION_SEED_CHANCE + (location.seedBonus || 0) : EXPEDITION_SEED_CHANCE_FAILED;
   if (Math.random() >= chance) return null;
-  const found = location.henChance && Math.random() < location.henChance ? { id: "eggs", qty: 1 } : { id: pick(PLANT_CROPS), qty: randInt(1, 2) };
-  addSeeds(state, found.id, found.qty);
+  const found = location.animals && Math.random() < location.animalChance
+    ? { id: pick(location.animals), qty: 1 }
+    : { id: pick(FARM_CROPS), qty: randInt(1, 2) };
+  addStock(state, found.id, found.qty);
   return found;
 }
 
@@ -723,7 +728,7 @@ export function resolveExploration(state) {
   let successes = 0;
   const itemsFound = [];
   const ingredientsFound = [];
-  const seedsFound = [];
+  const stockFound = [];
   for (let teamIndex = 0; teamIndex < 3; teamIndex++) {
     const locationId = state.teamLocations[teamIndex];
     const location = LOCATIONS.find((l) => l.id === locationId);
@@ -774,10 +779,10 @@ export function resolveExploration(state) {
       const info = INGREDIENTS[ingredient.id];
       addLog(state, `The team brought back ${info.icon} ${info.name} ×${ingredient.qty} from the ${location.name} for the pantry.`);
     }
-    const seeds = rollExpeditionSeeds(state, location, success);
-    if (seeds) {
-      seedsFound.push(seeds);
-      addLog(state, `The team brought back ${seedLabel(seeds.id, seeds.qty)} from the ${location.name} for the farm.`);
+    const stock = rollExpeditionStock(state, location, success);
+    if (stock) {
+      stockFound.push(stock);
+      addLog(state, `The team brought back ${stockLabel(stock.id, stock.qty)} from the ${location.name} for the ${PRODUCERS[stock.id].facility}.`);
     }
 
     const staminaCost = exploreStaminaCost(state);
@@ -815,15 +820,16 @@ export function resolveExploration(state) {
     teamBondBumps(state, members.map((c) => c.id));
   }
 
-  // outside facilities — passive daily yield for students working the Farm/Scrapyard/Lab
-  // instead of exploring.
-  const farmWorkers = state.characters.filter((c) => c.farmToday && c.alive);
-  if (farmWorkers.length) {
-    const gain = farmWorkers.length * FARM_YIELD_FOOD;
+  // outside facilities — passive daily yield for students working the Farm/Scrapyard/Ranch
+  // instead of exploring. Farm and Ranch workers also tend the plots/pens.
+  for (const [facility, foodEach, label] of [["farm", FARM_YIELD_FOOD, "Farm"], ["ranch", RANCH_YIELD_FOOD, "Ranch"]]) {
+    const workers = facilityWorkers(state, facility);
+    if (!workers) continue;
+    const gain = workers * foodEach;
     state.resources.food += gain;
-    const { harvest, saved } = tendFarm(state, farmWorkers.length);
-    const crops = Object.entries(harvest).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
-    addLog(state, `The Farm brings in ${gain} food${crops ? ` and harvests ${crops}` : ""} from ${farmWorkers.length} student(s).${saved ? ` ${saved} seed(s) saved for replanting.` : ""}`);
+    const { produced, kept } = tendPlots(state, facility, workers);
+    const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
+    addLog(state, `The ${label} brings in ${gain} food${goods ? ` and ${goods}` : ""} from ${workers} student(s)${kept.length ? ` — ${kept.join(", ")}` : ""}.`);
   }
   const scrapyardWorkers = state.characters.filter((c) => c.scrapyardToday && c.alive);
   if (scrapyardWorkers.length) {
@@ -831,15 +837,9 @@ export function resolveExploration(state) {
     state.resources.materials += gain;
     addLog(state, `The Scrapyard salvages ${gain} scrap from ${scrapyardWorkers.length} student(s).`);
   }
-  const labWorkers = state.characters.filter((c) => c.labToday && c.alive);
-  if (labWorkers.length) {
-    const gain = labWorkers.length * LAB_YIELD_RESEARCH;
-    state.resources.research += gain;
-    addLog(state, `The Lab produces ${gain} research from ${labWorkers.length} student(s).`);
-  }
 
   addLog(state, `Turn 2 (Exploration) resolved.`);
-  return { teamsSent, successes, itemsFound, ingredientsFound, seedsFound };
+  return { teamsSent, successes, itemsFound, ingredientsFound, stockFound };
 }
 
 // ---------- TURN 3: defense (entrance grid battle) ----------
@@ -1263,9 +1263,11 @@ export function resolveFacilityRaid(state) {
     adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL);
     if (room && room.studentCapacity > 1) room.studentCapacity -= 1;
     addLog(state, `The raid on the ${raid.facility} got through — its capacity is damaged until repaired.`);
-    if (raid.facility === "farm") {
-      for (const plot of state.farmPlots) if (plot.planted && !CROPS[plot.crop].perennial) plot.growth = 0;
-      addLog(state, "The horde trampled the crops — every plot's growth starts over.");
+    if (state.plots[raid.facility]) {
+      for (const plot of state.plots[raid.facility]) plot.growth = 0;
+      addLog(state, raid.facility === "farm"
+        ? "The horde trampled the crops — every plot's growth starts over."
+        : "The horde scattered the animals — every pen starts over.");
     }
     for (const c of defenders) {
       if (Math.random() < 0.3) {
@@ -1445,7 +1447,7 @@ export function advanceTurn(state) {
     c.infirmaryToday = false;
     c.farmToday = false;
     c.scrapyardToday = false;
-    c.labToday = false;
+    c.ranchToday = false;
     c.exploreTeam = null;
     c.defending = false;
   }
@@ -1480,21 +1482,19 @@ function applyEffect(state, e) {
   if (e.seeds) {
     const got = {};
     for (let i = 0; i < e.seeds; i++) {
-      const id = pick(PLANT_CROPS);
+      const id = pick(FARM_CROPS);
       got[id] = (got[id] || 0) + 1;
     }
-    for (const [id, n] of Object.entries(got)) addSeeds(state, id, n);
-    addLog(state, `Received ${Object.entries(got).map(([id, n]) => seedLabel(id, n)).join(", ")} for the farm.`);
+    for (const [id, n] of Object.entries(got)) addStock(state, id, n);
+    addLog(state, `Received ${Object.entries(got).map(([id, n]) => stockLabel(id, n)).join(", ")} for the farm.`);
   }
-  if (e.seed) for (const [id, n] of Object.entries(e.seed)) addSeeds(state, id, n);
+  if (e.stock) for (const [id, n] of Object.entries(e.stock)) addStock(state, id, n);
   if (e.blight) {
-    const growing = state.farmPlots.filter((p) => p.planted && !CROPS[p.crop].perennial);
+    const growing = state.plots.farm.filter((p) => p.id);
     if (growing.length) {
       const plot = pick(growing);
-      plot.planted = false;
-      plot.growth = 0;
-      addLog(state, `A plot of ${INGREDIENTS[plot.crop].name.toLowerCase()} is lost to the blight.`);
-      plantIfPossible(state, plot);
+      addLog(state, `A plot of ${PRODUCERS[plot.id].name.toLowerCase()} is lost to the blight.`);
+      Object.assign(plot, emptyPlot());
     } else {
       addLog(state, "Luckily nothing was growing in the farm's plots.");
     }
@@ -1722,7 +1722,7 @@ export function setExploreTeam(state, charId, teamIndex) {
   }
   if (c.role !== "student") return false; // teachers stay at the school, never explore
   if (c.stamina <= 0) return false; // too exhausted to go out
-  if (c.farmToday || c.scrapyardToday || c.labToday) return false; // already working an outside facility today
+  if (c.farmToday || c.scrapyardToday || c.ranchToday) return false; // already working an outside facility today
   if (teamIndex < 0 || teamIndex > 2) return false;
   const teammateCount = state.characters.filter((x) => x.exploreTeam === teamIndex && x.id !== c.id).length;
   if (teammateCount >= 5) return false;

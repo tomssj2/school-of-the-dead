@@ -343,68 +343,95 @@ export const INFIRMARY_NURSE_BONUS = 0.25; // at Biology 100
 export const INFIRMARY_BED_REST = 0.1;
 
 // ===== Cooking =====
-// Four staple crops are grown at the Farm; three extras only turn up on expeditions. Cooks turn
-// them (plus some food to feed everyone) into a dish whose buff covers the whole school until
-// the day ends. `effect` multipliers are read through dishMultiplier() in game.js.
+// Staple crops come from the Farm, animal products from the Ranch, and three extras only turn up
+// on expeditions. Cooks turn them (plus some food to feed everyone) into a dish whose buff covers
+// the whole school until the day ends. `effect` multipliers are read through dishMultiplier() in
+// game.js.
 export const INGREDIENTS = {
   potatoes: { name: "Potatoes", icon: "🥔", source: "farm" },
   tomatoes: { name: "Tomatoes", icon: "🍅", source: "farm" },
   wheat: { name: "Wheat Flour", icon: "🌾", source: "farm" },
-  eggs: { name: "Eggs", icon: "🥚", source: "farm" },
+  eggs: { name: "Eggs", icon: "🥚", source: "ranch" },
+  milk: { name: "Milk", icon: "🥛", source: "ranch" },
+  mutton: { name: "Mutton", icon: "🍖", source: "ranch" },
   canned_meat: { name: "Canned Meat", icon: "🥫", source: "scavenged" },
   spices: { name: "Chili Spices", icon: "🌶️", source: "scavenged" },
   coffee: { name: "Coffee", icon: "☕", source: "scavenged" },
 };
-export const FARM_INGREDIENTS = Object.keys(INGREDIENTS).filter((id) => INGREDIENTS[id].source === "farm");
 export const SCAVENGED_INGREDIENTS = Object.keys(INGREDIENTS).filter((id) => INGREDIENTS[id].source === "scavenged");
-export const STARTING_PANTRY = { potatoes: 2, tomatoes: 2, wheat: 2, eggs: 2, canned_meat: 1, spices: 1, coffee: 1 };
-
-// ===== Farm plots =====
-// Each plot grows one chosen crop. Planting uses up one seed of that crop (seeds come from
-// expeditions and events), and a plot only grows on days a farm worker tends it. Annual crops are
-// harvested into the pantry after `growDays` tended days and the plot needs a new seed — replanted
-// automatically while seeds last. Hens are "perennial": once settled in they lay `yield` eggs
-// every `growDays` tended days and never need replacing.
-export const CROPS = {
-  potatoes: { plotName: "Potatoes", seedName: "Seed Potatoes", seedIcon: "🌱", growDays: 3, yield: 4 },
-  tomatoes: { plotName: "Tomatoes", seedName: "Tomato Seeds", seedIcon: "🌱", growDays: 2, yield: 3 },
-  wheat: { plotName: "Wheat", seedName: "Wheat Seeds", seedIcon: "🌱", growDays: 3, yield: 4 },
-  eggs: { plotName: "Hen Coop", seedName: "Hen", seedIcon: "🐔", growDays: 1, yield: 1, perennial: true },
+export const STARTING_PANTRY = {
+  potatoes: 2, tomatoes: 2, wheat: 2, eggs: 2, milk: 1, mutton: 1, canned_meat: 1, spices: 1, coffee: 1,
 };
-export const PLANT_CROPS = Object.keys(CROPS).filter((id) => !CROPS[id].perennial); // what seed finds roll
-export const FARM_PLOTS = 3; // plots before any upgrade (+2 per upgrade level)
-export const FARM_PLOTS_PER_WORKER = 2; // plots one farm worker can tend a day
-export const SEED_SAVE_CHANCE = 0.5; // chance an annual harvest saves one seed for replanting
-export const STARTING_SEEDS = { potatoes: 2, tomatoes: 2, wheat: 2, eggs: 1 };
-// Expedition seed finds: a base chance on a success (lower on a failure) + a location's
-// seedBonus; locations with henChance sometimes turn up a live hen instead of seeds.
+
+// ===== Farm plots & Ranch pens =====
+// Each plot (Farm) or pen (Ranch) holds one crop or animal from the stock of seeds and livestock,
+// and only grows/produces on days a worker there tends it. After `growDays` tended days it
+// yields `yield` of its `product` into the pantry. Crops and sheep are used up by that (a crop is
+// harvested, a sheep butchered) with a `keepChance` of getting one back — a saved seed, a lamb —
+// and the plot replants itself while stock lasts. Chickens and cows are `perennial`: they keep
+// producing for as long as you keep them.
+export const PRODUCERS = {
+  potatoes: {
+    facility: "farm", name: "Potatoes", icon: "🥔", product: "potatoes", growDays: 3, yield: 4,
+    stockName: "Seed Potatoes", stockPlural: "Seed Potatoes", stockIcon: "🌱", keepChance: 0.5, keepNote: "a seed saved",
+  },
+  tomatoes: {
+    facility: "farm", name: "Tomatoes", icon: "🍅", product: "tomatoes", growDays: 2, yield: 3,
+    stockName: "Tomato Seeds", stockPlural: "Tomato Seeds", stockIcon: "🌱", keepChance: 0.5, keepNote: "a seed saved",
+  },
+  wheat: {
+    facility: "farm", name: "Wheat", icon: "🌾", product: "wheat", growDays: 3, yield: 4,
+    stockName: "Wheat Seeds", stockPlural: "Wheat Seeds", stockIcon: "🌱", keepChance: 0.5, keepNote: "a seed saved",
+  },
+  chicken: {
+    facility: "ranch", name: "Chickens", icon: "🐔", product: "eggs", growDays: 1, yield: 1, perennial: true,
+    stockName: "Chicken", stockPlural: "Chickens", stockIcon: "🐔",
+  },
+  cow: {
+    facility: "ranch", name: "Dairy Cow", icon: "🐄", product: "milk", growDays: 2, yield: 3, perennial: true,
+    stockName: "Cow", stockPlural: "Cows", stockIcon: "🐄",
+  },
+  sheep: {
+    facility: "ranch", name: "Sheep", icon: "🐑", product: "mutton", growDays: 4, yield: 4,
+    stockName: "Sheep", stockPlural: "Sheep", stockIcon: "🐑", keepChance: 0.5, keepNote: "a lamb was born",
+  },
+};
+export const FARM_CROPS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "farm");
+export const RANCH_ANIMALS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "ranch");
+export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // before any upgrade
+export const PLOTS_PER_WORKER = 2; // plots/pens one worker can tend a day
+export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, chicken: 1, cow: 0, sheep: 1 };
+// Expedition finds for the Farm/Ranch: a base chance on a success (lower on a failure) + a
+// location's seedBonus. Locations with `animals` turn up one of them instead `animalChance` of
+// the time.
 export const EXPEDITION_SEED_CHANCE = 0.25;
 export const EXPEDITION_SEED_CHANCE_FAILED = 0.08;
 export const DISHES = [
   {
-    id: "meat_stew", name: "Meat & Potato Stew", icon: "🍲", ingredients: { canned_meat: 1, potatoes: 2 }, food: 6,
+    id: "shepherds_stew", name: "Shepherd's Stew", icon: "🍲", ingredients: { mutton: 1, potatoes: 2 }, food: 6,
     effect: { expeditionMaterials: 1.5 },
-    desc: "A heavy, slow-burning meal for a long day of hauling salvage — expeditions bring back 50% more scrap today.",
+    desc: "Mutton and potatoes stewed for hours — a heavy, slow-burning meal for a long day of hauling salvage. Expeditions bring back 50% more scrap today.",
   },
   {
-    id: "fresh_bread", name: "Fresh-Baked Bread", icon: "🍞", ingredients: { wheat: 2, eggs: 1 }, food: 4,
+    id: "fresh_bread", name: "Fresh Milk Bread", icon: "🍞", ingredients: { wheat: 2, milk: 1 }, food: 4,
     effect: { recruitChance: 2 },
-    desc: "The smell drifts past the barricades and teams carry spare loaves to share — expeditions are twice as likely to find survivors today.",
+    desc: "The smell drifts past the barricades and teams carry spare loaves to share. Expeditions are twice as likely to find survivors today.",
   },
   {
     id: "firehouse_chili", name: "Firehouse Chili", icon: "🥘", ingredients: { canned_meat: 1, tomatoes: 1, spices: 1 }, food: 6,
     effect: { battleDamage: 1.25 },
-    desc: "A fiery bowl before the watch that keeps everyone hot-blooded and wide awake — defenders deal 25% more damage in tonight's battle.",
+    desc: "A fiery bowl before the watch that keeps everyone hot-blooded and wide awake. Defenders deal 25% more damage in tonight's battle.",
   },
   {
     id: "scholars_breakfast", name: "Scholar's Breakfast", icon: "🍳", ingredients: { eggs: 1, wheat: 1, coffee: 1 }, food: 5,
     effect: { xp: 1.5 },
-    desc: "Eggs on toast and a strong cup of coffee keep minds sharp all day — every action earns 50% more XP today.",
+    desc: "Eggs on toast and a strong cup of coffee keep minds sharp all day. Every action earns 50% more XP today.",
   },
 ];
-// Pre-farm dish ids from older saves, for migrateState.
+// Dish ids from older saves, for migrateState.
 export const LEGACY_DISH_IDS = {
-  scavenger_stew: "meat_stew", bbq_beacon: "fresh_bread", battle_chili: "firehouse_chili", brain_brownies: "scholars_breakfast",
+  scavenger_stew: "shepherds_stew", meat_stew: "shepherds_stew", bbq_beacon: "fresh_bread", battle_chili: "firehouse_chili",
+  brain_brownies: "scholars_breakfast",
 };
 export const EXPEDITION_INGREDIENT_CHANCE = 0.5; // + a location's ingredientBonus, on a success
 export const EXPEDITION_INGREDIENT_CHANCE_FAILED = 0.15;
@@ -413,14 +440,14 @@ export const EXPEDITION_INGREDIENT_CHANCE_FAILED = 0.15;
 // per-student daily yield, split out so each facility can scale/upgrade independently.
 export const FARM_CAPACITY = 10;
 export const SCRAPYARD_CAPACITY = 10;
-export const LAB_CAPACITY = 10;
+export const RANCH_CAPACITY = 10;
 export const FARM_YIELD_FOOD = 3; // food per assigned student/day
+export const RANCH_YIELD_FOOD = 2; // food per assigned student/day
 export const SCRAPYARD_YIELD_MATERIALS = 3; // scrap per assigned student/day
 
 // The scrap resource is stored under the `materials` key (older saves use it); this is the name
 // players see.
 export const RESOURCE_NAME = { food: "food", materials: "scrap", medicine: "medicine", research: "research" };
-export const LAB_YIELD_RESEARCH = 2; // research per assigned student/day
 // Ceiling for state.fortification. Raised from 60 to 300 alongside the deeper Research tree so
 // the tier 3-5 fortification techs (which sum to well over the old cap) aren't dead purchases.
 export const FORTIFICATION_CAP = 300;
@@ -449,8 +476,9 @@ export const ROOM_UPGRADE_INCREMENT = {
   infirmaryStudent: 2,
   farmStudent: 5,
   farmPlot: 2,
+  ranchStudent: 5,
+  ranchPlot: 1,
   scrapyardStudent: 5,
-  labStudent: 5,
 };
 
 export const BOND_COUPLE_THRESHOLD = 6;
@@ -478,7 +506,7 @@ export const HAPPINESS_LOSS_DEATH = 8; // a character died
 // at most one of the two can happen on a given night.
 export const FACILITY_RAID_CHANCE = 0.1;
 export const ASSAULT_CHANCE = 0.2;
-export const RAIDABLE_FACILITIES = ["farm", "scrapyard", "lab"];
+export const RAIDABLE_FACILITIES = ["farm", "scrapyard", "ranch"];
 export const LEGENDARY_CHANCE = 0.15; // chance a won Assault turns up a legendary survivor
 
 // ===== Random events =====
@@ -492,7 +520,8 @@ export const EVENTS = [
   { id: "medic", kind: "good", title: "A Medic Passes Through", desc: "A traveling medic shares supplies before moving on.", effect: { medicine: 15 } },
   { id: "research_breakthrough", kind: "good", title: "A Breakthrough", desc: "Notes left behind by a university team advance your research.", effect: { research: 10 } },
   { id: "gardener", kind: "good", title: "A Gardener's Gift", desc: "An old gardener trades a pouch of saved seeds for news from the city.", effect: { seeds: 4 } },
-  { id: "stray_hen", kind: "good", title: "A Stray Hen", desc: "A hen wanders up to the gate, clucking. Someone builds her a coop.", effect: { seed: { eggs: 1 } } },
+  { id: "stray_hen", kind: "good", title: "A Stray Hen", desc: "A hen wanders up to the gate, clucking. Someone builds her a coop.", effect: { stock: { chicken: 1 } } },
+  { id: "lost_cow", kind: "good", title: "A Lost Cow", desc: "A dairy cow wanders out of the fog, lowing. The students lead her into the ranch.", effect: { stock: { cow: 1 } } },
   { id: "blight", kind: "bad", title: "Crop Blight", desc: "Pests get into the farm overnight.", effect: { blight: true } },
   { id: "theft", kind: "bad", title: "Supplies Go Missing", desc: "Someone was careless — or someone stole from the stores overnight.", effect: { materials: -15 } },
   { id: "spoiled_food", kind: "bad", title: "Spoiled Rations", desc: "A batch of food spoils before anyone notices.", effect: { food: -15 } },
@@ -617,8 +646,21 @@ export const LOCATIONS = [
     recruitBonus: 1.5,
     ingredientBonus: 0.15,
     seedBonus: 0.3, // backyard vegetable patches
-    henChance: 0.15, // ...and backyard coops
+    animals: ["chicken"], // ...and backyard coops
+    animalChance: 0.15,
     hex: { q: -1, r: -1 }, // distance 2
+  },
+  {
+    id: "farmstead",
+    name: "Abandoned Farmstead",
+    desc: "Fields gone to seed on the edge of town, and livestock left to fend for itself.",
+    difficulty: 3,
+    danger: 3,
+    rewards: { food: 16, materials: 6, medicine: 1 },
+    seedBonus: 0.35,
+    animals: ["chicken", "sheep", "cow"],
+    animalChance: 0.5,
+    hex: { q: -3, r: 3 }, // distance 3
   },
 ];
 
