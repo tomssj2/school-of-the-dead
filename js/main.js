@@ -7,7 +7,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, MAX_STAMINA, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, LOUNGE_CAPACITY, LOUNGE_RECOVERY, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -175,6 +175,14 @@ function migrateState(s) {
   if (s.raidTarget === undefined) s.raidTarget = null;
   if (!s.raidCooldowns) s.raidCooldowns = {};
   if (!s.raidKills) s.raidKills = {};
+  // Locations moved apart by the no-touching map rule: a save that had explored the old spot sees
+  // the new one too, and no nest is left sitting under a location.
+  const poiKey = (p) => `${p.hex.q},${p.hex.r}`;
+  for (const [id, oldKey] of Object.entries(LEGACY_POI_HEXES)) {
+    const newKey = poiKey([...LOCATIONS, ...LANDMARKS].find((p) => p.id === id));
+    if (s.exploredHexes.includes(oldKey) && !s.exploredHexes.includes(newKey)) s.exploredHexes.push(newKey);
+  }
+  s.nests = s.nests.filter((k) => ![...LOCATIONS, ...LANDMARKS].some((p) => poiKey(p) === k));
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now

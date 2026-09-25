@@ -562,6 +562,10 @@ export const TECH_TREE = [
 ];
 
 // ===== Exploration locations =====
+// Map rule: no two points of interest (locations, raid landmarks, the school) may touch — there's
+// always at least one plain hex between them. map.js warns in the console if one breaks it.
+// Where locations stood before the no-touching rule, so saves that had explored them keep them.
+export const LEGACY_POI_HEXES = { corner_store: "1,0", pharmacy: "2,0", checkpoint: "5,-2" };
 export const LOCATIONS = [
   {
     id: "corner_store",
@@ -572,7 +576,7 @@ export const LOCATIONS = [
     rewards: { food: 12, materials: 4, medicine: 2 },
     ingredientBonus: 0.15,
     seedBonus: 0.1,
-    hex: { q: 1, r: 0 }, // distance 1 — right next door
+    hex: { q: 1, r: 1 }, // distance 2 — the closest a location can be without touching the school
   },
   {
     id: "pharmacy",
@@ -581,7 +585,7 @@ export const LOCATIONS = [
     difficulty: 2,
     danger: 2,
     rewards: { food: 2, materials: 2, medicine: 14 },
-    hex: { q: 2, r: 0 }, // distance 2
+    hex: { q: 2, r: -2 }, // distance 2
   },
   {
     id: "supermarket",
@@ -700,7 +704,7 @@ export const RAID_MAX_ROUNDS = 15;
 export const RAID_BOSS_SCALING = 0.25;
 export const LANDMARKS = [
   {
-    id: "checkpoint", name: "Military Checkpoint", hex: { q: 5, r: -2 },
+    id: "checkpoint", name: "Military Checkpoint", hex: { q: 5, r: -3 },
     desc: "An army roadblock that fell on the first night. Something in there still wears the sergeant's stripes.",
     boss: { name: "Sergeant Rot", look: "soldier", hp: 600, damage: 19, attacks: 2 },
     minTeam: 6, minLevel: 4, legendaryItems: 1, legendaryRecruitChance: 0.35,

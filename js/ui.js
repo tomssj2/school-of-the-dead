@@ -531,7 +531,7 @@ function renderExplorationMap(state) {
   if (state.raidTarget) teamAt[state.raidTarget] = RAID_TEAM;
 
   const schoolPos = toPos(0, 0);
-  let hexesHtml = `<div class="hex hex-school" style="left:${schoolPos.left}px;top:${schoolPos.top}px;">
+  let hexesHtml = `<div class="hex hex-school hex-poi" style="left:${schoolPos.left}px;top:${schoolPos.top}px;">
     ${hexTile("school")}<span class="hex-name">School</span>
   </div>`;
   let routes = "";
@@ -562,8 +562,7 @@ function renderExplorationMap(state) {
     let tip = "";
 
     if (loc) {
-      const dist = hexDistance(q, r);
-      cls += ` hex-loc ${dist <= 2 ? "hex-easy" : dist <= 4 ? "hex-medium" : "hex-hard"}`;
+      cls += " hex-loc hex-poi";
       action = `data-action="open-mission" data-location="${loc.id}"`;
       const rewardsStr = Object.entries(loc.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ~${v}`).join("  ");
       tip = `<b>${esc(loc.name)}</b>
@@ -575,7 +574,7 @@ function renderExplorationMap(state) {
     } else if (lm) {
       const cooldown = raidCooldownLeft(state, lm.id);
       const boss = raidBoss(state, lm);
-      cls += ` hex-loc hex-landmark ${cooldown ? "hex-landmark-cleared" : ""}`;
+      cls += ` hex-loc hex-poi hex-landmark ${cooldown ? "hex-landmark-cleared" : ""}`;
       action = `data-action="open-raid" data-landmark="${lm.id}"`;
       tip = `<b>${esc(lm.name)}</b>
         <p class="muted">${esc(lm.desc)}</p>
@@ -593,6 +592,7 @@ function renderExplorationMap(state) {
         tip = `<b>Zombie Nest</b><p class="muted">In the ${TERRAIN_NAMES[terrain].toLowerCase()}. Everything next to it is more dangerous until a squad burns it out.</p>`;
         extra = `<span class="hex-badge hex-badge-nest">🧟 Nest</span>`;
       } else {
+        cls += " hex-terrain";
         tip = `<b>${TERRAIN_NAMES[terrain]}</b><p class="muted">Scouted.</p>`;
       }
     }

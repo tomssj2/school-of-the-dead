@@ -31,6 +31,14 @@ export function hexDistance(q, r) {
   return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
 }
 
+// The map rule from data.js: no two points of interest touch. Flags a mistake while editing the data.
+const POIS = [{ id: "school", hex: { q: 0, r: 0 } }, ...LOCATIONS, ...LANDMARKS];
+POIS.forEach((a, i) => {
+  for (const b of POIS.slice(i + 1)) {
+    if (hexDistance(a.hex.q - b.hex.q, a.hex.r - b.hex.r) <= 1) console.warn(`Map rule broken: ${a.id} and ${b.id} touch.`);
+  }
+});
+
 export function hexTerrain(q, r) {
   if (isRiverHex(q, r)) return "river";
   const { table } = RINGS.find((ring) => hexDistance(q, r) <= ring.maxDist);
