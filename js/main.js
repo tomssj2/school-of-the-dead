@@ -1,7 +1,7 @@
 import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal } from "./ui.js";
+  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
@@ -51,6 +51,7 @@ let openRaid = null; // LANDMARKS id whose raid screen is open
 let raidFight = null; // { report, frameIndex, phase: "battle" | "result", after } while a raid replays
 let expeditionReport = null; // { summary, phase: "travel" | "report" } at the end of Turn 2
 let openUpgrade = null; // room key whose Upgrade popup is open
+let openMenu = false; // the Cafeteria's menu pop-up
 let openPlot = null; // { facility: "farm" | "ranch", index } while choosing what to plant/pen
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
@@ -441,6 +442,8 @@ function render() {
     ? renderPickerModal(state, openPicker, pickerSortKey, pickerSortDir)
     : openDefenseBuild
     ? renderDefenseBuildModal(state, openDefenseBuild)
+    : openMenu
+    ? renderMenuModal(state)
     : openUpgrade
     ? renderRoomUpgradeModal(state, openUpgrade)
     : openPlot
@@ -784,6 +787,14 @@ root.addEventListener("click", (e) => {
       render();
       break;
     }
+    case "open-menu":
+      openMenu = true;
+      render();
+      break;
+    case "close-menu":
+      openMenu = false;
+      render();
+      break;
     case "open-upgrade":
       openUpgrade = el.dataset.room;
       render();
@@ -1165,9 +1176,10 @@ root.addEventListener("pointerover", placeInfoTip);
 root.addEventListener("focusin", placeInfoTip);
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openRaid || openNest || scoutReport || clearRoom)) {
+  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openMenu || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
     openUpgrade = null;
+    openMenu = false;
     clearRoom = null;
     openPlot = null;
     openRaid = null;

@@ -305,6 +305,28 @@ function rosterNameTag(c) {
   </span>`;
 }
 
+// ---------- person tiles ----------
+// Someone working in a room, as a small portrait tile: sprite, first name, anything extra (a
+// treatment toggle, an infection countdown) and their HP/stamina bar, with a ✕ on hover to take
+// them off the job. Rooms list their people as a grid of these — with a dashed "+" tile for each
+// free slot — so a full, upgraded room stays compact and keeps the same height as it fills up.
+function personTile(c, { bar = "", extra = "", remove = "", title = "", cls = "" } = {}) {
+  return `<div class="person-tile ${cls}" title="${esc(title || c.name)}">
+    ${remove ? `<button class="btn-x pt-x" data-action="${remove}" data-id="${c.id}" title="Remove ${esc(c.name)}">✕</button>` : ""}
+    <span class="pt-portrait" data-action="open-card" data-id="${c.id}">${characterSprite(c, 30)}</span>
+    <span class="pt-name unit-link" data-action="open-card" data-id="${c.id}">${esc(c.name.split(" ")[0])}</span>
+    ${extra}
+    ${bar}
+  </div>`;
+}
+
+// The tiles plus one dashed "+" tile per free slot (each opens the picker).
+function tileGrid(tiles, freeSlots, pickerAttrs) {
+  const empty = Array.from({ length: Math.max(0, freeSlots) }, () =>
+    `<button class="person-tile pt-empty" ${pickerAttrs} title="Assign someone">+</button>`).join("");
+  return `<div class="person-tiles">${tiles.join("")}${empty}</div>`;
+}
+
 // ---------- room scenes ----------
 
 // Hover/focus "i" that holds a room's full rules, so the card itself only needs a one-liner.
@@ -1801,15 +1823,16 @@ function renderTrainingRoom(state, side) {
       roomUpgradeButton(state, info.roomKey))}
     <p class="room-tagline">${info.icon} <b>+${gymGain(state, side)} ${info.gains}</b> a session ${teachers.length ? "(1 + teachers' ranks)" : "— a teacher adds their rank"} · ${STAMINA_COST_GYM} stamina</p>
     <div class="mini-label">Teachers (${teachers.length}/${room.teacherCapacity})</div>
-      <ul class="assign-list">
-        ${teachers.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${side} ${gradeLetter(t.grades[side])} <span class="muted">(+${teacherRank(t, side)})</span></span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+      <ul class="assign-list two-col">
+        ${teachers.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])} <span class="muted">(+${teacherRank(t, side)})</span></span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
       </ul>
       ${teachers.length < room.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-teacher" data-post="${side}">+ Assign teacher…</button>` : ""}
       <div class="mini-label">Training today (${students.length}/${room.studentCapacity})</div>
-      <ul class="assign-list">
-        ${students.map((s) => `<li><span class="assign-who">${nameTag(s)} <span class="muted">+${trained(s)}/${GYM_MAX_BONUS}</span></span>${bar(s)}<button class="btn-x" data-action="remove-gym" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
-      </ul>
-      ${students.length < room.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-student" data-post="${side}">+ Send student…</button>` : ""}
+      ${tileGrid(
+        students.map((s) => personTile(s, { bar: bar(s), remove: "remove-gym", title: `${s.name} — +${trained(s)}/${GYM_MAX_BONUS} ${info.gains} from training` })),
+        room.studentCapacity - students.length,
+        `data-action="open-picker" data-kind="gym-student" data-post="${side}"`
+      )}
   </div>`;
 }
 
@@ -1825,6 +1848,74 @@ export function renderFloor1(state) {
   const bedsFree = infRoom.studentCapacity - infirmaryBedsUsed(state);
   const nurseBonus = Math.round(infirmaryNurseBonus(state) * 100);
 
+  const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
+  return `
+  <div class="card">
+    <h2>Floor 1 — Lobby</h2>
+    <div class="floor-grid floor1-grid">
+      ${renderTrainingRoom(state, "PE")}
+      ${renderTrainingRoom(state, "Gymnastics")}
+      <div class="room room-cafeteria">
+        ${roomScene("cafeteria", cooks, `Cafeteria${levelBadge(state, "cafeteria")}`,
+          `Up to ${cafeRoom.teacherCapacity} teachers (cooks). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+${CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1]} food a day between them).`,
+          roomUpgradeButton(state, "cafeteria"))}
+        <p class="room-tagline">Each cook serves one buff dish a day</p>
+        <div class="mini-label">Cooks (${cooks.length}/${cafeRoom.teacherCapacity})</div>
+        <ul class="assign-list two-col">
+          ${cooks.map((t) => `<li><span class="assign-who">${nameTag(t)} — CON ${gradeLetter(t.grades.Biology)}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
+        </ul>
+        ${cooks.length < cafeRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-teacher">+ Assign cook…</button>` : ""}
+        <div class="mini-label">Today's menu (${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served)</div>
+        <div class="menu-strip">
+          ${served.map((d) => `<span class="menu-served" title="${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon} ${esc(d.name)}</span>`).join("") || '<span class="muted">Nothing served yet today</span>'}
+          <button class="btn btn-sm btn-primary" data-action="open-menu">🍲 Cook a dish…</button>
+        </div>
+      </div>
+      <div class="room room-infirmary">
+        ${roomScene("infirmary", [...nurses, ...infected, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
+          `Up to ${infRoom.studentCapacity} patients/day, each either healed or resting. 💊 Heal: ${Math.round(infirmaryHealShare(state) * 100)}% of max HP${nurses.length ? ` +${nurseBonus}% from the nurses' Biology` : " (each nurse's Biology adds up to 25% more)"} for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (10%). 😴 Rest: +${infirmaryRest(state)} stamina, free. Upgrading the room raises both. The infected are quarantined here too — each takes a bed until they're cured with antiviral serum. Everyone also gets a little stamina and HP back on nights the school is fed.`,
+          roomUpgradeButton(state, "infirmary"))}
+        <p class="room-tagline">💊 Heal <b>${Math.round(infirmaryHealShare(state) * 100) + nurseBonus}% HP</b> for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine · 😴 Rest <b>+${infirmaryRest(state)} stamina</b></p>
+        <div class="mini-label">Nurses (${nurses.length}/${infRoom.teacherCapacity})</div>
+        <ul class="assign-list two-col">
+          ${nurses.map((t) => `<li><span class="assign-who">${nameTag(t)} — CON ${gradeLetter(t.grades.Biology)}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+        </ul>
+        ${nurses.length < infRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-teacher">+ Assign nurse…</button>` : ""}
+        <div class="mini-label">Beds (${patients.length + infected.length}/${infRoom.studentCapacity})${infected.length ? ` · <span class="quarantine-label">🦠 ${infected.length} in quarantine · 💉 ${state.resources.serum} serum</span>` : ""}</div>
+        ${tileGrid(
+          [
+            ...infected.map((c) => {
+              const left = infectionDaysLeft(state, c);
+              return personTile(c, {
+                cls: "pt-infected",
+                title: `${c.name} — infected: cure with antiviral serum by the end of day ${c.infection.dueDay}`,
+                extra: `<span class="pt-infection">🦠 ${left <= 0 ? "tonight" : `${left}d`}</span>
+                  <button class="pt-cure" data-action="cure-infection" data-id="${c.id}" ${state.resources.serum ? "" : "disabled"} title="${state.resources.serum ? "Cure with 1 antiviral serum" : "No antiviral serum — find it at medical locations or on raids"}">💉 Cure</button>`,
+              });
+            }),
+            ...patients.map((s) => {
+              const mode = s.infirmaryToday === "rest" ? "rest" : "heal";
+              return personTile(s, {
+                bar: mode === "rest" ? staminaBar(s) : hpBar(s),
+                remove: "remove-infirmary",
+                extra: `<span class="pt-treat">
+                  <button class="treat-btn ${mode === "heal" ? "treat-on" : ""}" data-action="set-treatment" data-id="${s.id}" data-mode="heal" title="Heal HP for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine">💊</button>
+                  <button class="treat-btn ${mode === "rest" ? "treat-on" : ""}" data-action="set-treatment" data-id="${s.id}" data-mode="rest" title="Rest for stamina">😴</button>
+                </span>`,
+              });
+            }),
+          ],
+          bedsFree,
+          'data-action="open-picker" data-kind="infirmary-student"'
+        )}
+      </div>
+    </div>
+  </div>`;
+}
+
+// The Cafeteria's menu: the pantry and every dish with its Cook button, in a pop-up so the room
+// card stays short.
+export function renderMenuModal(state) {
   const pantryGroup = (source, label, tip) => {
     const items = Object.entries(INGREDIENTS)
       .filter(([, ing]) => ing.source === source)
@@ -1848,54 +1939,15 @@ export function renderFloor1(state) {
       <div class="muted">${esc(d.desc)}</div>
     </div>`;
   }).join("");
-
-  return `
-  <div class="card">
-    <h2>Floor 1 — Lobby</h2>
-    <div class="floor-grid floor1-grid">
-      ${renderTrainingRoom(state, "PE")}
-      ${renderTrainingRoom(state, "Gymnastics")}
-      <div class="room room-cafeteria">
-        ${roomScene("cafeteria", cooks, `Cafeteria${levelBadge(state, "cafeteria")}`,
-          `Up to ${cafeRoom.teacherCapacity} teachers (cooks). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+${CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1]} food a day between them).`,
-          roomUpgradeButton(state, "cafeteria"))}
-        <p class="room-tagline">Each cook serves one buff dish a day</p>
-        <div class="mini-label">Cooks (${cooks.length}/${cafeRoom.teacherCapacity})</div>
-        <ul class="assign-list">
-          ${cooks.map((t) => `<li><span class="assign-who">${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
-        </ul>
-        ${cooks.length < cafeRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-teacher">+ Assign cook…</button>` : ""}
-        <div class="mini-label">Today's menu (${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served)</div>
-        <div class="pantry">${pantry}</div>
-        <div class="dish-list">${menu}</div>
-      </div>
-      <div class="room room-infirmary">
-        ${roomScene("infirmary", [...nurses, ...infected, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
-          `Up to ${infRoom.studentCapacity} patients/day, each either healed or resting. 💊 Heal: ${Math.round(infirmaryHealShare(state) * 100)}% of max HP${nurses.length ? ` +${nurseBonus}% from the nurses' Biology` : " (each nurse's Biology adds up to 25% more)"} for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (10%). 😴 Rest: +${infirmaryRest(state)} stamina, free. Upgrading the room raises both. The infected are quarantined here too — each takes a bed until they're cured with antiviral serum. Everyone also gets a little stamina and HP back on nights the school is fed.`,
-          roomUpgradeButton(state, "infirmary"))}
-        <p class="room-tagline">💊 Heal <b>${Math.round(infirmaryHealShare(state) * 100) + nurseBonus}% HP</b> for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine · 😴 Rest <b>+${infirmaryRest(state)} stamina</b></p>
-        <div class="mini-label">Nurses (${nurses.length}/${infRoom.teacherCapacity})</div>
-        <ul class="assign-list">
-          ${nurses.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
-        </ul>
-        ${nurses.length < infRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-teacher">+ Assign nurse…</button>` : ""}
-        ${infected.length ? `<div class="mini-label quarantine-label">🦠 Quarantine (${infected.length}) · 💉 ${state.resources.serum} serum</div>
-        <ul class="assign-list">
-          ${infected.map((c) => `<li><span class="assign-who">${nameTag(c)} ${infectionTag(state, c)}</span><button class="btn btn-sm btn-cure" data-action="cure-infection" data-id="${c.id}" ${state.resources.serum ? "" : "disabled"} title="${state.resources.serum ? "Use 1 antiviral serum" : "No antiviral serum — find it at medical locations or on raids"}">💉 Cure</button></li>`).join("")}
-        </ul>` : ""}
-        <div class="mini-label">Patients today (${patients.length}/${patients.length + Math.max(0, bedsFree)}${infected.length ? ` · ${infected.length} bed${infected.length === 1 ? "" : "s"} in quarantine` : ""})</div>
-        <ul class="assign-list">
-          ${patients.map((s) => {
-            const mode = s.infirmaryToday === "rest" ? "rest" : "heal";
-            return `<li><span class="assign-who">${nameTag(s)}
-              <span class="treat-toggle">
-                <button class="treat-btn ${mode === "heal" ? "treat-on" : ""}" data-action="set-treatment" data-id="${s.id}" data-mode="heal" title="Heal HP for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine">💊 Heal</button>
-                <button class="treat-btn ${mode === "rest" ? "treat-on" : ""}" data-action="set-treatment" data-id="${s.id}" data-mode="rest" title="Rest for stamina">😴 Rest</button>
-              </span></span>${mode === "rest" ? staminaBar(s) : hpBar(s)}<button class="btn-x" data-action="remove-infirmary" data-id="${s.id}">✕</button></li>`;
-          }).join("") || '<li class="muted">none</li>'}
-        </ul>
-        ${bedsFree > 0 ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-student">+ Admit patient…</button>` : ""}
-      </div>
+  const cooks = cooksOnDuty(state).length;
+  return `<div class="modal-overlay" data-action="close-menu">
+    <div class="char-card mission-card menu-modal" data-action="noop">
+      <button class="cc-close" data-action="close-menu" title="Close">✕</button>
+      <h3>🍲 Today's Menu</h3>
+      <p class="muted">${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served · ${cooks ? "each cook serves one dish a day, and its buff lasts until tonight" : "assign a cook in the Cafeteria to start serving dishes"}</p>
+      <div class="mini-label">Pantry</div>
+      <div class="pantry">${pantry}</div>
+      <div class="dish-list">${menu}</div>
     </div>
   </div>`;
 }
@@ -1960,7 +2012,7 @@ function renderClassroom(state, roomId) {
       roomUpgradeButton(state, post)
     )}
     <div class="mini-label">Teachers (${teachers.length}/${room.teacherCapacity}) — each gives every student a grade boost</div>
-    <ul class="assign-list">
+    <ul class="assign-list two-col">
       ${teachers.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${teachBonusLabel(t.grades[subject])}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
     </ul>
     ${teachers.length < room.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}">+ Assign teacher…</button>` : ""}
@@ -2016,8 +2068,8 @@ export function renderFloor3(state) {
       ${roomScene(scene, staff, `${title}${levelBadge(state, postKey)}`, "", roomUpgradeButton(state, postKey))}
       <p class="room-tagline">${desc}</p>
       <div class="mini-label">Assigned (${staff.length}/${slots})</div>
-      <ul class="assign-list">
-        ${staff.map((t) => `<li>${nameTag(t)} — ${statLabel} ${gradeLetter(t.grades[statKey])} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+      <ul class="assign-list two-col">
+        ${staff.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${statLabel} ${gradeLetter(t.grades[statKey])}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
       </ul>
       ${staff.length < slots ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="${postKey}">+ Assign teacher…</button>` : ""}
     </div>`;
@@ -2047,8 +2099,8 @@ export function renderFloor3(state) {
           roomUpgradeButton(state, "research"))}
         <p class="room-tagline">Producing <b>${researchRoomYield(state)} research/day</b> from the team's INT</p>
         <div class="mini-label">Researchers (${researchers.length}/${researchSlots})</div>
-        <ul class="assign-list">
-          ${researchers.map((t) => `<li>${nameTag(t)} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)}) <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+        <ul class="assign-list two-col">
+          ${researchers.map((t) => `<li><span class="assign-who">${nameTag(t)} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)})</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
         </ul>
         ${researchers.length < researchSlots ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="research">+ Assign teacher…</button>` : ""}
       </div>`}
@@ -2069,10 +2121,11 @@ function renderOutsideFacility(state, roomKey, flagKey, title, tagline, desc, ex
     ${roomScene(roomKey, workers, `${title}${levelBadge(state, roomKey)}`, desc, roomUpgradeButton(state, roomKey))}
     <p class="room-tagline">${tagline}</p>
     <div class="mini-label">Working today (${workers.length}/${room.studentCapacity})</div>
-    <ul class="assign-list">
-      ${workers.map((s) => `<li>${nameTag(s)} ${statusTag(s)} <button class="btn-x" data-action="remove-${roomKey}" data-id="${s.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
-    </ul>
-    ${workers.length < room.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="${roomKey}">+ Assign student…</button>` : ""}
+    ${tileGrid(
+      workers.map((s) => personTile(s, { bar: hpBar(s), remove: `remove-${roomKey}` })),
+      room.studentCapacity - workers.length,
+      `data-action="open-picker" data-kind="${roomKey}"`
+    )}
     ${extra}
   </div>`;
 }
