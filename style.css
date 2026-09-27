@@ -2037,9 +2037,9 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
 .pt-cure { margin-top: auto; padding: 0 5px; border-radius: 4px; border: 1px solid rgba(169, 226, 122, 0.5); background: rgba(0, 0, 0, 0.3); color: #c3f09a; font: inherit; font-size: 10px; line-height: 15px; cursor: pointer; }
 .pt-cure:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* A room's teachers: small cards four to a line — name, then their grade for the job; the ✕
+/* A room's teachers (3 at most): small cards on one line — name, then their grade for the job; the ✕
    takes the grade's place on hover. */
-.assign-list.staff-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.assign-list.staff-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
 .staff-list li {
   position: relative;
   display: flex;
