@@ -64,11 +64,19 @@ export function adjustHappiness(state, amount) {
 
 // A character dying affects happiness no matter which turn/system caused it, so every death
 // goes through this instead of setting c.alive directly.
+// A teacher about to die is saved by an Antiviral Serum if the school has one; returns whether
+// they actually died.
 function killCharacter(state, c) {
+  if (c.role === "teacher" && state.resources.serum > 0) {
+    state.resources.serum--;
+    addLog(state, `💉 ${c.name} was at death's door, but a vial of antiviral serum pulled them through (${state.resources.serum} left).`);
+    return false;
+  }
   c.alive = false;
   c.hp = 0;
   c.diedOnDay = state.day;
   adjustHappiness(state, -HAPPINESS_LOSS_DEATH);
+  return true;
 }
 
 // ---------- state creation ----------
@@ -77,7 +85,7 @@ export function createInitialState() {
   const state = {
     day: 1,
     turn: 1, // 1=training, 2=exploration, 3=defense
-    resources: { food: 60, materials: 15, medicine: 20, research: 0 },
+    resources: { food: 60, materials: 15, medicine: 20, research: 0, serum: 0 },
     fortification: 0,
     happiness: HAPPINESS_START,
     pendingRaid: null, // { facility } once a facility raid triggers post-battle, until resolved
@@ -1012,6 +1020,11 @@ export function resolveExploration(state) {
         report.loot[key] = amt;
       }
       addLog(state, `${location.name}: expedition succeeded! Loot brought home.`);
+      if (location.serumChance && Math.random() < location.serumChance) {
+        state.resources.serum++;
+        report.loot.serum = 1;
+        addLog(state, `💉 The team found a vial of antiviral serum at the ${location.name}.`);
+      }
     } else {
       for (const key of Object.keys(location.rewards)) {
         const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * carry(key) * (0.5 + Math.random() * 0.5));
@@ -1456,9 +1469,8 @@ export function resolveDefense(state) {
       const victim = pick(inside.length ? inside : aliveChars(state));
       if (!victim) break;
       if (Math.random() < 0.08) {
-        killCharacter(state, victim);
-        addLog(state, `A zombie that broke into the school got ${victim.name}.`);
-      } else {
+        if (killCharacter(state, victim)) addLog(state, `A zombie that broke into the school got ${victim.name}.`);
+      } else if (victim.role === "student") {
         victim.hp = Math.max(1, victim.hp - (randInt(10, 20) + state.day));
         victim.injured = victim.hp < victim.maxHp * 0.5;
         hurt++;
@@ -1817,12 +1829,11 @@ function applyEffect(state, e) {
     const victims = aliveChars(state);
     if (victims.length) {
       const victim = pick(victims);
-      killCharacter(state, victim);
-      addLog(state, `${victim.name} did not make it.`);
+      if (killCharacter(state, victim)) addLog(state, `${victim.name} did not make it.`);
     }
   }
   if (e.injure) {
-    const candidates = aliveChars(state);
+    const candidates = aliveChars(state).filter((c) => c.role === "student"); // teachers have no HP
     if (candidates.length) {
       const victim = pick(candidates);
       const dmg = randInt(15, 35);

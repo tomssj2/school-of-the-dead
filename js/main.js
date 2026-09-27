@@ -152,6 +152,8 @@ function migrateState(s) {
   if (!s.rooms.ranch) s.rooms.ranch = { studentCapacity: RANCH_CAPACITY, plots: FACILITY_PLOTS.ranch };
   if (s.pendingRaid?.facility === "lab") s.pendingRaid.facility = "ranch";
   if (s.resources.research === undefined) s.resources.research = 0;
+  if (s.resources.serum === undefined) s.resources.serum = 0;
+  for (const c of s.characters) if (c.role === "teacher") c.injured = false; // teachers have no HP
   if (s.happiness === undefined) s.happiness = HAPPINESS_START;
   if (s.pendingRaid === undefined) s.pendingRaid = null;
   if (s.pendingAssault === undefined) s.pendingAssault = false;
@@ -351,7 +353,7 @@ function closeMissionModal() {
 function computeFloaties() {
   const result = [];
   if (lastResources) {
-    for (const key of ["food", "materials", "medicine", "research"]) {
+    for (const key of ["food", "materials", "medicine", "research", "serum"]) {
       const delta = state.resources[key] - lastResources[key];
       if (delta !== 0) result.push({ key, delta });
     }

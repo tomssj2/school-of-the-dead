@@ -56,7 +56,7 @@ const LOCATION_ICON = {
   stadium: "🏟",
   institute: "🧬",
 };
-const RESOURCE_ICON = { food: "🍞", materials: "🔧", medicine: "💊", research: "🧠" };
+const RESOURCE_ICON = { food: "🍞", materials: "🔧", medicine: "💊", research: "🧠", serum: "💉" };
 
 // Expedition teams 1-3 and the raid squad each get a colour for their route, markers and chips.
 const TEAM_COLORS = ["#4caf7d", "#3fa7d6", "#e0a536", "#e0455f"];
@@ -466,6 +466,7 @@ const TB_INFO = {
   materials: "Scrap — looted from exploration and salvaged at the Scrapyard. Spent on room upgrades, defenses, the antenna and the Crafting Room.",
   medicine: "Medicine — looted from exploration sites during Turn 2. Spent treating patients in the Nurse's Office (3 each) and, automatically, saving defenders who go down in the night battle (5 each).",
   research: "Research — produced by teachers in the Research Room (Floor 3). Spent on the Research tech tree and the antenna.",
+  serum: "Antiviral Serum — rare. When a teacher would die, one is used up automatically and they live. Sometimes found at the Hospital, Pharmacy and Fire Station; every raid boss drops some.",
 };
 
 const DAY_STEPS = [["sun", "Classes"], ["dusk", "Exploration"], ["moon", "Defense"]];
@@ -531,6 +532,7 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
         <span class="${tbItemClass(floaties, "materials")} res-pill" title="${TB_INFO.materials}">${pixelIcon("scrap")}<b>${state.resources.materials}</b>${floatyFor(floaties, "materials")}</span>
         <span class="${tbItemClass(floaties, "medicine")} res-pill" title="${TB_INFO.medicine}">${pixelIcon("medicine")}<b>${state.resources.medicine}</b>${floatyFor(floaties, "medicine")}</span>
         <span class="${tbItemClass(floaties, "research")} res-pill" title="${TB_INFO.research}">${pixelIcon("research")}<b>${state.resources.research}</b>${floatyFor(floaties, "research")}</span>
+        ${state.resources.serum ? `<span class="${tbItemClass(floaties, "serum")} res-pill" title="${TB_INFO.serum}">${pixelIcon("serum")}<b>${state.resources.serum}</b>${floatyFor(floaties, "serum")}</span>` : ""}
       </div>
     </div>
   </div>`;
@@ -824,6 +826,7 @@ function renderExplorationMap(state) {
         <p class="muted">${esc(loc.desc)}</p>
         <div>Difficulty ${loc.difficulty}/5 · Danger ${loc.danger}/5</div>
         <div>${rewardsStr}</div>
+        ${loc.serumChance ? `<div>💉 Rare: antiviral serum</div>` : ""}
         ${nextToNest(state, q, r) ? `<div class="plot-warn">⚠ A zombie nest next door makes runs here riskier.</div>` : ""}`;
       extra = `<span class="hex-name">${esc(loc.name)}</span>`;
     } else if (lm) {
@@ -1409,6 +1412,7 @@ export function renderMissionModal(state, locationId) {
         <span>Difficulty ${loc.difficulty}/5</span>
         <span>Danger ${loc.danger}/5</span>
         ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
+        ${loc.serumChance ? `<span title="${esc(TB_INFO.serum)}">💉 Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
       </div>
       ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">⚠ A zombie nest next door: lower odds and more injuries until it's cleared.</div>` : ""}
       ${successHtml}
@@ -2417,7 +2421,7 @@ const ROSTER_SORT_FIELDS = [
 function rosterSortValue(c, key) {
   if (key === "name") return c.name.toLowerCase();
   if (key === "level") return overallLevel(c);
-  if (key === "hp") return c.hp;
+  if (key === "hp") return c.role === "teacher" ? -1 : c.hp;
   if (key === "stamina") return c.role === "teacher" ? -1 : c.stamina;
   const subject = SUBJECTS.find((s) => STAT_OF_SUBJECT[s] === key);
   return c.grades[subject];
@@ -2452,7 +2456,7 @@ export function renderRoster(state, filter = "all", sortKey = "name", sortDir = 
         <td>${c.role}</td>
         <td>${c.gender}</td>
         <td>${c.role === "teacher" ? `🌟 ${SUBJECT_LABEL[c.teachSubject]}` : `Lv${overallLevel(c)}`}</td>
-        <td>${hpBar(c)}</td>
+        <td>${c.role === "teacher" ? '<span class="muted">—</span>' : hpBar(c)}</td>
         <td>${c.role === "teacher" ? '<span class="muted">—</span>' : staminaBar(c)}</td>
         <td>${statusTag(c)}</td>
         <td>${esc(loc)}</td>
@@ -2828,10 +2832,10 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
           <div class="cc-stat-box"><span class="cc-label">Sex</span><span class="cc-value">${c.gender === "F" ? "Female" : "Male"}</span></div>
           <div class="cc-stat-box"><span class="cc-label">Occupation</span><span class="cc-value cc-occupation">${esc(occupationLabel(state, c))}</span></div>
         </div>
-        <div class="cc-top-stats">
+        ${c.role === "teacher" ? "" : `<div class="cc-top-stats">
           <div class="cc-stat-box cc-hp-box"><span class="cc-label">HP</span>${hpBar(c)}</div>
-          ${c.role === "teacher" ? "" : `<div class="cc-stat-box cc-hp-box"><span class="cc-label">Stamina</span>${staminaBar(c)}</div>`}
-        </div>
+          <div class="cc-stat-box cc-hp-box"><span class="cc-label">Stamina</span>${staminaBar(c)}</div>
+        </div>`}
         ${tabBar}
         ${body}
       </div>

@@ -536,7 +536,13 @@ export const SCRAPYARD_YIELD_MATERIALS = 3; // scrap per assigned student/day
 
 // The scrap resource is stored under the `materials` key (older saves use it); this is the name
 // players see.
-export const RESOURCE_NAME = { food: "food", materials: "scrap", medicine: "medicine", research: "research" };
+export const RESOURCE_NAME = { food: "food", materials: "scrap", medicine: "medicine", research: "research", serum: "antiviral serum" };
+
+// Antiviral Serum: a rare vial that pulls a teacher back from the brink. When a teacher would die
+// (a zombie breaking into the school, a deadly sickness) one is used up automatically and they
+// live. Students have medicine for the same job: MEDICINE_PER_STABILIZE saves anyone who goes down
+// in a fight. Found now and then on a successful run to a medical location (a location's
+// `serumChance`) and always on a raid boss kill (the landmark's `rewards.serum`).
 // Ceiling for state.fortification. Raised from 60 to 300 alongside the deeper Research tree so
 // the tier 3-5 fortification techs (which sum to well over the old cap) aren't dead purchases.
 export const FORTIFICATION_CAP = 300;
@@ -649,7 +655,7 @@ export const EVENTS = [
   { id: "spoiled_food", kind: "bad", title: "Spoiled Rations", desc: "A batch of food spoils before anyone notices.", effect: { food: -15 } },
   { id: "bad_news", kind: "bad", title: "Bad News on the Radio", desc: "A broadcast describes a nearby town overrun. The school grows anxious.", effect: { happiness: -12 } },
   { id: "accident", kind: "bad", title: "An Accident", desc: "A careless moment during chores turns into a real injury.", effect: { injure: true } },
-  { id: "sickness", kind: "bad", title: "A Sickness Spreads", desc: "Something is going around the dorms. One student doesn't pull through.", effect: { kill: true } },
+  { id: "sickness", kind: "bad", title: "A Sickness Spreads", desc: "Something is going around the dorms. Someone doesn't pull through.", effect: { kill: true } },
 ];
 
 // ===== Research tech tree =====
@@ -713,6 +719,7 @@ export const LOCATIONS = [
     difficulty: 2,
     danger: 2,
     rewards: { food: 2, materials: 2, medicine: 14 },
+    serumChance: 0.06,
     hex: { q: 3, r: -2 }, // distance 3
   },
   {
@@ -744,6 +751,7 @@ export const LOCATIONS = [
     difficulty: 5,
     danger: 5,
     rewards: { food: 4, materials: 8, medicine: 30 },
+    serumChance: 0.12,
     lootBias: "armor",
     hex: { q: -2, r: -3 }, // distance 5 — clear across town
   },
@@ -822,6 +830,7 @@ export const LOCATIONS = [
     difficulty: 4,
     danger: 3,
     rewards: { food: 4, materials: 16, medicine: 14 },
+    serumChance: 0.05,
     lootBias: "armor",
     hex: { q: 3, r: -5 }, // distance 5
   },
@@ -928,21 +937,21 @@ export const LANDMARKS = [
     desc: "An army roadblock that fell on the first night. Something in there still wears the sergeant's stripes.",
     boss: { name: "Sergeant Rot", look: "soldier", hp: 650, damage: 22, attacks: 2 },
     minTeam: 6, minLevel: 4, legendaryItems: 1, legendaryRecruitChance: 0.35,
-    rewards: { food: 25, materials: 45, medicine: 20 }, respawnDays: 4,
+    rewards: { food: 25, materials: 45, medicine: 20, serum: 2 }, respawnDays: 4,
   },
   {
     id: "stadium", name: "City Stadium", hex: { q: -7, r: 7 },
     desc: "The evacuation shelter that became a feeding ground. Its king still wears the team jersey.",
     boss: { name: "The Linebacker", look: "jersey", hp: 1080, damage: 23, attacks: 3 },
     minTeam: 7, minLevel: 5, legendaryItems: 1, legendaryRecruitChance: 0.5,
-    rewards: { food: 40, materials: 40, medicine: 30 }, respawnDays: 5,
+    rewards: { food: 40, materials: 40, medicine: 30, serum: 1 }, respawnDays: 5,
   },
   {
     id: "institute", name: "Research Institute", hex: { q: 0, r: -7 },
     desc: "Where the outbreak may have started. Patient zero never left the building.",
     boss: { name: "Subject Zero", look: "labcoat", hp: 1520, damage: 28, attacks: 3 },
     minTeam: 8, minLevel: 6, legendaryItems: 2, legendaryRecruitChance: 0.7,
-    rewards: { food: 30, materials: 50, medicine: 50, research: 40 }, respawnDays: 6,
+    rewards: { food: 30, materials: 50, medicine: 50, research: 40, serum: 3 }, respawnDays: 6,
   },
 ];
 
