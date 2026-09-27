@@ -25,7 +25,7 @@ import {
 import { zombieSprite } from "./zombies.js";
 import { characterSprite } from "./sprite.js";
 import { getBest, isBestRun } from "./score.js";
-import { getGraphics, GFX_LEVELS } from "./graphics.js";
+import { getGraphics, GFX_LEVELS, getResolution, RESOLUTIONS } from "./graphics.js";
 import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
 import { isSoundEnabled } from "./sound.js";
 
@@ -524,6 +524,9 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
           <button class="options-item" data-action="save-game">💾 Save</button>
           <button class="options-item" data-action="reset-game">🔄 New Game</button>
           ${getBest() ? `<div class="options-item options-note">🏆 Best run: day ${getBest().day}</div>` : ""}
+          <label class="options-item options-gfx">🖥 Resolution
+            <select class="res-select" data-action="set-resolution">${RESOLUTIONS.map((r) => `<option value="${r.id}" ${getResolution() === r.id ? "selected" : ""}>${r.label}</option>`).join("")}</select>
+          </label>
           <div class="options-item options-gfx">🎨 Graphics
             <span class="gfx-seg">${GFX_LEVELS.map((level) => `<button class="gfx-opt ${getGraphics() === level ? "on" : ""}" data-action="set-gfx" data-gfx="${level}">${level[0].toUpperCase() + level.slice(1)}</button>`).join("")}</span>
           </div>

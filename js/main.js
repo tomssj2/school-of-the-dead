@@ -5,7 +5,7 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
-import { applyGraphics, setGraphics } from "./graphics.js";
+import { applyGraphics, setGraphics, applyUiScale, setResolution } from "./graphics.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
@@ -1162,6 +1162,10 @@ root.addEventListener("change", (e) => {
   const action = el.dataset.action;
 
   switch (action) {
+    case "set-resolution":
+      setResolution(el.value);
+      render();
+      break;
     case "set-picker-sort":
       pickerSortKey = el.value;
       render();
@@ -1234,12 +1238,7 @@ root.addEventListener("change", (e) => {
   }
 });
 
-// PC only: the page is laid out for a 1280px-wide window and scaled to fill the screen — 1× at
-// 720p, 1.5× at 1080p, 3× at 4K — so it looks the same at every resolution, like a game's UI.
-const DESIGN_WIDTH = 1280;
-function applyUiScale() {
-  document.documentElement.style.zoom = String(Math.max(0.5, window.innerWidth / DESIGN_WIDTH));
-}
+// PC only: the UI is scaled like a game's — see applyUiScale() in graphics.js.
 applyUiScale();
 window.addEventListener("resize", applyUiScale);
 applyGraphics();

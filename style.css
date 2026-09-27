@@ -20,6 +20,10 @@
 
 body {
   margin: 0;
+  /* The page is laid out for a 1280px-wide window (see applyUiScale in graphics.js): a resolution
+     bigger than the window scrolls rather than squeezing the layout. A little under 1280 so the
+     window's own vertical scrollbar doesn't tip Auto into a sideways scroll. */
+  min-width: 1240px;
   --turn-accent: #f4c542;
   --sky-glow: rgba(255, 196, 120, 0.1);
   --sky-low: rgba(76, 175, 125, 0.05);
@@ -1892,6 +1896,17 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .gfx-opt + .gfx-opt { border-left: 1px solid var(--border); }
 .gfx-opt:hover { color: var(--text); background: var(--panel-2); }
 .gfx-opt.on { background: var(--accent); color: #06210f; font-weight: 700; }
+.res-select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+.options-menu { min-width: 300px; }
 
 /* ===== Graphics quality (html[data-gfx], see graphics.js) =====
    High: everything. Medium: no ambient looping animation — twinkling stars, bobbing figures,
