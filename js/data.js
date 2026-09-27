@@ -360,7 +360,7 @@ export const SKILL_TREE = {
 };
 
 // Floor 2 has 4 generic classroom rooms. Each starts unassigned ("Classroom 1" etc.) and takes
-// on a subject — one of these four "sit-down" subjects; PE/Gymnastics only happen in the Gym —
+// on a subject — one of these four "sit-down" subjects; PE/Gymnastics only happen in the Gym and Dance Studio —
 // the moment its one teacher is assigned. It reverts to unassigned once that teacher leaves.
 export const CLASSROOM_SUBJECTS = ["Biology", "Physics", "History", "SocialStudies"];
 export const CLASSROOM_IDS = ["1", "2", "3", "4"];
@@ -399,15 +399,17 @@ export const CLASSROOM_SEATS_PER_ROW = CLASSROOM_DESKS_PER_ROW * 2; // 6
 export const CLASSROOM_CAPACITY = 4 * CLASSROOM_SEATS_PER_ROW; // 24 (base: 4 rows)
 export const CLASSROOM_MAX_TEACHERS = 1; // one teacher = one subject, kept simple and not upgradeable
 
-// The Gym is split down the middle: the PE side builds max HP, the Gymnastics side max stamina.
-// Capacities are per side. Each session adds 1 + the combined rank of that side's teachers
-// (F=0, D=1, C=2, B=3, A=4, S=5) to every student there, up to GYM_MAX_BONUS in total.
-export const GYM_CAPACITY = 5; // base student slots per side
-export const GYM_MAX_TEACHERS = 2; // base teacher slots per side (the gym works fine with none)
+// Two training rooms: the Gym (PE) builds max HP and the Dance Studio (Gymnastics) max stamina.
+// Each has its own capacity and upgrades. A session adds 1 + the combined rank of that room's
+// teachers in its subject (F=0, D=1, C=2, B=3, A=4, S=5) to every student there, up to
+// GYM_MAX_BONUS in total. Students train in c.gymToday = "PE" | "Gymnastics"; teachers are posted
+// to "gym:PE" / "gym:Gymnastics".
+export const GYM_CAPACITY = 5; // base student slots per room
+export const GYM_MAX_TEACHERS = 2; // base teacher slots per room (training works fine with none)
 export const GYM_MAX_BONUS = 100; // most max HP / max stamina a student can gain from training
 export const GYM_SIDES = {
-  PE: { label: "PE", icon: "💪", gains: "max HP" },
-  Gymnastics: { label: "Gymnastics", icon: "🤸", gains: "max stamina" },
+  PE: { label: "PE", icon: "💪", gains: "max HP", room: "Gym", roomKey: "gym" },
+  Gymnastics: { label: "Gymnastics", icon: "🤸", gains: "max stamina", room: "Dance Studio", roomKey: "studio" },
 };
 
 export const CAFETERIA_MAX_TEACHERS = 3; // base teacher (cook) slots — each cook makes one dish a day
@@ -542,7 +544,7 @@ export const FORTIFICATION_CAP = 300;
 // ===== Scouting =====
 // Stamina to scout the ring right outside the school fence; it doubles for every ring further out
 // (5, 10, 20, 40, 80, 160 at the edge of the map) — see scoutCost() in game.js. The outer rings
-// take a student whose max stamina has been raised in the Gym's Gymnastics side.
+// take a student whose max stamina has been raised in the Dance Studio.
 export const SCOUT_STAMINA_COST = 5;
 // Chance of a zombie encounter while scouting a new tile, growing +10% per ring beyond the school
 // grounds (10% right outside the fence, 60% at the edge of the radius-7 map). More encounter types
@@ -559,8 +561,10 @@ export const ROOM_UPGRADE_LEVELS = { infirmaryCare: INFIRMARY_HEAL_BY_LEVEL.leng
 // How much capacity one upgrade level adds, per room/slot type.
 export const ROOM_UPGRADE_INCREMENT = {
   classroomStudent: CLASSROOM_SEATS_PER_ROW, // +1 row
-  gymStudent: 3, // per side
+  gymStudent: 3,
   gymTeacher: 1,
+  studioStudent: 3,
+  studioTeacher: 1,
   cafeteriaTeacher: 1,
   infirmaryCare: 1,
   researchTeacher: 1,

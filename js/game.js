@@ -5,7 +5,7 @@ import {
   FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
-  GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
+  GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
   ROOM_UPGRADE_MAX_LEVEL, ROOM_UPGRADE_INCREMENT, ROOM_UPGRADE_LEVELS, roomUpgradeCost,
   STAMINA_COST_GYM, STAMINA_COST_EXPLORE, STAMINA_COST_TEACH, STAMINA_RECHARGE_CAFETERIA,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
@@ -93,7 +93,7 @@ export function createInitialState() {
     stock: { ...STARTING_STOCK }, // PRODUCERS id -> seeds / livestock waiting to be planted or penned
     plots: { farm: [emptyPlot()], ranch: [emptyPlot()] }, // Farm plots and Ranch pens
     dishesToday: [], // DISHES ids served today; their buffs last until the day rolls over
-    gymSplit: true, // the Gym has separate PE / Gymnastics sides (see migrateState)
+    gymSplit: true, // PE / Gymnastics train separately (see migrateState)
     boardedRooms: Object.keys(BOARDED_ROOMS), // rooms still overrun — cleared by fighting, then scrap
     roomFightsDone: 0, // the first room-clearing fight shows tutorial tips
     objectivesDone: [], // OBJECTIVES ids finished (see checkObjectives)
@@ -108,6 +108,7 @@ export function createInitialState() {
         CLASSROOM_IDS.map((id) => [id, { subject: null, seats: Array(CLASSROOM_CAPACITY).fill(null) }])
       ),
       gym: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
+      studio: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
       cafeteria: { teacherCapacity: CAFETERIA_MAX_TEACHERS },
       research: { teacherCapacity: RESEARCH_ROOM_TEACHERS },
       infirmary: { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS, care: 0 },
@@ -403,7 +404,7 @@ export function setTeacherPost(state, teacherId, post) {
     if (count >= CLASSROOM_MAX_TEACHERS) return false;
   } else if (post && post.startsWith("gym:")) {
     const count = state.characters.filter((c) => c.role === "teacher" && c.post === post).length;
-    if (count >= state.rooms.gym.teacherCapacity) return false;
+    if (count >= gymRoom(state, post.split(":")[1]).teacherCapacity) return false;
   } else if (post === "cafeteria") {
     const count = state.characters.filter((c) => c.role === "teacher" && c.post === "cafeteria").length;
     if (count >= state.rooms.cafeteria.teacherCapacity) return false;
@@ -436,18 +437,21 @@ export function setTeacherPost(state, teacherId, post) {
   return true;
 }
 
-// `side` is "PE" or "Gymnastics" (a student trains on one side a day), or false to leave.
+// `side` is "PE" (the Gym) or "Gymnastics" (the Dance Studio) — one a day — or false to leave.
 export function setGymToday(state, studentId, side) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
   if (side) {
     if (c.stamina <= 0) return false; // too exhausted to train
     const count = state.characters.filter((x) => x.gymToday === side && x.id !== c.id).length;
-    if (count >= state.rooms.gym.studentCapacity) return false;
+    if (count >= gymRoom(state, side).studentCapacity) return false;
   }
   c.gymToday = side || false;
   return true;
 }
+
+// The room a training subject happens in: PE → the Gym, Gymnastics → the Dance Studio.
+export const gymRoom = (state, side) => state.rooms[GYM_SIDES[side].roomKey];
 
 export function gymTeachers(state, side) {
   return state.characters.filter((c) => c.role === "teacher" && c.post === `gym:${side}` && c.alive);
@@ -456,7 +460,7 @@ export function gymTeachers(state, side) {
 // A teacher's rank in a subject: F=0, D=1, C=2, B=3, A=4, S=5.
 export const teacherRank = (t, subject) => GRADE_TIERS.indexOf(gradeLetter(t.grades[subject]));
 
-// Max HP (PE) or max stamina (Gymnastics) each student gains from one session on that side.
+// Max HP (Gym) or max stamina (Dance Studio) each student gains from one session there.
 export function gymGain(state, side) {
   return 1 + gymTeachers(state, side).reduce((sum, t) => sum + teacherRank(t, side), 0);
 }
@@ -524,6 +528,7 @@ export const setRanchToday = makeOutsideFacilitySetter("ranchToday", "ranch");
 // room's live value.
 const ROOM_BASE_CAPACITY = {
   gym: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
+  studio: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
   cafeteria: { teacher: CAFETERIA_MAX_TEACHERS },
   research: { teacher: RESEARCH_ROOM_TEACHERS },
   infirmary: { student: INFIRMARY_CAPACITY, care: 0 }, // one nurse, not upgradeable
@@ -532,7 +537,7 @@ const ROOM_BASE_CAPACITY = {
   ranch: { student: RANCH_CAPACITY, plot: FACILITY_PLOTS.ranch },
 };
 const ROOM_LABELS = {
-  gym: "the Gym", cafeteria: "the Cafeteria", infirmary: "the Nurse's Office", research: "the Research Room",
+  gym: "the Gym", studio: "the Dance Studio", cafeteria: "the Cafeteria", infirmary: "the Nurse's Office", research: "the Research Room",
   farm: "the Farm", scrapyard: "the Scrapyard", ranch: "the Ranch",
 };
 const UPGRADE_FIELD = { student: "studentCapacity", teacher: "teacherCapacity", care: "care", plot: "plots" };
@@ -823,8 +828,8 @@ export function resolveTraining(state) {
     }
   }
 
-  // gym — split down the middle. The PE side builds max HP and the Gymnastics side max stamina,
-  // by 1 + the combined rank of that side's teachers; students also earn that subject's grade XP
+  // training — the Gym (PE) builds max HP and the Dance Studio (Gymnastics) max stamina,
+  // by 1 + the combined rank of that room's teachers; students also earn that subject's grade XP
   // (faster with a good teacher). No teacher is required.
   for (const side of ["PE", "Gymnastics"]) {
     const students = state.characters.filter((c) => c.gymToday === side && c.alive);
@@ -845,7 +850,7 @@ export function resolveTraining(state) {
       }
       c.stamina = Math.max(0, c.stamina - STAMINA_COST_GYM);
     }
-    addLog(state, `${side} training for ${students.length} student(s): +${gain} ${side === "PE" ? "max HP" : "max stamina"} each.`);
+    addLog(state, `${GYM_SIDES[side].room}: ${students.length} student(s) trained ${side}, +${gain} ${GYM_SIDES[side].gains} each.`);
     teamBondBumps(state, students.map((c) => c.id));
   }
 

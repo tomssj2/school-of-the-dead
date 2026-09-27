@@ -205,6 +205,9 @@ function migrateState(s) {
     }
     s.gymSplit = true;
   }
+  // Gymnastics moved out of the Gym into its own Dance Studio: it starts with the same capacity
+  // (upgrades bought for the old two-sided Gym counted for both sides).
+  if (!s.rooms.studio) s.rooms.studio = { ...s.rooms.gym };
   if (!s.boardedRooms) s.boardedRooms = []; // older saves already had every room open
   // Objectives and the room-fight tutorial are for new schools; an older save starts past them.
   if (!s.objectivesDone) s.objectivesDone = OBJECTIVES.map((o) => o.id);

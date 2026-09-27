@@ -516,7 +516,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .room-cafeteria { --room-accent: #4caf7d; }
 .room-classroom { --room-accent: #3fa7d6; }
 .room-infirmary { --room-accent: #ef8fb3; }
-.room-lounge { --room-accent: #9b7fd6; }
+.room-studio { --room-accent: #9b7fd6; }
 .room-utility { --room-accent: #a03d5c; }
 
 /* Pixel-art banner across the top of a room card (scenes.js), bleeding to the card edges. The
@@ -1739,19 +1739,6 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .campus-edge { fill: none; stroke: #4fa3ff; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
 .hex-name-school { bottom: -10px; font-size: 11px; padding: 2px 8px; border-color: #4fa3ff; color: #dcecff; }
 
-/* The Gym spans the whole floor, split into its PE and Gymnastics halves. */
-.room-wide { grid-column: 1 / -1; }
-.room-scene-cover { background-size: cover; background-repeat: no-repeat; }
-.gym-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
-.gym-side { padding: 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-top: 3px solid var(--side); }
-.gym-side-pe { --side: #e0602a; }
-.gym-side-gymnastics { --side: #3fa7d6; }
-.gym-side-head { font-size: 15px; font-weight: 700; color: var(--side); }
-.gym-side-head span { margin-left: 4px; font-size: 12px; font-weight: 500; color: var(--muted); }
-.gym-gain { margin: 4px 0 6px; font-size: 13px; font-weight: 600; }
-@container app (max-width: 700px) {
-  .gym-sides { grid-template-columns: 1fr; }
-}
 
 .skill-effect { display: block; font-size: 10.5px; font-weight: 400; color: var(--muted); }
 .raid-float-dodge { color: #8fd4f4; font-size: 11px; }

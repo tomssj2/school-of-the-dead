@@ -54,11 +54,9 @@ function bed(r, x0) {
 }
 
 const SCENES = {
-  // Twice as wide as the other rooms: the PE side (weights, bench, punching bag) on the left and
-  // the Gymnastics side (rings, balance beam, crash mats) on the right, a folding partition between.
+  // PE: weights, a bench press, a punching bag and a basketball hoop.
   gym(r) {
-    indoor(r, "#7d9cc4", "#6384ad", "#c48d55", "#ad7a45", "wood", 192);
-    // PE side
+    indoor(r, "#7d9cc4", "#6384ad", "#c48d55", "#ad7a45", "wood");
     r(4, 2, 22, 5, "#d64545");
     r(6, 3, 20, 3, "#f4d35e");
     r(6, 7, 26, 14, "#6b6f78");
@@ -67,47 +65,67 @@ const SCENES = {
       r(7, y, 25, y, "#3a3a3a");
       for (let x = 8; x <= 24; x += 4) r(x, y - 1, x + 1, y + 1, "#2a2d33");
     }
-    r(40, 12, 58, 13, "#8a5f33");
-    r(41, 14, 42, 15, "#6b4a2f");
-    r(56, 14, 57, 15, "#6b4a2f");
-    r(44, 6, 45, 12, "#9aa0a8");
-    r(53, 6, 54, 12, "#9aa0a8");
-    r(40, 5, 58, 5, "#3a3a3a");
-    r(38, 4, 40, 7, "#2a2d33");
-    r(58, 4, 60, 7, "#2a2d33");
-    r(76, 0, 76, 3, "#5d6168");
-    r(73, 4, 79, 13, "#b03030");
-    r(73, 4, 73, 13, "#d0453e");
-    r(73, 13, 79, 13, "#7a2020");
-    r(62, 20, 66, 21, "#2a2d33");
-    r(63, 19, 65, 19, "#2a2d33");
-    // the partition down the middle
-    r(95, 0, 96, 15, "#5a4a3a");
-    for (let y = 1; y < 15; y += 3) r(94, y, 97, y, "#6b5a48");
-    r(95, 16, 96, 23, "#3a3030");
-    // Gymnastics side
-    r(170, 2, 188, 5, "#3f6fb5");
-    r(172, 3, 186, 3, "#f4d35e");
-    for (const x of [108, 116]) {
+    r(36, 12, 54, 13, "#8a5f33");
+    r(37, 14, 38, 15, "#6b4a2f");
+    r(52, 14, 53, 15, "#6b4a2f");
+    r(40, 6, 41, 12, "#9aa0a8");
+    r(49, 6, 50, 12, "#9aa0a8");
+    r(36, 5, 54, 5, "#3a3a3a");
+    r(34, 4, 36, 7, "#2a2d33");
+    r(54, 4, 56, 7, "#2a2d33");
+    r(66, 0, 66, 3, "#5d6168");
+    r(63, 4, 69, 13, "#b03030");
+    r(63, 4, 63, 13, "#d0453e");
+    r(63, 13, 69, 13, "#7a2020");
+    // basketball hoop
+    r(80, 1, 94, 8, "#f4f6f8");
+    r(84, 4, 90, 7, "#d64545");
+    r(85, 5, 89, 6, "#f4f6f8");
+    r(83, 9, 91, 9, "#e0602a");
+    for (let x = 84; x <= 90; x += 2) r(x, 10, x, 12, "#e8e8e8");
+    r(58, 20, 62, 21, "#2a2d33");
+    r(59, 19, 61, 19, "#2a2d33");
+    r(86, 19, 89, 22, "#e0602a");
+    r(86, 20, 89, 20, "#8a3a1a");
+    r(0, 18, 95, 18, "#efe6cf");
+  },
+  // Gymnastics: a mirror wall with a barre, rings, a balance beam, a vault box and crash mats.
+  studio(r) {
+    indoor(r, "#b3a3d6", "#9a89c0", "#d9b27c", "#c49a64", "wood");
+    // mirror wall with a barre
+    r(26, 1, 60, 8, "#c9ccd2");
+    r(27, 2, 59, 7, "#a8d4e8");
+    for (const x0 of [30, 44]) for (let i = 0; i < 4; i++) r(x0 + i, 5 - i, x0 + i, 5 - i, "#e0f2fa");
+    for (const x of [38, 50]) r(x, 2, x, 7, "#c9ccd2");
+    r(24, 7, 62, 7, "#8a5f33");
+    r(24, 8, 24, 9, "#6b4a2f");
+    r(62, 8, 62, 9, "#6b4a2f");
+    // banner
+    r(74, 2, 92, 5, "#3f6fb5");
+    r(76, 3, 90, 3, "#f4d35e");
+    // rings
+    for (const x of [12, 20]) {
       r(x, 0, x, 7, "#9aa0a8");
       r(x - 1, 8, x + 1, 8, "#c9b58c");
       r(x - 2, 9, x - 2, 10, "#c9b58c");
       r(x + 2, 9, x + 2, 10, "#c9b58c");
       r(x - 1, 11, x + 1, 11, "#c9b58c");
     }
-    r(126, 11, 152, 12, "#c49a64");
-    r(126, 11, 152, 11, "#e0b884");
-    r(129, 13, 130, 15, "#6b6f78");
-    r(148, 13, 149, 15, "#6b6f78");
-    r(160, 9, 172, 12, "#8a5f33");
-    r(160, 9, 172, 9, "#a8753f");
-    r(162, 13, 163, 15, "#6b4a2f");
-    r(169, 13, 170, 15, "#6b4a2f");
-    r(104, 18, 150, 22, "#3f6fd6");
-    r(104, 18, 150, 18, "#6f9ae8");
-    for (let x = 112; x < 150; x += 12) r(x, 18, x, 22, "#2f5ab8");
-    r(0, 19, 94, 19, "#efe6cf");
-    r(178, 20, 180, 22, "#e0602a");
+    // balance beam
+    r(30, 11, 56, 12, "#c49a64");
+    r(30, 11, 56, 11, "#e0b884");
+    r(33, 13, 34, 15, "#6b6f78");
+    r(52, 13, 53, 15, "#6b6f78");
+    // vault box
+    r(64, 9, 76, 12, "#8a5f33");
+    r(64, 9, 76, 9, "#a8753f");
+    r(66, 13, 67, 15, "#6b4a2f");
+    r(73, 13, 74, 15, "#6b4a2f");
+    // crash mats and a cone
+    r(8, 18, 54, 22, "#3f6fd6");
+    r(8, 18, 54, 18, "#6f9ae8");
+    for (let x = 16; x < 54; x += 12) r(x, 18, x, 22, "#2f5ab8");
+    r(82, 20, 84, 22, "#e0602a");
   },
   cafeteria(r) {
     indoor(r, "#eadfc4", "#d6c39c", "#d9d9d9", "#a9a9a9", "checker");
@@ -470,8 +488,6 @@ const SCENES = {
   },
 };
 
-// Scenes are SW pixels wide unless listed here.
-const SCENE_WIDTHS = { gym: 192 };
 const sceneCache = new Map();
 
 // Returned as a CSS url() so the banner can tile it sideways — full-width cards get a longer
@@ -483,7 +499,7 @@ export function sceneBackground(kind) {
       rects += `<rect x="${x0}" y="${y0}" width="${x1 - x0 + 1}" height="${y1 - y0 + 1}" fill="${c}"/>`;
     };
     SCENES[kind](r);
-    const w = SCENE_WIDTHS[kind] || SW;
+    const w = SW;
     const svg = `<svg viewBox="0 0 ${w} ${SH}" width="${w}" height="${SH}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
     sceneCache.set(kind, `url('data:image/svg+xml,${encodeURIComponent(svg)}')`);
   }
