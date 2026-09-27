@@ -582,7 +582,7 @@ export const CRAFTING_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra fortification p
 export const COUNCIL_CHANCE_BY_LEVEL = [0, 0.03, 0.06, 0.09, 0.12]; // added to each member's recruit chance
 const roomSlots = (label, base, per = 0) => ({ label, base, per });
 const training = (name, ref) => ({
-  name, ref, students: roomSlots("Student slots", GYM_CAPACITY, 2), teachers: roomSlots("Teacher slots", GYM_MAX_TEACHERS),
+  name, ref, students: roomSlots("Student slots", GYM_CAPACITY, 3), teachers: roomSlots("Teacher slots", GYM_MAX_TEACHERS),
 });
 // `ref` is how a sentence names the room when "the <name>" doesn't read well.
 export const ROOM_LEVELS = {
@@ -590,14 +590,14 @@ export const ROOM_LEVELS = {
   gym: training("Gymnasium"),
   acrobatics: training("Acrobatics", "the Acrobatics room"),
   cafeteria: {
-    name: "Cafeteria", students: roomSlots("Resting seats", CAFETERIA_CAPACITY, 2), teachers: roomSlots("Cooks", CAFETERIA_MAX_TEACHERS),
+    name: "Cafeteria", students: roomSlots("Resting seats", CAFETERIA_CAPACITY, 3), teachers: roomSlots("Cooks", CAFETERIA_MAX_TEACHERS),
     perks: [
       { label: "Rations", by: CAFETERIA_RATIONS_BY_LEVEL, fmt: (v) => `+${v} food a day` },
       { label: "Rest", by: CAFETERIA_REST_BY_LEVEL, fmt: (v) => `+${v} stamina` },
     ],
   },
   infirmary: {
-    name: "Nurse's Office", students: roomSlots("Beds", INFIRMARY_CAPACITY, 2), teachers: roomSlots("Nurses", INFIRMARY_MAX_TEACHERS),
+    name: "Nurse's Office", students: roomSlots("Beds", INFIRMARY_CAPACITY, 3), teachers: roomSlots("Nurses", INFIRMARY_MAX_TEACHERS),
     perks: [
       { label: "Heal", by: INFIRMARY_HEAL_BY_LEVEL, fmt: (v) => `+${v} HP` },
     ],

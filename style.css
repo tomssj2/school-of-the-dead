@@ -2025,7 +2025,7 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
 /* ===== Person tiles (rooms list their people as a grid of portraits) ===== */
 /* Every tile is the same fixed size wherever it is — 8 to a row in a half-width room. Extra
    controls (✕, the Heal/Rest toggle, Cure) sit in the tile's corners so they never change its size. */
-.person-tiles { display: grid; grid-template-columns: repeat(auto-fill, 58px); gap: 5px; margin: 5px 0 6px; }
+.person-tiles { display: grid; grid-template-columns: repeat(auto-fill, 56px); gap: 4px; margin: 5px 0 6px; }
 .person-tile {
   position: relative;
   display: flex;
@@ -2033,7 +2033,7 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
   align-items: center;
   gap: 2px;
   box-sizing: border-box;
-  width: 58px;
+  width: 56px;
   height: 80px;
   padding: 4px 2px;
   border-radius: 7px;
