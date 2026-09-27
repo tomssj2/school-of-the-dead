@@ -489,6 +489,28 @@ export function gymGain(state, side) {
   return 1 + gymTeachers(state, side).reduce((sum, t) => sum + teacherRank(t, side), 0);
 }
 
+// What one session adds to a student's max HP (PE) or max stamina (Gymnastics): the room's gain,
+// capped by how much they can still train (GYM_MAX_BONUS in total).
+export function trainingGain(state, c, side) {
+  const trained = side === "PE" ? c.trainedHp || 0 : c.trainedStamina || 0;
+  return Math.max(0, Math.min(gymGain(state, side), GYM_MAX_BONUS - trained));
+}
+
+// HP a patient gets back tonight: a treatment when there's medicine for them, bed rest otherwise.
+export function healAmount(state, c, treated) {
+  const share = treated
+    ? infirmaryHealShare(state) + infirmaryNurseBonus(state) + c.grades.Biology * TUNE.nursePerCon
+    : INFIRMARY_BED_REST;
+  return Math.min(c.maxHp - c.hp, Math.round(c.maxHp * share));
+}
+
+// The healing patients tonight's medicine covers, in the order the turn treats them.
+export function treatedPatientIds(state) {
+  const healing = state.characters.filter((c) => c.alive && c.infirmaryToday && c.infirmaryToday !== "rest");
+  const covered = Math.floor(state.resources.medicine / INFIRMARY_MEDICINE_PER_PATIENT);
+  return new Set(healing.slice(0, covered).map((c) => c.id));
+}
+
 // Max HP and max stamina come from the grades, plus whatever was built up in the Gym. Raising a
 // max doesn't refill the bar — the new headroom fills with rest like the rest of it.
 function refreshMaxStats(c) {
@@ -891,13 +913,12 @@ export function resolveTraining(state) {
     const gain = gymGain(state, side);
     for (const c of students) {
       grantXp(state, c.id, side, 3 + xpBonus + randInt(0, 2));
+      const add = trainingGain(state, c, side);
       if (side === "PE") {
-        const add = Math.max(0, Math.min(gain, GYM_MAX_BONUS - (c.trainedHp || 0)));
         c.trainedHp = (c.trainedHp || 0) + add;
         refreshMaxStats(c);
         c.hp = Math.min(c.maxHp, c.hp + add);
       } else {
-        const add = Math.max(0, Math.min(gain, GYM_MAX_BONUS - (c.trainedStamina || 0)));
         c.trainedStamina = (c.trainedStamina || 0) + add;
         refreshMaxStats(c);
       }
@@ -917,7 +938,6 @@ export function resolveTraining(state) {
 
   // nurse's office — each patient is either healed (HP, for medicine; a nurse's Biology adds on top,
   // and with no medicine to spare they only get bed rest) or rests (stamina, free).
-  const nurseBonus = infirmaryNurseBonus(state);
   const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
   const resting = patients.filter((c) => c.infirmaryToday === "rest");
   const rest = infirmaryRest(state);
@@ -926,10 +946,7 @@ export function resolveTraining(state) {
   for (const c of patients.filter((x) => x.infirmaryToday !== "rest")) {
     const treated = state.resources.medicine >= INFIRMARY_MEDICINE_PER_PATIENT;
     if (treated) state.resources.medicine -= INFIRMARY_MEDICINE_PER_PATIENT;
-    const share = treated
-      ? infirmaryHealShare(state) + nurseBonus + c.grades.Biology * TUNE.nursePerCon
-      : INFIRMARY_BED_REST;
-    const healed = Math.min(c.maxHp - c.hp, Math.round(c.maxHp * share));
+    const healed = healAmount(state, c, treated);
     c.hp += healed;
     c.injured = c.hp < c.maxHp * 0.5;
     addLog(state, `${c.name} ${treated ? "was treated" : "got bed rest (no medicine to spare)"} in the Nurse's Office (+${healed} HP).`);

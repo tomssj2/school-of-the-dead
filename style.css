@@ -2019,6 +2019,10 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
 .pt-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; }
 .person-tile .hpbar { width: 100%; height: 10px; margin-top: auto; border-radius: 3px; }
 .person-tile .hpbar span { font-size: 8px; }
+/* "100 → 110" under the name: the stat now, and after today's job (in green). */
+.pt-gain { font-size: 10px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pt-gain b { color: #7fe0a8; }
+.pt-gain-done { color: var(--muted); opacity: 0.8; }
 .pt-x { position: absolute; top: 1px; right: 1px; opacity: 0; transition: opacity 0.1s; }
 .person-tile:hover .pt-x, .pt-x:focus { opacity: 1; }
 .pt-empty {

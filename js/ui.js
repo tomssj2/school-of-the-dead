@@ -14,7 +14,7 @@ import {
   classroomTeachingBonus, bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHealShare, infirmaryRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymGain, gymRoom, teacherRank, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -334,6 +334,14 @@ function personTile(c, { bar = "", extra = "", remove = "", title = "", cls = ""
     ${extra}
     ${bar}
   </div>`;
+}
+
+// "100 → 110": what a stat is now and what today's job takes it to (just "100 max" / "full" when
+// there's nothing left to gain). Shown on a tile in place of an HP/stamina bar.
+function gainLine(from, to, done = "max") {
+  return to > from
+    ? `<span class="pt-gain">${from} → <b>${to}</b></span>`
+    : `<span class="pt-gain pt-gain-done">${from} ${done}</span>`;
 }
 
 // The tiles plus one dashed "+" tile per free slot (each opens the picker).
@@ -1831,8 +1839,8 @@ function renderTrainingRoom(state, side) {
   const room = gymRoom(state, side);
   const students = state.characters.filter((c) => c.gymToday === side && c.alive);
   const teachers = gymTeachers(state, side);
-  const bar = side === "PE" ? hpBar : staminaBar;
   const trained = (c) => (side === "PE" ? c.trainedHp || 0 : c.trainedStamina || 0);
+  const current = (c) => (side === "PE" ? c.maxHp : c.maxStamina);
   return `<div class="room room-${info.roomKey}">
     ${roomScene(info.roomKey, [...teachers, ...students], `${info.room}${levelBadge(state, info.roomKey)}`,
       `Trains ${info.label}, which builds ${info.gains}: every session gives each student here 1 + the combined ${info.label} rank of the teachers posted here (F 0, D 1, C 2, B 3, A 4, S 5), up to +${GYM_MAX_BONUS} ${info.gains} in total. Students also earn ${info.label} grade XP. Up to ${room.studentCapacity} students and ${room.teacherCapacity} teachers; training costs ${STAMINA_COST_GYM} stamina.`,
@@ -1845,7 +1853,11 @@ function renderTrainingRoom(state, side) {
       ${teachers.length < room.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-teacher" data-post="${side}">+ Assign teacher…</button>` : ""}
       <div class="mini-label">Training today (${students.length}/${room.studentCapacity})</div>
       ${tileGrid(
-        students.map((s) => personTile(s, { bar: bar(s), remove: "remove-gym", title: `${s.name} — +${trained(s)}/${GYM_MAX_BONUS} ${info.gains} from training` })),
+        students.map((s) => personTile(s, {
+          extra: gainLine(current(s), current(s) + trainingGain(state, s, side)),
+          remove: "remove-gym",
+          title: `${s.name} — ${info.gains} ${current(s)} → ${current(s) + trainingGain(state, s, side)} after today's session (${trained(s)}/${GYM_MAX_BONUS} trained so far)`,
+        })),
         room.studentCapacity - students.length,
         `data-action="open-picker" data-kind="gym-student" data-post="${side}"`
       )}
@@ -1862,6 +1874,7 @@ export function renderFloor1(state) {
   const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
   const infected = infectedChars(state);
   const bedsFree = infRoom.studentCapacity - infirmaryBedsUsed(state);
+  const treatedIds = treatedPatientIds(state);
   const nurseBonus = Math.round(infirmaryNurseBonus(state) * 100);
 
   const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
@@ -1911,10 +1924,15 @@ export function renderFloor1(state) {
             }),
             ...patients.map((s) => {
               const mode = s.infirmaryToday === "rest" ? "rest" : "heal";
+              const treated = treatedIds.has(s.id);
+              const to = mode === "rest" ? Math.min(s.maxStamina, s.stamina + infirmaryRest(state)) : s.hp + healAmount(state, s, treated);
+              const from = mode === "rest" ? s.stamina : s.hp;
               return personTile(s, {
-                bar: mode === "rest" ? staminaBar(s) : hpBar(s),
                 remove: "remove-infirmary",
-                extra: `<span class="pt-treat">
+                title: mode === "rest"
+                  ? `${s.name} — stamina ${from} → ${to} of ${s.maxStamina} after resting`
+                  : `${s.name} — HP ${from} → ${to} of ${s.maxHp} ${treated ? "after treatment" : "after bed rest (no medicine to spare)"}`,
+                extra: `${gainLine(from, to, "full")}<span class="pt-treat">
                   <button class="treat-btn ${mode === "heal" ? "treat-on" : ""}" data-action="set-treatment" data-id="${s.id}" data-mode="heal" title="Heal HP for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine">💊</button>
                   <button class="treat-btn ${mode === "rest" ? "treat-on" : ""}" data-action="set-treatment" data-id="${s.id}" data-mode="rest" title="Rest for stamina">😴</button>
                 </span>`,
@@ -2138,7 +2156,7 @@ function renderOutsideFacility(state, roomKey, flagKey, title, tagline, desc, ex
     <p class="room-tagline">${tagline}</p>
     <div class="mini-label">Working today (${workers.length}/${room.studentCapacity})</div>
     ${tileGrid(
-      workers.map((s) => personTile(s, { bar: hpBar(s), remove: `remove-${roomKey}` })),
+      workers.map((s) => personTile(s, { remove: `remove-${roomKey}` })),
       room.studentCapacity - workers.length,
       `data-action="open-picker" data-kind="${roomKey}"`
     )}
