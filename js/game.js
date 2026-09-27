@@ -20,7 +20,7 @@ import {
   RESCUE_BROADCAST_DAY, RESCUE_DAY, RESCUE_DELAY_DAYS, ANTENNA_STAGES,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
-  INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
+  INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
@@ -516,10 +516,8 @@ export function councilChance(state, member) {
 
 // HP a patient gets back tonight: a treatment when there's medicine for them, bed rest otherwise.
 export function healAmount(state, c, treated) {
-  const share = treated
-    ? infirmaryHealShare(state) + infirmaryNurseBonus(state) + c.grades.Biology * TUNE.nursePerCon
-    : INFIRMARY_BED_REST;
-  return Math.min(c.maxHp - c.hp, Math.round(c.maxHp * share));
+  const hp = treated ? infirmaryHeal(state) + infirmaryNurseBonus(state) : INFIRMARY_BED_REST;
+  return Math.min(c.maxHp - c.hp, hp);
 }
 
 // The healing patients tonight's medicine covers, in the order the turn treats them.
@@ -570,14 +568,16 @@ export function setInfirmaryToday(state, studentId, mode) {
 
 
 // What a treatment gives at the Nurse's Office's current care level.
-export function infirmaryHealShare(state) {
+// HP a treated patient gets back from the room itself, by its level.
+export function infirmaryHeal(state) {
   return INFIRMARY_HEAL_BY_LEVEL[roomLevel(state, "infirmary") - 1];
 }
-// Every nurse adds up to INFIRMARY_NURSE_BONUS more healing, by their Biology.
+// HP one nurse adds to every treatment: INFIRMARY_NURSE_HP_PER_RANK per rank of their CON grade.
+export const nurseHpBonus = (n) => teacherRank(n, "Biology") * INFIRMARY_NURSE_HP_PER_RANK;
 export function infirmaryNurseBonus(state) {
   return state.characters
     .filter((c) => c.role === "teacher" && c.post === "infirmary" && c.alive)
-    .reduce((sum, n) => sum + (n.grades.Biology / 100) * INFIRMARY_NURSE_BONUS, 0);
+    .reduce((sum, n) => sum + nurseHpBonus(n), 0);
 }
 
 // Stamina a student resting in the Cafeteria gets back today.

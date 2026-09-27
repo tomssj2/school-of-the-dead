@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
-  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, STAMINA_COST_GYM, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_NURSE_BONUS,
+  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, STAMINA_COST_GYM, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   RESCUE_DELAY_DAYS, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
@@ -16,7 +16,7 @@ import {
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, councilChance, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHealShare, cafeteriaRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymGain, gymRoom, teacherRank, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -1905,9 +1905,10 @@ export function renderFloor1(state) {
   const cafeLevel = roomLevel(state, "cafeteria");
   const napBonus = techPerk(state, "restRecovery");
   const cafeHow = `Each cook serves one dish a day (${cooks.length} cook${cooks.length === 1 ? "" : "s"} → ${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"}), and while anyone cooks they stretch the rations by +${CAFETERIA_RATIONS_BY_LEVEL[cafeLevel - 1]} food a day. Resting here gives +${cafeteriaRest(state)} stamina: +${cafeteriaRest(state) - napBonus} for a level-${cafeLevel} Cafeteria${napBonus ? ` + ${napBonus} from Power Naps` : ""}.`;
-  const nurseBonus = Math.round(infirmaryNurseBonus(state) * 100);
-  const nurseParts = nurses.map((t) => `${Math.round((t.grades.Biology / 100) * INFIRMARY_NURSE_BONUS * 100)}% (${shortName(t)}, CON ${gradeLetter(t.grades.Biology)})`);
-  const nurseHow = `Healing: ${Math.round(infirmaryHealShare(state) * 100)}% for a level-${roomLevel(state, "infirmary")} Nurse's Office${nurseParts.length ? ` + ${nurseParts.join(" + ")}` : " (each nurse adds up to 25% more with a high CON)"} = ${Math.round(infirmaryHealShare(state) * 100) + nurseBonus}% of max HP, plus a little more for a patient's own CON. Costs ${INFIRMARY_MEDICINE_PER_PATIENT} medicine each — with none to spare, only 10% bed rest. The infected are quarantined here: each takes a bed until cured with antiviral serum.`;
+  const nurseBonus = infirmaryNurseBonus(state);
+  const healHp = infirmaryHeal(state) + nurseBonus;
+  const nurseParts = nurses.map((t) => `${nurseHpBonus(t)} (${shortName(t)}, CON ${gradeLetter(t.grades.Biology)})`);
+  const nurseHow = `Each treatment heals ${infirmaryHeal(state)} HP for a level-${roomLevel(state, "infirmary")} Nurse's Office, + ${INFIRMARY_NURSE_HP_PER_RANK} for every rank of each nurse's CON (F 0 · D 1 · C 2 · B 3 · A 4 · S 5)${nurseParts.length ? `: ${infirmaryHeal(state)} + ${nurseParts.join(" + ")} = ${healHp} HP` : " — no nurse yet"}. Costs ${INFIRMARY_MEDICINE_PER_PATIENT} medicine per patient; with none to spare, only bed rest (+${INFIRMARY_BED_REST} HP). The infected are quarantined here: each takes a bed until cured with antiviral serum.`;
   const resting = state.characters.filter((c) => c.restToday && c.alive);
 
   const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
@@ -1925,11 +1926,6 @@ export function renderFloor1(state) {
         ${staffLine(state, "Cooks", cooks, cafeRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
           'data-action="open-picker" data-kind="cafeteria-teacher"')}
-        <div class="mini-label">Today's menu (${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served)</div>
-        <div class="menu-strip">
-          ${served.map((d) => `<span class="menu-served" title="${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon} ${esc(d.name)}</span>`).join("") || '<span class="muted">Nothing served yet today</span>'}
-          <button class="btn btn-sm btn-primary" data-action="open-menu">🍲 Cook a dish…</button>
-        </div>
         <div class="mini-label">Resting today (${resting.length}/${cafeRoom.studentCapacity})</div>
         ${tileGrid(
           resting.map((s) => {
@@ -1939,12 +1935,17 @@ export function renderFloor1(state) {
           cafeRoom.studentCapacity - resting.length,
           'data-action="open-picker" data-kind="cafeteria-rest"'
         )}
+        <div class="mini-label">Today's menu (${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served)</div>
+        <div class="menu-strip">
+          ${served.map((d) => `<span class="menu-served" title="${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon} ${esc(d.name)}</span>`).join("") || `<span class="muted">${cooks.length ? "Nothing served yet today" : "No cook on duty — assign one to serve dishes"}</span>`}
+          ${cooks.length ? '<button class="btn btn-sm btn-primary" data-action="open-menu">🍲 Cook a dish…</button>' : ""}
+        </div>
       </div>
       <div class="room room-infirmary">
         ${roomScene("infirmary", [...nurses, ...infected, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
-          `Up to ${infRoom.studentCapacity} patients a day. 💊 Heal: ${Math.round(infirmaryHealShare(state) * 100)}% of max HP${nurses.length ? ` +${nurseBonus}% from the nurses' Biology` : " (each nurse's Biology adds up to 25% more)"} for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (10%). Upgrading the room heals more. The infected are quarantined here too — each takes a bed until they're cured with antiviral serum. Everyone also gets a little stamina and HP back on nights the school is fed.`,
+          `Up to ${infRoom.studentCapacity} patients a day. 💊 Each treatment heals ${healHp} HP for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (+${INFIRMARY_BED_REST} HP). Upgrading the room and posting nurses with a high CON heal more. The infected are quarantined here too — each takes a bed until they're cured with antiviral serum. Everyone also gets a little stamina and HP back on nights the school is fed.`,
           roomUpgradeButton(state, "infirmary"),
-          `💊 Heal <b>${Math.round(infirmaryHealShare(state) * 100) + nurseBonus}%</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`)}
+          `💊 Heal <b>+${healHp}</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`)}
         ${staffLine(state, "Nurses", nurses, infRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
           'data-action="open-picker" data-kind="infirmary-teacher"')}

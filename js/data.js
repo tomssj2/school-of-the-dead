@@ -34,7 +34,7 @@ export const STAT_LABEL = {
 export const STAT_EFFECTS = {
   STR: "Fights: melee damage, and the strength to hold melee weapons. Also: part of max HP, how much food and scrap an expedition can carry home, and more output at the Farm and Scrapyard. Half of a team's power.",
   DEX: "Fights: ranged damage, hit chance, dodging hits, and the dexterity to hold ranged weapons. Also: most of max stamina, and stealth — fewer zombies while scouting and fewer ambushes on expeditions. Half of a team's power.",
-  CON: "Fights: less damage taken, and a better chance to survive going down. Also: most of max HP, and faster healing overnight and in the Nurse's Office.",
+  CON: "Fights: less damage taken, and a better chance to survive going down. Also: most of max HP, and faster healing overnight. A nurse with a high CON heals more in the Nurse's Office.",
   INT: "Fights: the defenders' smarts make traps hit harder and walls hold longer. Also: faster learning (more XP from everything) and better odds of finding gear on expeditions. For teachers, research.",
   WIS: "Fights: the most aware defender warns everyone, so the whole team takes less damage. Also: part of max stamina, keeps expedition teams safe, and finds more loot.",
   CHA: "Fights: the most charismatic defender leads — the whole team hits harder. Also: finding survivors, faster friendships, and a daily lift to the school's mood. For teachers, recruiting.",
@@ -57,7 +57,6 @@ export const STAT_TUNING = {
   recoveryPerCon: 1 / 500,
   staminaRecoveryFlat: 5, // overnight stamina when fed = 5 + 10% of max (resting at the nurse's is the real refill)
   staminaRecoveryShare: 0.1,
-  nursePerCon: 1 / 500, // a treated patient heals an extra CON / 500 of max HP
   xpPerInt: 1 / 250, // all XP × (1 + INT / 250): +40% at 100
   trapPerInt: 1 / 150, // trap damage × (1 + avg INT / 150)
   wallPerInt: 1 / 300, // wall HP × (1 + avg INT / 300)
@@ -424,15 +423,15 @@ export const RESEARCH_ROOM_TEACHERS = 1;
 export const RESEARCH_ROOM_INT_PER_POINT = 20;
 
 // Nurse's Office: nurses (teachers) and a few beds for healing and quarantine. Each patient is
-// healed a share of their max HP (growing with the room's level), plus up to INFIRMARY_NURSE_BONUS
-// more per nurse from their Biology, for some medicine — with none to spare, only bed rest.
+// healed a flat amount of HP (growing with the room's level), plus INFIRMARY_NURSE_HP_PER_RANK for
+// every rank of each nurse's CON grade, for some medicine — with none to spare, only bed rest.
 // Resting for stamina happens in the Cafeteria (CAFETERIA_REST_BY_LEVEL).
 export const INFIRMARY_CAPACITY = 4;
 export const INFIRMARY_MAX_TEACHERS = 1;
 export const INFIRMARY_MEDICINE_PER_PATIENT = 3;
-export const INFIRMARY_HEAL_BY_LEVEL = [0.3, 0.4, 0.5, 0.6, 0.7]; // share of max HP healed, by room level
-export const INFIRMARY_NURSE_BONUS = 0.25; // at Biology 100
-export const INFIRMARY_BED_REST = 0.1;
+export const INFIRMARY_HEAL_BY_LEVEL = [20, 40, 60, 80, 100]; // HP healed, by room level
+export const INFIRMARY_NURSE_HP_PER_RANK = 5; // per nurse: F +0 · D +5 · C +10 · B +15 · A +20 · S +25
+export const INFIRMARY_BED_REST = 10; // HP, when there's no medicine to spare
 
 // ===== Cooking =====
 // Staple crops come from the Farm, animal products from the Ranch, and three extras only turn up
@@ -600,7 +599,7 @@ export const ROOM_LEVELS = {
   infirmary: {
     name: "Nurse's Office", students: roomSlots("Beds", INFIRMARY_CAPACITY, 2), teachers: roomSlots("Nurses", INFIRMARY_MAX_TEACHERS),
     perks: [
-      { label: "Heal", by: INFIRMARY_HEAL_BY_LEVEL, fmt: (v) => `${Math.round(v * 100)}% HP` },
+      { label: "Heal", by: INFIRMARY_HEAL_BY_LEVEL, fmt: (v) => `+${v} HP` },
     ],
   },
   research: {
