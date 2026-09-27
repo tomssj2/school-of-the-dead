@@ -24,10 +24,6 @@ body {
      bigger than the window scrolls rather than squeezing the layout. A little under 1280 so the
      window's own vertical scrollbar doesn't tip Auto into a sideways scroll. */
   min-width: 1240px;
-  /* The frame sits in the middle of the window when a fixed resolution leaves room around it. */
-  display: flex;
-  flex-direction: column;
-  min-height: var(--win-h, 100vh);
   --turn-accent: #f4c542;
   --sky-glow: rgba(255, 196, 120, 0.1);
   --sky-low: rgba(76, 175, 125, 0.05);
@@ -102,9 +98,8 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
   flex-direction: column;
   box-sizing: border-box;
   height: var(--frame-h, 100vh);
-  width: 100%;
   max-width: 1100px;
-  margin: auto;
+  margin: 0 auto; /* anchored to the top, centred sideways */
   padding: 0 14px;
   container-type: inline-size;
   container-name: app;
