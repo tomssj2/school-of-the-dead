@@ -29,7 +29,6 @@ import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
 import { isSoundEnabled } from "./sound.js";
 
 const TURN_NAMES = { 1: "Classes (Morning)", 2: "Exploration (Afternoon)", 3: "Defense (Night)" };
-const TURN_NAMES_SHORT = { 1: "Classes", 2: "Exploration", 3: "Defense" };
 
 // ---------- hex map (Turn 2) ----------
 
@@ -477,15 +476,52 @@ const TB_INFO = {
   serum: "Antiviral Serum — rare, and the only cure for an infection: one cures one infected person in the Nurse's Office. Sometimes found at the Hospital, Pharmacy and Fire Station; every raid boss drops some.",
 };
 
-const DAY_STEPS = [["sun", "Classes"], ["dusk", "Exploration"], ["moon", "Defense"]];
+const DAY_STEPS = [["sun", "Classes"], ["dusk", "Explore"], ["moon", "Night"]];
+
+// Tile colour behind each HUD stat's pixel icon.
+const HUD_TILE = {
+  people: "#233a57", teacher: "#262f4f", mood: "#4a4121", food: "#4a3818", scrap: "#333a45",
+  medicine: "#4d2226", research: "#34284d", serum: "#1d3f28", virus: "#2c4219", antenna: "#3a3020",
+};
+
+// One HUD counter: an icon tile, the number, and a small label (hidden on narrow screens).
+// `extra` goes after the number (today's meal buffs ride on the Food counter).
+function hudStat(floaties, key, iconHtml, tile, value, label, title, { sub = "", cls = "", extra = "" } = {}) {
+  return `<span class="${key ? tbItemClass(floaties, key) : "tb-item"} hud-stat ${cls}" title="${title}">
+    <span class="hud-icon" style="--tile:${tile}">${iconHtml}</span>
+    <span class="hud-val"><span class="hud-num"><b>${value}</b>${sub}</span><small>${label}</small></span>
+    ${extra}
+    ${key ? floatyFor(floaties, key) : ""}
+  </span>`;
+}
 
 export function renderTopbar(state, floaties = [], activeTab = "", mobileView = false) {
   const pop = aliveChars(state).length;
+  const r = state.resources;
+  const infected = infectedChars(state).length;
+  const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
+  const meals = served.length
+    ? `<span class="hud-buffs">${served.map((d) => `<span class="tb-buff" title="Today's meal: ${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon}</span>`).join("")}</span>`
+    : "";
+  const turnName = DAY_STEPS[state.turn - 1]?.[1] || "";
+  const phases = DAY_STEPS.map(([icon, name], i) => {
+    const cls = i + 1 === state.turn ? "now" : i + 1 < state.turn ? "done" : "";
+    const link = i ? `<span class="hud-phase-link ${i < state.turn ? "done" : ""}"></span>` : "";
+    return `${link}<span class="hud-phase ${cls}" title="Turn ${i + 1}: ${name}">${pixelIcon(icon, 18)}</span>`;
+  }).join("");
+  const rescue = state.rescue && !state.rescue.evacuated
+    ? `<button class="hud-stat hud-rescue ${antennaReady(state) ? "hud-rescue-ready" : ""}" data-action="set-tab" data-tab="rescue"
+        title="Evacuation on day ${state.rescue.day} — the rooftop antenna has to be working by then (${state.rescue.stagesDone}/${ANTENNA_STAGES.length} repaired). Click for the rescue plan.">
+        <span class="hud-icon" style="--tile:${HUD_TILE.antenna}">${pixelIcon("antenna", 20)}</span>
+        <span class="hud-val"><span class="hud-num"><b>Day ${state.rescue.day}</b></span><small>Evac</small></span>
+        <span class="hud-rescue-bars">${ANTENNA_STAGES.map((_, i) => `<i class="${i < state.rescue.stagesDone ? "on" : ""}"></i>`).join("")}</span>
+      </button>`
+    : "";
   return `
-  <div class="topbar">
-    <div class="topbar-left">
+  <header class="hud ${infected || r.serum || served.length > 1 ? "hud-tight" : ""}">
+    <div class="hud-left">
       <details class="options-dropdown menu-dropdown">
-        <summary class="tab-btn options-summary">☰ Menu ▾</summary>
+        <summary class="hud-menu" title="Menu">${pixelIcon("menu", 20)}</summary>
         <div class="options-menu">
           <button class="options-item ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
           <button class="options-item ${activeTab === "itemlist" ? "active" : ""}" data-action="set-tab" data-tab="itemlist">📖 Item List</button>
@@ -503,96 +539,61 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
           </label>
         </div>
       </details>
-      <div class="tb-stats">
-        <span class="${tbItemClass(floaties, "population")} res-pill" title="${TB_INFO.population}">${pixelIcon("people")}<b>${pop}</b>${floatyFor(floaties, "population")}</span>
-        <span class="tb-item res-pill" title="${TB_INFO.teachers}">${pixelIcon("teacher")}<b>${teacherCount(state)}</b></span>
-        <span class="${tbItemClass(floaties, "happiness")} res-pill" title="${TB_INFO.happiness}">${moodIcon(state.happiness)}<b>${state.happiness}</b>${floatyFor(floaties, "happiness")}</span>
-        ${state.dishesToday
-          .map((id) => DISHES.find((d) => d.id === id))
-          .filter(Boolean)
-          .map((d) => `<span class="tb-buff" title="${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon}</span>`)
-          .join("")}
+      <div class="hud-group">
+        ${hudStat(floaties, "population", pixelIcon("people", 20), HUD_TILE.people, pop, "People", TB_INFO.population)}
+        ${hudStat(floaties, null, pixelIcon("teacher", 20), HUD_TILE.teacher, teacherCount(state), "Teachers", TB_INFO.teachers)}
+        ${hudStat(floaties, "happiness", moodIcon(state.happiness, 20), HUD_TILE.mood, state.happiness, "Morale", TB_INFO.happiness)}
       </div>
     </div>
-    <div class="topbar-center">
-      <div class="day-track">
-        <span class="tb-day">Day <b>${state.day}</b></span>
-        <span class="day-steps">
-          ${DAY_STEPS.map(
-            ([icon, name], i) =>
-              `<span class="day-step ${i + 1 === state.turn ? "now" : i + 1 < state.turn ? "done" : ""}" title="Turn ${i + 1}: ${name}">${pixelIcon(icon, 16)}</span>`
-          ).join('<span class="day-link"></span>')}
-        </span>
-        <span class="tb-turn-name">${TURN_NAMES_SHORT[state.turn]}</span>
+    <div class="hud-center">
+      <div class="hud-day" title="Day ${state.day} · turn ${state.turn} of 3: ${turnName}">
+        <div class="hud-day-badge"><small>DAY</small><b>${state.day}</b></div>
+        <div class="hud-phases">
+          <div class="hud-phase-track">${phases}</div>
+          <div class="hud-phase-name">${turnName}</div>
+        </div>
       </div>
-      ${
-        state.rescue && !state.rescue.evacuated
-          ? `<button class="tb-rescue ${antennaReady(state) ? "tb-rescue-ready" : ""}" data-action="set-tab" data-tab="rescue"
-               title="Evacuation on day ${state.rescue.day} — the rooftop antenna has to be working by then. Click for the rescue plan.">
-               📡 Day <b>${state.rescue.day}</b> · ${state.rescue.stagesDone}/${ANTENNA_STAGES.length}
-             </button>`
-          : ""
-      }
+      ${rescue}
     </div>
-    <div class="topbar-right">
-      <div class="tb-stats">
-        <span class="${tbItemClass(floaties, "food")} res-pill ${state.resources.food < pop ? "tb-warn" : ""}" title="${TB_INFO.food} ${state.resources.food} on hand, ${pop} needed tonight.">${pixelIcon("food")}<b>${state.resources.food}</b><span class="tb-sub">-${pop}</span>${floatyFor(floaties, "food")}</span>
-        <span class="${tbItemClass(floaties, "materials")} res-pill" title="${TB_INFO.materials}">${pixelIcon("scrap")}<b>${state.resources.materials}</b>${floatyFor(floaties, "materials")}</span>
-        <span class="${tbItemClass(floaties, "medicine")} res-pill" title="${TB_INFO.medicine}">${pixelIcon("medicine")}<b>${state.resources.medicine}</b>${floatyFor(floaties, "medicine")}</span>
-        <span class="${tbItemClass(floaties, "research")} res-pill" title="${TB_INFO.research}">${pixelIcon("research")}<b>${state.resources.research}</b>${floatyFor(floaties, "research")}</span>
-        ${infectedChars(state).length ? `<span class="tb-item res-pill tb-infected" title="Infected — ${infectedChars(state).length} in quarantine in the Nurse's Office. Each needs a vial of antiviral serum by the end of their fifth day, or they die.">🦠<b>${infectedChars(state).length}</b></span>` : ""}
-        ${state.resources.serum ? `<span class="${tbItemClass(floaties, "serum")} res-pill" title="${TB_INFO.serum}">${pixelIcon("serum")}<b>${state.resources.serum}</b>${floatyFor(floaties, "serum")}</span>` : ""}
+    <div class="hud-right">
+      <div class="hud-group">
+        ${hudStat(floaties, "food", pixelIcon("food", 20), HUD_TILE.food, r.food, "Food", `${TB_INFO.food} ${r.food} on hand, ${pop} needed tonight.`,
+          { sub: `<span class="tb-sub">−${pop}</span>`, cls: r.food < pop ? "tb-warn" : "", extra: meals })}
+        ${hudStat(floaties, "materials", pixelIcon("scrap", 20), HUD_TILE.scrap, r.materials, "Scrap", TB_INFO.materials)}
+        ${hudStat(floaties, "medicine", pixelIcon("medicine", 20), HUD_TILE.medicine, r.medicine, "Meds", TB_INFO.medicine)}
+        ${hudStat(floaties, "research", pixelIcon("research", 20), HUD_TILE.research, r.research, "Research", TB_INFO.research)}
+        ${infected ? hudStat(floaties, null, pixelIcon("virus", 20), HUD_TILE.virus, infected, "Infected",
+          `Infected — ${infected} in quarantine in the Nurse's Office. Each needs a vial of antiviral serum by the end of their fifth day, or they die.`, { cls: "tb-infected hud-compact" }) : ""}
+        ${r.serum ? hudStat(floaties, "serum", pixelIcon("serum", 20), HUD_TILE.serum, r.serum, "Serum", TB_INFO.serum, { cls: "hud-compact" }) : ""}
       </div>
     </div>
-  </div>`;
+  </header>`;
 }
 
 // The left 3 tabs change with the turn — you manage the school on Turn 1, the outside
-// facilities on Turn 2 (while teams are out exploring), and (once defined) night-related
-// screens on Turn 3.
+// facilities on Turn 2 (while teams are out exploring), and night-related screens on Turn 3.
+// Each tab is [id, label, pixel icon].
 const LEFT_TABS_BY_TURN = {
-  1: [
-    ["floor1", "🎒 Lobby"],
-    ["floor2", "🏫 Classrooms"],
-    ["floor3", "🏢 Facilities"],
-  ],
-  2: [
-    ["farm", "🌾 Farm"],
-    ["ranch", "🐄 Ranch"],
-    ["scrapyard", "🔩 Scrapyard"],
-  ],
-  3: [
-    ["defense", "🛡 Defense"],
-    ["assault", "⚔ Assault"],
-    ["event", "🎲 Event"],
-  ],
+  1: [["floor1", "Lobby", "lobby"], ["floor2", "Classrooms", "classrooms"], ["floor3", "Facilities", "facilities"]],
+  2: [["farm", "Farm", "farm"], ["ranch", "Ranch", "ranch"], ["scrapyard", "Scrapyard", "scrap"]],
+  3: [["defense", "Defense", "defense"], ["assault", "Assault", "assault"], ["event", "Event", "event"]],
 };
+const RIGHT_TABS = [["roster", "Roster", "roster"], ["armory", "Armory", "armory"], ["research", "Research", "research"]];
 // The center button always returns to the current turn's action screen (assigning classes,
 // missions, or defenders + the button that actually advances the turn) — labeled per-turn so
 // it doesn't read as a generic "advance turn" action.
-const OVERVIEW_TAB_LABEL = { 1: "📚 Classes", 2: "🗺 Explore", 3: "🌙 Night Watch" };
+const OVERVIEW_TAB = { 1: ["Classes", "classes"], 2: ["Explore", "explore"], 3: ["Night Watch", "moon"] };
+
+const navBtn = (activeTab, [id, label, icon], cls = "", size = 18) =>
+  `<button class="nav-btn ${cls} ${activeTab === id ? "active" : ""}" data-action="set-tab" data-tab="${id}">${pixelIcon(icon, size)}<span>${label}</span></button>`;
 
 export function renderTabs(state, activeTab) {
-  const floorBtns = (LEFT_TABS_BY_TURN[state.turn] || LEFT_TABS_BY_TURN[1])
-    .map(
-      ([id, label]) =>
-        `<button class="tab-btn ${activeTab === id ? "active" : ""}" data-action="set-tab" data-tab="${id}">${label}</button>`
-    )
-    .join("");
-
-  return `<div class="tabs">
-    <div class="tabs-left">
-      ${floorBtns}
-    </div>
-    <div class="tabs-center">
-      <button class="tab-btn tab-btn-turn ${activeTab === "overview" ? "active" : ""}" data-action="set-tab" data-tab="overview">${OVERVIEW_TAB_LABEL[state.turn]}</button>
-    </div>
-    <div class="tabs-right">
-      <button class="tab-btn ${activeTab === "roster" ? "active" : ""}" data-action="set-tab" data-tab="roster">📋 Roster</button>
-      <button class="tab-btn ${activeTab === "armory" ? "active" : ""}" data-action="set-tab" data-tab="armory">🗡 Armory</button>
-      <button class="tab-btn ${activeTab === "research" ? "active" : ""}" data-action="set-tab" data-tab="research">🧠 Research</button>
-    </div>
-  </div>`;
+  const [turnLabel, turnIcon] = OVERVIEW_TAB[state.turn];
+  return `<nav class="nav">
+    <div class="nav-left">${(LEFT_TABS_BY_TURN[state.turn] || LEFT_TABS_BY_TURN[1]).map((t) => navBtn(activeTab, t)).join("")}</div>
+    <div class="nav-center">${navBtn(activeTab, ["overview", turnLabel, turnIcon], "nav-turn", 22)}</div>
+    <div class="nav-right">${RIGHT_TABS.map((t) => navBtn(activeTab, t)).join("")}</div>
+  </nav>`;
 }
 
 // ---------- overview / turn action ----------
