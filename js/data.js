@@ -393,9 +393,10 @@ export const OBJECTIVES = [
   { id: "survive_week", title: "Hold out for a week", hint: "Keep the school standing until day 7.", reward: { materials: 20, food: 20 } },
 ];
 
-export const CLASSROOM_DESKS_PER_ROW = 3;
-export const CLASSROOM_SEATS_PER_ROW = CLASSROOM_DESKS_PER_ROW * 2; // 6
-export const CLASSROOM_CAPACITY = 2 * CLASSROOM_SEATS_PER_ROW; // 12 (level 1: 2 rows)
+// Seats come in desks of two (deskmates bond), shown four desks to a row: level 1 is one full row,
+// and each level adds a desk — 8, 10, 12, 14, 16.
+export const CLASSROOM_CAPACITY = 8;
+export const CLASSROOM_SEATS_PER_LEVEL = 2;
 export const CLASSROOM_MAX_TEACHERS = 1; // at level 1; more join at room levels 3 and 5, all teaching the room's subject
 
 // Two training rooms: the Gymnasium (PE) builds max HP and Acrobatics (Gymnastics) max stamina.
@@ -586,7 +587,7 @@ const training = (name, ref) => ({
 });
 // `ref` is how a sentence names the room when "the <name>" doesn't read well.
 export const ROOM_LEVELS = {
-  classroom: { name: "Classroom", students: roomSlots("Seats", CLASSROOM_CAPACITY, CLASSROOM_SEATS_PER_ROW), teachers: roomSlots("Teachers", CLASSROOM_MAX_TEACHERS) },
+  classroom: { name: "Classroom", students: roomSlots("Seats", CLASSROOM_CAPACITY, CLASSROOM_SEATS_PER_LEVEL), teachers: roomSlots("Teachers", CLASSROOM_MAX_TEACHERS) },
   gym: training("Gymnasium"),
   acrobatics: training("Acrobatics", "the Acrobatics room"),
   cafeteria: {

@@ -662,6 +662,12 @@ export function applyRoomLevel(state, key) {
   if (stats.teachers !== undefined) room.teacherCapacity = stats.teachers;
   if (roomType(key) === "classroom") {
     while (room.seats.length < stats.students) room.seats.push(null);
+    // A room smaller than its seat list (rooms were made smaller) sends the extra students off
+    // their seats — they can be seated again wherever there's room.
+    for (const id of room.seats.splice(stats.students)) {
+      const c = id && getChar(state, id);
+      if (c) c.seat = null;
+    }
     return;
   }
   if (stats.students !== undefined) room.studentCapacity = Math.max(1, stats.students - (room.damage || 0));
