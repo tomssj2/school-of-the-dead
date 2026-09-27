@@ -2093,14 +2093,17 @@ function renderClassroom(state, roomId) {
     const couple = occ.coupleId && partner && occ.coupleId === partner.id;
     const grade = subject ? occ.grades[subject] : null;
     return personTile(occ, {
-      cls: couple ? "pt-couple" : "",
       remove: "unseat",
       title: `${occ.name}${partner ? ` — deskmate ${partner.name}, bond ${bond}${couple ? " 💞" : ""}` : ""}${subject ? ` · ${STAT_OF_SUBJECT[subject]} ${grade} → ${grade + classBonus} with the teachers' bonus` : ""}`,
       extra: subject ? gainLine(grade, grade + classBonus, "") : "",
     });
   };
   const desks = [];
-  for (let i = 0; i < room.seats.length; i += 2) desks.push(`<div class="pt-desk">${seatTile(i)}${seatTile(i + 1)}</div>`);
+  for (let i = 0; i < room.seats.length; i += 2) {
+    const a = getChar(state, room.seats[i]);
+    const couple = a && a.coupleId && a.coupleId === room.seats[i + 1];
+    desks.push(`<div class="pt-desk ${couple ? "desk-couple" : ""}" ${couple ? 'title="A couple 💞"' : ""}>${seatTile(i)}${seatTile(i + 1)}</div>`);
+  }
 
   return `
   <div class="room room-classroom">
