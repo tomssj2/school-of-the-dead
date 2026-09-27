@@ -503,12 +503,6 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
   const meals = served.length
     ? `<span class="hud-buffs">${served.map((d) => `<span class="tb-buff" title="Today's meal: ${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon}</span>`).join("")}</span>`
     : "";
-  const turnName = DAY_STEPS[state.turn - 1]?.[1] || "";
-  const phases = DAY_STEPS.map(([icon, name], i) => {
-    const cls = i + 1 === state.turn ? "now" : i + 1 < state.turn ? "done" : "";
-    const link = i ? `<span class="hud-phase-link ${i < state.turn ? "done" : ""}"></span>` : "";
-    return `${link}<span class="hud-phase ${cls}" title="Turn ${i + 1}: ${name}">${pixelIcon(icon, 18)}</span>`;
-  }).join("");
   const rescue = state.rescue && !state.rescue.evacuated
     ? `<button class="hud-stat hud-rescue ${antennaReady(state) ? "hud-rescue-ready" : ""}" data-action="set-tab" data-tab="rescue"
         title="Evacuation on day ${state.rescue.day} — the rooftop antenna has to be working by then (${state.rescue.stagesDone}/${ANTENNA_STAGES.length} repaired). Click for the rescue plan.">
@@ -545,16 +539,7 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
         ${hudStat(floaties, "happiness", moodIcon(state.happiness, 20), HUD_TILE.mood, state.happiness, "Morale", TB_INFO.happiness)}
       </div>
     </div>
-    <div class="hud-center">
-      <div class="hud-day" title="Day ${state.day} · turn ${state.turn} of 3: ${turnName}">
-        <div class="hud-day-badge"><small>DAY</small><b>${state.day}</b></div>
-        <div class="hud-phases">
-          <div class="hud-phase-track">${phases}</div>
-          <div class="hud-phase-name">${turnName}</div>
-        </div>
-      </div>
-      ${rescue}
-    </div>
+    <div class="hud-center">${rescue}</div>
     <div class="hud-right">
       <div class="hud-group">
         ${hudStat(floaties, "food", pixelIcon("food", 20), HUD_TILE.food, r.food, "Food", `${TB_INFO.food} ${r.food} on hand, ${pop} needed tonight.`,
@@ -587,11 +572,29 @@ const OVERVIEW_TAB = { 1: ["Classes", "classes"], 2: ["Explore", "explore"], 3: 
 const navBtn = (activeTab, [id, label, icon], cls = "", size = 18) =>
   `<button class="nav-btn ${cls} ${activeTab === id ? "active" : ""}" data-action="set-tab" data-tab="${id}">${pixelIcon(icon, size)}<span>${label}</span></button>`;
 
+// The turn button doubles as the clock: a tear-off day card, then the turn's name over the
+// sun → dusk → moon track with the current phase lit.
+function renderTurnButton(state, activeTab) {
+  const [label, icon] = OVERVIEW_TAB[state.turn];
+  const phases = DAY_STEPS.map(([phaseIcon, name], i) => {
+    const cls = i + 1 === state.turn ? "now" : i + 1 < state.turn ? "done" : "";
+    const link = i ? `<span class="turn-phase-link ${i < state.turn ? "done" : ""}"></span>` : "";
+    return `${link}<span class="turn-phase ${cls}" title="Turn ${i + 1}: ${name}">${pixelIcon(phaseIcon, 14)}</span>`;
+  }).join("");
+  return `<button class="nav-btn nav-turn ${activeTab === "overview" ? "active" : ""}" data-action="set-tab" data-tab="overview"
+    title="Day ${state.day}, turn ${state.turn} of 3 — ${label}">
+    <span class="turn-day"><small>DAY</small><b>${state.day}</b></span>
+    <span class="turn-body">
+      <span class="turn-label">${pixelIcon(icon, 18)}<span>${label}</span></span>
+      <span class="turn-track">${phases}</span>
+    </span>
+  </button>`;
+}
+
 export function renderTabs(state, activeTab) {
-  const [turnLabel, turnIcon] = OVERVIEW_TAB[state.turn];
   return `<nav class="nav">
     <div class="nav-left">${(LEFT_TABS_BY_TURN[state.turn] || LEFT_TABS_BY_TURN[1]).map((t) => navBtn(activeTab, t)).join("")}</div>
-    <div class="nav-center">${navBtn(activeTab, ["overview", turnLabel, turnIcon], "nav-turn", 22)}</div>
+    <div class="nav-center">${renderTurnButton(state, activeTab)}</div>
     <div class="nav-right">${RIGHT_TABS.map((t) => navBtn(activeTab, t)).join("")}</div>
   </nav>`;
 }
