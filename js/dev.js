@@ -81,3 +81,21 @@ export function maxOutSchool(state) {
     hired,
   };
 }
+
+// Quarantines `n` students (not already infected) with 1-5 days left, sending home healing
+// patients as needed so everyone fits in the Nurse's Office's beds, to test how it looks.
+export function infectStudents(state, n = 3) {
+  const room = state.rooms.infirmary;
+  const picked = state.characters
+    .filter((c) => c.role === "student" && c.alive && !c.infection && !c.infirmaryToday)
+    .slice(0, n);
+  picked.forEach((c, i) => {
+    G.infect(state, c, "was bitten (test)");
+    c.infection.dueDay = state.day + (i % 5);
+  });
+  for (const p of state.characters.filter((c) => c.infirmaryToday && c.alive).reverse()) {
+    if (G.infirmaryBedsUsed(state) <= room.studentCapacity) break;
+    p.infirmaryToday = false;
+  }
+  return `${picked.length} student${picked.length === 1 ? "" : "s"} quarantined · beds ${G.infirmaryBedsUsed(state)}/${room.studentCapacity}`;
+}
