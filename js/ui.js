@@ -1608,7 +1608,7 @@ function resolvePickerCandidates(state, picker) {
       return {
         role: "teacher", title: "Assign a Classroom Teacher",
         list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== post)
-          .map((c) => ({ c, reason: teacherBusyLabel(state, c, post) || (c.stamina <= 0 ? "Exhausted" : null), note: classroomTeacherNote(c, state.rooms.classrooms[roomId].subject) })),
+          .map((c) => ({ c, reason: teacherBusyLabel(state, c, post), note: classroomTeacherNote(c, state.rooms.classrooms[roomId].subject) })),
       };
     }
     case "classroom-seat":
@@ -1830,12 +1830,12 @@ export function renderFloor1(state) {
       ${renderTrainingRoom(state, "Gymnastics")}
       <div class="room room-cafeteria">
         ${roomScene("cafeteria", cooks, `Cafeteria${levelBadge(state, "cafeteria")}`,
-          `Up to ${cafeRoom.teacherCapacity} teachers (cooks). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+${CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1]} food a day between them), and recovers 50 stamina while cooking.`,
+          `Up to ${cafeRoom.teacherCapacity} teachers (cooks). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+${CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1]} food a day between them).`,
           roomUpgradeButton(state, "cafeteria"))}
         <p class="room-tagline">Each cook serves one buff dish a day</p>
         <div class="mini-label">Cooks (${cooks.length}/${cafeRoom.teacherCapacity})</div>
         <ul class="assign-list">
-          ${cooks.map((t) => `<li><span class="assign-who">${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)}</span>${staminaBar(t)}<button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
+          ${cooks.map((t) => `<li><span class="assign-who">${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
         </ul>
         ${cooks.length < cafeRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-teacher">+ Assign cook…</button>` : ""}
         <div class="mini-label">Today's menu (${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served)</div>
@@ -1930,7 +1930,7 @@ function renderClassroom(state, roomId) {
     )}
     <div class="mini-label">Teachers (${teachers.length}/${room.teacherCapacity}) — each gives every student a grade boost</div>
     <ul class="assign-list">
-      ${teachers.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${teachBonusLabel(t.grades[subject])}</span>${staminaBar(t)}<button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+      ${teachers.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${teachBonusLabel(t.grades[subject])}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
     </ul>
     ${teachers.length < room.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}">+ Assign teacher…</button>` : ""}
     <div class="mini-label">Seating (${rowCount} rows × 3 desks)</div>
@@ -2418,7 +2418,7 @@ function rosterSortValue(c, key) {
   if (key === "name") return c.name.toLowerCase();
   if (key === "level") return overallLevel(c);
   if (key === "hp") return c.hp;
-  if (key === "stamina") return c.stamina;
+  if (key === "stamina") return c.role === "teacher" ? -1 : c.stamina;
   const subject = SUBJECTS.find((s) => STAT_OF_SUBJECT[s] === key);
   return c.grades[subject];
 }
@@ -2453,7 +2453,7 @@ export function renderRoster(state, filter = "all", sortKey = "name", sortDir = 
         <td>${c.gender}</td>
         <td>${c.role === "teacher" ? `🌟 ${SUBJECT_LABEL[c.teachSubject]}` : `Lv${overallLevel(c)}`}</td>
         <td>${hpBar(c)}</td>
-        <td>${staminaBar(c)}</td>
+        <td>${c.role === "teacher" ? '<span class="muted">—</span>' : staminaBar(c)}</td>
         <td>${statusTag(c)}</td>
         <td>${esc(loc)}</td>
         <td>${statChips(c)}</td>
@@ -2830,7 +2830,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
         </div>
         <div class="cc-top-stats">
           <div class="cc-stat-box cc-hp-box"><span class="cc-label">HP</span>${hpBar(c)}</div>
-          <div class="cc-stat-box cc-hp-box"><span class="cc-label">Stamina</span>${staminaBar(c)}</div>
+          ${c.role === "teacher" ? "" : `<div class="cc-stat-box cc-hp-box"><span class="cc-label">Stamina</span>${staminaBar(c)}</div>`}
         </div>
         ${tabBar}
         ${body}

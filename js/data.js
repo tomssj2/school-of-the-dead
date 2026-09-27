@@ -607,11 +607,10 @@ export const ROOM_LEVELS = {
 export const BOND_COUPLE_THRESHOLD = 6;
 
 // ===== Stamina =====
-// Max stamina comes from DEX and WIS — see STAT_TUNING and maxStaminaFor() in characters.js.
-export const STAMINA_COST_GYM = 20; // students, per day trained
-export const STAMINA_COST_EXPLORE = 20; // students, per expedition
-export const STAMINA_COST_TEACH = 20; // teachers, per day assigned to a classroom
-export const STAMINA_RECHARGE_CAFETERIA = 50; // per day a teacher spends cooking (how teachers recover)
+// Only students use stamina; teachers never tire — they're a standing boost to the room they're
+// posted to. Max stamina comes from DEX and WIS — see STAT_TUNING and maxStaminaFor() in characters.js.
+export const STAMINA_COST_GYM = 20; // per day trained
+export const STAMINA_COST_EXPLORE = 20; // per expedition
 
 // ===== Happiness =====
 // A school-wide mood meter that reacts to wins/losses/recruits/deaths and, in turn, skews

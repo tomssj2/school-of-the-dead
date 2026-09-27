@@ -8,7 +8,7 @@ import {
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, COUNCIL_CHANCE_BY_LEVEL,
-  STAMINA_COST_GYM, STAMINA_COST_EXPLORE, STAMINA_COST_TEACH, STAMINA_RECHARGE_CAFETERIA,
+  STAMINA_COST_GYM, STAMINA_COST_EXPLORE,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE,
@@ -396,7 +396,6 @@ export function setTeacherPost(state, teacherId, post) {
   if (post) {
     const room = roomState(state, postRoomKey(post));
     if (!room) return false;
-    if (post.startsWith("classroom:") && t.stamina <= 0) return false; // too exhausted to teach
     const count = state.characters.filter((c) => c.role === "teacher" && c.post === post).length;
     if (count >= room.teacherCapacity) return false;
   }
@@ -832,17 +831,6 @@ export function resolveTraining(state) {
       addLog(state, `${SUBJECT_LABEL[subject]} class held for ${studentIds.length} student(s).`);
     }
 
-    // Teaching costs every teacher here stamina; anyone who runs out steps down, and once the
-    // last one has, the room reverts to unassigned until someone rested takes it over.
-    const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === `classroom:${roomId}` && c.alive);
-    for (const teacher of teachers) {
-      teacher.stamina = Math.max(0, teacher.stamina - STAMINA_COST_TEACH);
-      if (teacher.stamina === 0) {
-        addLog(state, `${teacher.name} is too exhausted to keep teaching and steps down from ${SUBJECT_LABEL[subject]}.`);
-        teacher.post = null;
-      }
-    }
-    if (teachers.length && teachers.every((t) => t.post === null)) room.subject = null;
   }
 
   // training — the Gymnasium (PE) builds max HP and Acrobatics (Gymnastics) max stamina,
@@ -871,15 +859,13 @@ export function resolveTraining(state) {
     teamBondBumps(state, students.map((c) => c.id));
   }
 
-  // cafeteria — cooks stretch the rations (their dishes are served on demand, see cookDish) and
-  // recharge their own stamina; cooking is how teachers recover.
+  // cafeteria — cooks stretch the rations (their dishes are served on demand, see cookDish).
   const cooks = cooksOnDuty(state);
   if (cooks.length) {
     const rations = CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1];
     state.resources.food += rations;
     addLog(state, `${cooks.map((c) => c.name).join(" & ")} stretch${cooks.length === 1 ? "es" : ""} the rations (+${rations} food).`);
   }
-  for (const c of cooks) c.stamina = Math.min(c.maxStamina, c.stamina + STAMINA_RECHARGE_CAFETERIA);
 
   // nurse's office — each patient is either healed (HP, for medicine; a nurse's Biology adds on top,
   // and with no medicine to spare they only get bed rest) or rests (stamina, free).
