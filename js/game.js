@@ -496,6 +496,24 @@ export function trainingGain(state, c, side) {
   return Math.max(0, Math.min(gymGain(state, side), GYM_MAX_BONUS - trained));
 }
 
+// What one outside worker brings in today: the facility's base yield, plus 1 for every
+// TUNE.yieldStrStep STR on the Farm and at the Scrapyard (the Ranch is about the animals).
+export function workerYield(facility, c) {
+  if (facility === "ranch") return RANCH_YIELD_FOOD;
+  const base = facility === "farm" ? FARM_YIELD_FOOD : SCRAPYARD_YIELD_MATERIALS;
+  return base + Math.floor(c.grades.PE / TUNE.yieldStrStep);
+}
+
+// Fortification one crafter adds from `scrap` scrap (they use up to 4 a day), plus the room's level bonus.
+export function crafterGain(state, crafter, scrap) {
+  return Math.round((scrap + crafter.grades.Gymnastics / 20) * 0.8) + CRAFTING_BONUS_BY_LEVEL[roomLevel(state, "crafting") - 1];
+}
+
+// A Student Council member's daily chance to hear of a survivor who wants to join.
+export function councilChance(state, member) {
+  return 0.15 + member.grades.SocialStudies / 300 + COUNCIL_CHANCE_BY_LEVEL[roomLevel(state, "council") - 1];
+}
+
 // HP a patient gets back tonight: a treatment when there's medicine for them, bed rest otherwise.
 export function healAmount(state, c, treated) {
   const share = treated
@@ -970,20 +988,18 @@ export function resolveTraining(state) {
   }
 
   // crafting
-  const craftBonus = CRAFTING_BONUS_BY_LEVEL[roomLevel(state, "crafting") - 1];
   for (const crafter of state.characters.filter((c) => c.role === "teacher" && c.post === "crafting" && c.alive)) {
     if (state.resources.materials <= 0) break;
     const use = Math.min(state.resources.materials, 4);
     state.resources.materials -= use;
-    const gain = Math.round((use + crafter.grades.Gymnastics / 20) * 0.8) + craftBonus;
+    const gain = crafterGain(state, crafter, use);
     state.fortification = Math.min(FORTIFICATION_CAP, state.fortification + gain);
     addLog(state, `${crafter.name} reinforces the school defenses (+${gain} fortification).`);
   }
 
   // student council
-  const councilBonus = COUNCIL_CHANCE_BY_LEVEL[roomLevel(state, "council") - 1];
   for (const council of state.characters.filter((c) => c.role === "teacher" && c.post === "council" && c.alive)) {
-    if (Math.random() >= 0.15 + council.grades.SocialStudies / 300 + councilBonus) continue;
+    if (Math.random() >= councilChance(state, council)) continue;
     const role = rollRecruitRole(state);
     const recruit = makeCharacter(role, Math.random() < 0.5 ? "M" : "F");
     state.recruitPool.push(recruit);
@@ -1165,13 +1181,10 @@ export function resolveExploration(state) {
 
   // outside facilities — passive daily yield for students working the Farm/Scrapyard/Ranch
   // instead of exploring. Farm and Ranch workers also tend the plots/pens.
-  for (const [facility, foodEach, label] of [["farm", FARM_YIELD_FOOD, "Farm"], ["ranch", RANCH_YIELD_FOOD, "Ranch"]]) {
+  for (const [facility, label] of [["farm", "Farm"], ["ranch", "Ranch"]]) {
     const workers = facilityWorkers(state, facility);
     if (!workers) continue;
-    // Strong workers get more done on the Farm (the Ranch is about the animals).
-    const gain = state.characters
-      .filter((c) => c[`${facility}Today`] && c.alive)
-      .reduce((sum, c) => sum + foodEach + (facility === "farm" ? Math.floor(c.grades.PE / TUNE.yieldStrStep) : 0), 0);
+    const gain = state.characters.filter((c) => c[`${facility}Today`] && c.alive).reduce((sum, c) => sum + workerYield(facility, c), 0);
     state.resources.food += gain;
     const { produced, kept } = tendPlots(state, facility, workers);
     const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
@@ -1179,7 +1192,7 @@ export function resolveExploration(state) {
   }
   const scrapyardWorkers = state.characters.filter((c) => c.scrapyardToday && c.alive);
   if (scrapyardWorkers.length) {
-    const gain = scrapyardWorkers.reduce((sum, c) => sum + SCRAPYARD_YIELD_MATERIALS + Math.floor(c.grades.PE / TUNE.yieldStrStep), 0);
+    const gain = scrapyardWorkers.reduce((sum, c) => sum + workerYield("scrapyard", c), 0);
     state.resources.materials += gain;
     addLog(state, `The Scrapyard salvages ${gain} scrap from ${scrapyardWorkers.length} student(s).`);
   }
