@@ -5,7 +5,7 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
-import { applyGraphics, setGraphics, applyUiScale, setResolution } from "./graphics.js";
+import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
@@ -460,6 +460,14 @@ function render() {
   if (newContent) newContent.scrollTop = contentScroll;
   const newMap = root.querySelector('.hexmap-wrap');
   if (newMap) {
+    // The map window fills exactly the space left under the screen's header, so it is always fully
+    // in view and only the map inside it scrolls (rects are screen pixels, heights layout pixels).
+    if (newContent) {
+      const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+      const box = newContent.getBoundingClientRect();
+      const above = (newMap.getBoundingClientRect().top - box.top) / zoom + newContent.scrollTop;
+      newMap.style.height = `${Math.max(320, Math.floor(box.height / zoom - above - 16))}px`;
+    }
     newMap.scrollLeft = mapScroll ? mapScroll.left : (newMap.scrollWidth - newMap.clientWidth) / 2;
     newMap.scrollTop = mapScroll ? mapScroll.top : (newMap.scrollHeight - newMap.clientHeight) / 2;
   }
@@ -1176,8 +1184,8 @@ root.addEventListener("change", (e) => {
   const action = el.dataset.action;
 
   switch (action) {
-    case "set-resolution":
-      setResolution(el.value);
+    case "set-ui-size":
+      setUiSize(el.value);
       render();
       break;
     case "set-picker-sort":
@@ -1252,7 +1260,7 @@ root.addEventListener("change", (e) => {
   }
 });
 
-// PC only: the UI is scaled like a game's — see applyUiScale() in graphics.js.
+// PC only: the UI Size setting and the fixed-height frame — see applyUiScale() in graphics.js.
 applyUiScale();
 window.addEventListener("resize", applyUiScale);
 applyGraphics();

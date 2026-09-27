@@ -20,10 +20,9 @@
 
 body {
   margin: 0;
-  /* The page is laid out for a 1280px-wide window (see applyUiScale in graphics.js): a resolution
-     bigger than the window scrolls rather than squeezing the layout. A little under 1280 so the
-     window's own vertical scrollbar doesn't tip Auto into a sideways scroll. */
-  min-width: 1240px;
+  /* PC only: never narrower than the game's column — a very large UI Size in a small window
+     scrolls sideways rather than squeezing the layout. */
+  min-width: 1128px;
   --turn-accent: #f4c542;
   --sky-glow: rgba(255, 196, 120, 0.1);
   --sky-low: rgba(76, 175, 125, 0.05);
@@ -89,8 +88,8 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
   to { opacity: 0.6; }
 }
 
-/* A fixed-height frame (see applyUiScale in graphics.js): the HUD and tab bar stay put and only
-   the content area below them scrolls. */
+/* A frame as tall as the window (see applyUiScale in graphics.js): the HUD and tab bar stay put
+   and only the content area below them scrolls. */
 #app {
   position: relative;
   z-index: 1;
@@ -1101,11 +1100,11 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 
 /* ---------- Exploration hex map ---------- */
 
-/* The map is a window onto the city sized to the screen (it scrolls on its own, starting centred
-   on the school) rather than a 1000px-tall block that pushes the school below the fold. */
+/* The map is a window onto the city that fills the space under the screen's header (main.js sets
+   its height after each render) and scrolls on its own, starting centred on the school. */
 .hexmap-wrap {
   overflow: auto;
-  height: clamp(320px, calc(var(--frame-h, 720px) - 300px), 1100px);
+  height: 480px;
   box-sizing: border-box;
   margin: 14px 0;
   background-color: #0a0d13;
