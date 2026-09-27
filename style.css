@@ -223,6 +223,8 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
 .hud-menu {
   display: grid;
   place-items: center;
+  box-sizing: border-box;
+  margin: 0; /* the global summary style adds a top margin */
   width: 36px;
   height: 36px;
   border-radius: 9px;
@@ -382,7 +384,7 @@ body[data-turn="2"] .nav-turn:hover, body[data-turn="3"] .nav-turn:hover { filte
 .options-toggle input { margin: 0; }
 
 .menu-dropdown .options-menu { left: 0; right: auto; }
-.menu-dropdown { flex: none; }
+.menu-dropdown { flex: none; align-self: center; height: 36px; }
 
 .subtabs { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 12px; }
 .subtab-btn {
@@ -451,7 +453,7 @@ body[data-turn="2"] .nav-turn:hover, body[data-turn="3"] .nav-turn:hover { filte
 }
 .btn-danger { background: transparent; border-color: var(--accent-2); color: var(--accent-2); }
 .btn-danger:hover { background: rgba(217, 83, 79, 0.12); box-shadow: 0 3px 10px rgba(217, 83, 79, 0.25); }
-.btn-sm { padding: 3px 8px; font-size: 12px; }
+.btn-sm { padding: 3px 8px; font-size: 12px; line-height: 16px; }
 .btn-big { padding: 12px 20px; font-size: 15px; width: 100%; margin-top: 10px; }
 .btn-x {
   background: none;
@@ -472,7 +474,7 @@ select, input[type="text"] {
   max-width: 100%;
 }
 
-.summary-list { line-height: 1.9; padding-left: 4px; list-style: none; margin: 10px 0; }
+.summary-list { line-height: 1.9; padding-left: 0; list-style: none; margin: 10px 0; }
 .summary-list li { padding: 2px 0; }
 
 .field-label { display: block; margin: 10px 0 4px; font-size: 12.5px; color: var(--muted); }
@@ -492,11 +494,12 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   .floor-grid, .floor1-grid, .floor3-grid, .floor2-grid { grid-template-columns: 1fr; }
 }
 
-.tech-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 4px 0 14px; }
+.tech-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: repeat(6, auto); gap: 10px; margin: 4px 0 14px; }
 @container app (max-width: 700px) {
   .tech-grid { grid-template-columns: 1fr; }
 }
-.tech-branch { display: flex; flex-direction: column; gap: 10px; }
+/* Each branch is a column whose rows are the grid's own (subgrid), so tier N lines up across branches. */
+.tech-branch { display: grid; grid-row: span 6; grid-template-rows: subgrid; gap: 10px; }
 .tech-branch-head { padding: 4px 2px 2px; font-size: 14px; }
 .tech-branch-head .muted { font-size: 12px; }
 .tech-tier {
@@ -585,7 +588,9 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 3px 10px;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px;
   border-radius: 6px;
   background: rgba(14, 16, 22, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -831,16 +836,39 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .seat-couple { background: #4a2a3a; }
 .seat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.stat-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+/* Stat chips are fixed-width cells on a grid, so they line up in columns from row to row; the
+   highest stat (or a teacher's specialty) gets a gold star badge in the corner instead of a
+   wider label. */
+.stat-chips { display: grid; grid-template-columns: repeat(6, 56px); gap: 4px; margin-top: 4px; }
+.roster-table .stat-chips { grid-template-columns: repeat(3, 56px); }
 .chip {
+  position: relative;
+  box-sizing: border-box;
   background: #10131a;
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 1px 6px;
+  padding: 1px 4px;
   font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
   color: var(--muted);
 }
 .chip.chip-specialty { border-color: #f4c430; color: #f4c430; font-weight: 600; }
+.chip.chip-specialty::after {
+  content: "★";
+  position: absolute;
+  top: -6px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f4c430;
+  color: #1c2028;
+  font-size: 9px;
+  line-height: 1;
+}
 .stat-top { color: #f4c430; }
 
 .tag { border-radius: 4px; padding: 1px 6px; font-size: 11px; }
@@ -875,7 +903,9 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 8px;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px;
   border-radius: 6px;
   background: rgba(14, 16, 22, 0.82);
   border: 1px solid rgba(244, 211, 94, 0.45);
@@ -964,10 +994,10 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 
 .armory-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .armory-item {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 140px 78px 88px 96px;
   align-items: center;
-  gap: 4px 8px;
+  gap: 8px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -976,7 +1006,9 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 }
 .armory-item.armory-legendary { border-color: #f4c430; background: rgba(244, 196, 48, 0.08); }
 .armory-icon { font-size: 16px; }
-.armory-name { flex: 1; }
+.armory-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.armory-cell { color: var(--warn); font-size: 11.5px; white-space: nowrap; }
+.armory-bonus { text-align: right; }
 .armory-bonus { color: var(--muted); font-size: 12px; }
 .weapon-stats { color: var(--warn); font-size: 11.5px; white-space: nowrap; }
 
@@ -1543,7 +1575,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .cc-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-top: 4px; border-top: 1px solid var(--border); padding-top: 8px; }
 .cc-talents-label { border-top: none; padding-top: 0; margin-top: 2px; text-align: center; }
 
-.cc-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.cc-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .cc-tab-btn {
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -1828,6 +1860,9 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 }
 .room-boarded .scene-plaque { color: #d9c5a8; }
 .room-boarded .room-tagline { color: var(--muted); }
+.room-boarded { display: flex; flex-direction: column; }
+.room-boarded .room-tagline { flex: 1; }
+.boarded-actions { display: flex; align-items: center; gap: 8px; }
 
 /* Room-clearing fights */
 .clear-zombies { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 8px; }

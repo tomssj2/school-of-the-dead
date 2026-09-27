@@ -198,7 +198,7 @@ function statChips(c) {
     return `<div class="stat-chips">
       ${SUBJECTS.map((s) => {
         const specialty = s === c.teachSubject;
-        return `<span class="chip ${specialty ? "chip-specialty" : ""}" title="${SUBJECT_LABEL[s]}${specialty ? " (specialty)" : ""}">${specialty ? "🌟 " : ""}${STAT_OF_SUBJECT[s]} ${gradeLetter(c.grades[s])}</span>`;
+        return `<span class="chip ${specialty ? "chip-specialty" : ""}" title="${SUBJECT_LABEL[s]}${specialty ? " (specialty)" : ""}">${STAT_OF_SUBJECT[s]} ${gradeLetter(c.grades[s])}</span>`;
       }).join("")}
     </div>`;
   }
@@ -215,7 +215,7 @@ function statChips(c) {
     ${studentStats
       .map(([label, title, val]) => {
         const top = val === best;
-        return `<span class="chip ${top ? "chip-specialty" : ""}" title="${title}${top ? " (highest)" : ""}">${top ? "🌟 " : ""}${label} ${val}</span>`;
+        return `<span class="chip ${top ? "chip-specialty" : ""}" title="${title}${top ? " (highest)" : ""}">${label} ${val}</span>`;
       })
       .join("")}
   </div>`;
@@ -345,8 +345,10 @@ function renderBoardedRoom(state, roomKey, scene, cls = "") {
       <div class="scene-plaque">🔒 ${b.name}</div>
     </div>
     <p class="room-tagline">Boarded up — overrun on the first night, and ${b.zombies.length} zombies are still inside. Fight them out, then spend the scrap to board the windows back up.</p>
-    <button class="btn btn-sm btn-primary" data-action="open-clear-room" data-room="${roomKey}">🔨 Clear it out (${b.cost} scrap)</button>
-    ${afford ? "" : `<span class="muted"> — you have ${state.resources.materials}/${b.cost} scrap</span>`}
+    <div class="boarded-actions">
+      <button class="btn btn-sm btn-primary" data-action="open-clear-room" data-room="${roomKey}">🔨 Clear it out (${b.cost} scrap)</button>
+      ${afford ? "" : `<span class="muted">you have ${state.resources.materials}/${b.cost} scrap</span>`}
+    </div>
   </div>`;
 }
 
@@ -2036,7 +2038,7 @@ export function renderFloor3(state) {
     </div>
     <div class="subcard">
       <h3>🙋 Pending Recruits</h3>
-      <div class="recruit-list">${recruits || '<p class="muted">No one is waiting to join right now. Explore the city or staff the Student Council room to find survivors.</p>'}</div>
+      ${recruits ? `<div class="recruit-list">${recruits}</div>` : '<p class="muted">No one is waiting to join right now. Explore the city or staff the Student Council room to find survivors.</p>'}
     </div>
     <div class="floor3-grid">
       ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
@@ -2372,12 +2374,20 @@ function weaponStatsLabel(it) {
   return `<span class="weapon-stats">⚔ ${it.damage} dmg · 📏 ${it.range} range${req}</span>`;
 }
 
+// An armory row in fixed columns — icon, name, bonus, damage, range, requirement — so every
+// row's numbers sit under each other (armor and accessories leave the weapon columns empty).
 function armoryItemRow(it) {
+  const weapon = it.slot === "weapon";
+  const req = weapon && it.requires && Object.keys(it.requires).length
+    ? `🔒 ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}+`).join(" ")}`
+    : "";
   return `<div class="armory-item ${it.legendary ? "armory-legendary" : ""}">
     <span class="armory-icon">${it.icon}</span>
     <span class="armory-name">${it.legendary ? "✨ " : ""}${esc(it.name)}</span>
     <span class="armory-bonus">${formatBonuses(it.bonuses)}</span>
-    ${weaponStatsLabel(it)}
+    <span class="armory-cell">${weapon ? `⚔ ${it.damage} dmg` : ""}</span>
+    <span class="armory-cell">${weapon ? `📏 ${it.range} range` : ""}</span>
+    <span class="armory-cell armory-req">${req}</span>
   </div>`;
 }
 
