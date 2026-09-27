@@ -538,11 +538,15 @@ export const SCRAPYARD_YIELD_MATERIALS = 3; // scrap per assigned student/day
 // players see.
 export const RESOURCE_NAME = { food: "food", materials: "scrap", medicine: "medicine", research: "research", serum: "antiviral serum" };
 
-// Antiviral Serum: a rare vial that pulls a teacher back from the brink. When a teacher would die
-// (a zombie breaking into the school, a deadly sickness) one is used up automatically and they
-// live. Students have medicine for the same job: MEDICINE_PER_STABILIZE saves anyone who goes down
-// in a fight. Found now and then on a successful run to a medical location (a location's
-// `serumChance`) and always on a raid boss kill (the landmark's `rewards.serum`).
+// Infection: a zombie bite that festers. A student who goes down to a zombie in a fight and lives
+// may be infected (INFECTION_CHANCE_DOWNED); a zombie that breaks into the school, or the "A Hidden
+// Bite" event, can infect anyone, teachers included. The infected are quarantined in the Nurse's
+// Office — each takes up a bed and can't do anything else — and die at the end of INFECTION_DAYS
+// days unless cured with one Antiviral Serum, the only cure. Serum is rare: found now and then on a
+// successful run to a medical location (a location's `serumChance`) and always on a raid boss kill
+// (the landmark's `rewards.serum`).
+export const INFECTION_DAYS = 5;
+export const INFECTION_CHANCE_DOWNED = 0.06; // students go down often in the night battle, so this stays low
 // Ceiling for state.fortification. Raised from 60 to 300 alongside the deeper Research tree so
 // the tier 3-5 fortification techs (which sum to well over the old cap) aren't dead purchases.
 export const FORTIFICATION_CAP = 300;
@@ -655,7 +659,7 @@ export const EVENTS = [
   { id: "spoiled_food", kind: "bad", title: "Spoiled Rations", desc: "A batch of food spoils before anyone notices.", effect: { food: -15 } },
   { id: "bad_news", kind: "bad", title: "Bad News on the Radio", desc: "A broadcast describes a nearby town overrun. The school grows anxious.", effect: { happiness: -12 } },
   { id: "accident", kind: "bad", title: "An Accident", desc: "A careless moment during chores turns into a real injury.", effect: { injure: true } },
-  { id: "sickness", kind: "bad", title: "A Sickness Spreads", desc: "Something is going around the dorms. Someone doesn't pull through.", effect: { kill: true } },
+  { id: "sickness", kind: "bad", title: "A Hidden Bite", desc: "Someone was bitten at the fence and hid it. Now they're running a fever.", effect: { infect: true } },
 ];
 
 // ===== Research tech tree =====
@@ -719,7 +723,7 @@ export const LOCATIONS = [
     difficulty: 2,
     danger: 2,
     rewards: { food: 2, materials: 2, medicine: 14 },
-    serumChance: 0.06,
+    serumChance: 0.1,
     hex: { q: 3, r: -2 }, // distance 3
   },
   {
@@ -751,7 +755,7 @@ export const LOCATIONS = [
     difficulty: 5,
     danger: 5,
     rewards: { food: 4, materials: 8, medicine: 30 },
-    serumChance: 0.12,
+    serumChance: 0.2,
     lootBias: "armor",
     hex: { q: -2, r: -3 }, // distance 5 — clear across town
   },
@@ -830,7 +834,7 @@ export const LOCATIONS = [
     difficulty: 4,
     danger: 3,
     rewards: { food: 4, materials: 16, medicine: 14 },
-    serumChance: 0.05,
+    serumChance: 0.1,
     lootBias: "armor",
     hex: { q: 3, r: -5 }, // distance 5
   },

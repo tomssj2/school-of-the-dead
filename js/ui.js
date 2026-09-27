@@ -14,7 +14,7 @@ import {
   classroomTeachingBonus, bestClassroomSubjectFor,
 } from "./characters.js";
 import {
-  getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHealShare, infirmaryRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymGain, gymRoom, teacherRank, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -238,8 +238,15 @@ function teachBonusLabel(gradeValue) {
   return `${gradeLetter(gradeValue)} (+${teachingBonus(gradeValue)})`;
 }
 
-function statusTag(c) {
+// "🦠 infected · 3 days left" — the last day reads "dies tonight".
+function infectionTag(state, c) {
+  const left = infectionDaysLeft(state, c);
+  return `<span class="tag tag-infected" title="Cure with antiviral serum in the Nurse's Office by the end of day ${c.infection.dueDay}">🦠 infected · ${left <= 0 ? "dies tonight" : `${left} day${left === 1 ? "" : "s"} left`}</span>`;
+}
+
+function statusTag(c, state = null) {
   if (!c.alive) return `<span class="tag tag-dead">deceased</span>`;
+  if (c.infection) return state ? infectionTag(state, c) : `<span class="tag tag-infected">🦠 infected</span>`;
   if (c.injured) return `<span class="tag tag-injured">injured</span>`;
   return `<span class="tag tag-ok">healthy</span>`;
 }
@@ -271,6 +278,7 @@ const TEACHER_POST_LABEL = {
 // Where a character currently is — a teacher's post, or a student's active daily assignment
 // (defending/exploring/gym/cafeteria take priority over their home classroom for the day).
 function occupationLabel(state, c) {
+  if (c.infection) return "Quarantined (Nurse's Office)";
   if (c.role === "teacher") {
     if (!c.post) return "Unassigned";
     if (c.post.startsWith("classroom:")) return roomDisplayName(state, c.post.split(":")[1]);
@@ -348,7 +356,7 @@ export function renderClearRoomModal(state, clear) {
   const squad = clear.ids.map((id) => getChar(state, id)).filter(canFightForRoom);
   const afford = state.resources.materials >= b.cost;
   const rows = state.characters
-    .filter((c) => c.role === "student" && c.alive)
+    .filter((c) => c.role === "student" && c.alive && !c.infection)
     .map((c) => {
       const able = canFightForRoom(c);
       const picked = clear.ids.includes(c.id);
@@ -466,7 +474,7 @@ const TB_INFO = {
   materials: "Scrap — looted from exploration and salvaged at the Scrapyard. Spent on room upgrades, defenses, the antenna and the Crafting Room.",
   medicine: "Medicine — looted from exploration sites during Turn 2. Spent treating patients in the Nurse's Office (3 each) and, automatically, saving defenders who go down in the night battle (5 each).",
   research: "Research — produced by teachers in the Research Room (Floor 3). Spent on the Research tech tree and the antenna.",
-  serum: "Antiviral Serum — rare. When a teacher would die, one is used up automatically and they live. Sometimes found at the Hospital, Pharmacy and Fire Station; every raid boss drops some.",
+  serum: "Antiviral Serum — rare, and the only cure for an infection: one cures one infected person in the Nurse's Office. Sometimes found at the Hospital, Pharmacy and Fire Station; every raid boss drops some.",
 };
 
 const DAY_STEPS = [["sun", "Classes"], ["dusk", "Exploration"], ["moon", "Defense"]];
@@ -532,6 +540,7 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
         <span class="${tbItemClass(floaties, "materials")} res-pill" title="${TB_INFO.materials}">${pixelIcon("scrap")}<b>${state.resources.materials}</b>${floatyFor(floaties, "materials")}</span>
         <span class="${tbItemClass(floaties, "medicine")} res-pill" title="${TB_INFO.medicine}">${pixelIcon("medicine")}<b>${state.resources.medicine}</b>${floatyFor(floaties, "medicine")}</span>
         <span class="${tbItemClass(floaties, "research")} res-pill" title="${TB_INFO.research}">${pixelIcon("research")}<b>${state.resources.research}</b>${floatyFor(floaties, "research")}</span>
+        ${infectedChars(state).length ? `<span class="tb-item res-pill tb-infected" title="Infected — ${infectedChars(state).length} in quarantine in the Nurse's Office. Each needs a vial of antiviral serum by the end of their fifth day, or they die.">🦠<b>${infectedChars(state).length}</b></span>` : ""}
         ${state.resources.serum ? `<span class="${tbItemClass(floaties, "serum")} res-pill" title="${TB_INFO.serum}">${pixelIcon("serum")}<b>${state.resources.serum}</b>${floatyFor(floaties, "serum")}</span>` : ""}
       </div>
     </div>
@@ -916,7 +925,7 @@ export function renderScoutReport(state, report) {
 
 export function renderNestModal(state, nest) {
   const { q, r, ids } = nest;
-  const candidates = state.characters.filter((c) => c.role === "student" && c.alive);
+  const candidates = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection);
   const squad = ids.map((id) => getChar(state, id)).filter(Boolean);
   const rows = candidates
     .map((c) => {
@@ -985,7 +994,7 @@ export function renderRaidModal(state, landmarkId) {
     </div>`;
   } else {
     const rows = state.characters
-      .filter((c) => c.role === "student" && c.alive)
+      .filter((c) => c.role === "student" && c.alive && !c.infection)
       .map((c) => {
         const lvl = overallLevel(c);
         const onSquad = c.exploreTeam === RAID_TEAM;
@@ -1145,7 +1154,7 @@ export function renderExpeditionReport(state, anim) {
 export function renderScoutModal(state, q, r) {
   const cost = scoutCost(q, r);
   const danger = Math.round(scoutEncounterChance(state, q, r) * 100);
-  const eligible = state.characters.filter((c) => c.role === "student" && c.alive && c.stamina >= cost);
+  const eligible = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.stamina >= cost);
   const canEverGo = state.characters.some((c) => c.role === "student" && c.alive && c.maxStamina >= cost);
   const rows = eligible
     .map(
@@ -1377,6 +1386,7 @@ export function renderMissionModal(state, locationId) {
     (c) =>
       c.role === "student" &&
       c.alive &&
+      !c.infection &&
       (c.exploreTeam === null || c.exploreTeam === teamIndex) &&
       !c.farmToday && !c.scrapyardToday && !c.ranchToday
   );
@@ -1433,7 +1443,7 @@ function renderTurn3Overview(state) {
   if (state.pendingRaid) return renderFacilityRaidPanel(state);
 
   const defenders = state.characters.filter((c) => c.defending && c.alive);
-  const available = state.characters.filter((c) => c.role === "student" && c.alive && c.exploreTeam === null);
+  const available = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
   const zombies = zombieCountForDay(state.day);
   const z = zombieStatsForDay(state.day);
   const unarmed = defenders.filter((c) => !c.equipment?.meleeWeapon && !c.equipment?.rangedWeapon).length;
@@ -1483,7 +1493,7 @@ function renderTurn3Overview(state) {
 // turn flow (there's no skipping past it; it *is* what advancing the day now requires).
 function renderFacilityRaidPanel(state) {
   const facility = state.pendingRaid.facility;
-  const available = state.characters.filter((c) => c.role === "student" && c.alive && c.exploreTeam === null);
+  const available = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
   const rows = available
     .map((c) => {
       const checked = state.raidDefenders.includes(c.id) ? "checked" : "";
@@ -1559,11 +1569,13 @@ function pickerSortValue(c, sortKey) {
 }
 
 function teacherBusyLabel(state, c, exceptPost) {
+  if (c.infection) return "🦠 Infected — in quarantine";
   if (!c.post || c.post === exceptPost) return null;
   return occupationLabel(state, c);
 }
 
 function studentBusyLabel(c, exceptFlag) {
+  if (c.infection) return "🦠 Infected — in quarantine";
   if (exceptFlag !== "gymToday" && c.gymToday) return `Training in ${GYM_SIDES[c.gymToday].ref}`;
   if (exceptFlag !== "infirmaryToday" && c.infirmaryToday) return "In the Nurse's Office";
   if (exceptFlag !== "farmToday" && c.farmToday) return "Working the Farm";
@@ -1588,7 +1600,7 @@ function resolvePickerCandidates(state, picker) {
     case "gym-student":
       return {
         role: "student", title: `Send a Student to ${GYM_SIDES[postKey].ref}`,
-        list: state.characters.filter((c) => c.role === "student" && c.alive && c.gymToday !== postKey)
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.gymToday !== postKey)
           .map((c) => studentRow(c, "gymToday", (c) => (c.stamina <= 0 ? "Exhausted" : null))),
       };
     case "cafeteria-teacher":
@@ -1604,7 +1616,7 @@ function resolvePickerCandidates(state, picker) {
     case "infirmary-student":
       return {
         role: "student", title: "Send a Student to the Nurse",
-        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infirmaryToday)
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.infirmaryToday)
           .map((c) => studentRow(c, "infirmaryToday", (c) => (c.hp >= c.maxHp && c.stamina >= c.maxStamina ? "Already fully rested and healed" : null))),
       };
     case "classroom-teacher": {
@@ -1630,7 +1642,7 @@ function resolvePickerCandidates(state, picker) {
       const placed = new Set(Object.values(state.entranceGrid.students));
       return {
         role: "student", title: "Place a Student at the Entrance",
-        list: state.characters.filter((c) => c.role === "student" && c.alive && !placed.has(c.id))
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !placed.has(c.id))
           .map((c) => studentRow(c, "defending")),
       };
     }
@@ -1641,7 +1653,7 @@ function resolvePickerCandidates(state, picker) {
       const label = kind.charAt(0).toUpperCase() + kind.slice(1);
       return {
         role: "student", title: `Assign to the ${label}`,
-        list: state.characters.filter((c) => c.role === "student" && c.alive && !c[flagKey]).map((c) => studentRow(c, flagKey)),
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c[flagKey]).map((c) => studentRow(c, flagKey)),
       };
     }
     default:
@@ -1800,6 +1812,8 @@ export function renderFloor1(state) {
   const infRoom = state.rooms.infirmary;
   const nurses = state.characters.filter((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
   const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
+  const infected = infectedChars(state);
+  const bedsFree = infRoom.studentCapacity - infirmaryBedsUsed(state);
   const nurseBonus = Math.round(infirmaryNurseBonus(state) * 100);
 
   const pantryGroup = (source, label, tip) => {
@@ -1847,8 +1861,8 @@ export function renderFloor1(state) {
         <div class="dish-list">${menu}</div>
       </div>
       <div class="room room-infirmary">
-        ${roomScene("infirmary", [...nurses, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
-          `Up to ${infRoom.studentCapacity} patients/day, each either healed or resting. 💊 Heal: ${Math.round(infirmaryHealShare(state) * 100)}% of max HP${nurses.length ? ` +${nurseBonus}% from the nurses' Biology` : " (each nurse's Biology adds up to 25% more)"} for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (10%). 😴 Rest: +${infirmaryRest(state)} stamina, free. Upgrading the room raises both. Everyone also gets a little stamina and HP back on nights the school is fed.`,
+        ${roomScene("infirmary", [...nurses, ...infected, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
+          `Up to ${infRoom.studentCapacity} patients/day, each either healed or resting. 💊 Heal: ${Math.round(infirmaryHealShare(state) * 100)}% of max HP${nurses.length ? ` +${nurseBonus}% from the nurses' Biology` : " (each nurse's Biology adds up to 25% more)"} for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (10%). 😴 Rest: +${infirmaryRest(state)} stamina, free. Upgrading the room raises both. The infected are quarantined here too — each takes a bed until they're cured with antiviral serum. Everyone also gets a little stamina and HP back on nights the school is fed.`,
           roomUpgradeButton(state, "infirmary"))}
         <p class="room-tagline">💊 Heal <b>${Math.round(infirmaryHealShare(state) * 100) + nurseBonus}% HP</b> for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine · 😴 Rest <b>+${infirmaryRest(state)} stamina</b></p>
         <div class="mini-label">Nurses (${nurses.length}/${infRoom.teacherCapacity})</div>
@@ -1856,7 +1870,11 @@ export function renderFloor1(state) {
           ${nurses.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
         </ul>
         ${nurses.length < infRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-teacher">+ Assign nurse…</button>` : ""}
-        <div class="mini-label">Patients today (${patients.length}/${infRoom.studentCapacity})</div>
+        ${infected.length ? `<div class="mini-label quarantine-label">🦠 Quarantine (${infected.length}) · 💉 ${state.resources.serum} serum</div>
+        <ul class="assign-list">
+          ${infected.map((c) => `<li><span class="assign-who">${nameTag(c)} ${infectionTag(state, c)}</span><button class="btn btn-sm btn-cure" data-action="cure-infection" data-id="${c.id}" ${state.resources.serum ? "" : "disabled"} title="${state.resources.serum ? "Use 1 antiviral serum" : "No antiviral serum — find it at medical locations or on raids"}">💉 Cure</button></li>`).join("")}
+        </ul>` : ""}
+        <div class="mini-label">Patients today (${patients.length}/${patients.length + Math.max(0, bedsFree)}${infected.length ? ` · ${infected.length} bed${infected.length === 1 ? "" : "s"} in quarantine` : ""})</div>
         <ul class="assign-list">
           ${patients.map((s) => {
             const mode = s.infirmaryToday === "rest" ? "rest" : "heal";
@@ -1867,7 +1885,7 @@ export function renderFloor1(state) {
               </span></span>${mode === "rest" ? staminaBar(s) : hpBar(s)}<button class="btn-x" data-action="remove-infirmary" data-id="${s.id}">✕</button></li>`;
           }).join("") || '<li class="muted">none</li>'}
         </ul>
-        ${patients.length < infRoom.studentCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-student">+ Admit patient…</button>` : ""}
+        ${bedsFree > 0 ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-student">+ Admit patient…</button>` : ""}
       </div>
     </div>
   </div>`;
@@ -2458,7 +2476,7 @@ export function renderRoster(state, filter = "all", sortKey = "name", sortDir = 
         <td>${c.role === "teacher" ? `🌟 ${SUBJECT_LABEL[c.teachSubject]}` : `Lv${overallLevel(c)}`}</td>
         <td>${c.role === "teacher" ? '<span class="muted">—</span>' : hpBar(c)}</td>
         <td>${c.role === "teacher" ? '<span class="muted">—</span>' : staminaBar(c)}</td>
-        <td>${statusTag(c)}</td>
+        <td>${statusTag(c, state)}</td>
         <td>${esc(loc)}</td>
         <td>${statChips(c)}</td>
       </tr>`;

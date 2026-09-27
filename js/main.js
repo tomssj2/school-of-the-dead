@@ -1045,6 +1045,10 @@ root.addEventListener("click", (e) => {
       G.delayEvacuation(state);
       render();
       break;
+    case "cure-infection":
+      if (!G.cureInfection(state, el.dataset.id)) flash("You need a vial of antiviral serum to cure an infection.");
+      render();
+      break;
     case "stay-after-rescue":
       G.stayAfterRescue(state);
       render();

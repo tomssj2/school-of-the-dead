@@ -1835,3 +1835,10 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .evac-modal { max-width: 440px; }
 .evac-modal .row-actions { justify-content: flex-end; }
 .options-note { color: var(--muted); cursor: default; }
+
+/* Infection: the tag, the quarantine list in the Nurse's Office, and the topbar warning. */
+.tag-infected { background: rgba(120, 200, 80, 0.16); color: #a9e27a; border: 1px solid rgba(169, 226, 122, 0.4); }
+.quarantine-label { color: #a9e27a; }
+.btn-cure { margin-left: auto; }
+.tb-infected { color: #a9e27a; border-color: rgba(169, 226, 122, 0.45); animation: pulse-infected 1.6s ease-in-out infinite; }
+@keyframes pulse-infected { 50% { box-shadow: 0 0 0 3px rgba(169, 226, 122, 0.18); } }

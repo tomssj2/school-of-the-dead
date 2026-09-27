@@ -8,7 +8,7 @@ import {
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, COUNCIL_CHANCE_BY_LEVEL,
-  STAMINA_COST_GYM, STAMINA_COST_EXPLORE,
+  STAMINA_COST_GYM, STAMINA_COST_EXPLORE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE,
@@ -64,19 +64,50 @@ export function adjustHappiness(state, amount) {
 
 // A character dying affects happiness no matter which turn/system caused it, so every death
 // goes through this instead of setting c.alive directly.
-// A teacher about to die is saved by an Antiviral Serum if the school has one; returns whether
-// they actually died.
 function killCharacter(state, c) {
-  if (c.role === "teacher" && state.resources.serum > 0) {
-    state.resources.serum--;
-    addLog(state, `💉 ${c.name} was at death's door, but a vial of antiviral serum pulled them through (${state.resources.serum} left).`);
-    return false;
-  }
   c.alive = false;
   c.hp = 0;
   c.diedOnDay = state.day;
   adjustHappiness(state, -HAPPINESS_LOSS_DEATH);
+}
+
+// ---------- infection ----------
+// See INFECTION_DAYS in data.js. c.infection = { dueDay }: cured with a serum by the end of that
+// day, or they die. The infected are quarantined in the Nurse's Office, out of every job and post.
+
+export const isInfected = (c) => !!(c && c.alive && c.infection);
+export const infectedChars = (state) => state.characters.filter(isInfected);
+
+// Whole days an infected character has left after today; 0 means today is their last (they die tonight).
+export const infectionDaysLeft = (state, c) => c.infection.dueDay - state.day;
+
+export function infect(state, c, how) {
+  if (!c || !c.alive || c.infection) return false;
+  if (c.role === "teacher" && c.post) setTeacherPost(state, c.id, null);
+  c.infection = { dueDay: state.day + INFECTION_DAYS };
+  Object.assign(c, { gymToday: false, infirmaryToday: false, farmToday: false, scrapyardToday: false, ranchToday: false, exploreTeam: null, defending: false });
+  clearEntranceCellForChar(state, c.id);
+  state.raidDefenders = (state.raidDefenders || []).filter((id) => id !== c.id);
+  addLog(state, `🦠 ${c.name} ${how} and is infected! Quarantined in the Nurse's Office — cure them with antiviral serum by the end of day ${c.infection.dueDay}, or they die.`);
   return true;
+}
+
+export function cureInfection(state, id) {
+  const c = getChar(state, id);
+  if (!isInfected(c) || state.resources.serum < 1) return false;
+  state.resources.serum--;
+  delete c.infection;
+  addLog(state, `💉 ${c.name} was cured with a vial of antiviral serum and is back on their feet.`);
+  return true;
+}
+
+// End of the day: anyone whose time ran out dies.
+function resolveInfections(state) {
+  for (const c of infectedChars(state)) {
+    if (state.day < c.infection.dueDay) continue;
+    killCharacter(state, c);
+    addLog(state, `🦠 ${c.name} succumbed to the infection.`);
+  }
 }
 
 // ---------- state creation ----------
@@ -284,7 +315,7 @@ export function roomFightOdds(state, roomKey, squad, trials = 120) {
 }
 
 export function canFightForRoom(c) {
-  return c && c.alive && c.role === "student" && c.stamina >= ROOM_FIGHT_STAMINA && c.hp > 1;
+  return c && c.alive && !c.infection && c.role === "student" && c.stamina >= ROOM_FIGHT_STAMINA && c.hp > 1;
 }
 
 export function fightForRoom(state, roomKey, ids) {
@@ -301,7 +332,10 @@ export function fightForRoom(state, roomKey, ids) {
     c.stamina = Math.max(0, c.stamina - ROOM_FIGHT_STAMINA);
     c.hp = Math.max(1, f.hp);
     c.injured = c.hp < c.maxHp * 0.5;
-    if (f.down) hurt.push(`${c.name} was dragged out`);
+    if (f.down) {
+      const bitten = !tutorial && Math.random() < INFECTION_CHANCE_DOWNED && infect(state, c, "was bitten before they were dragged out");
+      hurt.push(`${c.name} was dragged out${bitten ? " — 🦠 infected" : ""}`);
+    }
     grantXp(state, c.id, "PE", 2 + randInt(0, 2));
     grantXp(state, c.id, "Gymnastics", 2 + randInt(0, 2));
   }
@@ -397,7 +431,7 @@ export function deskPartner(state, studentId) {
 export function setTeacherPost(state, teacherId, post) {
   const t = getChar(state, teacherId);
   if (!t || t.role !== "teacher") return false;
-  if (post && isBoarded(state, post)) return false;
+  if (post && (isBoarded(state, post) || t.infection)) return false;
   const oldPost = t.post;
 
   // capacity checks
@@ -431,6 +465,7 @@ export function setGymToday(state, studentId, side) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
   if (side) {
+    if (c.infection) return false; // in quarantine
     if (c.stamina <= 0) return false; // too exhausted to train
     const count = state.characters.filter((x) => x.gymToday === side && x.id !== c.id).length;
     if (count >= gymRoom(state, side).studentCapacity) return false;
@@ -462,14 +497,19 @@ function refreshMaxStats(c) {
 }
 
 
+// Beds taken in the Nurse's Office: today's patients plus everyone in quarantine.
+export function infirmaryBedsUsed(state, exceptId = null) {
+  return state.characters.filter((x) => x.alive && x.id !== exceptId && (x.infirmaryToday || x.infection)).length;
+}
+
 // `mode` is "heal" (HP, for medicine) or "rest" (stamina), or false to send them back out.
 export function setInfirmaryToday(state, studentId, mode) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
   if (mode === true) mode = "heal";
   if (mode) {
-    const count = state.characters.filter((x) => x.infirmaryToday && x.id !== c.id).length;
-    if (count >= state.rooms.infirmary.studentCapacity) return false;
+    if (c.infection) return false; // already there, in quarantine
+    if (infirmaryBedsUsed(state, c.id) >= state.rooms.infirmary.studentCapacity) return false;
   }
   c.infirmaryToday = mode || false;
   return true;
@@ -502,7 +542,7 @@ function makeOutsideFacilitySetter(flagKey, roomKey) {
     const c = getChar(state, studentId);
     if (!c || c.role !== "student") return false;
     if (value) {
-      if (c.exploreTeam !== null) return false;
+      if (c.exploreTeam !== null || c.infection) return false;
       const count = state.characters.filter((x) => x[flagKey]).length;
       if (count >= state.rooms[roomKey].studentCapacity) return false;
     }
@@ -831,7 +871,7 @@ export function resolveTraining(state) {
     if (!subject) continue; // no teacher has ever claimed this room yet — nothing is taught here
     for (const sid of studentIds) {
       const c = getChar(state, sid);
-      if (!c || !c.alive) continue;
+      if (!c || !c.alive || c.infection) continue;
       const gain = (4 + randInt(0, 2)) * (1 + techPerk(state, "classXp"));
       grantXp(state, sid, subject, gain);
     }
@@ -1445,6 +1485,7 @@ export function resolveDefense(state) {
             ? `${c.name} went down at the entrance — patched up with ${stabilizeCost} medicine.`
             : `${c.name} went down at the entrance but was dragged to safety.`
         );
+        if (Math.random() < INFECTION_CHANCE_DOWNED) infect(state, c, "was bitten while they were down");
       }
       continue;
     }
@@ -1468,8 +1509,8 @@ export function resolveDefense(state) {
       const inside = aliveChars(state).filter((c) => !c.defending);
       const victim = pick(inside.length ? inside : aliveChars(state));
       if (!victim) break;
-      if (Math.random() < 0.08) {
-        if (killCharacter(state, victim)) addLog(state, `A zombie that broke into the school got ${victim.name}.`);
+      if (Math.random() < 0.08 && !victim.infection) {
+        infect(state, victim, "was bitten by a zombie that broke into the school");
       } else if (victim.role === "student") {
         victim.hp = Math.max(1, victim.hp - (randInt(10, 20) + state.day));
         victim.injured = victim.hp < victim.maxHp * 0.5;
@@ -1522,6 +1563,7 @@ export function setRaidDefender(state, charId, value) {
   const c = getChar(state, charId);
   if (!c || c.role !== "student" || !c.alive) return false;
   if (value) {
+    if (c.infection) return false;
     if (!state.raidDefenders.includes(charId)) state.raidDefenders.push(charId);
   } else {
     state.raidDefenders = state.raidDefenders.filter((id) => id !== charId);
@@ -1750,6 +1792,7 @@ export function advanceTurn(state) {
   state.turn++;
   if (state.turn > 3) {
     if (resolveDailyFoodUpkeep(state)) resolveOvernightRecovery(state); // end of the day that just finished
+    resolveInfections(state);
     resolveDayMilestones(state, state.day + 1);
     state.dishesToday = []; // the day's meals wear off overnight
     state.turn = 1;
@@ -1829,8 +1872,13 @@ function applyEffect(state, e) {
     const victims = aliveChars(state);
     if (victims.length) {
       const victim = pick(victims);
-      if (killCharacter(state, victim)) addLog(state, `${victim.name} did not make it.`);
+      killCharacter(state, victim);
+      addLog(state, `${victim.name} did not make it.`);
     }
+  }
+  if (e.infect) {
+    const victims = aliveChars(state).filter((c) => !c.infection);
+    if (victims.length) infect(state, pick(victims), "was bitten at the fence and hid it");
   }
   if (e.injure) {
     const candidates = aliveChars(state).filter((c) => c.role === "student"); // teachers have no HP
@@ -2039,7 +2087,7 @@ export function setExploreTeam(state, charId, teamIndex) {
     c.exploreTeam = null;
     return true;
   }
-  if (c.role !== "student") return false; // teachers stay at the school, never explore
+  if (c.role !== "student" || c.infection) return false; // teachers stay at the school, never explore; the infected are in quarantine
   if (c.stamina <= 0) return false; // too exhausted to go out
   if (c.farmToday || c.scrapyardToday || c.ranchToday) return false; // already working an outside facility today
   if (teamIndex === RAID_TEAM) {
@@ -2110,7 +2158,7 @@ export function scoutEncounterChance(state, q, r, scout = null) {
 
 export function scoutHex(state, studentId, q, r) {
   const c = getChar(state, studentId);
-  if (!c || c.role !== "student" || !c.alive) return null;
+  if (!c || c.role !== "student" || !c.alive || c.infection) return null;
   const cost = scoutCost(q, r);
   if (c.stamina < cost) return null;
   if (!canScoutHex(state, q, r)) return null;
@@ -2226,7 +2274,7 @@ export function clearNest(state, q, r, ids) {
   if (!isNest(state, q, r)) return null;
   const squad = ids
     .map((id) => getChar(state, id))
-    .filter((c) => c && c.alive && c.role === "student" && c.stamina >= NEST_CLEAR_STAMINA)
+    .filter((c) => c && c.alive && !c.infection && c.role === "student" && c.stamina >= NEST_CLEAR_STAMINA)
     .slice(0, NEST_CLEAR_MAX);
   if (!squad.length) return null;
   const won = Math.random() < nestClearChance(state, squad);
@@ -2372,7 +2420,8 @@ function resolveRaid(state) {
       if (stabilized) state.resources.medicine -= stabilizeCost;
       c.hp = Math.max(1, Math.round(c.maxHp * 0.1));
       c.injured = true;
-      report.hurt.push(`${c.name} went down${stabilized ? ` (patched up, -${stabilizeCost} medicine)` : ""}`);
+      const bitten = Math.random() < INFECTION_CHANCE_DOWNED && infect(state, c, `was bitten by ${sim.boss.name}`);
+      report.hurt.push(`${c.name} went down${stabilized ? ` (patched up, -${stabilizeCost} medicine)` : ""}${bitten ? " — 🦠 infected" : ""}`);
     } else {
       c.hp = Math.max(1, f.hp);
       c.injured = c.hp < c.maxHp * 0.5;
@@ -2417,7 +2466,7 @@ function clearEntranceCellForChar(state, charId) {
 export function setDefending(state, charId, value) {
   const c = getChar(state, charId);
   if (!c) return false;
-  if (value && c.role !== "student") return false; // teachers never defend either
+  if (value && (c.role !== "student" || c.infection)) return false; // teachers never defend either; the infected are in quarantine
   if (value) {
     if (!Object.values(state.entranceGrid.students).includes(charId)) {
       const cell = firstFreeEntranceCell(state);
