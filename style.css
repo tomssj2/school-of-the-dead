@@ -1953,7 +1953,6 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 
 /* Infection: the tag, the quarantine list in the Nurse's Office, and the topbar warning. */
 .tag-infected { background: rgba(120, 200, 80, 0.16); color: #a9e27a; border: 1px solid rgba(169, 226, 122, 0.4); }
-.quarantine-label { color: #a9e27a; }
 .btn-cure { margin-left: auto; }
 .hud-stat.tb-infected { border-color: rgba(169, 226, 122, 0.5); animation: pulse-infected 1.6s ease-in-out infinite; }
 .hud-stat.tb-infected .hud-val b { color: #c3f09a; }
@@ -2063,10 +2062,6 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
   cursor: pointer;
 }
 .pt-empty:hover { border-color: var(--accent); color: var(--accent); background: rgba(76, 175, 125, 0.06); }
-.pt-infected { border-color: rgba(169, 226, 122, 0.45); background: rgba(120, 200, 80, 0.08); }
-.pt-infection { font-size: 10px; color: #a9e27a; }
-.pt-cure { position: absolute; top: 2px; left: 2px; padding: 0 3px; border-radius: 4px; border: 1px solid rgba(169, 226, 122, 0.5); background: rgba(0, 0, 0, 0.3); color: #c3f09a; font: inherit; font-size: 10px; line-height: 15px; cursor: pointer; }
-.pt-cure:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* A room's teachers (3 at most): small cards on one line — name, then their grade for the job; the ✕
    takes the grade's place on hover. */
@@ -2095,3 +2090,15 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
 .menu-served { padding: 2px 8px; border-radius: 999px; background: rgba(244, 196, 48, 0.14); border: 1px solid rgba(244, 196, 48, 0.5); font-size: 12px; }
 .menu-strip .btn { margin-left: auto; }
 .menu-modal { max-width: 560px; }
+.quarantine-chips { flex: 1; min-width: 0; display: flex; gap: 6px; overflow: hidden; }
+.quarantine-chip { flex: none; padding: 2px 8px; border-radius: 999px; background: rgba(120, 200, 80, 0.12); border: 1px solid rgba(169, 226, 122, 0.5); color: #c3f09a; font-size: 12px; }
+.quarantine-modal { max-width: 600px; }
+.q-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.q-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 6px; background: rgba(120, 200, 80, 0.06); border: 1px solid rgba(169, 226, 122, 0.35); }
+.q-row.q-urgent { border-color: rgba(255, 110, 110, 0.6); background: rgba(255, 90, 90, 0.07); }
+.q-portrait { flex: none; cursor: pointer; }
+.q-main { flex: 1; min-width: 0; }
+.q-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; font-size: 13px; }
+.q-days { margin-left: auto; color: #a9e27a; font-size: 12px; white-space: nowrap; }
+.q-urgent .q-days { color: #ff8a8a; font-weight: 700; }
+.q-cure { flex: none; }

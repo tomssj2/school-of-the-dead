@@ -1908,7 +1908,7 @@ export function renderFloor1(state) {
   const nurseBonus = infirmaryNurseBonus(state);
   const healHp = infirmaryHeal(state) + nurseBonus;
   const nurseParts = nurses.map((t) => `${nurseHpBonus(t)} (${shortName(t)}, CON ${gradeLetter(t.grades.Biology)})`);
-  const nurseHow = `Each treatment heals ${infirmaryHeal(state)} HP for a level-${roomLevel(state, "infirmary")} Nurse's Office, + ${INFIRMARY_NURSE_HP_PER_RANK} for every rank of each nurse's CON (F 0 · D 1 · C 2 · B 3 · A 4 · S 5)${nurseParts.length ? `: ${infirmaryHeal(state)} + ${nurseParts.join(" + ")} = ${healHp} HP` : " — no nurse yet"}. Costs ${INFIRMARY_MEDICINE_PER_PATIENT} medicine per patient; with none to spare, only bed rest (+${INFIRMARY_BED_REST} HP). The infected are quarantined here: each takes a bed until cured with antiviral serum.`;
+  const nurseHow = `Each treatment heals ${infirmaryHeal(state)} HP for a level-${roomLevel(state, "infirmary")} Nurse's Office, + ${INFIRMARY_NURSE_HP_PER_RANK} for every rank of each nurse's CON (F 0 · D 1 · C 2 · B 3 · A 4 · S 5)${nurseParts.length ? `: ${infirmaryHeal(state)} + ${nurseParts.join(" + ")} = ${healHp} HP` : " — no nurse yet"}. Costs ${INFIRMARY_MEDICINE_PER_PATIENT} medicine per patient; with none to spare, only bed rest (+${INFIRMARY_BED_REST} HP). The infected are kept apart in quarantine (no bed needed) until cured with antiviral serum.`;
   const resting = state.characters.filter((c) => c.restToday && c.alive);
 
   const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
@@ -1943,24 +1943,15 @@ export function renderFloor1(state) {
       </div>
       <div class="room room-infirmary">
         ${roomScene("infirmary", [...nurses, ...infected, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
-          `Up to ${infRoom.studentCapacity} patients a day. 💊 Each treatment heals ${healHp} HP for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (+${INFIRMARY_BED_REST} HP). Upgrading the room and posting nurses with a high CON heal more. The infected are quarantined here too — each takes a bed until they're cured with antiviral serum. Everyone also gets a little stamina and HP back on nights the school is fed.`,
+          `Up to ${infRoom.studentCapacity} patients a day. 💊 Each treatment heals ${healHp} HP for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (+${INFIRMARY_BED_REST} HP). Upgrading the room and posting nurses with a high CON heal more. The infected are kept apart in quarantine (they don't take a bed) until they're cured with antiviral serum. Everyone also gets a little stamina and HP back on nights the school is fed.`,
           roomUpgradeButton(state, "infirmary"),
           `💊 Heal <b>+${healHp}</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`)}
         ${staffLine(state, "Nurses", nurses, infRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
           'data-action="open-picker" data-kind="infirmary-teacher"')}
-        <div class="mini-label">Beds (${patients.length + infected.length}/${infRoom.studentCapacity})${infected.length ? ` · <span class="quarantine-label">🦠 ${infected.length} in quarantine · 💉 ${state.resources.serum} serum</span>` : ""}</div>
+        <div class="mini-label">Healing today (${patients.length}/${infRoom.studentCapacity})</div>
         ${tileGrid(
           [
-            ...infected.map((c) => {
-              const left = infectionDaysLeft(state, c);
-              return personTile(c, {
-                cls: "pt-infected",
-                title: `${c.name} — infected: cure with antiviral serum by the end of day ${c.infection.dueDay}`,
-                extra: `<span class="pt-infection">🦠 ${left <= 0 ? "tonight" : `${left}d`}</span>
-                  <button class="pt-cure" data-action="cure-infection" data-id="${c.id}" ${state.resources.serum ? "" : "disabled"} title="${state.resources.serum ? "Cure with 1 antiviral serum" : "No antiviral serum — find it at medical locations or on raids"}">💉</button>`,
-              });
-            }),
             ...patients.map((s) => {
               const treated = treatedIds.has(s.id);
               const to = s.hp + healAmount(state, s, treated);
@@ -1974,7 +1965,51 @@ export function renderFloor1(state) {
           bedsFree,
           'data-action="open-picker" data-kind="infirmary-student"'
         )}
+        <div class="mini-label">Quarantined (${infected.length}) · 💉 ${state.resources.serum} serum</div>
+        <div class="menu-strip">
+          <span class="quarantine-chips">${quarantineOrder(state, infected).slice(0, 3).map((c) => `<span class="quarantine-chip" title="${esc(c.name)} — infected: cure with antiviral serum by the end of day ${c.infection.dueDay}">${esc(shortName(c))} · ${daysLeftLabel(state, c, true)}</span>`).join("")}${infected.length > 3 ? `<span class="quarantine-chip" title="${infected.length - 3} more in quarantine">+${infected.length - 3}</span>` : ""}${infected.length ? "" : '<span class="muted">Nobody in quarantine</span>'}</span>
+          ${infected.length ? '<button class="btn btn-sm btn-primary" data-action="open-quarantine">🦠 Quarantine…</button>' : ""}
+        </div>
       </div>
+    </div>
+  </div>`;
+}
+
+// The infected, soonest to die first.
+const quarantineOrder = (state, infected) => [...infected].sort((a, b) => infectionDaysLeft(state, a) - infectionDaysLeft(state, b));
+// "dies tonight" / "2 days left" ("tonight" / "2d" when short).
+function daysLeftLabel(state, c, short = false) {
+  const left = infectionDaysLeft(state, c);
+  if (left <= 0) return short ? "tonight" : "dies tonight";
+  return short ? `${left}d` : `${left} day${left === 1 ? "" : "s"} left`;
+}
+
+// The Nurse's Office quarantine: everyone infected, how long they have, their stats (to choose
+// who gets the serum when there isn't enough), and a Cure button each.
+export function renderQuarantineModal(state) {
+  const infected = quarantineOrder(state, infectedChars(state));
+  const serum = state.resources.serum;
+  const rows = infected.map((c) => {
+    const left = infectionDaysLeft(state, c);
+    return `<div class="q-row ${left <= 0 ? "q-urgent" : ""}">
+      <span class="q-portrait" data-action="open-card" data-id="${c.id}" title="Open ${esc(c.name)}'s card">${characterSprite(c, 40)}</span>
+      <div class="q-main">
+        <div class="q-head">
+          <b class="unit-link" data-action="open-card" data-id="${c.id}">${esc(c.name)}</b>
+          <span class="muted">${c.role === "teacher" ? "Teacher" : `Lv${overallLevel(c)}`} · HP ${c.hp}/${c.maxHp}</span>
+          <span class="q-days">🦠 ${daysLeftLabel(state, c)}</span>
+        </div>
+        ${statChips(c)}
+      </div>
+      <button class="btn btn-sm btn-primary q-cure" data-action="cure-infection" data-id="${c.id}" ${serum ? "" : "disabled"} title="${serum ? "Cure with 1 antiviral serum" : "No antiviral serum — find it at medical locations or on raids"}">💉 Cure</button>
+    </div>`;
+  }).join("");
+  return `<div class="modal-overlay" data-action="close-quarantine">
+    <div class="char-card mission-card quarantine-modal" data-action="noop">
+      <button class="cc-close" data-action="close-quarantine" title="Close">✕</button>
+      <h3>🦠 Quarantine</h3>
+      <p class="muted">💉 <b>${serum}</b> antiviral serum · each cures one person. Anyone not cured by the end of their last day dies. Click someone to see their full card.</p>
+      <div class="q-list">${rows || '<p class="muted">Nobody in quarantine.</p>'}</div>
     </div>
   </div>`;
 }

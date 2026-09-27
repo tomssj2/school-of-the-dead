@@ -536,8 +536,9 @@ function refreshMaxStats(c) {
 
 
 // Beds taken in the Nurse's Office: today's patients plus everyone in quarantine.
+// Beds are for healing only — the infected are kept apart in quarantine and don't take one.
 export function infirmaryBedsUsed(state, exceptId = null) {
-  return state.characters.filter((x) => x.alive && x.id !== exceptId && (x.infirmaryToday || x.infection)).length;
+  return state.characters.filter((x) => x.alive && x.id !== exceptId && x.infirmaryToday).length;
 }
 
 // Sends a student to rest in the Cafeteria today (stamina back at the end of Turn 1), or back out.

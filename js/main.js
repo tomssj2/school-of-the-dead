@@ -1,7 +1,7 @@
 import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal } from "./ui.js";
+  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
@@ -53,6 +53,7 @@ let raidFight = null; // { report, frameIndex, phase: "battle" | "result", after
 let expeditionReport = null; // { summary, phase: "travel" | "report" } at the end of Turn 2
 let openUpgrade = null; // room key whose Upgrade popup is open
 let openMenu = false; // the Cafeteria's menu pop-up
+let openQuarantine = false; // the Nurse's Office quarantine pop-up
 let openPlot = null; // { facility: "farm" | "ranch", index } while choosing what to plant/pen
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
@@ -452,6 +453,8 @@ function render() {
     ? renderDefenseBuildModal(state, openDefenseBuild)
     : openMenu
     ? renderMenuModal(state)
+    : openQuarantine
+    ? renderQuarantineModal(state)
     : openUpgrade
     ? renderRoomUpgradeModal(state, openUpgrade)
     : openPlot
@@ -801,6 +804,14 @@ root.addEventListener("click", (e) => {
       break;
     case "close-menu":
       openMenu = false;
+      render();
+      break;
+    case "open-quarantine":
+      openQuarantine = true;
+      render();
+      break;
+    case "close-quarantine":
+      openQuarantine = false;
       render();
       break;
     case "open-upgrade":
@@ -1185,10 +1196,11 @@ root.addEventListener("pointerover", placeInfoTip);
 root.addEventListener("focusin", placeInfoTip);
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openMenu || openRaid || openNest || scoutReport || clearRoom)) {
+  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openMenu || openQuarantine || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
     openUpgrade = null;
     openMenu = false;
+    openQuarantine = false;
     clearRoom = null;
     openPlot = null;
     openRaid = null;
@@ -1289,7 +1301,8 @@ applyGraphics();
 // Test shortcuts, only when the game runs on this computer (the /max and /min project commands
 // run these): schoolDev.max() puts every room at level 5 with every slot filled; schoolDev.min()
 // brings back the game as it was before max()/infect() — or a fresh one after a reload;
-// schoolDev.infect(n) quarantines n students in the Nurse's Office. Nothing is saved.
+// schoolDev.infect(n, serum) quarantines n students in the Nurse's Office (and optionally sets the
+// serum count). Nothing is saved.
 if (["localhost", "127.0.0.1"].includes(location.hostname)) {
   let beforeMax = null;
   window.schoolDev = {
@@ -1306,12 +1319,14 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       openPicker = null;
       openUpgrade = null;
       openMenu = false;
+      openQuarantine = false;
       openCardId = null;
       render();
       return restored ? "restored the game from before max()" : "started a fresh game (nothing to restore)";
     },
-    infect(n = 3) {
+    infect(n = 3, serum = null) {
       if (!beforeMax) beforeMax = JSON.stringify(state);
+      if (serum !== null) state.resources.serum = serum;
       const summary = infectStudents(state, n);
       render();
       return summary;
