@@ -95,6 +95,9 @@ export function createInitialState() {
     plots: { farm: [emptyPlot()], ranch: [emptyPlot()] }, // Farm plots and Ranch pens
     dishesToday: [], // DISHES ids served today; their buffs last until the day rolls over
     gymSplit: true, // PE / Gymnastics train separately (see migrateState)
+    roomLevels: true, // rooms have levels 1-5 (see migrateState)
+    roomSizesV2: true, // rooms sized to the school's headcount (see migrateState)
+    runId: newRunId(), // tells this run apart from others in the best-score record
     boardedRooms: Object.keys(BOARDED_ROOMS), // rooms still overrun — cleared by fighting, then scrap
     roomFightsDone: 0, // the first room-clearing fight shows tutorial tips
     objectivesDone: [], // OBJECTIVES ids finished (see checkObjectives)
@@ -1689,6 +1692,28 @@ export function repairAntenna(state) {
   return true;
 }
 
+export const newRunId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+
+// When the helicopters land (on the rescue day, with the antenna working) the player chooses:
+// fly everyone out now, ending the run, or send them away and hold out — they come back
+// RESCUE_DELAY_DAYS later. The score is the last day the school stands either way.
+export function evacuate(state) {
+  if (!state.rescue?.landed) return false;
+  state.rescue.landed = false;
+  state.rescue.evacuated = true;
+  state.victory = true;
+  addLog(state, `🚁 Everyone left alive climbs aboard and the helicopters lift off from the roof.`);
+  return true;
+}
+
+export function delayEvacuation(state) {
+  if (!state.rescue?.landed) return false;
+  state.rescue.landed = false;
+  state.rescue.day = state.day + RESCUE_DELAY_DAYS;
+  addLog(state, `🏫 The school sends the helicopters away to hold out a little longer. They'll be back on day ${state.rescue.day}.`);
+  return true;
+}
+
 // Staying behind after the evacuation turns the run into endless survival.
 export function stayAfterRescue(state) {
   state.victory = false;
@@ -1706,11 +1731,10 @@ function resolveDayMilestones(state, nextDay) {
         `They'll only find survivors who can signal them — the rooftop antenna has to be repaired by then.`
     );
   }
-  if (state.rescue && !state.rescue.evacuated && nextDay >= state.rescue.day && aliveChars(state).length > 0) {
+  if (state.rescue && !state.rescue.evacuated && !state.rescue.landed && nextDay >= state.rescue.day && aliveChars(state).length > 0) {
     if (antennaReady(state)) {
-      state.victory = true;
-      state.rescue.evacuated = true;
-      addLog(state, `🚁 Rotor blades over the school! The evacuation found your signal — everyone left alive is flown out.`);
+      state.rescue.landed = true;
+      addLog(state, `🚁 Rotor blades over the school! The evacuation found your signal and the helicopters have landed on the roof.`);
     } else {
       state.rescue.day = nextDay + RESCUE_DELAY_DAYS;
       adjustHappiness(state, -15);

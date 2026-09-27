@@ -7,7 +7,7 @@ import {
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, STAMINA_COST_GYM, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_NURSE_BONUS,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
-  LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  RESCUE_DELAY_DAYS, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -24,6 +24,7 @@ import {
 } from "./map.js";
 import { zombieSprite } from "./zombies.js";
 import { characterSprite } from "./sprite.js";
+import { getBest, isBestRun } from "./score.js";
 import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
 import { isSoundEnabled } from "./sound.js";
 
@@ -482,6 +483,7 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
           ${state.rescue ? `<button class="options-item ${activeTab === "rescue" ? "active" : ""}" data-action="set-tab" data-tab="rescue">📡 Rescue Plan</button>` : ""}
           <button class="options-item" data-action="save-game">💾 Save</button>
           <button class="options-item" data-action="reset-game">🔄 New Game</button>
+          ${getBest() ? `<div class="options-item options-note">🏆 Best run: day ${getBest().day}</div>` : ""}
           <label class="options-item options-toggle">
             <input type="checkbox" data-action="toggle-mobile-view" ${mobileView ? "checked" : ""}/>
             📱 Mobile View
@@ -609,14 +611,44 @@ function runStats(state) {
     <div>Events weathered: <b>${state.eventLog.length}</b></div>`;
 }
 
+// The run's score is the last day the school stood; the best run on this device is kept too.
+function renderScore(state) {
+  const best = getBest();
+  const note = isBestRun(state)
+    ? `<span class="score-best">🏆 New best!</span>`
+    : best
+    ? `<span class="muted">Best: day ${best.day}${best.evacuated ? " (evacuated)" : ""}</span>`
+    : "";
+  return `<div class="score-block"><span class="score-label">Score</span><span class="score-day">Day ${state.day}</span>${note}</div>`;
+}
+
+// Asked the morning the helicopters land: fly out now, or send them away and hold out longer.
+export function renderEvacuationModal(state) {
+  const back = state.day + RESCUE_DELAY_DAYS;
+  const alive = aliveChars(state).length;
+  const best = getBest();
+  return `<div class="modal-overlay">
+    <div class="char-card mission-card evac-modal" data-action="noop">
+      <h3>🚁 The helicopters have landed</h3>
+      <p>They followed your signal to the roof and can fly all ${alive} survivor${alive === 1 ? "" : "s"} out right now — ending the run on <b>day ${state.day}</b>.</p>
+      <p class="muted">Or send them away and keep holding the school. They'll come back on day ${back}, and your score is the last day the school stands — but the horde grows every night.${best ? ` Your best is day ${best.day}.` : ""}</p>
+      <div class="row-actions">
+        <button class="btn" data-action="evac-delay">🏫 Hold out until day ${back}</button>
+        <button class="btn btn-primary" data-action="evac-go">🚁 Evacuate now</button>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderGameOver(state) {
   const title =
-    state.day >= 20 ? "A Legend Among the Ashes" : state.day >= 10 ? "A Valiant Last Stand" : "A Short, Brutal Fall";
+    state.day > 30 ? "Beyond the Last Helicopter" : state.day >= 20 ? "A Legend Among the Ashes" : state.day >= 10 ? "A Valiant Last Stand" : "A Short, Brutal Fall";
 
   return `<div class="card gameover-card">
     <h2>💀 The School Has Fallen</h2>
     <p class="gameover-title">${title}</p>
     <p class="muted">Day ${state.day}. Every soul who called this place home is gone.</p>
+    ${renderScore(state)}
     <div class="summary-list">
       <div>Days survived: <b>${state.day}</b></div>
       ${runStats(state)}
@@ -637,6 +669,7 @@ function renderVictory(state) {
     <p class="gameover-title">${title}</p>
     <p class="muted">Day ${state.day}. The helicopters followed your signal to the rooftop and flew
     ${survivors.length} survivor${survivors.length === 1 ? "" : "s"} out of the city.</p>
+    ${renderScore(state)}
     <div class="victory-survivors">
       ${survivors.map((c) => `<span class="mini-portrait" title="${esc(c.name)}">${characterSprite(c, 32)}</span>`).join("")}
     </div>
@@ -2285,7 +2318,8 @@ export function renderRescue(state) {
     <p class="muted">A military evacuation sweeps the city on <b>day ${r.day}</b> — ${
       daysLeft > 0 ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} from now` : "today"
     }. They'll only find survivors who can signal them, so the rooftop antenna has to be fully repaired by then.
-    If it isn't, the helicopters leave and try again 5 days later — and the horde doesn't wait.</p>
+    If it isn't, the helicopters leave and try again 5 days later — and the horde doesn't wait. When they land you can
+    evacuate, or send them away and hold out longer: your score is the last day the school stands.</p>
     <div class="rescue-progress"><span style="width:${Math.round((next / ANTENNA_STAGES.length) * 100)}%"></span></div>
     <div class="summary-list">
       <div>Antenna: <b>${next}/${ANTENNA_STAGES.length}</b> ${antennaReady(state) ? "— on the air! Just hold out until the helicopters arrive." : "repairs done"}</div>

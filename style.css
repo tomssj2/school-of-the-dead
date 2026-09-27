@@ -1826,3 +1826,12 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 
 .picker-note { margin: 2px 0 4px; font-size: 12px; color: #c9d4e3; }
 .picker-note-warn { color: var(--warn); }
+
+/* Run score on the end screens, and the evacuation choice. */
+.score-block { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin: 6px 0 12px; }
+.score-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.score-day { font-size: 26px; font-weight: 800; color: #f4d35e; }
+.score-best { color: #7fe0a8; font-weight: 700; }
+.evac-modal { max-width: 440px; }
+.evac-modal .row-actions { justify-content: flex-end; }
+.options-note { color: var(--muted); cursor: default; }

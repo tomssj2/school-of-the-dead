@@ -1,7 +1,8 @@
 import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal } from "./ui.js";
+  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal } from "./ui.js";
+import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
@@ -12,6 +13,9 @@ import {
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
+
+// Room sizes before rooms had levels and were shrunk — what older saves were built with.
+const LEGACY_SIZE = { classroom: 24, gym: 5, farm: 10, ranch: 10, scrapyard: 10 };
 
 // Costs of the original resource-granting Research tree, which was replaced by buffs. Research
 // spent on those nodes is refunded so it can go into the new tree; what they granted is kept.
@@ -198,7 +202,7 @@ function migrateState(s) {
   if (!s.gymSplit) {
     const studentLevel = Math.max(0, Math.round((s.rooms.gym.studentCapacity - 10) / 5));
     const teacherLevel = Math.max(0, s.rooms.gym.teacherCapacity - 3);
-    s.rooms.gym.studentCapacity = GYM_CAPACITY + 3 * studentLevel;
+    s.rooms.gym.studentCapacity = LEGACY_SIZE.gym + 3 * studentLevel;
     s.rooms.gym.teacherCapacity = GYM_MAX_TEACHERS + teacherLevel;
     for (const c of s.characters) {
       if (c.post === "gym") c.post = "gym:PE";
@@ -219,22 +223,25 @@ function migrateState(s) {
   if (!s.roomLevels) {
     const r = s.rooms;
     const bought = (value, base, step) => Math.max(0, Math.round(((value ?? base) - base) / step));
-    const trainingLevels = (room) => bought(room.studentCapacity, GYM_CAPACITY, 3) + bought(room.teacherCapacity, GYM_MAX_TEACHERS, 1);
+    const trainingLevels = (room) => bought(room.studentCapacity, LEGACY_SIZE.gym, 3) + bought(room.teacherCapacity, GYM_MAX_TEACHERS, 1);
     const upgrades = {
       gym: trainingLevels(r.gym),
       acrobatics: trainingLevels(r.acrobatics),
       cafeteria: bought(r.cafeteria.teacherCapacity, CAFETERIA_MAX_TEACHERS, 1),
       research: bought(r.research.teacherCapacity, RESEARCH_ROOM_TEACHERS, 1),
       infirmary: bought(r.infirmary.studentCapacity, INFIRMARY_CAPACITY, 2) + (r.infirmary.care || 0),
-      farm: bought(r.farm.studentCapacity, FARM_CAPACITY, 5) + bought(r.farm.plots, FACILITY_PLOTS.farm, 2),
-      ranch: bought(r.ranch.studentCapacity, RANCH_CAPACITY, 5) + bought(r.ranch.plots, FACILITY_PLOTS.ranch, 1),
-      scrapyard: bought(r.scrapyard.studentCapacity, SCRAPYARD_CAPACITY, 5),
+      farm: bought(r.farm.studentCapacity, LEGACY_SIZE.farm, 5) + bought(r.farm.plots, FACILITY_PLOTS.farm, 2),
+      ranch: bought(r.ranch.studentCapacity, LEGACY_SIZE.ranch, 5) + bought(r.ranch.plots, FACILITY_PLOTS.ranch, 1),
+      scrapyard: bought(r.scrapyard.studentCapacity, LEGACY_SIZE.scrapyard, 5),
     };
-    for (const id of CLASSROOM_IDS) upgrades[`classroom:${id}`] = bought(r.classrooms[id].seats.length, CLASSROOM_CAPACITY, 6);
+    for (const id of CLASSROOM_IDS) upgrades[`classroom:${id}`] = bought(r.classrooms[id].seats.length, LEGACY_SIZE.classroom, 6);
     r.crafting = r.crafting || {};
     r.council = r.council || {};
     delete r.infirmary.care;
-    for (const key of G.ROOM_KEYS) G.roomState(s, key).level = Math.min(ROOM_MAX_LEVEL, 1 + (upgrades[key] || 0));
+    for (const key of G.ROOM_KEYS) {
+      const room = G.roomState(s, key);
+      if (!room.level) room.level = Math.min(ROOM_MAX_LEVEL, 1 + (upgrades[key] || 0));
+    }
     for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
     const posted = {};
     for (const c of s.characters) {
@@ -245,6 +252,28 @@ function migrateState(s) {
     s.roomLevels = true;
   }
   for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
+  // Rooms were shrunk to fit the school (a level-1 classroom went from 24 seats to 12): anyone
+  // sitting past a classroom's new last row moves to a free seat, or is left unseated if it's full.
+  if (!s.roomSizesV2) {
+    for (const id of CLASSROOM_IDS) {
+      const room = s.rooms.classrooms[id];
+      const seats = G.roomLevelStats(`classroom:${id}`, room.level).find((row) => row.id === "students").value;
+      for (let i = seats; i < room.seats.length; i++) {
+        const c = s.characters.find((x) => x.id === room.seats[i]);
+        if (!c) continue;
+        const free = room.seats.findIndex((x, j) => j < seats && !x);
+        if (free >= 0) {
+          room.seats[free] = c.id;
+          c.seat = { room: id, index: free };
+        } else {
+          c.seat = null;
+        }
+      }
+      room.seats.length = Math.min(room.seats.length, seats);
+    }
+    s.roomSizesV2 = true;
+  }
+  if (!s.runId) s.runId = G.newRunId();
   if (!s.boardedRooms) s.boardedRooms = []; // older saves already had every room open
   // Objectives and the room-fight tutorial are for new schools; an older save starts past them.
   if (!s.objectivesDone) s.objectivesDone = OBJECTIVES.map((o) => o.id);
@@ -390,6 +419,8 @@ function render() {
     ? renderFightAnimation(state, fightAnimation)
     : dayRecap
     ? renderDayRecap(dayRecap)
+    : state.rescue?.landed && !state.gameOver
+    ? renderEvacuationModal(state)
     : card
     ? renderCharacterCard(state, card, cardTab)
     : clearRoom
@@ -419,6 +450,7 @@ function render() {
   // (centred on the school the first time — on a phone the map is wider than the screen).
   const oldMap = root.querySelector('.hexmap-wrap');
   const mapScroll = oldMap ? { left: oldMap.scrollLeft, top: oldMap.scrollTop } : null;
+  if (state.gameOver || state.victory) recordRun(state, G.aliveChars(state).length);
   root.innerHTML = renderApp(state, activeTab, rosterFilter, mobileView, floaties, rosterSortKey, rosterSortDir) + modalHtml;
   const newMap = root.querySelector('.hexmap-wrap');
   if (newMap) {
@@ -1000,6 +1032,15 @@ root.addEventListener("click", (e) => {
       break;
     case "repair-antenna":
       if (!G.repairAntenna(state)) flash("Not enough resources for that repair yet.");
+      render();
+      break;
+    case "evac-go":
+      G.evacuate(state);
+      activeTab = "overview";
+      render();
+      break;
+    case "evac-delay":
+      G.delayEvacuation(state);
       render();
       break;
     case "stay-after-rescue":
