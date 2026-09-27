@@ -406,7 +406,8 @@ function render() {
   // Drives the time-of-day backdrop in style.css: morning, golden afternoon, starry night.
   document.body.dataset.turn = state.gameOver ? "over" : state.victory ? "victory" : String(state.turn);
   // Content eases in only when the tab actually changes, not on every re-render within a tab.
-  root.classList.toggle("tab-enter", activeTab !== lastRenderedTab);
+  const sameTab = activeTab === lastRenderedTab;
+  root.classList.toggle("tab-enter", !sameTab);
   lastRenderedTab = activeTab;
   const modalHtml = roomFight
     ? renderRoomFight(state, roomFight)
@@ -451,8 +452,12 @@ function render() {
   // (centred on the school the first time — on a phone the map is wider than the screen).
   const oldMap = root.querySelector('.hexmap-wrap');
   const mapScroll = oldMap ? { left: oldMap.scrollLeft, top: oldMap.scrollTop } : null;
+  // The page never scrolls — the content area does — so keep it where it was within the same tab.
+  const contentScroll = sameTab ? root.querySelector(".content")?.scrollTop || 0 : 0;
   if (state.gameOver || state.victory) recordRun(state, G.aliveChars(state).length);
   root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml;
+  const newContent = root.querySelector(".content");
+  if (newContent) newContent.scrollTop = contentScroll;
   const newMap = root.querySelector('.hexmap-wrap');
   if (newMap) {
     newMap.scrollLeft = mapScroll ? mapScroll.left : (newMap.scrollWidth - newMap.clientWidth) / 2;
@@ -1130,14 +1135,23 @@ root.addEventListener("click", (e) => {
 
 // Info-dot tooltips open rightward from the dot; slide them back when that would run off the
 // window (the bubble is at most min(280px, 76vw) wide — see .info-dot::after in style.css).
+// Info bubbles are position: fixed (so a scrolling content area can't clip them) and placed from
+// the dot: under it, or above it when there isn't room below, kept inside the window sideways.
+// Rects come back in screen pixels, fixed positions are in layout pixels, hence the zoom.
 function placeInfoTip(e) {
   const dot = e.target.closest?.(".info-dot");
   if (!dot) return;
-  const vw = document.documentElement.clientWidth;
-  const tipWidth = Math.min(280, vw * 0.76);
-  const left = dot.getBoundingClientRect().left - 8;
-  const shift = Math.max(8 - left, Math.min(0, vw - 8 - tipWidth - left));
-  dot.style.setProperty("--tip-shift", `${Math.round(shift)}px`);
+  const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+  const r = dot.getBoundingClientRect();
+  const vw = window.innerWidth / zoom;
+  const vh = window.innerHeight / zoom;
+  const tipWidth = 280;
+  const x = Math.max(8, Math.min(r.left / zoom - 8, vw - 8 - tipWidth));
+  const below = r.bottom / zoom + 6;
+  const flip = vh - below < 180 && r.top / zoom > vh - below;
+  dot.style.setProperty("--tip-x", `${Math.round(x)}px`);
+  dot.style.setProperty("--tip-y", flip ? "auto" : `${Math.round(below)}px`);
+  dot.style.setProperty("--tip-b", flip ? `${Math.round(vh - r.top / zoom + 6)}px` : "auto");
 }
 root.addEventListener("pointerover", placeInfoTip);
 root.addEventListener("focusin", placeInfoTip);

@@ -5,7 +5,9 @@
 //
 // Resolution: the page is laid out for a 1280×720 window and zoomed like a game's UI — 1× at 720p,
 // 1.5× at 1080p, 2× at 1440p, 3× at 4K. "Auto" picks the scale from the window's width; a fixed
-// resolution keeps that scale whatever the window size.
+// resolution keeps that scale whatever the window size. The app is a fixed-height frame
+// (--frame-h): the window's height in Auto, 720 layout pixels at a fixed resolution — the page
+// itself never scrolls; long screens scroll inside their content area.
 const GFX_KEY = "school-apocalypse-gfx";
 export const GFX_LEVELS = ["low", "medium", "high"];
 
@@ -57,7 +59,10 @@ export function getResolution() {
 export function applyUiScale() {
   const res = getResolution();
   const scale = res === "auto" ? Math.max(0.5, window.innerWidth / DESIGN_WIDTH) : Number(res) / DESIGN_HEIGHT;
+  const frame = res === "auto" ? window.innerHeight / scale : DESIGN_HEIGHT;
   document.documentElement.style.zoom = String(scale);
+  document.documentElement.style.setProperty("--frame-h", `${Math.floor(frame)}px`);
+  document.documentElement.style.setProperty("--win-h", `${Math.floor(window.innerHeight / scale)}px`);
 }
 
 export function setResolution(id) {

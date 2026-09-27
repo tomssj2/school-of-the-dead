@@ -24,6 +24,10 @@ body {
      bigger than the window scrolls rather than squeezing the layout. A little under 1280 so the
      window's own vertical scrollbar doesn't tip Auto into a sideways scroll. */
   min-width: 1240px;
+  /* The frame sits in the middle of the window when a fixed resolution leaves room around it. */
+  display: flex;
+  flex-direction: column;
+  min-height: var(--win-h, 100vh);
   --turn-accent: #f4c542;
   --sky-glow: rgba(255, 196, 120, 0.1);
   --sky-low: rgba(76, 175, 125, 0.05);
@@ -35,7 +39,6 @@ body {
   color: var(--text);
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   font-size: 14px;
-  padding-bottom: 40px;
   transition: background-color 0.8s ease;
 }
 
@@ -90,11 +93,18 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
   to { opacity: 0.6; }
 }
 
+/* A fixed-height frame (see applyUiScale in graphics.js): the HUD and tab bar stay put and only
+   the content area below them scrolls. */
 #app {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: var(--frame-h, 100vh);
+  width: 100%;
   max-width: 1100px;
-  margin: 0 auto;
+  margin: auto;
   padding: 0 14px;
   container-type: inline-size;
   container-name: app;
@@ -650,17 +660,18 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   outline: none;
 }
 .info-dot:hover, .info-dot:focus { background: var(--turn-accent); color: #111; border-color: var(--turn-accent); }
-/* Only generated while open — a hidden-but-present bubble would still widen the page near the
-   right edge. main.js sets --tip-shift to slide it back inside the window when it would spill. */
+/* Only generated while open, and position: fixed so a scrolling panel can't clip it — main.js
+   (placeInfoTip) sets --tip-x / --tip-y / --tip-b from the dot, flipping above it near the bottom. */
 .info-dot:hover::after, .info-dot:focus::after {
   content: attr(data-tip);
-  position: absolute;
-  top: calc(100% + 6px);
-  left: calc(-8px + var(--tip-shift, 0px));
-  z-index: 40;
+  position: fixed;
+  left: var(--tip-x, 8px);
+  top: var(--tip-y, auto);
+  bottom: var(--tip-b, auto);
+  z-index: 200;
   box-sizing: border-box;
   width: max-content;
-  max-width: min(280px, 76vw);
+  max-width: 280px;
   padding: 8px 10px;
   border-radius: 7px;
   background: #0f1218;
@@ -1095,8 +1106,12 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 
 /* ---------- Exploration hex map ---------- */
 
+/* The map is a window onto the city sized to the screen (it scrolls on its own, starting centred
+   on the school) rather than a 1000px-tall block that pushes the school below the fold. */
 .hexmap-wrap {
   overflow: auto;
+  height: clamp(320px, calc(var(--frame-h, 720px) - 300px), 1100px);
+  box-sizing: border-box;
   margin: 14px 0;
   background-color: #0a0d13;
   background-image:
@@ -1970,3 +1985,19 @@ html[data-gfx="low"] body { background-image: none; }
 html[data-gfx="low"] body::before,
 html[data-gfx="low"] body::after { display: none; }
 html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--turn-accent); }
+
+/* ===== Fixed-height frame: the content area is the one that scrolls =====
+   The HUD and tab bar keep their size; the content fills the rest of the frame and scrolls on its
+   own. Its scrollbar sits just outside the column (negative right margin + stable gutter) so the
+   cards' right edge still lines up with the HUD and tab bar, and a little padding keeps card
+   shadows from being clipped. */
+.hud, .nav { flex: none; }
+.content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  margin: 0 -17px 0 -4px;
+  padding: 2px 6px 14px 4px;
+}
