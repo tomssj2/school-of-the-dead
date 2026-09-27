@@ -108,7 +108,7 @@ export function createInitialState() {
         CLASSROOM_IDS.map((id) => [id, { subject: null, seats: Array(CLASSROOM_CAPACITY).fill(null) }])
       ),
       gym: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
-      studio: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
+      acrobatics: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
       cafeteria: { teacherCapacity: CAFETERIA_MAX_TEACHERS },
       research: { teacherCapacity: RESEARCH_ROOM_TEACHERS },
       infirmary: { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS, care: 0 },
@@ -437,7 +437,7 @@ export function setTeacherPost(state, teacherId, post) {
   return true;
 }
 
-// `side` is "PE" (the Gym) or "Gymnastics" (the Dance Studio) — one a day — or false to leave.
+// `side` is "PE" (the Gymnasium) or "Gymnastics" (Acrobatics) — one a day — or false to leave.
 export function setGymToday(state, studentId, side) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
@@ -450,7 +450,7 @@ export function setGymToday(state, studentId, side) {
   return true;
 }
 
-// The room a training subject happens in: PE → the Gym, Gymnastics → the Dance Studio.
+// The room a training subject happens in: PE → the Gymnasium, Gymnastics → Acrobatics.
 export const gymRoom = (state, side) => state.rooms[GYM_SIDES[side].roomKey];
 
 export function gymTeachers(state, side) {
@@ -460,7 +460,7 @@ export function gymTeachers(state, side) {
 // A teacher's rank in a subject: F=0, D=1, C=2, B=3, A=4, S=5.
 export const teacherRank = (t, subject) => GRADE_TIERS.indexOf(gradeLetter(t.grades[subject]));
 
-// Max HP (Gym) or max stamina (Dance Studio) each student gains from one session there.
+// Max HP (Gymnasium) or max stamina (Acrobatics) each student gains from one session there.
 export function gymGain(state, side) {
   return 1 + gymTeachers(state, side).reduce((sum, t) => sum + teacherRank(t, side), 0);
 }
@@ -528,7 +528,7 @@ export const setRanchToday = makeOutsideFacilitySetter("ranchToday", "ranch");
 // room's live value.
 const ROOM_BASE_CAPACITY = {
   gym: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
-  studio: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
+  acrobatics: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
   cafeteria: { teacher: CAFETERIA_MAX_TEACHERS },
   research: { teacher: RESEARCH_ROOM_TEACHERS },
   infirmary: { student: INFIRMARY_CAPACITY, care: 0 }, // one nurse, not upgradeable
@@ -537,7 +537,7 @@ const ROOM_BASE_CAPACITY = {
   ranch: { student: RANCH_CAPACITY, plot: FACILITY_PLOTS.ranch },
 };
 const ROOM_LABELS = {
-  gym: "the Gym", studio: "the Dance Studio", cafeteria: "the Cafeteria", infirmary: "the Nurse's Office", research: "the Research Room",
+  gym: "the Gymnasium", acrobatics: "the Acrobatics room", cafeteria: "the Cafeteria", infirmary: "the Nurse's Office", research: "the Research Room",
   farm: "the Farm", scrapyard: "the Scrapyard", ranch: "the Ranch",
 };
 const UPGRADE_FIELD = { student: "studentCapacity", teacher: "teacherCapacity", care: "care", plot: "plots" };
@@ -828,7 +828,7 @@ export function resolveTraining(state) {
     }
   }
 
-  // training — the Gym (PE) builds max HP and the Dance Studio (Gymnastics) max stamina,
+  // training — the Gymnasium (PE) builds max HP and Acrobatics (Gymnastics) max stamina,
   // by 1 + the combined rank of that room's teachers; students also earn that subject's grade XP
   // (faster with a good teacher). No teacher is required.
   for (const side of ["PE", "Gymnastics"]) {

@@ -90,7 +90,7 @@ const SCENES = {
     r(0, 18, 95, 18, "#efe6cf");
   },
   // Gymnastics: a mirror wall with a barre, rings, a balance beam, a vault box and crash mats.
-  studio(r) {
+  acrobatics(r) {
     indoor(r, "#b3a3d6", "#9a89c0", "#d9b27c", "#c49a64", "wood");
     // mirror wall with a barre
     r(26, 1, 60, 8, "#c9ccd2");

@@ -516,7 +516,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .room-cafeteria { --room-accent: #4caf7d; }
 .room-classroom { --room-accent: #3fa7d6; }
 .room-infirmary { --room-accent: #ef8fb3; }
-.room-studio { --room-accent: #9b7fd6; }
+.room-acrobatics { --room-accent: #9b7fd6; }
 .room-utility { --room-accent: #a03d5c; }
 
 /* Pixel-art banner across the top of a room card (scenes.js), bleeding to the card edges. The
