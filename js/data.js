@@ -553,7 +553,8 @@ export const SCOUT_ENCOUNTER_CHANCE_PER_HEX = 0.1;
 export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout loses their fight
 
 // ===== Room levels =====
-// Rooms are sized to the school's real headcount (10 students at the start, ~15-20 later).
+// Rooms start small (10 students at the start) and grow 2 slots a level, since a school that
+// recruits well reaches ~30 students by day 30.
 // Every room and facility starts at level 1 and is upgraded one level at a time, up to
 // ROOM_MAX_LEVEL, for scrap. Each level adds student slots (and Farm plots / Ranch pens), the
 // levels in ROOM_TEACHER_LEVELS add a teacher slot, and rooms without students grow a perk
@@ -568,7 +569,7 @@ export const CRAFTING_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra fortification p
 export const COUNCIL_CHANCE_BY_LEVEL = [0, 0.03, 0.06, 0.09, 0.12]; // added to each member's recruit chance
 const roomSlots = (label, base, per = 0) => ({ label, base, per });
 const training = (name, ref) => ({
-  name, ref, students: roomSlots("Student slots", GYM_CAPACITY, 1), teachers: roomSlots("Teacher slots", GYM_MAX_TEACHERS),
+  name, ref, students: roomSlots("Student slots", GYM_CAPACITY, 2), teachers: roomSlots("Teacher slots", GYM_MAX_TEACHERS),
 });
 // `ref` is how a sentence names the room when "the <name>" doesn't read well.
 export const ROOM_LEVELS = {
@@ -580,7 +581,7 @@ export const ROOM_LEVELS = {
     perks: [{ label: "Rations", by: CAFETERIA_RATIONS_BY_LEVEL, fmt: (v) => `+${v} food a day` }],
   },
   infirmary: {
-    name: "Nurse's Office", students: roomSlots("Beds", INFIRMARY_CAPACITY, 1), teachers: roomSlots("Nurses", INFIRMARY_MAX_TEACHERS),
+    name: "Nurse's Office", students: roomSlots("Beds", INFIRMARY_CAPACITY, 2), teachers: roomSlots("Nurses", INFIRMARY_MAX_TEACHERS),
     perks: [
       { label: "Heal", by: INFIRMARY_HEAL_BY_LEVEL, fmt: (v) => `${Math.round(v * 100)}% HP` },
       { label: "Rest", by: INFIRMARY_REST_BY_LEVEL, fmt: (v) => `+${v} stamina` },
@@ -598,9 +599,9 @@ export const ROOM_LEVELS = {
     name: "Student Council", teachers: roomSlots("Members", 1),
     perks: [{ label: "Recruit chance", by: COUNCIL_CHANCE_BY_LEVEL, fmt: (v) => `+${Math.round(v * 100)}% each` }],
   },
-  farm: { name: "Farm", students: roomSlots("Workers", FARM_CAPACITY, 1), plots: roomSlots("Plots", FACILITY_PLOTS.farm, 2) },
-  ranch: { name: "Ranch", students: roomSlots("Workers", RANCH_CAPACITY, 1), plots: roomSlots("Pens", FACILITY_PLOTS.ranch, 1) },
-  scrapyard: { name: "Scrapyard", students: roomSlots("Workers", SCRAPYARD_CAPACITY, 1) },
+  farm: { name: "Farm", students: roomSlots("Workers", FARM_CAPACITY, 2), plots: roomSlots("Plots", FACILITY_PLOTS.farm, 2) },
+  ranch: { name: "Ranch", students: roomSlots("Workers", RANCH_CAPACITY, 2), plots: roomSlots("Pens", FACILITY_PLOTS.ranch, 1) },
+  scrapyard: { name: "Scrapyard", students: roomSlots("Workers", SCRAPYARD_CAPACITY, 2) },
 };
 
 export const BOND_COUPLE_THRESHOLD = 6;
