@@ -2007,8 +2007,11 @@ export function renderQuarantineModal(state) {
   return `<div class="modal-overlay" data-action="close-quarantine">
     <div class="char-card mission-card quarantine-modal" data-action="noop">
       <button class="cc-close" data-action="close-quarantine" title="Close">✕</button>
-      <h3>🦠 Quarantine</h3>
-      <p class="muted">💉 <b>${serum}</b> antiviral serum · each cures one person. Anyone not cured by the end of their last day dies. Click someone to see their full card.</p>
+      <div class="q-header">
+        <h3>🦠 Quarantine</h3>
+        <span class="q-serum ${serum ? "" : "q-serum-none"}" title="Antiviral serum — each vial cures one infected person">${pixelIcon("serum", 18)} <b>${serum}</b> serum</span>
+      </div>
+      <p class="muted">Each serum cures one person. Anyone not cured by the end of their last day dies. Click someone to see their full card.</p>
       <div class="q-list">${rows || '<p class="muted">Nobody in quarantine.</p>'}</div>
     </div>
   </div>`;
