@@ -414,20 +414,23 @@ export const GYM_SIDES = {
 };
 
 export const CAFETERIA_MAX_TEACHERS = 1; // cook slots at level 1 — each cook makes one dish a day
+// The Cafeteria is also where students rest: each resting student gets stamina back, more as the
+// room levels up.
+export const CAFETERIA_CAPACITY = 4; // resting seats at level 1
+export const CAFETERIA_REST_BY_LEVEL = [20, 35, 50, 65, 80]; // stamina a resting student gets back, by room level
 
 // Research Room: teachers turn their combined INT (Physics grade) into research points each day.
 export const RESEARCH_ROOM_TEACHERS = 1;
 export const RESEARCH_ROOM_INT_PER_POINT = 20;
 
-// Nurse's Office: nurses (teachers) and a few beds. Each patient either gets healed — a share of
-// their max HP, plus up to INFIRMARY_NURSE_BONUS more per nurse from their Biology, for some
-// medicine (with none to spare, only bed rest) — or rests to get stamina back. Both grow with the
-// room's level.
+// Nurse's Office: nurses (teachers) and a few beds for healing and quarantine. Each patient is
+// healed a share of their max HP (growing with the room's level), plus up to INFIRMARY_NURSE_BONUS
+// more per nurse from their Biology, for some medicine — with none to spare, only bed rest.
+// Resting for stamina happens in the Cafeteria (CAFETERIA_REST_BY_LEVEL).
 export const INFIRMARY_CAPACITY = 4;
 export const INFIRMARY_MAX_TEACHERS = 1;
 export const INFIRMARY_MEDICINE_PER_PATIENT = 3;
 export const INFIRMARY_HEAL_BY_LEVEL = [0.3, 0.4, 0.5, 0.6, 0.7]; // share of max HP healed, by room level
-export const INFIRMARY_REST_BY_LEVEL = [20, 35, 50, 65, 80]; // stamina rested back, by room level
 export const INFIRMARY_NURSE_BONUS = 0.25; // at Biology 100
 export const INFIRMARY_BED_REST = 0.1;
 
@@ -588,14 +591,16 @@ export const ROOM_LEVELS = {
   gym: training("Gymnasium"),
   acrobatics: training("Acrobatics", "the Acrobatics room"),
   cafeteria: {
-    name: "Cafeteria", teachers: roomSlots("Cooks", CAFETERIA_MAX_TEACHERS),
-    perks: [{ label: "Rations", by: CAFETERIA_RATIONS_BY_LEVEL, fmt: (v) => `+${v} food a day` }],
+    name: "Cafeteria", students: roomSlots("Resting seats", CAFETERIA_CAPACITY, 2), teachers: roomSlots("Cooks", CAFETERIA_MAX_TEACHERS),
+    perks: [
+      { label: "Rations", by: CAFETERIA_RATIONS_BY_LEVEL, fmt: (v) => `+${v} food a day` },
+      { label: "Rest", by: CAFETERIA_REST_BY_LEVEL, fmt: (v) => `+${v} stamina` },
+    ],
   },
   infirmary: {
     name: "Nurse's Office", students: roomSlots("Beds", INFIRMARY_CAPACITY, 2), teachers: roomSlots("Nurses", INFIRMARY_MAX_TEACHERS),
     perks: [
       { label: "Heal", by: INFIRMARY_HEAL_BY_LEVEL, fmt: (v) => `${Math.round(v * 100)}% HP` },
-      { label: "Rest", by: INFIRMARY_REST_BY_LEVEL, fmt: (v) => `+${v} stamina` },
     ],
   },
   research: {
@@ -688,7 +693,7 @@ export const TECH_TREE = [
   { id: "ghost_walkers", branch: "scavenging", name: "Ghost Walkers", icon: "👣", cost: 110, requires: "word_of_mouth", perk: { casualtyReduction: 0.5, exploreStaminaReduction: 0.5 }, desc: "Expedition casualties are halved, and expeditions cost half the stamina." },
   // 🏫 School Life
   { id: "study_groups", branch: "school", name: "Study Groups", icon: "📚", cost: 15, requires: null, perk: { classXp: 0.25 }, desc: "Classes grant 25% more XP." },
-  { id: "power_naps", branch: "school", name: "Power Naps", icon: "😴", cost: 30, requires: "study_groups", perk: { restRecovery: 20 }, desc: "Resting in the Nurse's Office recovers 20 more stamina." },
+  { id: "power_naps", branch: "school", name: "Power Naps", icon: "😴", cost: 30, requires: "study_groups", perk: { restRecovery: 20 }, desc: "Resting in the Cafeteria recovers 20 more stamina." },
   { id: "school_spirit", branch: "school", name: "School Spirit", icon: "🎉", cost: 50, requires: "power_naps", perk: { happinessLossReduction: 0.5 }, desc: "Happiness losses are halved." },
   { id: "home_economics", branch: "school", name: "Home Economics", icon: "🍳", cost: 75, requires: "school_spirit", perk: { extraDishesPerCook: 1 }, desc: "Each cook can serve two dishes a day instead of one." },
   { id: "honor_roll", branch: "school", name: "Honor Roll", icon: "🏅", cost: 110, requires: "home_economics", perk: { xp: 0.25 }, desc: "Every action earns 25% more XP." },

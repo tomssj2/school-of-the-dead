@@ -19,7 +19,7 @@ import {
   zombieStatsForDay, ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
   RESCUE_BROADCAST_DAY, RESCUE_DAY, RESCUE_DELAY_DAYS, ANTENNA_STAGES,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, INFIRMARY_REST_BY_LEVEL,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
   INFIRMARY_NURSE_BONUS, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
@@ -85,7 +85,7 @@ export function infect(state, c, how) {
   if (!c || !c.alive || c.infection) return false;
   if (c.role === "teacher" && c.post) setTeacherPost(state, c.id, null);
   c.infection = { dueDay: state.day + INFECTION_DAYS };
-  Object.assign(c, { gymToday: false, infirmaryToday: false, farmToday: false, scrapyardToday: false, ranchToday: false, exploreTeam: null, defending: false });
+  Object.assign(c, { gymToday: false, infirmaryToday: false, restToday: false, farmToday: false, scrapyardToday: false, ranchToday: false, exploreTeam: null, defending: false });
   clearEntranceCellForChar(state, c.id);
   state.raidDefenders = (state.raidDefenders || []).filter((id) => id !== c.id);
   addLog(state, `🦠 ${c.name} ${how} and is infected! Quarantined in the Nurse's Office — cure them with antiviral serum by the end of day ${c.infection.dueDay}, or they die.`);
@@ -506,7 +506,7 @@ export function healAmount(state, c, treated) {
 
 // The healing patients tonight's medicine covers, in the order the turn treats them.
 export function treatedPatientIds(state) {
-  const healing = state.characters.filter((c) => c.alive && c.infirmaryToday && c.infirmaryToday !== "rest");
+  const healing = state.characters.filter((c) => c.alive && c.infirmaryToday);
   const covered = Math.floor(state.resources.medicine / INFIRMARY_MEDICINE_PER_PATIENT);
   return new Set(healing.slice(0, covered).map((c) => c.id));
 }
@@ -524,23 +524,32 @@ export function infirmaryBedsUsed(state, exceptId = null) {
   return state.characters.filter((x) => x.alive && x.id !== exceptId && (x.infirmaryToday || x.infection)).length;
 }
 
-// `mode` is "heal" (HP, for medicine) or "rest" (stamina), or false to send them back out.
+// Sends a student to rest in the Cafeteria today (stamina back at the end of Turn 1), or back out.
+export function setRestToday(state, studentId, value) {
+  const c = getChar(state, studentId);
+  if (!c || c.role !== "student") return false;
+  if (value) {
+    if (c.infection || c.infirmaryToday) return false; // in quarantine, or already being healed
+    const count = state.characters.filter((x) => x.alive && x.restToday && x.id !== c.id).length;
+    if (count >= state.rooms.cafeteria.studentCapacity) return false;
+  }
+  c.restToday = !!value;
+  return true;
+}
+
+// Admits a student to the Nurse's Office to be healed (any truthy `mode`), or sends them back out.
 export function setInfirmaryToday(state, studentId, mode) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
   if (mode === true) mode = "heal";
   if (mode) {
-    if (c.infection) return false; // already there, in quarantine
+    if (c.infection || c.restToday) return false; // already there in quarantine, or resting in the Cafeteria
     if (infirmaryBedsUsed(state, c.id) >= state.rooms.infirmary.studentCapacity) return false;
   }
-  c.infirmaryToday = mode || false;
+  c.infirmaryToday = mode ? "heal" : false;
   return true;
 }
 
-// Whichever a student needs more — the bigger share missing, HP or stamina.
-export function suggestedTreatment(c) {
-  return 1 - c.hp / c.maxHp >= 1 - c.stamina / c.maxStamina ? "heal" : "rest";
-}
 
 // What a treatment gives at the Nurse's Office's current care level.
 export function infirmaryHealShare(state) {
@@ -553,8 +562,9 @@ export function infirmaryNurseBonus(state) {
     .reduce((sum, n) => sum + (n.grades.Biology / 100) * INFIRMARY_NURSE_BONUS, 0);
 }
 
-export function infirmaryRest(state) {
-  return INFIRMARY_REST_BY_LEVEL[roomLevel(state, "infirmary") - 1] + techPerk(state, "restRecovery");
+// Stamina a student resting in the Cafeteria gets back today.
+export function cafeteriaRest(state) {
+  return CAFETERIA_REST_BY_LEVEL[roomLevel(state, "cafeteria") - 1] + techPerk(state, "restRecovery");
 }
 
 // Outside facilities worked during Turn 2 as an alternative to exploring — a student can do one
@@ -938,12 +948,12 @@ export function resolveTraining(state) {
 
   // nurse's office — each patient is either healed (HP, for medicine; a nurse's Biology adds on top,
   // and with no medicine to spare they only get bed rest) or rests (stamina, free).
-  const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
-  const resting = patients.filter((c) => c.infirmaryToday === "rest");
-  const rest = infirmaryRest(state);
+  const resting = state.characters.filter((c) => c.restToday && c.alive);
+  const rest = cafeteriaRest(state);
   for (const c of resting) c.stamina = Math.min(c.maxStamina, c.stamina + rest);
-  if (resting.length) addLog(state, `${resting.length} student(s) rested in the Nurse's Office (+${rest} stamina).`);
-  for (const c of patients.filter((x) => x.infirmaryToday !== "rest")) {
+  if (resting.length) addLog(state, `${resting.length} student(s) rested in the Cafeteria (+${rest} stamina).`);
+  const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
+  for (const c of patients) {
     const treated = state.resources.medicine >= INFIRMARY_MEDICINE_PER_PATIENT;
     if (treated) state.resources.medicine -= INFIRMARY_MEDICINE_PER_PATIENT;
     const healed = healAmount(state, c, treated);
@@ -1823,6 +1833,7 @@ export function advanceTurn(state) {
   for (const c of state.characters) {
     c.gymToday = false;
     c.infirmaryToday = false;
+    c.restToday = false;
     c.farmToday = false;
     c.scrapyardToday = false;
     c.ranchToday = false;

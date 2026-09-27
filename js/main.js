@@ -114,6 +114,12 @@ function migrateState(s) {
     delete c.loungeToday;
     if (c.infirmaryToday === undefined) c.infirmaryToday = false;
     if (c.infirmaryToday === true) c.infirmaryToday = "heal";
+    // Resting moved from the Nurse's Office to the Cafeteria.
+    if (c.infirmaryToday === "rest") {
+      c.infirmaryToday = false;
+      c.restToday = true;
+    }
+    if (c.restToday === undefined) c.restToday = false;
     if (c.farmToday === undefined) c.farmToday = false;
     if (c.scrapyardToday === undefined) c.scrapyardToday = false;
     delete c.labToday; // the Lab was replaced by the Ranch
@@ -131,7 +137,6 @@ function migrateState(s) {
   migrateClassroomRooms(s);
   if (!s.rooms.gym) s.rooms.gym = { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS };
   if (!s.rooms.cafeteria) s.rooms.cafeteria = { teacherCapacity: CAFETERIA_MAX_TEACHERS };
-  delete s.rooms.cafeteria.studentCapacity;
   // The Lounge is gone (students rest in the Nurse's Office now): refund what its upgrades cost.
   if (s.rooms.lounge) {
     const slotLevels = Math.max(0, Math.round((s.rooms.lounge.studentCapacity - 10) / 5));
@@ -714,8 +719,8 @@ root.addEventListener("click", (e) => {
       G.setGymToday(state, el.dataset.id, false);
       render();
       break;
-    case "set-treatment":
-      G.setInfirmaryToday(state, el.dataset.id, el.dataset.mode);
+    case "remove-rest":
+      G.setRestToday(state, el.dataset.id, false);
       render();
       break;
     case "remove-infirmary":
@@ -1091,7 +1096,8 @@ root.addEventListener("click", (e) => {
         case "gym-student": G.setGymToday(state, id, postKey); break;
         case "cafeteria-teacher": G.setTeacherPost(state, id, "cafeteria"); break;
         case "infirmary-teacher": G.setTeacherPost(state, id, "infirmary"); break;
-        case "infirmary-student": G.setInfirmaryToday(state, id, G.suggestedTreatment(G.getChar(state, id))); break;
+        case "infirmary-student": G.setInfirmaryToday(state, id, "heal"); break;
+        case "cafeteria-rest": G.setRestToday(state, id, true); break;
         case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;
         case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
         case "utility": G.setTeacherPost(state, id, postKey); break;

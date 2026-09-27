@@ -273,7 +273,8 @@ export function makeCharacter(role, gender) {
     coupleId: null,
     bonds: {}, // otherId -> integer bond strength
     gymToday: false,
-    infirmaryToday: false, // a patient in the Nurse's Office today: "heal", "rest" or false (students)
+    infirmaryToday: false, // a patient in the Nurse's Office today: "heal" or false (students)
+    restToday: false, // resting in the Cafeteria today (students)
     exploreTeam: null, // 0,1,2 or null - this turn's exploration assignment (students only)
     defending: false, // this turn's defense assignment (students only)
     log: [],

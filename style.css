@@ -1906,12 +1906,6 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .objective-hint { margin-top: 4px; font-size: 13px; color: #c9d4e3; }
 .objective-progress { margin-top: 6px; font-size: 12.5px; font-weight: 700; color: #8fc8ff; }
 
-/* Nurse's Office: each patient is either healed or resting */
-.treat-toggle { display: inline-flex; margin-left: 6px; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; vertical-align: middle; }
-.treat-btn { padding: 1px 7px; border: none; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
-.treat-btn:hover { color: var(--text); }
-.treat-on { background: rgba(239, 143, 179, 0.25); color: #fff; font-weight: 700; }
-
 .picker-note { margin: 2px 0 4px; font-size: 12px; color: #c9d4e3; }
 .picker-note-warn { color: var(--warn); }
 
@@ -2036,8 +2030,6 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
   cursor: pointer;
 }
 .pt-empty:hover { border-color: var(--accent); color: var(--accent); background: rgba(76, 175, 125, 0.06); }
-.pt-treat { position: absolute; top: 2px; left: 2px; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: rgba(10, 12, 18, 0.85); }
-.pt-treat .treat-btn { padding: 0 2px; font-size: 9px; line-height: 13px; }
 .pt-infected { border-color: rgba(169, 226, 122, 0.45); background: rgba(120, 200, 80, 0.08); }
 .pt-infection { font-size: 10px; color: #a9e27a; }
 .pt-cure { position: absolute; top: 2px; left: 2px; padding: 0 3px; border-radius: 4px; border: 1px solid rgba(169, 226, 122, 0.5); background: rgba(0, 0, 0, 0.3); color: #c3f09a; font: inherit; font-size: 10px; line-height: 15px; cursor: pointer; }
