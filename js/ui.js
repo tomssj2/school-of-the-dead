@@ -1919,7 +1919,7 @@ export function renderFloor1(state) {
                 cls: "pt-infected",
                 title: `${c.name} — infected: cure with antiviral serum by the end of day ${c.infection.dueDay}`,
                 extra: `<span class="pt-infection">🦠 ${left <= 0 ? "tonight" : `${left}d`}</span>
-                  <button class="pt-cure" data-action="cure-infection" data-id="${c.id}" ${state.resources.serum ? "" : "disabled"} title="${state.resources.serum ? "Cure with 1 antiviral serum" : "No antiviral serum — find it at medical locations or on raids"}">💉 Cure</button>`,
+                  <button class="pt-cure" data-action="cure-infection" data-id="${c.id}" ${state.resources.serum ? "" : "disabled"} title="${state.resources.serum ? "Cure with 1 antiviral serum" : "No antiviral serum — find it at medical locations or on raids"}">💉</button>`,
               });
             }),
             ...patients.map((s) => {

@@ -1997,17 +1997,19 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
 }
 
 /* ===== Person tiles (rooms list their people as a grid of portraits) ===== */
-/* Tiles are about 60px wide wherever they are — 8 to a row in a half-width room, more in a full-width one. */
-.person-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 5px; margin: 5px 0 6px; }
+/* Every tile is the same fixed size wherever it is — 8 to a row in a half-width room. Extra
+   controls (✕, the Heal/Rest toggle, Cure) sit in the tile's corners so they never change its size. */
+.person-tiles { display: grid; grid-template-columns: repeat(auto-fill, 58px); gap: 5px; margin: 5px 0 6px; }
 .person-tile {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  min-width: 0;
-  min-height: 72px;
-  padding: 4px 3px 4px;
+  box-sizing: border-box;
+  width: 58px;
+  height: 80px;
+  padding: 4px 2px;
   border-radius: 7px;
   background: rgba(0, 0, 0, 0.22);
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -2034,11 +2036,11 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
   cursor: pointer;
 }
 .pt-empty:hover { border-color: var(--accent); color: var(--accent); background: rgba(76, 175, 125, 0.06); }
-.pt-treat { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
-.pt-treat .treat-btn { padding: 0 5px; font-size: 10px; line-height: 14px; }
+.pt-treat { position: absolute; top: 2px; left: 2px; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: rgba(10, 12, 18, 0.85); }
+.pt-treat .treat-btn { padding: 0 2px; font-size: 9px; line-height: 13px; }
 .pt-infected { border-color: rgba(169, 226, 122, 0.45); background: rgba(120, 200, 80, 0.08); }
 .pt-infection { font-size: 10px; color: #a9e27a; }
-.pt-cure { margin-top: auto; padding: 0 5px; border-radius: 4px; border: 1px solid rgba(169, 226, 122, 0.5); background: rgba(0, 0, 0, 0.3); color: #c3f09a; font: inherit; font-size: 10px; line-height: 15px; cursor: pointer; }
+.pt-cure { position: absolute; top: 2px; left: 2px; padding: 0 3px; border-radius: 4px; border: 1px solid rgba(169, 226, 122, 0.5); background: rgba(0, 0, 0, 0.3); color: #c3f09a; font: inherit; font-size: 10px; line-height: 15px; cursor: pointer; }
 .pt-cure:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* A room's teachers (3 at most): small cards on one line — name, then their grade for the job; the ✕
