@@ -397,7 +397,7 @@ export const OBJECTIVES = [
 export const CLASSROOM_DESKS_PER_ROW = 3;
 export const CLASSROOM_SEATS_PER_ROW = CLASSROOM_DESKS_PER_ROW * 2; // 6
 export const CLASSROOM_CAPACITY = 4 * CLASSROOM_SEATS_PER_ROW; // 24 (base: 4 rows)
-export const CLASSROOM_MAX_TEACHERS = 1; // one teacher = one subject, kept simple and not upgradeable
+export const CLASSROOM_MAX_TEACHERS = 1; // at level 1; more join at room levels 3 and 5, all teaching the room's subject
 
 // Two training rooms: the Gymnasium (PE) builds max HP and Acrobatics (Gymnastics) max stamina.
 // Each has its own capacity and upgrades. A session adds 1 + the combined rank of that room's
@@ -416,19 +416,18 @@ export const GYM_SIDES = {
 export const CAFETERIA_MAX_TEACHERS = 3; // base teacher (cook) slots — each cook makes one dish a day
 
 // Research Room: teachers turn their combined INT (Physics grade) into research points each day.
-// Starts with one researcher slot; each upgrade level adds another.
 export const RESEARCH_ROOM_TEACHERS = 1;
 export const RESEARCH_ROOM_INT_PER_POINT = 20;
 
-// Nurse's Office: one nurse (a teacher) and a few beds. Each patient either gets healed — a share
-// of their max HP, plus up to INFIRMARY_NURSE_BONUS more from the nurse's Biology, for some
-// medicine (with none to spare, only bed rest) — or rests to get stamina back. The "care" upgrade
-// raises both, one step per level.
+// Nurse's Office: nurses (teachers) and a few beds. Each patient either gets healed — a share of
+// their max HP, plus up to INFIRMARY_NURSE_BONUS more per nurse from their Biology, for some
+// medicine (with none to spare, only bed rest) — or rests to get stamina back. Both grow with the
+// room's level.
 export const INFIRMARY_CAPACITY = 4;
 export const INFIRMARY_MAX_TEACHERS = 1;
 export const INFIRMARY_MEDICINE_PER_PATIENT = 3;
-export const INFIRMARY_HEAL_BY_LEVEL = [0.3, 0.5, 0.7]; // share of max HP healed, by care level
-export const INFIRMARY_REST_BY_LEVEL = [20, 50, 80]; // stamina rested back, by care level
+export const INFIRMARY_HEAL_BY_LEVEL = [0.3, 0.4, 0.5, 0.6, 0.7]; // share of max HP healed, by room level
+export const INFIRMARY_REST_BY_LEVEL = [20, 35, 50, 65, 80]; // stamina rested back, by room level
 export const INFIRMARY_NURSE_BONUS = 0.25; // at Biology 100
 export const INFIRMARY_BED_REST = 0.1;
 
@@ -488,7 +487,7 @@ export const PRODUCERS = {
 };
 export const FARM_CROPS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "farm");
 export const RANCH_ANIMALS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "ranch");
-export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // before any upgrade
+export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // at level 1
 export const PLOTS_PER_WORKER = 2; // plots/pens one worker can tend a day
 export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, chicken: 1, cow: 0, sheep: 1 };
 // Expedition finds for the Farm/Ranch: a base chance on a success (lower on a failure) + a
@@ -553,28 +552,54 @@ export const SCOUT_STAMINA_COST = 5;
 export const SCOUT_ENCOUNTER_CHANCE_PER_HEX = 0.1;
 export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout loses their fight
 
-// ===== Room upgrades =====
-// Scrap cost to go from a given upgrade level to the next; capped at ROOM_UPGRADE_MAX_LEVEL.
-export const ROOM_UPGRADE_MAX_LEVEL = 3;
-export const roomUpgradeCost = (level) => 15 * (level + 1);
-// Upgrades with fewer levels than ROOM_UPGRADE_MAX_LEVEL.
-export const ROOM_UPGRADE_LEVELS = { infirmaryCare: INFIRMARY_HEAL_BY_LEVEL.length - 1 };
-// How much capacity one upgrade level adds, per room/slot type.
-export const ROOM_UPGRADE_INCREMENT = {
-  classroomStudent: CLASSROOM_SEATS_PER_ROW, // +1 row
-  gymStudent: 3,
-  gymTeacher: 1,
-  acrobaticsStudent: 3,
-  acrobaticsTeacher: 1,
-  cafeteriaTeacher: 1,
-  infirmaryCare: 1,
-  researchTeacher: 1,
-  infirmaryStudent: 2,
-  farmStudent: 5,
-  farmPlot: 2,
-  ranchStudent: 5,
-  ranchPlot: 1,
-  scrapyardStudent: 5,
+// ===== Room levels =====
+// Every room and facility starts at level 1 and is upgraded one level at a time, up to
+// ROOM_MAX_LEVEL, for scrap. Each level adds student slots (and Farm plots / Ranch pens), the
+// levels in ROOM_TEACHER_LEVELS add a teacher slot, and rooms without students grow a perk
+// instead. Rooms are keyed "classroom:<id>", "gym", "acrobatics", "cafeteria", and so on.
+export const ROOM_MAX_LEVEL = 5;
+export const ROOM_TEACHER_LEVELS = [3, 5];
+export const roomUpgradeCost = (level) => 20 * level; // from `level` to the next: 20, 40, 60, 80
+export const ROOM_REPAIR_COST = 10; // scrap per worker slot a facility raid broke
+export const CAFETERIA_RATIONS_BY_LEVEL = [6, 8, 10, 12, 14]; // food the cooks stretch the rations by
+export const RESEARCH_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra research a day while staffed
+export const CRAFTING_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra fortification per crafter
+export const COUNCIL_CHANCE_BY_LEVEL = [0, 0.03, 0.06, 0.09, 0.12]; // added to each member's recruit chance
+const roomSlots = (label, base, per = 0) => ({ label, base, per });
+const training = (name, ref) => ({
+  name, ref, students: roomSlots("Student slots", GYM_CAPACITY, 2), teachers: roomSlots("Teacher slots", GYM_MAX_TEACHERS),
+});
+// `ref` is how a sentence names the room when "the <name>" doesn't read well.
+export const ROOM_LEVELS = {
+  classroom: { name: "Classroom", students: roomSlots("Seats", CLASSROOM_CAPACITY, CLASSROOM_SEATS_PER_ROW), teachers: roomSlots("Teachers", CLASSROOM_MAX_TEACHERS) },
+  gym: training("Gymnasium"),
+  acrobatics: training("Acrobatics", "the Acrobatics room"),
+  cafeteria: {
+    name: "Cafeteria", teachers: roomSlots("Cooks", CAFETERIA_MAX_TEACHERS),
+    perks: [{ label: "Rations", by: CAFETERIA_RATIONS_BY_LEVEL, fmt: (v) => `+${v} food a day` }],
+  },
+  infirmary: {
+    name: "Nurse's Office", students: roomSlots("Beds", INFIRMARY_CAPACITY, 2), teachers: roomSlots("Nurses", INFIRMARY_MAX_TEACHERS),
+    perks: [
+      { label: "Heal", by: INFIRMARY_HEAL_BY_LEVEL, fmt: (v) => `${Math.round(v * 100)}% HP` },
+      { label: "Rest", by: INFIRMARY_REST_BY_LEVEL, fmt: (v) => `+${v} stamina` },
+    ],
+  },
+  research: {
+    name: "Research Room", teachers: roomSlots("Researchers", RESEARCH_ROOM_TEACHERS),
+    perks: [{ label: "Bonus research", by: RESEARCH_BONUS_BY_LEVEL, fmt: (v) => `+${v} a day` }],
+  },
+  crafting: {
+    name: "Crafting Room", teachers: roomSlots("Crafters", 1),
+    perks: [{ label: "Bonus fortification", by: CRAFTING_BONUS_BY_LEVEL, fmt: (v) => `+${v} per crafter` }],
+  },
+  council: {
+    name: "Student Council", teachers: roomSlots("Members", 1),
+    perks: [{ label: "Recruit chance", by: COUNCIL_CHANCE_BY_LEVEL, fmt: (v) => `+${Math.round(v * 100)}% each` }],
+  },
+  farm: { name: "Farm", students: roomSlots("Workers", FARM_CAPACITY, 3), plots: roomSlots("Plots", FACILITY_PLOTS.farm, 2) },
+  ranch: { name: "Ranch", students: roomSlots("Workers", RANCH_CAPACITY, 3), plots: roomSlots("Pens", FACILITY_PLOTS.ranch, 1) },
+  scrapyard: { name: "Scrapyard", students: roomSlots("Workers", SCRAPYARD_CAPACITY, 3) },
 };
 
 export const BOND_COUPLE_THRESHOLD = 6;

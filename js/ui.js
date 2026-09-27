@@ -1,11 +1,11 @@
 import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
-  CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, LOCATIONS,
-  BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_UPGRADE_MAX_LEVEL,
-  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, ROOM_UPGRADE_INCREMENT, TECH_TREE,
+  CLASSROOM_CAPACITY, LOCATIONS,
+  BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_MAX_LEVEL, roomUpgradeCost,
+  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
-  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, STAMINA_COST_GYM, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_NURSE_BONUS, INFIRMARY_HEAL_BY_LEVEL, INFIRMARY_REST_BY_LEVEL,
+  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, STAMINA_COST_GYM, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_NURSE_BONUS,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
@@ -14,7 +14,7 @@ import {
   classroomTeachingBonus, bestClassroomSubjectFor,
 } from "./characters.js";
 import {
-  getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomUpgradeInfo,
+  getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHealShare, infirmaryRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymGain, gymRoom, teacherRank, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -141,12 +141,55 @@ function staminaBar(c) {
   return `<div class="hpbar staminabar"><div class="hpfill ${cls}" style="width:${pct}%"></div><span>${c.stamina}/${c.maxStamina}</span></div>`;
 }
 
-// Small upgrade pill that sits in the top-right corner of a room's banner (roomScene's
-// `actions`). `detail` is the longer description shown on hover.
-function upgradeButton(state, roomType, roomId, kind, label, detail = label) {
-  const info = roomUpgradeInfo(state, roomType, roomId, kind);
-  if (info.maxed) return `<span class="scene-upgrade scene-upgrade-maxed" title="${esc(detail)} — fully upgraded">✓ ${label} max</span>`;
-  return `<button class="scene-upgrade" data-action="upgrade-room" data-room-type="${roomType}" data-room-id="${roomId || ""}" data-kind="${kind}" ${state.resources.materials < info.cost ? "disabled" : ""} title="${esc(detail)}: level ${info.level} → ${info.level + 1} for ${info.cost} scrap">⬆ ${label} <span class="scene-upgrade-cost">${info.cost}${pixelIcon("scrap", 12)}</span></button>`;
+// The room's one Upgrade button, in the top-right corner of its banner (roomScene's `actions`):
+// it opens a popup with what the next level brings. At the top level it just says Max — unless a
+// raid broke something, when it opens the popup to repair it.
+function roomUpgradeButton(state, key) {
+  const cost = roomUpgradeCostFor(state, key);
+  const repair = roomRepairCost(state, key);
+  if (cost === null && !repair) return `<span class="scene-upgrade scene-upgrade-maxed">Max</span>`;
+  return `<button class="scene-upgrade ${repair ? "scene-upgrade-damaged" : ""}" data-action="open-upgrade" data-room="${key}">${repair ? "⚠ " : ""}${cost === null ? "Repair" : "Upgrade"}</button>`;
+}
+
+const levelBadge = (state, key) => `<span class="plaque-level">Lv ${roomLevel(state, key)}</span>`;
+
+// "Gymnasium", "Biology" / "Classroom 2" — how the popup titles a room.
+function roomTitle(state, key) {
+  if (key.startsWith("classroom:")) return roomDisplayName(state, key.split(":")[1]);
+  return ROOM_LEVELS[key].name;
+}
+
+// The Upgrade popup: the room's level, what each of its numbers goes to at the next level (the
+// ones that change are highlighted), the cost, and a repair if a raid broke a worker slot.
+export function renderRoomUpgradeModal(state, key) {
+  const level = roomLevel(state, key);
+  const maxed = level >= ROOM_MAX_LEVEL;
+  const now = roomLevelStats(key, level);
+  const next = maxed ? null : roomLevelStats(key, level + 1);
+  const cost = roomUpgradeCostFor(state, key);
+  const scrap = state.resources.materials;
+  const repair = roomRepairCost(state, key);
+  const damage = roomState(state, key).damage || 0;
+  const pips = Array.from({ length: ROOM_MAX_LEVEL }, (_, i) =>
+    `<span class="upg-pip ${i < level ? "upg-pip-on" : i === level ? "upg-pip-next" : ""}"></span>`).join("");
+  const rows = now.map((row, i) => {
+    const up = next && next[i].value !== row.value;
+    return `<div class="upg-row ${up ? "upg-row-up" : ""}"><span>${row.label}</span><span>${row.text}${up ? ` <span class="upg-arrow">→</span> <b>${next[i].text}</b>` : ""}</span></div>`;
+  }).join("");
+  return `<div class="modal-overlay" data-action="close-upgrade">
+    <div class="char-card mission-card upgrade-modal" data-action="noop">
+      <button class="cc-close" data-action="close-upgrade" title="Close">✕</button>
+      <h3>${esc(roomTitle(state, key))}</h3>
+      <div class="upg-level"><span>${maxed ? `Level ${level} · <b>Max</b>` : `Level ${level} → <b>Level ${level + 1}</b>`}</span><span class="upg-pips">${pips}</span></div>
+      <div class="upg-rows">${rows}</div>
+      ${damage ? `<div class="upg-damage">⚠ A raid broke ${damage} worker slot${damage === 1 ? "" : "s"}.
+        <button class="btn btn-sm" data-action="repair-room" ${scrap < repair ? "disabled" : ""}>🔧 Repair (${repair} scrap)</button></div>` : ""}
+      ${maxed ? `<p class="muted upg-note">This room is fully upgraded.</p>` : `<div class="upg-actions">
+        <button class="btn btn-primary" data-action="confirm-upgrade" ${scrap < cost ? "disabled" : ""}>Upgrade · ${cost} scrap</button>
+        ${scrap < cost ? `<span class="muted">You have ${scrap}/${cost} scrap</span>` : ""}
+      </div>`}
+    </div>
+  </div>`;
 }
 
 function statChips(c) {
@@ -213,10 +256,6 @@ function roomDisplayName(state, roomId) {
   if (!room) return `Classroom ${roomId}`;
   return room.subject ? SUBJECT_LABEL[room.subject] : `Classroom ${roomId}`;
 }
-
-// What the next Care upgrade brings the Nurse's Office to, by current level.
-const INFIRMARY_HEAL_NEXT = INFIRMARY_HEAL_BY_LEVEL.slice(1);
-const INFIRMARY_REST_NEXT = INFIRMARY_REST_BY_LEVEL.slice(1);
 
 const TEACHER_POST_LABEL = {
   "gym:PE": "Gymnasium",
@@ -1465,9 +1504,10 @@ const TEACHER_SORT_FIELDS = STUDENT_SORT_FIELDS.filter((f) => f.key !== "level")
 
 // Classrooms only teach the four desk subjects, so say which one a teacher would take on — and
 // point a teacher whose best grade is PE or Gymnastics toward the Gym, where it actually counts.
-function classroomTeacherNote(t) {
-  const subject = bestClassroomSubjectFor(t);
-  let note = `<div class="picker-note">📚 Would teach <b>${SUBJECT_LABEL[subject]}</b> here (${gradeLetter(t.grades[subject])})</div>`;
+// A room that already has a subject keeps it, so a second or third teacher teaches that.
+function classroomTeacherNote(t, roomSubject = null) {
+  const subject = roomSubject || bestClassroomSubjectFor(t);
+  let note = `<div class="picker-note">📚 Would ${roomSubject ? "help teach" : "teach"} <b>${SUBJECT_LABEL[subject]}</b> here (${gradeLetter(t.grades[subject])})</div>`;
   const gym = ["PE", "Gymnastics"].filter((s) => t.grades[s] > t.grades[subject]).sort((a, b) => t.grades[b] - t.grades[a])[0];
   if (gym) {
     note += `<div class="picker-note picker-note-warn">${gym === "PE" ? "💪" : "🤸"} Best at ${SUBJECT_LABEL[gym]} (${gradeLetter(t.grades[gym])}) — classrooms don't teach it. They'd do more coaching in ${GYM_SIDES[gym].ref}.</div>`;
@@ -1535,7 +1575,7 @@ function resolvePickerCandidates(state, picker) {
       return {
         role: "teacher", title: "Assign a Classroom Teacher",
         list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== post)
-          .map((c) => ({ c, reason: teacherBusyLabel(state, c, post) || (c.stamina <= 0 ? "Exhausted" : null), note: classroomTeacherNote(c) })),
+          .map((c) => ({ c, reason: teacherBusyLabel(state, c, post) || (c.stamina <= 0 ? "Exhausted" : null), note: classroomTeacherNote(c, state.rooms.classrooms[roomId].subject) })),
       };
     }
     case "classroom-seat":
@@ -1698,9 +1738,9 @@ function renderTrainingRoom(state, side) {
   const bar = side === "PE" ? hpBar : staminaBar;
   const trained = (c) => (side === "PE" ? c.trainedHp || 0 : c.trainedStamina || 0);
   return `<div class="room room-${info.roomKey}">
-    ${roomScene(info.roomKey, [...teachers, ...students], info.room,
+    ${roomScene(info.roomKey, [...teachers, ...students], `${info.room}${levelBadge(state, info.roomKey)}`,
       `Trains ${info.label}, which builds ${info.gains}: every session gives each student here 1 + the combined ${info.label} rank of the teachers posted here (F 0, D 1, C 2, B 3, A 4, S 5), up to +${GYM_MAX_BONUS} ${info.gains} in total. Students also earn ${info.label} grade XP. Up to ${room.studentCapacity} students and ${room.teacherCapacity} teachers; training costs ${STAMINA_COST_GYM} stamina.`,
-      upgradeButton(state, info.roomKey, null, "teacher", "Teacher slot") + upgradeButton(state, info.roomKey, null, "student", "Student slot"))}
+      roomUpgradeButton(state, info.roomKey))}
     <p class="room-tagline">${info.icon} <b>+${gymGain(state, side)} ${info.gains}</b> a session ${teachers.length ? "(1 + teachers' ranks)" : "— a teacher adds their rank"} · ${STAMINA_COST_GYM} stamina</p>
     <div class="mini-label">Teachers (${teachers.length}/${room.teacherCapacity})</div>
       <ul class="assign-list">
@@ -1723,7 +1763,7 @@ export function renderFloor1(state) {
   const infRoom = state.rooms.infirmary;
   const nurses = state.characters.filter((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
   const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
-  const nurseBonus = nurses.length ? Math.round((nurses[0].grades.Biology / 100) * INFIRMARY_NURSE_BONUS * 100) : 0;
+  const nurseBonus = Math.round(infirmaryNurseBonus(state) * 100);
 
   const pantryGroup = (source, label, tip) => {
     const items = Object.entries(INGREDIENTS)
@@ -1756,9 +1796,9 @@ export function renderFloor1(state) {
       ${renderTrainingRoom(state, "PE")}
       ${renderTrainingRoom(state, "Gymnastics")}
       <div class="room room-cafeteria">
-        ${roomScene("cafeteria", cooks, "Cafeteria",
-          `Up to ${cafeRoom.teacherCapacity} teachers (cooks). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+6 food), and recovers 50 stamina while cooking.`,
-          upgradeButton(state, "cafeteria", null, "teacher", "Cook slot"))}
+        ${roomScene("cafeteria", cooks, `Cafeteria${levelBadge(state, "cafeteria")}`,
+          `Up to ${cafeRoom.teacherCapacity} teachers (cooks). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+${CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1]} food a day between them), and recovers 50 stamina while cooking.`,
+          roomUpgradeButton(state, "cafeteria"))}
         <p class="room-tagline">Each cook serves one buff dish a day</p>
         <div class="mini-label">Cooks (${cooks.length}/${cafeRoom.teacherCapacity})</div>
         <ul class="assign-list">
@@ -1770,12 +1810,11 @@ export function renderFloor1(state) {
         <div class="dish-list">${menu}</div>
       </div>
       <div class="room room-infirmary">
-        ${roomScene("infirmary", [...nurses, ...patients], "Nurse's Office",
-          `Up to ${infRoom.studentCapacity} patients/day, each either healed or resting. 💊 Heal: ${Math.round(infirmaryHealShare(state) * 100)}% of max HP${nurses.length ? ` +${nurseBonus}% from the nurse's Biology` : " (a nurse's Biology adds up to 25% more)"} for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (10%). 😴 Rest: +${infirmaryRest(state)} stamina, free. The Care upgrade raises both (HP 30/50/70%, stamina 20/50/80). Everyone also gets a little stamina and HP back on nights the school is fed.`,
-          upgradeButton(state, "infirmary", null, "student", "Bed") +
-            upgradeButton(state, "infirmary", null, "care", "Care", (state.rooms.infirmary.care || 0) < INFIRMARY_HEAL_NEXT.length ? `Care — heal ${Math.round(INFIRMARY_HEAL_NEXT[state.rooms.infirmary.care || 0] * 100)}% HP, rest +${INFIRMARY_REST_NEXT[state.rooms.infirmary.care || 0]} stamina` : "Care"))}
+        ${roomScene("infirmary", [...nurses, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
+          `Up to ${infRoom.studentCapacity} patients/day, each either healed or resting. 💊 Heal: ${Math.round(infirmaryHealShare(state) * 100)}% of max HP${nurses.length ? ` +${nurseBonus}% from the nurses' Biology` : " (each nurse's Biology adds up to 25% more)"} for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (10%). 😴 Rest: +${infirmaryRest(state)} stamina, free. Upgrading the room raises both. Everyone also gets a little stamina and HP back on nights the school is fed.`,
+          roomUpgradeButton(state, "infirmary"))}
         <p class="room-tagline">💊 Heal <b>${Math.round(infirmaryHealShare(state) * 100) + nurseBonus}% HP</b> for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine · 😴 Rest <b>+${infirmaryRest(state)} stamina</b></p>
-        <div class="mini-label">Nurse (${nurses.length}/${infRoom.teacherCapacity})</div>
+        <div class="mini-label">Nurses (${nurses.length}/${infRoom.teacherCapacity})</div>
         <ul class="assign-list">
           ${nurses.map((t) => `<li>${nameTag(t)} — Biology ${gradeLetter(t.grades.Biology)} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
         </ul>
@@ -1852,15 +1891,15 @@ function renderClassroom(state, roomId) {
     ${roomScene(
       subject ? `classroom_${subject}` : "classroom_empty",
       [...teachers, ...room.seats.filter(Boolean).map((id) => getChar(state, id)).filter((c) => c && c.alive)],
-      `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`} <span class="plaque-sub">${count}/${room.seats.length}</span>`,
+      `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`}${levelBadge(state, post)} <span class="plaque-sub">${count}/${room.seats.length}</span>`,
       subject ? "" : "Unassigned — the one teacher posted here decides the subject.",
-      upgradeButton(state, "classroom", roomId, "student", "Row", "Another row of desks (+6 seats)")
+      roomUpgradeButton(state, post)
     )}
-    <div class="mini-label">Teacher (grade boost per student, 1 max)</div>
+    <div class="mini-label">Teachers (${teachers.length}/${room.teacherCapacity}) — each gives every student a grade boost</div>
     <ul class="assign-list">
       ${teachers.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${teachBonusLabel(t.grades[subject])}</span>${staminaBar(t)}<button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
     </ul>
-    ${teachers.length < CLASSROOM_MAX_TEACHERS ? `<button class="btn btn-sm" data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}">+ Assign teacher…</button>` : ""}
+    ${teachers.length < room.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}">+ Assign teacher…</button>` : ""}
     <div class="mini-label">Seating (${rowCount} rows × 3 desks)</div>
     <div class="seat-grid">${seatsHtml}</div>
   </div>`;
@@ -1905,19 +1944,18 @@ export function renderFloor3(state) {
 
   const researchers = state.characters.filter((c) => c.role === "teacher" && c.post === "research" && c.alive);
   const researchSlots = state.rooms.research.teacherCapacity;
-  const crafter = state.characters.find((c) => c.role === "teacher" && c.post === "crafting" && c.alive);
-  const council = state.characters.find((c) => c.role === "teacher" && c.post === "council" && c.alive);
-
-  const utilityRoom = (scene, title, desc, current, postKey, statLabel, statKey) => {
+  const utilityRoom = (scene, title, desc, postKey, statLabel, statKey) => {
     if (isBoarded(state, postKey)) return renderBoardedRoom(state, postKey, scene, "room-utility");
+    const staff = state.characters.filter((c) => c.role === "teacher" && c.post === postKey && c.alive);
+    const slots = state.rooms[postKey].teacherCapacity;
     return `<div class="room room-utility">
-      ${roomScene(scene, current ? [current] : [], title)}
+      ${roomScene(scene, staff, `${title}${levelBadge(state, postKey)}`, "", roomUpgradeButton(state, postKey))}
       <p class="room-tagline">${desc}</p>
-      <div class="mini-label">Assigned</div>
+      <div class="mini-label">Assigned (${staff.length}/${slots})</div>
       <ul class="assign-list">
-        ${current ? `<li>${nameTag(current)} — ${statLabel} ${gradeLetter(current.grades[statKey])} <button class="btn-x" data-action="clear-post" data-id="${current.id}">✕</button></li>` : '<li class="muted">none</li>'}
+        ${staff.map((t) => `<li>${nameTag(t)} — ${statLabel} ${gradeLetter(t.grades[statKey])} <button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
       </ul>
-      ${!current ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="${postKey}">+ Assign teacher…</button>` : ""}
+      ${staff.length < slots ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="${postKey}">+ Assign teacher…</button>` : ""}
     </div>`;
   };
 
@@ -1940,9 +1978,9 @@ export function renderFloor3(state) {
     </div>
     <div class="floor3-grid">
       ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
-        ${roomScene("research", researchers, "Research Room",
-          `Produces research points each day: 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT (Physics grade) across every teacher posted here.`,
-          upgradeButton(state, "research", null, "teacher", "Researcher slot"))}
+        ${roomScene("research", researchers, `Research Room${levelBadge(state, "research")}`,
+          `Produces research points each day: 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT (Physics grade) across every teacher posted here, plus the room's level bonus.`,
+          roomUpgradeButton(state, "research"))}
         <p class="room-tagline">Producing <b>${researchRoomYield(state)} research/day</b> from the team's INT</p>
         <div class="mini-label">Researchers (${researchers.length}/${researchSlots})</div>
         <ul class="assign-list">
@@ -1950,21 +1988,21 @@ export function renderFloor3(state) {
         </ul>
         ${researchers.length < researchSlots ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="research">+ Assign teacher…</button>` : ""}
       </div>`}
-      ${utilityRoom("crafting", "Crafting Room", "Turns scrap into permanent Fortification · scales with DEX", crafter, "crafting", "DEX", "Gymnastics")}
-      ${utilityRoom("council", "Student Council", "Daily chance a survivor asks to join · scales with CHA", council, "council", "CHA", "SocialStudies")}
+      ${utilityRoom("crafting", "Crafting Room", "Turns scrap into permanent Fortification · scales with DEX", "crafting", "DEX", "Gymnastics")}
+      ${utilityRoom("council", "Student Council", "Daily chance a survivor asks to join · scales with CHA", "council", "CHA", "SocialStudies")}
     </div>
   </div>`;
 }
 
 // ---------- outside facilities (Turn 2) ----------
 
-function renderOutsideFacility(state, roomKey, flagKey, title, tagline, desc, extra = "", extraActions = "") {
+function renderOutsideFacility(state, roomKey, flagKey, title, tagline, desc, extra = "") {
   const room = state.rooms[roomKey];
   const workers = state.characters.filter((c) => c[flagKey] && c.alive);
 
   return `
   <div class="card room-outside">
-    ${roomScene(roomKey, workers, title, desc, upgradeButton(state, roomKey, null, "student", "Student slot") + extraActions)}
+    ${roomScene(roomKey, workers, `${title}${levelBadge(state, roomKey)}`, desc, roomUpgradeButton(state, roomKey))}
     <p class="room-tagline">${tagline}</p>
     <div class="mini-label">Working today (${workers.length}/${room.studentCapacity})</div>
     <ul class="assign-list">
@@ -2038,12 +2076,6 @@ function renderPlots(state, facility) {
     <div class="plot-grid">${list.map((plot, i) => renderPlotTile(state, facility, plot, i, tended.has(i))).join("")}</div>`;
 }
 
-// The farm/ranch's "more plots/pens" upgrade, shown in the facility's banner.
-function plotUpgradeButton(state, facility) {
-  const words = PLOT_WORDS[facility];
-  return upgradeButton(state, facility, null, "plot", `${words.plots} +${ROOM_UPGRADE_INCREMENT[`${facility}Plot`]}`, `More ${words.plot}s`);
-}
-
 // Clicking a plot: an empty one asks what to plant (only what's in stock can be chosen); an
 // occupied one shows how it's doing, with the option to dig it up / move the animal out.
 export function renderPlotModal(state, facility, index) {
@@ -2091,8 +2123,7 @@ export function renderFarm(state) {
   return renderOutsideFacility(
     state, "farm", "farmToday", "Farm", `Each worker grows <b>${FARM_YIELD_FOOD} food</b> and tends <b>${PLOTS_PER_WORKER} plots</b>`,
     `Assign students to farm instead of sending them out to explore today. Each worker yields ${FARM_YIELD_FOOD} food when the day ends and tends ${PLOTS_PER_WORKER} of the plots below, where the Cafeteria's staple crops grow.`,
-    renderPlots(state, "farm"),
-    plotUpgradeButton(state, "farm")
+    renderPlots(state, "farm")
   );
 }
 
@@ -2100,8 +2131,7 @@ export function renderRanch(state) {
   return renderOutsideFacility(
     state, "ranch", "ranchToday", "Ranch", `Each worker raises <b>${RANCH_YIELD_FOOD} food</b> and tends <b>${PLOTS_PER_WORKER} pens</b>`,
     `Assign students to the ranch instead of sending them out to explore today. Each worker yields ${RANCH_YIELD_FOOD} food when the day ends and tends ${PLOTS_PER_WORKER} of the pens below, where chickens, cows and sheep give the Cafeteria eggs, milk and mutton.`,
-    renderPlots(state, "ranch"),
-    plotUpgradeButton(state, "ranch")
+    renderPlots(state, "ranch")
   );
 }
 

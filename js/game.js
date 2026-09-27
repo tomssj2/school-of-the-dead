@@ -6,7 +6,8 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
-  ROOM_UPGRADE_MAX_LEVEL, ROOM_UPGRADE_INCREMENT, ROOM_UPGRADE_LEVELS, roomUpgradeCost,
+  ROOM_LEVELS, ROOM_MAX_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
+  CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, COUNCIL_CHANCE_BY_LEVEL,
   STAMINA_COST_GYM, STAMINA_COST_EXPLORE, STAMINA_COST_TEACH, STAMINA_RECHARGE_CAFETERIA,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
@@ -104,17 +105,8 @@ export function createInitialState() {
     raidKills: {}, // landmark id -> times its boss has been killed (each makes it tougher)
     characters: [],
     rooms: {
-      classrooms: Object.fromEntries(
-        CLASSROOM_IDS.map((id) => [id, { subject: null, seats: Array(CLASSROOM_CAPACITY).fill(null) }])
-      ),
-      gym: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
-      acrobatics: { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS },
-      cafeteria: { teacherCapacity: CAFETERIA_MAX_TEACHERS },
-      research: { teacherCapacity: RESEARCH_ROOM_TEACHERS },
-      infirmary: { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS, care: 0 },
-      farm: { studentCapacity: FARM_CAPACITY, plots: FACILITY_PLOTS.farm },
-      scrapyard: { studentCapacity: SCRAPYARD_CAPACITY },
-      ranch: { studentCapacity: RANCH_CAPACITY, plots: FACILITY_PLOTS.ranch },
+      classrooms: Object.fromEntries(CLASSROOM_IDS.map((id) => [id, { level: 1, subject: null, seats: [] }])),
+      ...Object.fromEntries(ROOM_KEYS.filter((k) => !k.startsWith("classroom:")).map((k) => [k, { level: 1 }])),
     },
     recruitPool: [],
     log: [],
@@ -130,6 +122,7 @@ export function createInitialState() {
     state.characters.push(makeCharacter("teacher", i % 2 === 0 ? "M" : "F"));
   }
 
+  for (const key of ROOM_KEYS) applyRoomLevel(state, key);
   addLog(state, `Day 1 begins. ${state.characters.length} souls are relying on you.`);
   return state;
 }
@@ -385,7 +378,8 @@ export function deskPartner(state, studentId) {
   return otherId ? getChar(state, otherId) : null;
 }
 
-// teacher posts: 'classroom:<roomId>', 'gym', 'cafeteria', 'research', 'crafting', 'council', or null.
+// teacher posts: 'classroom:<roomId>', 'gym:PE', 'gym:Gymnastics', 'cafeteria', 'infirmary', 'research',
+// 'crafting', 'council', or null. Each room holds as many teachers as its level allows.
 // A classroom room has no subject ("Classroom N") until its first teacher is assigned, at which
 // point it takes on whichever classroom subject that teacher is best qualified to teach. It
 // reverts to unassigned the moment its last teacher leaves, so rooms can be freely repurposed.
@@ -396,27 +390,12 @@ export function setTeacherPost(state, teacherId, post) {
   const oldPost = t.post;
 
   // capacity checks
-  if (post && post.startsWith("classroom:")) {
-    if (t.stamina <= 0) return false; // too exhausted to teach
-    const roomId = post.split(":")[1];
-    if (!state.rooms.classrooms[roomId]) return false;
+  if (post) {
+    const room = roomState(state, postRoomKey(post));
+    if (!room) return false;
+    if (post.startsWith("classroom:") && t.stamina <= 0) return false; // too exhausted to teach
     const count = state.characters.filter((c) => c.role === "teacher" && c.post === post).length;
-    if (count >= CLASSROOM_MAX_TEACHERS) return false;
-  } else if (post && post.startsWith("gym:")) {
-    const count = state.characters.filter((c) => c.role === "teacher" && c.post === post).length;
-    if (count >= gymRoom(state, post.split(":")[1]).teacherCapacity) return false;
-  } else if (post === "cafeteria") {
-    const count = state.characters.filter((c) => c.role === "teacher" && c.post === "cafeteria").length;
-    if (count >= state.rooms.cafeteria.teacherCapacity) return false;
-  } else if (post === "infirmary") {
-    const count = state.characters.filter((c) => c.role === "teacher" && c.post === "infirmary").length;
-    if (count >= state.rooms.infirmary.teacherCapacity) return false;
-  } else if (post === "research") {
-    const count = state.characters.filter((c) => c.role === "teacher" && c.post === "research").length;
-    if (count >= state.rooms.research.teacherCapacity) return false;
-  } else if (post && ["crafting", "council"].includes(post)) {
-    const count = state.characters.filter((c) => c.role === "teacher" && c.post === post).length;
-    if (count >= 1) return false;
+    if (count >= room.teacherCapacity) return false;
   }
 
   t.post = post;
@@ -493,10 +472,17 @@ export function suggestedTreatment(c) {
 
 // What a treatment gives at the Nurse's Office's current care level.
 export function infirmaryHealShare(state) {
-  return INFIRMARY_HEAL_BY_LEVEL[state.rooms.infirmary.care || 0];
+  return INFIRMARY_HEAL_BY_LEVEL[roomLevel(state, "infirmary") - 1];
 }
+// Every nurse adds up to INFIRMARY_NURSE_BONUS more healing, by their Biology.
+export function infirmaryNurseBonus(state) {
+  return state.characters
+    .filter((c) => c.role === "teacher" && c.post === "infirmary" && c.alive)
+    .reduce((sum, n) => sum + (n.grades.Biology / 100) * INFIRMARY_NURSE_BONUS, 0);
+}
+
 export function infirmaryRest(state) {
-  return INFIRMARY_REST_BY_LEVEL[state.rooms.infirmary.care || 0] + techPerk(state, "restRecovery");
+  return INFIRMARY_REST_BY_LEVEL[roomLevel(state, "infirmary") - 1] + techPerk(state, "restRecovery");
 }
 
 // Outside facilities worked during Turn 2 as an alternative to exploring — a student can do one
@@ -519,72 +505,99 @@ export const setFarmToday = makeOutsideFacilitySetter("farmToday", "farm");
 export const setScrapyardToday = makeOutsideFacilitySetter("scrapyardToday", "scrapyard");
 export const setRanchToday = makeOutsideFacilitySetter("ranchToday", "ranch");
 
-// ---------- room upgrades ----------
-// Spends scrap to raise one of a room's stats, up to ROOM_UPGRADE_MAX_LEVEL times. A "kind"
-// is student/teacher capacity, the Nurse's Office care level, or Farm plots / Ranch pens. Classroom teacher
-// capacity is fixed at 1 and can't be upgraded.
+// ---------- room levels ----------
+// Every room and facility has a level from 1 to ROOM_MAX_LEVEL (see ROOM_LEVELS). Its slots are
+// worked out from the level and stored on the room (studentCapacity / teacherCapacity / plots, a
+// classroom's seats), so everything else just reads those.
 
-// Base (unupgraded) value per room type/kind, used to work out the current upgrade level from the
-// room's live value.
-const ROOM_BASE_CAPACITY = {
-  gym: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
-  acrobatics: { student: GYM_CAPACITY, teacher: GYM_MAX_TEACHERS },
-  cafeteria: { teacher: CAFETERIA_MAX_TEACHERS },
-  research: { teacher: RESEARCH_ROOM_TEACHERS },
-  infirmary: { student: INFIRMARY_CAPACITY, care: 0 }, // one nurse, not upgradeable
-  farm: { student: FARM_CAPACITY, plot: FACILITY_PLOTS.farm },
-  scrapyard: { student: SCRAPYARD_CAPACITY },
-  ranch: { student: RANCH_CAPACITY, plot: FACILITY_PLOTS.ranch },
-};
-const ROOM_LABELS = {
-  gym: "the Gymnasium", acrobatics: "the Acrobatics room", cafeteria: "the Cafeteria", infirmary: "the Nurse's Office", research: "the Research Room",
-  farm: "the Farm", scrapyard: "the Scrapyard", ranch: "the Ranch",
-};
-const UPGRADE_FIELD = { student: "studentCapacity", teacher: "teacherCapacity", care: "care", plot: "plots" };
-const upgradeIncrement = (roomType, kind) => ROOM_UPGRADE_INCREMENT[`${roomType}${kind[0].toUpperCase()}${kind.slice(1)}`];
+export const ROOM_KEYS = [
+  ...CLASSROOM_IDS.map((id) => `classroom:${id}`),
+  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "council", "farm", "ranch", "scrapyard",
+];
+const roomType = (key) => key.split(":")[0];
 
-function roomUpgradeLevel(state, roomType, roomId, kind) {
-  if (roomType === "classroom") {
-    const room = state.rooms.classrooms[roomId];
-    if (!room) return null;
-    return Math.round((room.seats.length - CLASSROOM_CAPACITY) / ROOM_UPGRADE_INCREMENT.classroomStudent);
+export function roomState(state, key) {
+  const [type, id] = key.split(":");
+  return type === "classroom" ? state.rooms.classrooms[id] : state.rooms[type];
+}
+export const roomLevel = (state, key) => roomState(state, key)?.level || 1;
+
+// The room a teacher post belongs to: "gym:PE" → "gym", "gym:Gymnastics" → "acrobatics".
+export function postRoomKey(post) {
+  return post.startsWith("gym:") ? GYM_SIDES[post.split(":")[1]].roomKey : post;
+}
+
+// "the Gymnasium", "the Acrobatics room", "Biology" (a classroom goes by its subject).
+export function roomName(state, key) {
+  if (roomType(key) === "classroom") {
+    const room = roomState(state, key);
+    return room?.subject ? SUBJECT_LABEL[room.subject] : `Classroom ${key.split(":")[1]}`;
   }
-  const room = state.rooms[roomType];
-  if (!room) return null;
-  const base = ROOM_BASE_CAPACITY[roomType]?.[kind];
-  if (base === undefined) return null;
-  return Math.round((room[UPGRADE_FIELD[kind]] - base) / upgradeIncrement(roomType, kind));
+  const def = ROOM_LEVELS[roomType(key)];
+  return def.ref || `the ${def.name}`;
 }
 
-export function roomUpgradeInfo(state, roomType, roomId, kind) {
-  if (roomType === "classroom" && kind === "teacher") return { level: 0, maxed: true, cost: null };
-  const level = roomUpgradeLevel(state, roomType, roomId, kind);
-  if (level === null) return { level: 0, maxed: true, cost: null };
-  const maxLevel = ROOM_UPGRADE_LEVELS[`${roomType}${kind[0].toUpperCase()}${kind.slice(1)}`] ?? ROOM_UPGRADE_MAX_LEVEL;
-  const maxed = level >= maxLevel;
-  return { level, maxed, cost: maxed ? null : roomUpgradeCost(level) };
+// What a room offers at a level, in display order: its slots, then any perks.
+export function roomLevelStats(key, level) {
+  const def = ROOM_LEVELS[roomType(key)];
+  const rows = [];
+  const slot = (id, s, value) => rows.push({ id, label: s.label, value, text: String(value) });
+  if (def.students) slot("students", def.students, def.students.base + def.students.per * (level - 1));
+  if (def.teachers) slot("teachers", def.teachers, def.teachers.base + ROOM_TEACHER_LEVELS.filter((l) => level >= l).length);
+  if (def.plots) slot("plots", def.plots, def.plots.base + def.plots.per * (level - 1));
+  for (const p of def.perks || []) {
+    const value = p.by[level - 1];
+    rows.push({ id: p.label, label: p.label, value, text: p.fmt(value) });
+  }
+  return rows;
 }
 
-export function upgradeRoom(state, roomType, roomId, kind) {
-  if (roomType === "classroom" && kind === "teacher") return false;
-  const { level, maxed, cost } = roomUpgradeInfo(state, roomType, roomId, kind);
-  if (maxed || cost === null) return false;
+// Sets a room's slots from its level (less any raid damage to a facility).
+export function applyRoomLevel(state, key) {
+  const room = roomState(state, key);
+  if (!room) return;
+  if (!room.level) room.level = 1;
+  const stats = Object.fromEntries(roomLevelStats(key, room.level).map((r) => [r.id, r.value]));
+  if (stats.teachers !== undefined) room.teacherCapacity = stats.teachers;
+  if (roomType(key) === "classroom") {
+    while (room.seats.length < stats.students) room.seats.push(null);
+    return;
+  }
+  if (stats.students !== undefined) room.studentCapacity = Math.max(1, stats.students - (room.damage || 0));
+  if (stats.plots !== undefined) {
+    room.plots = stats.plots;
+    syncPlots(state, key);
+  }
+}
+
+export function roomUpgradeCostFor(state, key) {
+  const level = roomLevel(state, key);
+  return level >= ROOM_MAX_LEVEL ? null : roomUpgradeCost(level);
+}
+
+export function upgradeRoom(state, key) {
+  const room = roomState(state, key);
+  const cost = roomUpgradeCostFor(state, key);
+  if (!room || cost === null || isBoarded(state, key)) return false;
   if (state.resources.materials < cost) return false;
-
-  let label;
-  if (roomType === "classroom") {
-    const room = state.rooms.classrooms[roomId];
-    room.seats.push(...Array(ROOM_UPGRADE_INCREMENT.classroomStudent).fill(null));
-    label = `Classroom ${roomId}`;
-  } else {
-    state.rooms[roomType][UPGRADE_FIELD[kind]] += upgradeIncrement(roomType, kind);
-    if (kind === "plot") syncPlots(state, roomType);
-    label = ROOM_LABELS[roomType];
-  }
-
   state.resources.materials -= cost;
-  const what = kind === "care" ? "care" : kind === "plot" ? (roomType === "ranch" ? "pens" : "plots") : `${kind} capacity`;
-  addLog(state, `Upgraded ${label}'s ${what} to level ${level + 1} (-${cost} scrap).`);
+  room.level = (room.level || 1) + 1;
+  applyRoomLevel(state, key);
+  addLog(state, `Upgraded ${roomName(state, key)} to level ${room.level} (-${cost} scrap).`);
+  return true;
+}
+
+// A facility raid that gets through breaks a worker slot until it's repaired.
+export const roomRepairCost = (state, key) => (roomState(state, key)?.damage || 0) * ROOM_REPAIR_COST;
+
+export function repairRoom(state, key) {
+  const room = roomState(state, key);
+  const cost = roomRepairCost(state, key);
+  if (!cost || state.resources.materials < cost) return false;
+  state.resources.materials -= cost;
+  room.damage = 0;
+  applyRoomLevel(state, key);
+  addLog(state, `Repaired ${roomName(state, key)} (-${cost} scrap).`);
   return true;
 }
 
@@ -786,12 +799,13 @@ export function exploreStaminaCost(state) {
   return Math.round(STAMINA_COST_EXPLORE * (1 - techPerk(state, "exploreStaminaReduction")));
 }
 
-// One research point per RESEARCH_ROOM_INT_PER_POINT of the posted teachers' combined INT.
+// One research point per RESEARCH_ROOM_INT_PER_POINT of the posted teachers' combined INT, plus
+// the room's level bonus while anyone is working there.
 export function researchRoomYield(state) {
-  const totalInt = state.characters
-    .filter((c) => c.role === "teacher" && c.post === "research" && c.alive)
-    .reduce((sum, c) => sum + c.grades.Physics, 0);
-  return Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT);
+  const researchers = state.characters.filter((c) => c.role === "teacher" && c.post === "research" && c.alive);
+  if (!researchers.length) return 0;
+  const totalInt = researchers.reduce((sum, c) => sum + c.grades.Physics, 0);
+  return Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) + RESEARCH_BONUS_BY_LEVEL[roomLevel(state, "research") - 1];
 }
 
 // ---------- TURN 1: training ----------
@@ -815,17 +829,17 @@ export function resolveTraining(state) {
       addLog(state, `${SUBJECT_LABEL[subject]} class held for ${studentIds.length} student(s).`);
     }
 
-    // Teaching costs the room's one teacher stamina; if they run out, they step down and the
-    // room reverts to unassigned until someone rested takes it over.
-    const teacher = state.characters.find((c) => c.role === "teacher" && c.post === `classroom:${roomId}` && c.alive);
-    if (teacher) {
+    // Teaching costs every teacher here stamina; anyone who runs out steps down, and once the
+    // last one has, the room reverts to unassigned until someone rested takes it over.
+    const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === `classroom:${roomId}` && c.alive);
+    for (const teacher of teachers) {
       teacher.stamina = Math.max(0, teacher.stamina - STAMINA_COST_TEACH);
       if (teacher.stamina === 0) {
         addLog(state, `${teacher.name} is too exhausted to keep teaching and steps down from ${SUBJECT_LABEL[subject]}.`);
         teacher.post = null;
-        room.subject = null;
       }
     }
+    if (teachers.length && teachers.every((t) => t.post === null)) room.subject = null;
   }
 
   // training — the Gymnasium (PE) builds max HP and Acrobatics (Gymnastics) max stamina,
@@ -858,14 +872,15 @@ export function resolveTraining(state) {
   // recharge their own stamina; cooking is how teachers recover.
   const cooks = cooksOnDuty(state);
   if (cooks.length) {
-    state.resources.food += 6;
-    addLog(state, `${cooks.map((c) => c.name).join(" & ")} stretch${cooks.length === 1 ? "es" : ""} the rations (+6 food).`);
+    const rations = CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1];
+    state.resources.food += rations;
+    addLog(state, `${cooks.map((c) => c.name).join(" & ")} stretch${cooks.length === 1 ? "es" : ""} the rations (+${rations} food).`);
   }
   for (const c of cooks) c.stamina = Math.min(c.maxStamina, c.stamina + STAMINA_RECHARGE_CAFETERIA);
 
   // nurse's office — each patient is either healed (HP, for medicine; a nurse's Biology adds on top,
   // and with no medicine to spare they only get bed rest) or rests (stamina, free).
-  const nurse = state.characters.find((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
+  const nurseBonus = infirmaryNurseBonus(state);
   const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
   const resting = patients.filter((c) => c.infirmaryToday === "rest");
   const rest = infirmaryRest(state);
@@ -875,7 +890,7 @@ export function resolveTraining(state) {
     const treated = state.resources.medicine >= INFIRMARY_MEDICINE_PER_PATIENT;
     if (treated) state.resources.medicine -= INFIRMARY_MEDICINE_PER_PATIENT;
     const share = treated
-      ? infirmaryHealShare(state) + (nurse ? (nurse.grades.Biology / 100) * INFIRMARY_NURSE_BONUS : 0) + c.grades.Biology * TUNE.nursePerCon
+      ? infirmaryHealShare(state) + nurseBonus + c.grades.Biology * TUNE.nursePerCon
       : INFIRMARY_BED_REST;
     const healed = Math.min(c.maxHp - c.hp, Math.round(c.maxHp * share));
     c.hp += healed;
@@ -891,18 +906,20 @@ export function resolveTraining(state) {
   }
 
   // crafting
-  const crafter = state.characters.find((c) => c.role === "teacher" && c.post === "crafting" && c.alive);
-  if (crafter && state.resources.materials > 0) {
+  const craftBonus = CRAFTING_BONUS_BY_LEVEL[roomLevel(state, "crafting") - 1];
+  for (const crafter of state.characters.filter((c) => c.role === "teacher" && c.post === "crafting" && c.alive)) {
+    if (state.resources.materials <= 0) break;
     const use = Math.min(state.resources.materials, 4);
     state.resources.materials -= use;
-    const gain = Math.round((use + crafter.grades.Gymnastics / 20) * 0.8);
+    const gain = Math.round((use + crafter.grades.Gymnastics / 20) * 0.8) + craftBonus;
     state.fortification = Math.min(FORTIFICATION_CAP, state.fortification + gain);
     addLog(state, `${crafter.name} reinforces the school defenses (+${gain} fortification).`);
   }
 
   // student council
-  const council = state.characters.find((c) => c.role === "teacher" && c.post === "council" && c.alive);
-  if (council && Math.random() < 0.15 + council.grades.SocialStudies / 300) {
+  const councilBonus = COUNCIL_CHANCE_BY_LEVEL[roomLevel(state, "council") - 1];
+  for (const council of state.characters.filter((c) => c.role === "teacher" && c.post === "council" && c.alive)) {
+    if (Math.random() >= 0.15 + council.grades.SocialStudies / 300 + councilBonus) continue;
     const role = rollRecruitRole(state);
     const recruit = makeCharacter(role, Math.random() < 0.5 ? "M" : "F");
     state.recruitPool.push(recruit);
@@ -1527,8 +1544,11 @@ export function resolveFacilityRaid(state) {
     for (const c of defenders) grantXp(state, c.id, "PE", 2 + randInt(0, 2));
   } else {
     adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL);
-    if (room && room.studentCapacity > 1) room.studentCapacity -= 1;
-    addLog(state, `The raid on the ${raid.facility} got through — its capacity is damaged until repaired.`);
+    if (room && room.studentCapacity > 1) {
+      room.damage = (room.damage || 0) + 1;
+      applyRoomLevel(state, raid.facility);
+    }
+    addLog(state, `The raid on the ${raid.facility} got through — a worker slot is broken until it's repaired (see its Upgrade button).`);
     if (state.plots[raid.facility]) {
       for (const plot of state.plots[raid.facility]) plot.growth = 0;
       addLog(state, raid.facility === "farm"

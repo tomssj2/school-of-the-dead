@@ -1,14 +1,14 @@
 import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, renderRoomFight } from "./ui.js";
+  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal } from "./ui.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, ROOM_UPGRADE_INCREMENT, OBJECTIVES, ROOM_FIGHT_SQUAD, roomUpgradeCost, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, OBJECTIVES, ROOM_FIGHT_SQUAD, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -46,6 +46,7 @@ let openNest = null; // { q, r, ids } while picking a squad to clear a zombie ne
 let openRaid = null; // LANDMARKS id whose raid screen is open
 let raidFight = null; // { report, frameIndex, phase: "battle" | "result", after } while a raid replays
 let expeditionReport = null; // { summary, phase: "travel" | "report" } at the end of Turn 2
+let openUpgrade = null; // room key whose Upgrade popup is open
 let openPlot = null; // { facility: "farm" | "ranch", index } while choosing what to plant/pen
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
@@ -131,8 +132,9 @@ function migrateState(s) {
     const slotLevels = Math.max(0, Math.round((s.rooms.lounge.studentCapacity - 10) / 5));
     const restLevels = Math.max(0, Math.round((s.rooms.lounge.recovery - 50) / 15));
     let refund = 0;
-    for (let l = 0; l < slotLevels; l++) refund += roomUpgradeCost(l);
-    for (let l = 0; l < restLevels; l++) refund += roomUpgradeCost(l);
+    const legacyUpgradeCost = (l) => 15 * (l + 1);
+    for (let l = 0; l < slotLevels; l++) refund += legacyUpgradeCost(l);
+    for (let l = 0; l < restLevels; l++) refund += legacyUpgradeCost(l);
     if (refund) {
       s.resources.materials += refund;
       G.addLog(s, `🛏 The Lounge was turned over to the Nurse's Office — students rest there now. ${refund} scrap from its upgrades was refunded.`);
@@ -165,7 +167,6 @@ function migrateState(s) {
   if (s.victory === undefined) s.victory = false;
   if (!s.bossesSlain) s.bossesSlain = [];
   if (!s.rooms.infirmary) s.rooms.infirmary = { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS };
-  if (s.rooms.infirmary.care === undefined) s.rooms.infirmary.care = 0;
   if (!s.pantry) s.pantry = { ...STARTING_PANTRY };
   if (!s.dishesToday) s.dishesToday = [];
   // Ingredients that no longer exist (honey, chocolate) are dropped; new ones start at the
@@ -197,7 +198,7 @@ function migrateState(s) {
   if (!s.gymSplit) {
     const studentLevel = Math.max(0, Math.round((s.rooms.gym.studentCapacity - 10) / 5));
     const teacherLevel = Math.max(0, s.rooms.gym.teacherCapacity - 3);
-    s.rooms.gym.studentCapacity = GYM_CAPACITY + ROOM_UPGRADE_INCREMENT.gymStudent * studentLevel;
+    s.rooms.gym.studentCapacity = GYM_CAPACITY + 3 * studentLevel;
     s.rooms.gym.teacherCapacity = GYM_MAX_TEACHERS + teacherLevel;
     for (const c of s.characters) {
       if (c.post === "gym") c.post = "gym:PE";
@@ -213,6 +214,37 @@ function migrateState(s) {
     delete s.rooms.studio;
   }
   if (!s.rooms.acrobatics) s.rooms.acrobatics = { ...s.rooms.gym };
+  // Rooms got levels (1-5) in place of separate upgrades per slot type: a room starts at 1 + the
+  // upgrades already bought for it, and teachers beyond its new slots go back to unassigned.
+  if (!s.roomLevels) {
+    const r = s.rooms;
+    const bought = (value, base, step) => Math.max(0, Math.round(((value ?? base) - base) / step));
+    const trainingLevels = (room) => bought(room.studentCapacity, GYM_CAPACITY, 3) + bought(room.teacherCapacity, GYM_MAX_TEACHERS, 1);
+    const upgrades = {
+      gym: trainingLevels(r.gym),
+      acrobatics: trainingLevels(r.acrobatics),
+      cafeteria: bought(r.cafeteria.teacherCapacity, CAFETERIA_MAX_TEACHERS, 1),
+      research: bought(r.research.teacherCapacity, RESEARCH_ROOM_TEACHERS, 1),
+      infirmary: bought(r.infirmary.studentCapacity, INFIRMARY_CAPACITY, 2) + (r.infirmary.care || 0),
+      farm: bought(r.farm.studentCapacity, FARM_CAPACITY, 5) + bought(r.farm.plots, FACILITY_PLOTS.farm, 2),
+      ranch: bought(r.ranch.studentCapacity, RANCH_CAPACITY, 5) + bought(r.ranch.plots, FACILITY_PLOTS.ranch, 1),
+      scrapyard: bought(r.scrapyard.studentCapacity, SCRAPYARD_CAPACITY, 5),
+    };
+    for (const id of CLASSROOM_IDS) upgrades[`classroom:${id}`] = bought(r.classrooms[id].seats.length, CLASSROOM_CAPACITY, 6);
+    r.crafting = r.crafting || {};
+    r.council = r.council || {};
+    delete r.infirmary.care;
+    for (const key of G.ROOM_KEYS) G.roomState(s, key).level = Math.min(ROOM_MAX_LEVEL, 1 + (upgrades[key] || 0));
+    for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
+    const posted = {};
+    for (const c of s.characters) {
+      if (c.role !== "teacher" || !c.post) continue;
+      posted[c.post] = (posted[c.post] || 0) + 1;
+      if (posted[c.post] > G.roomState(s, G.postRoomKey(c.post)).teacherCapacity) c.post = null;
+    }
+    s.roomLevels = true;
+  }
+  for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
   if (!s.boardedRooms) s.boardedRooms = []; // older saves already had every room open
   // Objectives and the room-fight tutorial are for new schools; an older save starts past them.
   if (!s.objectivesDone) s.objectivesDone = OBJECTIVES.map((o) => o.id);
@@ -376,6 +408,8 @@ function render() {
     ? renderPickerModal(state, openPicker, pickerSortKey, pickerSortDir)
     : openDefenseBuild
     ? renderDefenseBuildModal(state, openDefenseBuild)
+    : openUpgrade
+    ? renderRoomUpgradeModal(state, openUpgrade)
     : openPlot
     ? renderPlotModal(state, openPlot.facility, openPlot.index)
     : state.pendingAssault
@@ -704,8 +738,20 @@ root.addEventListener("click", (e) => {
       render();
       break;
     }
-    case "upgrade-room":
-      G.upgradeRoom(state, el.dataset.roomType, el.dataset.roomId || null, el.dataset.kind);
+    case "open-upgrade":
+      openUpgrade = el.dataset.room;
+      render();
+      break;
+    case "close-upgrade":
+      openUpgrade = null;
+      render();
+      break;
+    case "confirm-upgrade":
+      if (openUpgrade && !G.upgradeRoom(state, openUpgrade)) flash("Not enough scrap for that upgrade yet.");
+      render();
+      break;
+    case "repair-room":
+      if (openUpgrade && !G.repairRoom(state, openUpgrade)) flash("Not enough scrap for the repairs yet.");
       render();
       break;
     case "promote":
@@ -1047,8 +1093,9 @@ root.addEventListener("pointerover", placeInfoTip);
 root.addEventListener("focusin", placeInfoTip);
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openRaid || openNest || scoutReport || clearRoom)) {
+  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
+    openUpgrade = null;
     clearRoom = null;
     openPlot = null;
     openRaid = null;

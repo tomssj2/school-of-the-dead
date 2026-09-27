@@ -845,9 +845,39 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 }
 .scene-upgrade:hover:not(:disabled) { background: rgba(40, 36, 20, 0.92); border-color: #f4d35e; }
 .scene-upgrade:disabled { color: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.15); cursor: not-allowed; }
-.scene-upgrade-cost { display: inline-flex; align-items: center; gap: 2px; color: #fff; font-weight: 600; }
-.scene-upgrade:disabled .scene-upgrade-cost { color: rgba(255, 255, 255, 0.5); }
 .scene-upgrade-maxed { color: #8fd49f; border-color: rgba(143, 212, 159, 0.35); cursor: default; }
+.scene-upgrade-damaged { color: #ff9a7a; border-color: rgba(255, 154, 122, 0.5); }
+
+/* Room level, next to the room's name on its banner plaque. */
+.plaque-level {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(244, 211, 94, 0.16);
+  border: 1px solid rgba(244, 211, 94, 0.4);
+  color: #f4d35e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* The Upgrade popup. */
+.upgrade-modal { max-width: 360px; }
+.upgrade-modal h3 { margin: 0 0 4px; }
+.upg-level { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; color: var(--muted); font-size: 13px; }
+.upg-level b { color: #f4d35e; }
+.upg-pips { display: inline-flex; gap: 4px; }
+.upg-pip { width: 12px; height: 12px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.18); }
+.upg-pip-on { background: #f4d35e; border-color: #f4d35e; }
+.upg-pip-next { border-color: #f4d35e; box-shadow: 0 0 0 2px rgba(244, 211, 94, 0.2); animation: pip-pulse 1.4s ease-in-out infinite; }
+@keyframes pip-pulse { 50% { background: rgba(244, 211, 94, 0.35); } }
+.upg-rows { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.upg-row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; border-radius: 6px; font-size: 13px; color: var(--muted); }
+.upg-row-up { background: rgba(76, 175, 125, 0.12); color: var(--text); }
+.upg-row-up b { color: #7fe0a8; }
+.upg-arrow { color: var(--muted); }
+.upg-damage { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; padding: 6px 8px; border-radius: 6px; background: rgba(255, 120, 90, 0.12); color: #ffb39e; font-size: 13px; }
+.upg-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.upg-note { margin: 0; }
 .check-row-disabled { opacity: 0.55; }
 
 .table-wrap { overflow-x: auto; }
