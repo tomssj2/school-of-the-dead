@@ -6,6 +6,7 @@ import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
+import { maxOutSchool } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
@@ -1284,5 +1285,31 @@ root.addEventListener("change", (e) => {
 applyUiScale();
 window.addEventListener("resize", applyUiScale);
 applyGraphics();
+
+// Test shortcuts, only when the game runs on this computer (the /max and /min project commands
+// run these): schoolDev.max() puts every room at level 5 with every slot filled; schoolDev.min()
+// brings back the game as it was before max() — or a fresh one after a reload. Nothing is saved.
+if (["localhost", "127.0.0.1"].includes(location.hostname)) {
+  let beforeMax = null;
+  window.schoolDev = {
+    max() {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      const summary = maxOutSchool(state);
+      render();
+      return summary;
+    },
+    min() {
+      state = beforeMax ? JSON.parse(beforeMax) : G.createInitialState();
+      const restored = !!beforeMax;
+      beforeMax = null;
+      openPicker = null;
+      openUpgrade = null;
+      openMenu = false;
+      openCardId = null;
+      render();
+      return restored ? "restored the game from before max()" : "started a fresh game (nothing to restore)";
+    },
+  };
+}
 
 render();
