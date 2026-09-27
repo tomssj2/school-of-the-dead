@@ -268,6 +268,17 @@ function nameTag(c, { icon = true } = {}) {
   return `<span class="unit-link" data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${legendary}${role}${esc(shortName(c))}${couple}</span>`;
 }
 
+// A room's teachers on one row: the label, their cards, and — only while there's a free slot and
+// an unassigned teacher to fill it — an Assign button at the right end.
+function staffLine(state, label, teachers, capacity, rowHtml, pickerAttrs) {
+  const canAssign = teachers.length < capacity && state.characters.some((c) => c.role === "teacher" && c.alive && !c.infection && !c.post);
+  return `<div class="staff-row">
+    <span class="mini-label">${label} (${teachers.length}/${capacity})</span>
+    <ul class="assign-list staff-list">${teachers.map(rowHtml).join("") || '<li class="muted">none</li>'}</ul>
+    ${canAssign ? `<button class="btn btn-sm staff-add" ${pickerAttrs} title="Assign a teacher">+ Assign</button>` : ""}
+  </div>`;
+}
+
 // A teacher in a room's staff list: name and their grade for the job, four to a line; the ✕
 // shows on hover. `detail` is short (a grade letter and bonus); `title` says it in full.
 function staffRow(t, detail, title = "") {
@@ -362,9 +373,11 @@ function infoDot(text) {
 // Pixel-art banner for a room with everyone working in it standing on the floor — click one to
 // open their card. Past 7 people the rest collapse into a "+N" chip so nobody overlaps too much.
 const SCENE_MAX_PEOPLE = 7;
-// `actions` (the room's upgrade buttons) stack in the top-right corner.
-function roomScene(kind, people, title, info = "", actions = "") {
-  const shown = people.slice(0, SCENE_MAX_PEOPLE);
+// `actions` (the room's upgrade buttons) stack in the top-right corner; `footer` (the room's
+// headline number, with its own info dot) sits in the bottom-left corner.
+function roomScene(kind, people, title, info = "", actions = "", footer = "") {
+  // With a footer in the bottom-left corner the figures stand in the space to its right (so fewer fit).
+  const shown = people.slice(0, footer ? SCENE_MAX_PEOPLE - 1 : SCENE_MAX_PEOPLE);
   const extra = people.length - shown.length;
   const figures = shown
     .map((c, i) => {
@@ -376,7 +389,9 @@ function roomScene(kind, people, title, info = "", actions = "") {
   return `<div class="room-scene" style="background-image:${sceneBackground(kind)}">
     <div class="scene-plaque">${title}${info ? infoDot(info) : ""}</div>
     ${actions ? `<div class="scene-actions">${actions}</div>` : ""}
-    ${figures}
+    ${footer
+      ? `<div class="scene-bottom"><div class="scene-footer">${footer}</div><div class="scene-figures">${figures}</div></div>`
+      : figures}
     ${extra > 0 ? `<span class="scene-more">+${extra}</span>` : ""}
     ${people.length ? "" : `<span class="scene-empty">empty</span>`}
   </div>`;
@@ -1849,16 +1864,20 @@ function renderTrainingRoom(state, side) {
   const teachers = gymTeachers(state, side);
   const trained = (c) => (side === "PE" ? c.trainedHp || 0 : c.trainedStamina || 0);
   const current = (c) => (side === "PE" ? c.maxHp : c.maxStamina);
+  // How today's gain adds up: 1, plus each teacher's rank in the subject.
+  const gain = gymGain(state, side);
+  const parts = teachers.map((t) => `${teacherRank(t, side)} (${shortName(t)}, ${gradeLetter(t.grades[side])})`);
+  const gainHow = teachers.length
+    ? `Each session gives every student here 1 + the ${info.label} rank of each teacher (F 0 · D 1 · C 2 · B 3 · A 4 · S 5): 1 + ${parts.join(" + ")} = +${gain} ${info.gains}. A student can gain up to +${GYM_MAX_BONUS} in total. Training costs ${STAMINA_COST_GYM} stamina.`
+    : `Each session gives every student here 1 + the ${info.label} rank of each teacher (F 0 · D 1 · C 2 · B 3 · A 4 · S 5). With no teacher it's just +1 ${info.gains} — assign one to add their rank. A student can gain up to +${GYM_MAX_BONUS} in total. Training costs ${STAMINA_COST_GYM} stamina.`;
   return `<div class="room room-${info.roomKey}">
     ${roomScene(info.roomKey, [...teachers, ...students], `${info.room}${levelBadge(state, info.roomKey)}`,
       `Trains ${info.label}, which builds ${info.gains}: every session gives each student here 1 + the combined ${info.label} rank of the teachers posted here (F 0, D 1, C 2, B 3, A 4, S 5), up to +${GYM_MAX_BONUS} ${info.gains} in total. Students also earn ${info.label} grade XP. Up to ${room.studentCapacity} students and ${room.teacherCapacity} teachers; training costs ${STAMINA_COST_GYM} stamina.`,
-      roomUpgradeButton(state, info.roomKey))}
-    <p class="room-tagline">${info.icon} <b>+${gymGain(state, side)} ${info.gains}</b> a session ${teachers.length ? "(1 + teachers' ranks)" : "— a teacher adds their rank"} · ${STAMINA_COST_GYM} stamina</p>
-    <div class="mini-label">Teachers (${teachers.length}/${room.teacherCapacity})</div>
-      <ul class="assign-list staff-list">
-        ${teachers.map((t) => staffRow(t, `${gradeLetter(t.grades[side])} <span class="muted">+${teacherRank(t, side)}</span>`, `${t.name} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])}, adds +${teacherRank(t, side)} a session`)).join("") || '<li class="muted">none</li>'}
-      </ul>
-      ${teachers.length < room.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-teacher" data-post="${side}">+ Assign teacher…</button>` : ""}
+      roomUpgradeButton(state, info.roomKey),
+      `${info.icon} <b>+${gain} ${info.gains}</b> · ${STAMINA_COST_GYM} stamina ${infoDot(gainHow)}`)}
+    ${staffLine(state, "Teachers", teachers, room.teacherCapacity,
+      (t) => staffRow(t, `${gradeLetter(t.grades[side])} <span class="muted">+${teacherRank(t, side)}</span>`, `${t.name} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])}, adds +${teacherRank(t, side)} a session`),
+      `data-action="open-picker" data-kind="gym-teacher" data-post="${side}"`)}
       <div class="mini-label">Training today (${students.length}/${room.studentCapacity})</div>
       ${tileGrid(
         students.map((s) => personTile(s, {
