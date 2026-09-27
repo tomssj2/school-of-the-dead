@@ -25,6 +25,7 @@ import {
 import { zombieSprite } from "./zombies.js";
 import { characterSprite } from "./sprite.js";
 import { getBest, isBestRun } from "./score.js";
+import { getGraphics, GFX_LEVELS } from "./graphics.js";
 import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
 import { isSoundEnabled } from "./sound.js";
 
@@ -495,7 +496,7 @@ function hudStat(floaties, key, iconHtml, tile, value, label, title, { sub = "",
   </span>`;
 }
 
-export function renderTopbar(state, floaties = [], activeTab = "", mobileView = false) {
+export function renderTopbar(state, floaties = [], activeTab = "") {
   const pop = aliveChars(state).length;
   const r = state.resources;
   const infected = infectedChars(state).length;
@@ -523,10 +524,9 @@ export function renderTopbar(state, floaties = [], activeTab = "", mobileView = 
           <button class="options-item" data-action="save-game">💾 Save</button>
           <button class="options-item" data-action="reset-game">🔄 New Game</button>
           ${getBest() ? `<div class="options-item options-note">🏆 Best run: day ${getBest().day}</div>` : ""}
-          <label class="options-item options-toggle">
-            <input type="checkbox" data-action="toggle-mobile-view" ${mobileView ? "checked" : ""}/>
-            📱 Mobile View
-          </label>
+          <div class="options-item options-gfx">🎨 Graphics
+            <span class="gfx-seg">${GFX_LEVELS.map((level) => `<button class="gfx-opt ${getGraphics() === level ? "on" : ""}" data-action="set-gfx" data-gfx="${level}">${level[0].toUpperCase() + level.slice(1)}</button>`).join("")}</span>
+          </div>
           <label class="options-item options-toggle">
             <input type="checkbox" data-action="toggle-sound" ${isSoundEnabled() ? "checked" : ""}/>
             🔊 Sound
@@ -2867,7 +2867,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
 
 // ---------- root ----------
 
-export function renderApp(state, activeTab, rosterFilter = "all", mobileView = false, floaties = [], rosterSortKey = "name", rosterSortDir = "asc") {
+export function renderApp(state, activeTab, rosterFilter = "all", floaties = [], rosterSortKey = "name", rosterSortDir = "asc") {
   let content;
   if (activeTab === "floor1") content = renderFloor1(state);
   else if (activeTab === "floor2") content = renderFloor2(state);
@@ -2886,5 +2886,5 @@ export function renderApp(state, activeTab, rosterFilter = "all", mobileView = f
   else if (activeTab === "log") content = renderLog(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 
-  return `${renderTopbar(state, floaties, activeTab, mobileView)}${renderTabs(state, activeTab)}<div class="content">${content}</div>`;
+  return `${renderTopbar(state, floaties, activeTab)}${renderTabs(state, activeTab)}<div class="content">${content}</div>`;
 }

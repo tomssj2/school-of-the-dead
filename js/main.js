@@ -5,6 +5,7 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
+import { applyGraphics, setGraphics } from "./graphics.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
@@ -37,7 +38,6 @@ let cardTab = "stats";
 let rosterFilter = "all";
 let rosterSortKey = "name";
 let rosterSortDir = "asc";
-let mobileView = false;
 let openMissionLocationId = null;
 let openScoutHex = null; // { q, r } or null
 let fightAnimation = null; // { studentId, ambushed, phase: "clash" | "result" } or null
@@ -403,7 +403,6 @@ function render() {
     flash(`✅ Objective complete: ${finished.map((o) => o.title).join(", ")}`);
   }
 
-  root.classList.toggle("mobile-forced", mobileView);
   // Drives the time-of-day backdrop in style.css: morning, golden afternoon, starry night.
   document.body.dataset.turn = state.gameOver ? "over" : state.victory ? "victory" : String(state.turn);
   // Content eases in only when the tab actually changes, not on every re-render within a tab.
@@ -453,7 +452,7 @@ function render() {
   const oldMap = root.querySelector('.hexmap-wrap');
   const mapScroll = oldMap ? { left: oldMap.scrollLeft, top: oldMap.scrollTop } : null;
   if (state.gameOver || state.victory) recordRun(state, G.aliveChars(state).length);
-  root.innerHTML = renderApp(state, activeTab, rosterFilter, mobileView, floaties, rosterSortKey, rosterSortDir) + modalHtml;
+  root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml;
   const newMap = root.querySelector('.hexmap-wrap');
   if (newMap) {
     newMap.scrollLeft = mapScroll ? mapScroll.left : (newMap.scrollWidth - newMap.clientWidth) / 2;
@@ -1049,6 +1048,10 @@ root.addEventListener("click", (e) => {
       if (!G.cureInfection(state, el.dataset.id)) flash("You need a vial of antiviral serum to cure an infection.");
       render();
       break;
+    case "set-gfx":
+      setGraphics(el.dataset.gfx);
+      render();
+      break;
     case "stay-after-rescue":
       G.stayAfterRescue(state);
       render();
@@ -1213,11 +1216,6 @@ root.addEventListener("change", (e) => {
       render();
       break;
     }
-    case "toggle-mobile-view": {
-      mobileView = el.checked;
-      render();
-      break;
-    }
     case "toggle-sound": {
       setSoundEnabled(el.checked);
       if (el.checked) playSuccess();
@@ -1235,5 +1233,15 @@ root.addEventListener("change", (e) => {
       break;
   }
 });
+
+// PC only: the page is laid out for a 1280px-wide window and scaled to fill the screen — 1× at
+// 720p, 1.5× at 1080p, 3× at 4K — so it looks the same at every resolution, like a game's UI.
+const DESIGN_WIDTH = 1280;
+function applyUiScale() {
+  document.documentElement.style.zoom = String(Math.max(0.5, window.innerWidth / DESIGN_WIDTH));
+}
+applyUiScale();
+window.addEventListener("resize", applyUiScale);
+applyGraphics();
 
 render();
