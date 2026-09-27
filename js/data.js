@@ -405,7 +405,7 @@ export const CLASSROOM_MAX_TEACHERS = 1; // at level 1; more join at room levels
 // GYM_MAX_BONUS in total. Students train in c.gymToday = "PE" | "Gymnastics"; teachers are posted
 // to "gym:PE" / "gym:Gymnastics".
 export const GYM_CAPACITY = 4; // student slots per room at level 1
-export const GYM_MAX_TEACHERS = 2; // base teacher slots per room (training works fine with none)
+export const GYM_MAX_TEACHERS = 1; // teacher slots at level 1 (training works fine with none)
 export const GYM_MAX_BONUS = 100; // most max HP / max stamina a student can gain from training
 export const GYM_SIDES = {
   // `ref` is how a sentence names the room ("training in the Gymnasium", "training in Acrobatics").
@@ -413,7 +413,7 @@ export const GYM_SIDES = {
   Gymnastics: { label: "Gymnastics", icon: "🤸", gains: "max stamina", room: "Acrobatics", ref: "Acrobatics", roomKey: "acrobatics" },
 };
 
-export const CAFETERIA_MAX_TEACHERS = 3; // base teacher (cook) slots — each cook makes one dish a day
+export const CAFETERIA_MAX_TEACHERS = 1; // cook slots at level 1 — each cook makes one dish a day
 
 // Research Room: teachers turn their combined INT (Physics grade) into research points each day.
 export const RESEARCH_ROOM_TEACHERS = 1;
@@ -567,7 +567,8 @@ export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout 
 // recruits well reaches ~30 students by day 30.
 // Every room and facility starts at level 1 and is upgraded one level at a time, up to
 // ROOM_MAX_LEVEL, for scrap. Each level adds student slots (and Farm plots / Ranch pens), the
-// levels in ROOM_TEACHER_LEVELS add a teacher slot, and rooms without students grow a perk
+// levels in ROOM_TEACHER_LEVELS add a teacher slot (every room starts with 1, so 3 at most), and
+// rooms without students grow a perk
 // instead. Rooms are keyed "classroom:<id>", "gym", "acrobatics", "cafeteria", and so on.
 export const ROOM_MAX_LEVEL = 5;
 export const ROOM_TEACHER_LEVELS = [3, 5];

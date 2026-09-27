@@ -16,7 +16,7 @@ import {
 const SAVE_KEY = "school-apocalypse-save-v1";
 
 // Room sizes before rooms had levels and were shrunk — what older saves were built with.
-const LEGACY_SIZE = { classroom: 24, gym: 5, farm: 10, ranch: 10, scrapyard: 10 };
+const LEGACY_SIZE = { classroom: 24, gym: 5, farm: 10, ranch: 10, scrapyard: 10, gymTeachers: 2, cafeteriaTeachers: 3 };
 
 // Costs of the original resource-granting Research tree, which was replaced by buffs. Research
 // spent on those nodes is refunded so it can go into the new tree; what they granted is kept.
@@ -206,7 +206,7 @@ function migrateState(s) {
     const studentLevel = Math.max(0, Math.round((s.rooms.gym.studentCapacity - 10) / 5));
     const teacherLevel = Math.max(0, s.rooms.gym.teacherCapacity - 3);
     s.rooms.gym.studentCapacity = LEGACY_SIZE.gym + 3 * studentLevel;
-    s.rooms.gym.teacherCapacity = GYM_MAX_TEACHERS + teacherLevel;
+    s.rooms.gym.teacherCapacity = LEGACY_SIZE.gymTeachers + teacherLevel;
     for (const c of s.characters) {
       if (c.post === "gym") c.post = "gym:PE";
       if (c.gymToday === true) c.gymToday = "PE";
@@ -226,11 +226,11 @@ function migrateState(s) {
   if (!s.roomLevels) {
     const r = s.rooms;
     const bought = (value, base, step) => Math.max(0, Math.round(((value ?? base) - base) / step));
-    const trainingLevels = (room) => bought(room.studentCapacity, LEGACY_SIZE.gym, 3) + bought(room.teacherCapacity, GYM_MAX_TEACHERS, 1);
+    const trainingLevels = (room) => bought(room.studentCapacity, LEGACY_SIZE.gym, 3) + bought(room.teacherCapacity, LEGACY_SIZE.gymTeachers, 1);
     const upgrades = {
       gym: trainingLevels(r.gym),
       acrobatics: trainingLevels(r.acrobatics),
-      cafeteria: bought(r.cafeteria.teacherCapacity, CAFETERIA_MAX_TEACHERS, 1),
+      cafeteria: bought(r.cafeteria.teacherCapacity, LEGACY_SIZE.cafeteriaTeachers, 1),
       research: bought(r.research.teacherCapacity, RESEARCH_ROOM_TEACHERS, 1),
       infirmary: bought(r.infirmary.studentCapacity, INFIRMARY_CAPACITY, 2) + (r.infirmary.care || 0),
       farm: bought(r.farm.studentCapacity, LEGACY_SIZE.farm, 5) + bought(r.farm.plots, FACILITY_PLOTS.farm, 2),
@@ -246,15 +246,17 @@ function migrateState(s) {
       if (!room.level) room.level = Math.min(ROOM_MAX_LEVEL, 1 + (upgrades[key] || 0));
     }
     for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
-    const posted = {};
-    for (const c of s.characters) {
-      if (c.role !== "teacher" || !c.post) continue;
-      posted[c.post] = (posted[c.post] || 0) + 1;
-      if (posted[c.post] > G.roomState(s, G.postRoomKey(c.post)).teacherCapacity) c.post = null;
-    }
     s.roomLevels = true;
   }
   for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
+  // A room holds only as many teachers as its level allows (1, then 2 at level 3, 3 at level 5):
+  // any beyond that — from an older save with bigger rooms — go back to unassigned.
+  const posted = {};
+  for (const c of s.characters) {
+    if (c.role !== "teacher" || !c.alive || !c.post) continue;
+    posted[c.post] = (posted[c.post] || 0) + 1;
+    if (posted[c.post] > (G.roomState(s, G.postRoomKey(c.post))?.teacherCapacity ?? 0)) G.setTeacherPost(s, c.id, null);
+  }
   // Rooms were shrunk to fit the school (a level-1 classroom went from 24 seats to 12): anyone
   // sitting past a classroom's new last row moves to a free seat, or is left unseated if it's full.
   if (!s.roomSizesV2) {
