@@ -2037,11 +2037,27 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
 .pt-cure { margin-top: auto; padding: 0 5px; border-radius: 4px; border: 1px solid rgba(169, 226, 122, 0.5); background: rgba(0, 0, 0, 0.3); color: #c3f09a; font: inherit; font-size: 10px; line-height: 15px; cursor: pointer; }
 .pt-cure:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* Teacher lists sit in two columns inside a room. */
-.assign-list.two-col { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
-.assign-list.two-col li.muted { grid-column: 1 / -1; }
-/* one line per teacher: a long name is cut short rather than wrapping the row */
-.assign-list.two-col li > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A room's teachers: small cards four to a line — name, then their grade for the job; the ✕
+   takes the grade's place on hover. */
+.assign-list.staff-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.staff-list li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 12.5px;
+}
+.staff-list li.muted { grid-column: 1 / -1; background: none; border: none; padding: 3px 0; }
+.staff-list .assign-who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.staff-grade { flex: none; font-weight: 700; color: #f4d35e; font-size: 12px; }
+.staff-grade .muted { font-weight: 500; }
+.staff-list .btn-x { position: absolute; right: 3px; top: 50%; transform: translateY(-50%); opacity: 0; background: var(--panel-2); border-radius: 4px; }
+.staff-list li:hover .btn-x, .staff-list .btn-x:focus { opacity: 1; }
 
 /* The Cafeteria keeps a one-line menu strip; the full menu is a pop-up. */
 .menu-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 5px 0; }

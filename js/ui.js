@@ -11,7 +11,7 @@ import {
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
-  classroomTeachingBonus, bestClassroomSubjectFor,
+  classroomTeachingBonus, bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
@@ -251,11 +251,27 @@ function statusTag(c, state = null) {
   return `<span class="tag tag-ok">healthy</span>`;
 }
 
-function nameTag(c) {
+// How the UI names people: a teacher by title and surname ("Mrs. Wilson"), a student by first
+// name ("Ella"). The full name stays on their card, in the Roster and in hover tooltips.
+function shortName(c) {
+  const parts = stripHonorific(c.name).split(" ");
+  if (c.role !== "teacher") return parts[0];
+  const title = c.name.match(/^(mr|mrs|ms|dr|miss)\.?(?=\s)/i)?.[0];
+  const surname = parts[parts.length - 1];
+  return title ? `${title} ${surname}` : surname;
+}
+
+function nameTag(c, { icon = true } = {}) {
   const couple = c.coupleId ? " 💞" : "";
-  const role = c.role === "teacher" ? "🎓" : "🧳";
+  const role = icon ? `${c.role === "teacher" ? "🎓" : "🧳"} ` : "";
   const legendary = c.legendary ? "✨ " : "";
-  return `<span class="unit-link" data-action="open-card" data-id="${c.id}">${legendary}${role} ${esc(c.name)}${couple}</span>`;
+  return `<span class="unit-link" data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${legendary}${role}${esc(shortName(c))}${couple}</span>`;
+}
+
+// A teacher in a room's staff list: name and their grade for the job, four to a line; the ✕
+// shows on hover. `detail` is short (a grade letter and bonus); `title` says it in full.
+function staffRow(t, detail, title = "") {
+  return `<li title="${esc(title || t.name)}"><span class="assign-who">${nameTag(t, { icon: false })}</span><span class="staff-grade">${detail}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}" title="Remove ${esc(t.name)}">✕</button></li>`;
 }
 
 // A generic classroom shows as "Classroom N" until a teacher claims it, then as its subject.
@@ -314,7 +330,7 @@ function personTile(c, { bar = "", extra = "", remove = "", title = "", cls = ""
   return `<div class="person-tile ${cls}" title="${esc(title || c.name)}">
     ${remove ? `<button class="btn-x pt-x" data-action="${remove}" data-id="${c.id}" title="Remove ${esc(c.name)}">✕</button>` : ""}
     <span class="pt-portrait" data-action="open-card" data-id="${c.id}">${characterSprite(c, 30)}</span>
-    <span class="pt-name unit-link" data-action="open-card" data-id="${c.id}">${esc(c.name.split(" ")[0])}</span>
+    <span class="pt-name unit-link" data-action="open-card" data-id="${c.id}">${esc(shortName(c))}</span>
     ${extra}
     ${bar}
   </div>`;
@@ -1823,8 +1839,8 @@ function renderTrainingRoom(state, side) {
       roomUpgradeButton(state, info.roomKey))}
     <p class="room-tagline">${info.icon} <b>+${gymGain(state, side)} ${info.gains}</b> a session ${teachers.length ? "(1 + teachers' ranks)" : "— a teacher adds their rank"} · ${STAMINA_COST_GYM} stamina</p>
     <div class="mini-label">Teachers (${teachers.length}/${room.teacherCapacity})</div>
-      <ul class="assign-list two-col">
-        ${teachers.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])} <span class="muted">(+${teacherRank(t, side)})</span></span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+      <ul class="assign-list staff-list">
+        ${teachers.map((t) => staffRow(t, `${gradeLetter(t.grades[side])} <span class="muted">+${teacherRank(t, side)}</span>`, `${t.name} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])}, adds +${teacherRank(t, side)} a session`)).join("") || '<li class="muted">none</li>'}
       </ul>
       ${teachers.length < room.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="gym-teacher" data-post="${side}">+ Assign teacher…</button>` : ""}
       <div class="mini-label">Training today (${students.length}/${room.studentCapacity})</div>
@@ -1861,8 +1877,8 @@ export function renderFloor1(state) {
           roomUpgradeButton(state, "cafeteria"))}
         <p class="room-tagline">Each cook serves one buff dish a day</p>
         <div class="mini-label">Cooks (${cooks.length}/${cafeRoom.teacherCapacity})</div>
-        <ul class="assign-list two-col">
-          ${cooks.map((t) => `<li><span class="assign-who">${nameTag(t)} — CON ${gradeLetter(t.grades.Biology)}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
+        <ul class="assign-list staff-list">
+          ${cooks.map((t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`)).join("") || '<li class="muted">none — assign a cook to start serving dishes</li>'}
         </ul>
         ${cooks.length < cafeRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="cafeteria-teacher">+ Assign cook…</button>` : ""}
         <div class="mini-label">Today's menu (${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served)</div>
@@ -1877,8 +1893,8 @@ export function renderFloor1(state) {
           roomUpgradeButton(state, "infirmary"))}
         <p class="room-tagline">💊 Heal <b>${Math.round(infirmaryHealShare(state) * 100) + nurseBonus}% HP</b> for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine · 😴 Rest <b>+${infirmaryRest(state)} stamina</b></p>
         <div class="mini-label">Nurses (${nurses.length}/${infRoom.teacherCapacity})</div>
-        <ul class="assign-list two-col">
-          ${nurses.map((t) => `<li><span class="assign-who">${nameTag(t)} — CON ${gradeLetter(t.grades.Biology)}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+        <ul class="assign-list staff-list">
+          ${nurses.map((t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`)).join("") || '<li class="muted">none</li>'}
         </ul>
         ${nurses.length < infRoom.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="infirmary-teacher">+ Assign nurse…</button>` : ""}
         <div class="mini-label">Beds (${patients.length + infected.length}/${infRoom.studentCapacity})${infected.length ? ` · <span class="quarantine-label">🦠 ${infected.length} in quarantine · 💉 ${state.resources.serum} serum</span>` : ""}</div>
@@ -2012,8 +2028,8 @@ function renderClassroom(state, roomId) {
       roomUpgradeButton(state, post)
     )}
     <div class="mini-label">Teachers (${teachers.length}/${room.teacherCapacity}) — each gives every student a grade boost</div>
-    <ul class="assign-list two-col">
-      ${teachers.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${teachBonusLabel(t.grades[subject])}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+    <ul class="assign-list staff-list">
+      ${teachers.map((t) => staffRow(t, `${gradeLetter(t.grades[subject])} <span class="muted">+${teachingBonus(t.grades[subject])}</span>`, `${t.name} — ${SUBJECT_LABEL[subject]} ${teachBonusLabel(t.grades[subject])}`)).join("") || '<li class="muted">none</li>'}
     </ul>
     ${teachers.length < room.teacherCapacity ? `<button class="btn btn-sm" data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}">+ Assign teacher…</button>` : ""}
     <div class="mini-label">Seating (${rowCount} rows × 3 desks)</div>
@@ -2068,8 +2084,8 @@ export function renderFloor3(state) {
       ${roomScene(scene, staff, `${title}${levelBadge(state, postKey)}`, "", roomUpgradeButton(state, postKey))}
       <p class="room-tagline">${desc}</p>
       <div class="mini-label">Assigned (${staff.length}/${slots})</div>
-      <ul class="assign-list two-col">
-        ${staff.map((t) => `<li><span class="assign-who">${nameTag(t)} — ${statLabel} ${gradeLetter(t.grades[statKey])}</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+      <ul class="assign-list staff-list">
+        ${staff.map((t) => staffRow(t, gradeLetter(t.grades[statKey]), `${t.name} — ${statLabel} ${gradeLetter(t.grades[statKey])}`)).join("") || '<li class="muted">none</li>'}
       </ul>
       ${staff.length < slots ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="${postKey}">+ Assign teacher…</button>` : ""}
     </div>`;
@@ -2099,8 +2115,8 @@ export function renderFloor3(state) {
           roomUpgradeButton(state, "research"))}
         <p class="room-tagline">Producing <b>${researchRoomYield(state)} research/day</b> from the team's INT</p>
         <div class="mini-label">Researchers (${researchers.length}/${researchSlots})</div>
-        <ul class="assign-list two-col">
-          ${researchers.map((t) => `<li><span class="assign-who">${nameTag(t)} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)})</span><button class="btn-x" data-action="clear-post" data-id="${t.id}">✕</button></li>`).join("") || '<li class="muted">none</li>'}
+        <ul class="assign-list staff-list">
+          ${researchers.map((t) => staffRow(t, gradeLetter(t.grades.Physics), `${t.name} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)})`)).join("") || '<li class="muted">none</li>'}
         </ul>
         ${researchers.length < researchSlots ? `<button class="btn btn-sm" data-action="open-picker" data-kind="utility" data-post="research">+ Assign teacher…</button>` : ""}
       </div>`}
