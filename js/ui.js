@@ -2074,36 +2074,6 @@ function renderClassroom(state, roomId) {
   if (isBoarded(state, post)) return renderBoardedRoom(state, post, "classroom_empty", "room-classroom");
   const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === post && c.alive);
 
-  const rowCount = room.seats.length / 6;
-  let seatsHtml = "";
-  for (let row = 0; row < rowCount; row++) {
-    let rowHtml = `<div class="seat-row">`;
-    for (let desk = 0; desk < 3; desk++) {
-      rowHtml += `<div class="desk">`;
-      for (let slot = 0; slot < 2; slot++) {
-        const idx = row * 6 + desk * 2 + slot;
-        const occupantId = room.seats[idx];
-        if (occupantId) {
-          const occ = getChar(state, occupantId);
-          const partner = deskPartner(state, occupantId);
-          const bond = partner ? occ.bonds[partner.id] || 0 : 0;
-          const couple = occ.coupleId && partner && occ.coupleId === partner.id;
-          rowHtml += `<div class="seat seat-occ ${couple ? "seat-couple" : ""}" title="${esc(occ.name)} — bond ${bond}">
-            <span class="seat-name" data-action="open-card" data-id="${occ.id}">${occ.gender === "F" ? "👧" : "👦"} ${esc(occ.name.split(" ")[0])}</span>
-            <button class="btn-x" data-action="unseat" data-id="${occ.id}">✕</button>
-          </div>`;
-        } else {
-          rowHtml += `<div class="seat seat-empty">
-            <button class="btn-seat-assign" data-action="open-picker" data-kind="classroom-seat" data-room="${roomId}" data-seat="${idx}">+ empty</button>
-          </div>`;
-        }
-      }
-      rowHtml += `</div>`;
-    }
-    rowHtml += `</div>`;
-    seatsHtml += rowHtml;
-  }
-
   const count = room.seats.filter(Boolean).length;
   // Every teacher here adds their grade's bonus to each seated student's ${subject} stat.
   const classBonus = subject ? teachers.reduce((sum, t) => sum + teachingBonus(t.grades[subject]), 0) : 0;
@@ -2111,12 +2081,33 @@ function renderClassroom(state, roomId) {
     ? `Every student seated here gets a standing bonus to ${SUBJECT_LABEL[subject]} (${STAT_OF_SUBJECT[subject]}) from each teacher's grade: ${teachers.map((t) => `+${teachingBonus(t.grades[subject])} (${shortName(t)}, ${gradeLetter(t.grades[subject])})`).join(" + ") || "none yet"} = +${classBonus}. It lasts while they teach here; grades themselves grow with class XP either way.`
     : "";
 
+  // Deskmates (seats 2k and 2k+1) sit side by side at one desk — they bond — so the tiles come in
+  // pairs, four desks to a row.
+  const seatTile = (idx) => {
+    const occ = getChar(state, room.seats[idx]);
+    if (!occ) {
+      return `<button class="person-tile pt-empty" data-action="open-picker" data-kind="classroom-seat" data-room="${roomId}" data-seat="${idx}" title="Seat someone here">+</button>`;
+    }
+    const partner = deskPartner(state, occ.id);
+    const bond = partner ? occ.bonds[partner.id] || 0 : 0;
+    const couple = occ.coupleId && partner && occ.coupleId === partner.id;
+    const grade = subject ? occ.grades[subject] : null;
+    return personTile(occ, {
+      cls: couple ? "pt-couple" : "",
+      remove: "unseat",
+      title: `${occ.name}${partner ? ` — deskmate ${partner.name}, bond ${bond}${couple ? " 💞" : ""}` : ""}${subject ? ` · ${STAT_OF_SUBJECT[subject]} ${grade} → ${grade + classBonus} with the teachers' bonus` : ""}`,
+      extra: subject ? gainLine(grade, grade + classBonus, "") : "",
+    });
+  };
+  const desks = [];
+  for (let i = 0; i < room.seats.length; i += 2) desks.push(`<div class="pt-desk">${seatTile(i)}${seatTile(i + 1)}</div>`);
+
   return `
   <div class="room room-classroom">
     ${roomScene(
       subject ? `classroom_${subject}` : "classroom_empty",
       [...teachers, ...room.seats.filter(Boolean).map((id) => getChar(state, id)).filter((c) => c && c.alive)],
-      `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`}${levelBadge(state, post)} <span class="plaque-sub">${count}/${room.seats.length}</span>`,
+      `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`}${levelBadge(state, post)}`,
       subject ? "" : "Unassigned — the first teacher posted here decides the subject.",
       roomUpgradeButton(state, post),
       subject
@@ -2126,8 +2117,8 @@ function renderClassroom(state, roomId) {
     ${staffLine(state, "Teachers", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[subject])} <span class="muted">+${teachingBonus(t.grades[subject])}</span>`, `${t.name} — ${SUBJECT_LABEL[subject]} ${teachBonusLabel(t.grades[subject])}`),
       `data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}"`)}
-    <div class="mini-label">Seating (${rowCount} rows × 3 desks)</div>
-    <div class="seat-grid">${seatsHtml}</div>
+    <div class="mini-label">Students (${count}/${room.seats.length}) · deskmates bond</div>
+    <div class="desk-tiles">${desks.join("")}</div>
   </div>`;
 }
 
