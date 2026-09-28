@@ -451,9 +451,9 @@ export function tipFromText(text) {
 // photo. Past SCENE_MAX_PEOPLE the rest collapse into a "+N" chip.
 const SCENE_ROW = 9;
 const SCENE_MAX_PEOPLE = 18;
-// `actions` (the Upgrade button) sits in the bottom-left corner with the figures to its right;
-// `footer` (the room's headline number, with its own info dot) sits in the top-right corner.
-function roomScene(kind, people, title, info = "", actions = "", footer = "") {
+// `actions` (the Upgrade button) sits in the bottom-left corner with the figures to its right.
+// The room's headline number goes under the teacher row instead (statRow).
+function roomScene(kind, people, title, info = "", actions = "") {
   const shown = [...people].sort((a, b) => (b.role === "teacher") - (a.role === "teacher")).slice(0, SCENE_MAX_PEOPLE);
   const extra = people.length - shown.length;
   const twoRows = shown.length > SCENE_ROW;
@@ -474,13 +474,18 @@ function roomScene(kind, people, title, info = "", actions = "", footer = "") {
   return `<div class="room-scene" style="background-image:${sceneBackground(kind)}">
     <div class="scene-top">
       <div class="scene-plaque">${title}${info ? infoDot(info) : ""}</div>
-      ${footer ? `<div class="scene-footer">${footer}</div>` : ""}
     </div>
     ${actions
       ? `<div class="scene-bottom"><div class="scene-actions">${actions}</div><div class="scene-figures">${figures}</div></div>`
       : figures}
     ${extra > 0 ? `<span class="scene-more">+${extra}</span>` : ""}
   </div>`;
+}
+
+// A room's section label (e.g. "Students (12/16)") with its headline number and info dot at the
+// right end — under the teacher row, so the banner's art stays clear.
+function statRow(label, pill) {
+  return `<div class="stat-row"><span class="mini-label">${label}</span>${pill ? `<span class="stat-pill">${pill}</span>` : ""}</div>`;
 }
 
 // A room still overrun from the first night: its scene boarded over, and the cost to clear it.
@@ -2043,12 +2048,11 @@ function renderTrainingRoom(state, side) {
   return `<div class="room room-${info.roomKey}">
     ${roomScene(`${info.roomKey}@${level}`, [...teachers, ...students], `${info.room}${levelBadge(state, info.roomKey)}`,
       "",
-      roomUpgradeButton(state, info.roomKey),
-      `${info.icon} <b>+${lesson.gain}</b> ${info.gains} · up to ${lesson.ceiling} ${infoDot(gainHow)}`)}
+      roomUpgradeButton(state, info.roomKey))}
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[side])} <span class="muted">+${teachingBonus(t.grades[side])}</span>`, `${t.name} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])}, adds +${teachingBonus(t.grades[side])} a session`),
       `data-action="open-picker" data-kind="gym-teacher" data-post="${side}"`)}
-      <div class="mini-label">Training today (${students.length}/${room.studentCapacity})</div>
+      ${statRow(`Training today (${students.length}/${room.studentCapacity})`, `${info.icon} <b>+${lesson.gain}</b> ${info.gains} · up to ${lesson.ceiling} ${infoDot(gainHow)}`)}
       ${tileGrid(
         students.map((s) => personTile(s, {
           extra: gainLine(s.grades[side], s.grades[side] + trainingGain(state, s, side), "max"),
@@ -2104,12 +2108,11 @@ export function renderFloor1(state) {
       <div class="room room-cafeteria">
         ${roomScene(`cafeteria@${cafeLevel}`, [...cooks, ...resting], `Cafeteria${levelBadge(state, "cafeteria")}`,
           "",
-          roomUpgradeButton(state, "cafeteria"),
-          `🍲 <b>${dishCapacity(state)}</b> dish${dishCapacity(state) === 1 ? "" : "es"} a day · 😴 <b>+${cafeteriaRest(state)}</b> stamina ${infoDot(cafeHow)}`)}
+          roomUpgradeButton(state, "cafeteria"))}
         ${staffLine(state, "Cook", cooks, cafeRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
           'data-action="open-picker" data-kind="cafeteria-teacher"')}
-        <div class="mini-label">Resting today (${resting.length}/${cafeRoom.studentCapacity})</div>
+        ${statRow(`Resting today (${resting.length}/${cafeRoom.studentCapacity})`, `🍲 <b>${dishCapacity(state)}</b> dish${dishCapacity(state) === 1 ? "" : "es"} a day · 😴 <b>+${cafeteriaRest(state)}</b> stamina ${infoDot(cafeHow)}`)}
         ${tileGrid(
           resting.map((s) => {
             const to = Math.min(s.maxStamina, s.stamina + cafeteriaRest(state));
@@ -2127,12 +2130,11 @@ export function renderFloor1(state) {
       <div class="room room-infirmary">
         ${roomScene(`infirmary@${roomLevel(state, "infirmary")}`, [...nurses, ...infected, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
           "",
-          roomUpgradeButton(state, "infirmary"),
-          `💊 Heal <b>+${healHp}</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`)}
+          roomUpgradeButton(state, "infirmary"))}
         ${staffLine(state, "Nurse", nurses, infRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
           'data-action="open-picker" data-kind="infirmary-teacher"')}
-        <div class="mini-label">Healing today (${patients.length}/${infRoom.studentCapacity})</div>
+        ${statRow(`Healing today (${patients.length}/${infRoom.studentCapacity})`, `💊 Heal <b>+${healHp}</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`)}
         ${tileGrid(
           [
             ...patients.map((s) => {
@@ -2293,15 +2295,14 @@ function renderClassroom(state, roomId) {
       [...teachers, ...room.seats.filter(Boolean).map((id) => getChar(state, id)).filter((c) => c && c.alive)],
       `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`}${levelBadge(state, post)}`,
       "",
-      roomUpgradeButton(state, post),
-      lesson.subject
-        ? `📚 <b>+${lesson.gain}</b> ${STAT_OF_SUBJECT[subject]} a day · up to ${lesson.ceiling} ${infoDot(classHow)}`
-        : `📚 No subject yet ${infoDot({ title: "📚 No subject yet", notes: ["The first teacher posted here picks the subject — whatever they're best at", "No teacher, no class"] })}`
+      roomUpgradeButton(state, post)
     )}
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[subject])} <span class="muted">+${teachingBonus(t.grades[subject])}</span>`, `${t.name} — ${SUBJECT_LABEL[subject]} ${teachBonusLabel(t.grades[subject])}`),
       `data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}"`)}
-    <div class="mini-label">Students (${count}/${room.seats.length})</div>
+    ${statRow(`Students (${count}/${room.seats.length})`, lesson.subject
+      ? `📚 <b>+${lesson.gain}</b> ${STAT_OF_SUBJECT[subject]} a day · up to ${lesson.ceiling} ${infoDot(classHow)}`
+      : `📚 No subject yet ${infoDot({ title: "📚 No subject yet", notes: ["The first teacher posted here picks the subject — whatever they're best at", "No teacher, no class"] })}`)}
     <div class="desk-tiles">${desks.join("")}</div>
   </div>`;
 }
@@ -2341,14 +2342,14 @@ export function renderFloor3(state) {
     notes: [`Students at level ${PROMOTE_LEVEL_THRESHOLD}+ can become teachers — they teach their best subject`, `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`, "Expel someone from their character card"],
   };
   const office = `<div class="room room-office">
-    ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office", "", "", `🎓 <b>${teacherCount(state)}/${MAX_TEACHERS}</b> teachers ${infoDot(officeHow)}`)}
+    ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office")}
     <div class="office-split">
       <div>
-        <div class="mini-label">Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more ready` : ""}</div>
+        ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, `🎓 <b>${teacherCount(state)}/${MAX_TEACHERS}</b> teachers ${infoDot(officeHow)}`)}
         <div class="person-tiles">${readyTiles.join("")}${placeholders(promoSlots - shownReady.length)}</div>
       </div>
       <div>
-        <div class="mini-label">Recruits (${pool.length}/${recSlots})</div>
+        ${statRow(`Recruits (${pool.length}/${recSlots})`, "")}
         <div class="person-tiles">${recruitTiles.join("")}${placeholders(recSlots - pool.length)}</div>
       </div>
     </div>
@@ -2367,16 +2368,17 @@ export function renderFloor3(state) {
         notes: ["Post high-INT teachers here", "Research buys the tech tree and the Radio Station's upgrades"],
       }
     : { title: "🧠 No research yet", notes: [`Post a teacher: 1 research for every ${RESEARCH_ROOM_INT_PER_POINT} INT, plus a level bonus`] };
-  // `footer(staff)` gives the room's banner line: its daily result with a breakdown.
+  // `footer(staff)` gives the room's headline: its daily result with a breakdown.
   const utilityRoom = (scene, title, desc, postKey, statLabel, statKey, footer) => {
     if (isBoarded(state, postKey)) return renderBoardedRoom(state, postKey, scene, "room-utility");
     const staff = state.characters.filter((c) => c.role === "teacher" && c.post === postKey && c.alive);
     const slots = state.rooms[postKey].teacherCapacity;
     return `<div class="room room-utility">
-      ${roomScene(`${scene}@${roomLevel(state, postKey)}`, staff, `${title}${levelBadge(state, postKey)}`, desc, roomUpgradeButton(state, postKey), footer(staff))}
+      ${roomScene(`${scene}@${roomLevel(state, postKey)}`, staff, `${title}${levelBadge(state, postKey)}`, desc, roomUpgradeButton(state, postKey))}
       ${staffLine(state, "Teacher", staff, slots,
         (t) => staffRow(t, gradeLetter(t.grades[statKey]), `${t.name} — ${statLabel} ${gradeLetter(t.grades[statKey])}`),
         `data-action="open-picker" data-kind="utility" data-post="${postKey}"`)}
+      ${statRow("Output", footer(staff))}
     </div>`;
   };
   // Crafting: each crafter turns up to 4 scrap into fortification, in turn, while the scrap lasts.
@@ -2423,11 +2425,11 @@ export function renderFloor3(state) {
       ? state.rescue.evacuated ? "🚁 The helicopter has come and gone" : `🚁 Helicopter lands on <b>day ${state.rescue.day}</b> · 📻 ${pct(chance)}`
       : `📻 <b>${pct(chance)}</b> chance of a recruit a day`;
     return `<div class="room room-radio">
-      ${roomScene(`radio@${radioStage(state)}`, [...teachers, ...onAir], `Radio Station${levelBadge(state, "radio")}`, "", roomUpgradeButton(state, "radio"), `${pill} ${infoDot(how)}`)}
+      ${roomScene(`radio@${radioStage(state)}`, [...teachers, ...onAir], `Radio Station${levelBadge(state, "radio")}`, "", roomUpgradeButton(state, "radio"))}
       ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
         (t) => staffRow(t, `${gradeLetter(t.grades.SocialStudies)} <span class="muted">+${pct(radioCrewBonus(t))}</span>`, `${t.name} — CHA ${t.grades.SocialStudies}, adds ${pct(radioCrewBonus(t))} a day`),
         'data-action="open-picker" data-kind="utility" data-post="radio"')}
-      <div class="mini-label">On the air today (${onAir.length}/${room.studentCapacity})</div>
+      ${statRow(`On the air today (${onAir.length}/${room.studentCapacity})`, `${pill} ${infoDot(how)}`)}
       ${tileGrid(
         onAir.map((s) => personTile(s, {
           remove: "remove-radio",
@@ -2449,11 +2451,11 @@ export function renderFloor3(state) {
       ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
         ${roomScene(`research@${roomLevel(state, "research")}`, researchers, `Research Room${levelBadge(state, "research")}`,
           "",
-          roomUpgradeButton(state, "research"),
-          `🧠 <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`)}
+          roomUpgradeButton(state, "research"))}
         ${staffLine(state, "Teacher", researchers, researchSlots,
           (t) => staffRow(t, gradeLetter(t.grades.Physics), `${t.name} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)})`),
           'data-action="open-picker" data-kind="utility" data-post="research"')}
+        ${statRow("Output", `🧠 <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`)}
       </div>`}
       ${utilityRoom("crafting", "Crafting Room", "", "crafting", "DEX", "Gymnastics", craftingFooter)}
     </div>
@@ -2487,9 +2489,8 @@ function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "")
 
   return `
   <div class="card room-outside">
-    ${roomScene(`${roomKey}@${roomLevel(state, roomKey)}`, workers, `${title}${levelBadge(state, roomKey)}`, desc, roomUpgradeButton(state, roomKey),
-      `${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}`)}
-    <div class="mini-label">Working today (${workers.length}/${room.studentCapacity})</div>
+    ${roomScene(`${roomKey}@${roomLevel(state, roomKey)}`, workers, `${title}${levelBadge(state, roomKey)}`, desc, roomUpgradeButton(state, roomKey))}
+    ${statRow(`Working today (${workers.length}/${room.studentCapacity})`, `${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}`)}
     ${tileGrid(
       workers.map((s) => personTile(s, { remove: `remove-${roomKey}` })),
       room.studentCapacity - workers.length,
