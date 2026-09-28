@@ -669,13 +669,13 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 }
 .scene-more { font-weight: 700; color: #fff; }
 /* A room's section label and its headline number in one full-width pill (under the teacher row):
-   the label on the left, the number and its info dot on the right. */
+   the number and its info dot on the left, the label on the right. */
 .stat-row {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   box-sizing: border-box; height: 30px; margin: 8px 0 6px; padding: 0 10px;
   border-radius: 7px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border);
 }
-.stat-row > .mini-label { margin: 0; white-space: nowrap; }
+.stat-row > .mini-label { margin: 0 0 0 auto; white-space: nowrap; }
 .stat-pill { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 12.5px; white-space: nowrap; }
 .stat-pill b { color: #7fe0a8; }
 

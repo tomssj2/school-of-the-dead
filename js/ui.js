@@ -482,10 +482,10 @@ function roomScene(kind, people, title, info = "", actions = "") {
   </div>`;
 }
 
-// A room's section label (e.g. "Students (12/16)") with its headline number and info dot at the
-// right end — under the teacher row, so the banner's art stays clear.
+// A room's headline number and info dot on the left, its section label (e.g. "Students (12/16)")
+// on the right, in one full-width pill under the teacher row, so the banner's art stays clear.
 function statRow(label, pill) {
-  return `<div class="stat-row"><span class="mini-label">${label}</span>${pill ? `<span class="stat-pill">${pill}</span>` : ""}</div>`;
+  return `<div class="stat-row">${pill ? `<span class="stat-pill">${pill}</span>` : ""}<span class="mini-label">${label}</span></div>`;
 }
 
 // A room still overrun from the first night: its scene boarded over, and the cost to clear it.
