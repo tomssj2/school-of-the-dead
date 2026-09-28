@@ -576,6 +576,9 @@ export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout 
 // rooms without students grow a perk
 // instead. Rooms are keyed "classroom:<id>", "gym", "acrobatics", "cafeteria", and so on.
 export const ROOM_MAX_LEVEL = 5;
+// The stat a room itself gives each student, by its level: the base of every Gymnasium /
+// Acrobatics session (teachers' ranks come on top) and a classroom's standing bonus to its subject.
+export const ROOM_STAT_BONUS_BY_LEVEL = [1, 3, 5, 7, 10];
 export const ROOM_TEACHER_LEVELS = [5];
 export const roomUpgradeCost = (level) => 20 * level; // from `level` to the next: 20, 40, 60, 80
 export const ROOM_REPAIR_COST = 10; // scrap per worker slot a facility raid broke
@@ -586,10 +589,14 @@ export const COUNCIL_CHANCE_BY_LEVEL = [0, 0.03, 0.06, 0.09, 0.12]; // added to 
 const roomSlots = (label, base, per = 0) => ({ label, base, per });
 const training = (name, ref) => ({
   name, ref, students: roomSlots("Student slots", GYM_CAPACITY, 3), teachers: roomSlots("Teacher slots", GYM_MAX_TEACHERS),
+  perks: [{ label: "Room bonus", by: ROOM_STAT_BONUS_BY_LEVEL, fmt: (v) => `+${v} a session` }],
 });
 // `ref` is how a sentence names the room when "the <name>" doesn't read well.
 export const ROOM_LEVELS = {
-  classroom: { name: "Classroom", students: roomSlots("Seats", CLASSROOM_CAPACITY, CLASSROOM_SEATS_PER_LEVEL), teachers: roomSlots("Teachers", CLASSROOM_MAX_TEACHERS) },
+  classroom: {
+    name: "Classroom", students: roomSlots("Seats", CLASSROOM_CAPACITY, CLASSROOM_SEATS_PER_LEVEL), teachers: roomSlots("Teachers", CLASSROOM_MAX_TEACHERS),
+    perks: [{ label: "Room bonus", by: ROOM_STAT_BONUS_BY_LEVEL, fmt: (v) => `+${v} to the subject` }],
+  },
   gym: training("Gymnasium"),
   acrobatics: training("Acrobatics", "the Acrobatics room"),
   cafeteria: {

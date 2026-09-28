@@ -2,7 +2,7 @@ import {
   SUBJECTS, MALE_NAMES, FEMALE_NAMES, LAST_NAMES, GRADE_TIERS, GRADE_RANGES,
   STUDENT_TIER_WEIGHTS, TEACHER_SECONDARY_TIERS, TEACHER_SECONDARY_WEIGHTS, TRAITS,
   STAT_OF_SUBJECT, TEACH_BONUS_BY_TIER, ITEM_TEMPLATES, STARTER_ARMORY_IDS, CLASSROOM_SUBJECTS,
-  LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING,
+  LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING, ROOM_STAT_BONUS_BY_LEVEL,
 } from "./data.js";
 
 let _idCounter = 1;
@@ -91,8 +91,10 @@ export function classroomTeachingBonus(state, c, subject) {
   const teachers = state.characters.filter(
     (t) => t.role === "teacher" && t.alive && t.post === `classroom:${c.seat.room}`
   );
-  return teachers.reduce((sum, t) => sum + teachingBonus(t.grades[subject]), 0);
+  return classroomLevelBonus(room) + teachers.reduce((sum, t) => sum + teachingBonus(t.grades[subject]), 0);
 }
+// What a classroom itself adds to its subject, by its level (on top of the teachers' bonuses).
+export const classroomLevelBonus = (room) => ROOM_STAT_BONUS_BY_LEVEL[(room.level || 1) - 1];
 
 // A subject's grade plus any equipment bonus to its stat, plus any classroom teaching bonus —
 // used for combat/expedition math. Academic grades themselves (and their letter tiers) are

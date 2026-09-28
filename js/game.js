@@ -6,7 +6,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
-  ROOM_LEVELS, ROOM_MAX_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
+  ROOM_LEVELS, ROOM_MAX_LEVEL, ROOM_STAT_BONUS_BY_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, COUNCIL_CHANCE_BY_LEVEL,
   STAMINA_COST_GYM, STAMINA_COST_EXPLORE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
@@ -485,9 +485,11 @@ export function gymTeachers(state, side) {
 export const teacherRank = (t, subject) => GRADE_TIERS.indexOf(gradeLetter(t.grades[subject]));
 
 // Max HP (Gymnasium) or max stamina (Acrobatics) each student gains from one session there.
+// A session's gain: the room's level bonus, plus each teacher's rank in the subject.
 export function gymGain(state, side) {
-  return 1 + gymTeachers(state, side).reduce((sum, t) => sum + teacherRank(t, side), 0);
+  return gymLevelBonus(state, side) + gymTeachers(state, side).reduce((sum, t) => sum + teacherRank(t, side), 0);
 }
+export const gymLevelBonus = (state, side) => ROOM_STAT_BONUS_BY_LEVEL[roomLevel(state, GYM_SIDES[side].roomKey) - 1];
 
 // What one session adds to a student's max HP (PE) or max stamina (Gymnastics): the room's gain,
 // capped by how much they can still train (GYM_MAX_BONUS in total).

@@ -10,14 +10,14 @@ import {
   RESCUE_DELAY_DAYS, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
-  overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
+  overallLevel, gradeLetter, classroomLevelBonus, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
   classroomTeachingBonus, bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, councilChance, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
-  gymTeachers, gymGain, gymRoom, teacherRank, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
+  gymTeachers, gymGain, gymLevelBonus, gymRoom, teacherRank, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
@@ -1871,15 +1871,15 @@ function renderTrainingRoom(state, side) {
   const teachers = gymTeachers(state, side);
   const trained = (c) => (side === "PE" ? c.trainedHp || 0 : c.trainedStamina || 0);
   const current = (c) => (side === "PE" ? c.maxHp : c.maxStamina);
-  // How today's gain adds up: 1, plus each teacher's rank in the subject.
+  // How today's gain adds up: the room's level bonus, plus each teacher's rank in the subject.
   const gain = gymGain(state, side);
+  const levelBonus = gymLevelBonus(state, side);
+  const level = roomLevel(state, info.roomKey);
   const parts = teachers.map((t) => `${teacherRank(t, side)} (${shortName(t)}, ${gradeLetter(t.grades[side])})`);
-  const gainHow = teachers.length
-    ? `Each session gives every student here 1 + the ${info.label} rank of each teacher (F 0 · D 1 · C 2 · B 3 · A 4 · S 5): 1 + ${parts.join(" + ")} = +${gain} ${info.gains}. A student can gain up to +${GYM_MAX_BONUS} in total. Training costs ${STAMINA_COST_GYM} stamina.`
-    : `Each session gives every student here 1 + the ${info.label} rank of each teacher (F 0 · D 1 · C 2 · B 3 · A 4 · S 5). With no teacher it's just +1 ${info.gains} — assign one to add their rank. A student can gain up to +${GYM_MAX_BONUS} in total. Training costs ${STAMINA_COST_GYM} stamina.`;
+  const gainHow = `Each session gives every student here the room's bonus (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus the ${info.label} rank of each teacher (F 0 · D 1 · C 2 · B 3 · A 4 · S 5): ${levelBonus} (level ${level})${parts.length ? ` + ${parts.join(" + ")}` : " — no teacher yet"} = +${gain} ${info.gains}. A student can gain up to +${GYM_MAX_BONUS} in total. Training costs ${STAMINA_COST_GYM} stamina.`;
   return `<div class="room room-${info.roomKey}">
     ${roomScene(info.roomKey, [...teachers, ...students], `${info.room}${levelBadge(state, info.roomKey)}`,
-      `Trains ${info.label}, which builds ${info.gains}: every session gives each student here 1 + the combined ${info.label} rank of the teachers posted here (F 0, D 1, C 2, B 3, A 4, S 5), up to +${GYM_MAX_BONUS} ${info.gains} in total. Students also earn ${info.label} grade XP. Up to ${room.studentCapacity} students and ${room.teacherCapacity} teachers; training costs ${STAMINA_COST_GYM} stamina.`,
+      `Trains ${info.label}, which builds ${info.gains}: every session gives each student here the room's level bonus + the combined ${info.label} rank of the teachers posted here (F 0, D 1, C 2, B 3, A 4, S 5), up to +${GYM_MAX_BONUS} ${info.gains} in total. Students also earn ${info.label} grade XP. Up to ${room.studentCapacity} students and ${room.teacherCapacity} teachers; training costs ${STAMINA_COST_GYM} stamina.`,
       roomUpgradeButton(state, info.roomKey),
       `${info.icon} <b>+${gain} ${info.gains}</b> · ${STAMINA_COST_GYM} stamina ${infoDot(gainHow)}`)}
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
@@ -2082,10 +2082,11 @@ function renderClassroom(state, roomId) {
   const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === post && c.alive);
 
   const count = room.seats.filter(Boolean).length;
-  // Every teacher here adds their grade's bonus to each seated student's ${subject} stat.
-  const classBonus = subject ? teachers.reduce((sum, t) => sum + teachingBonus(t.grades[subject]), 0) : 0;
+  // The room's level bonus plus every teacher's grade bonus, on each seated student's ${subject} stat.
+  const levelBonus = classroomLevelBonus(room);
+  const classBonus = subject ? levelBonus + teachers.reduce((sum, t) => sum + teachingBonus(t.grades[subject]), 0) : 0;
   const classHow = subject
-    ? `Every student seated here gets a standing bonus to ${SUBJECT_LABEL[subject]} (${STAT_OF_SUBJECT[subject]}) from each teacher's grade: ${teachers.map((t) => `+${teachingBonus(t.grades[subject])} (${shortName(t)}, ${gradeLetter(t.grades[subject])})`).join(" + ") || "none yet"} = +${classBonus}. It lasts while they teach here; grades themselves grow with class XP either way.`
+    ? `Every student seated here gets a standing bonus to ${SUBJECT_LABEL[subject]} (${STAT_OF_SUBJECT[subject]}): the room's own (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus each teacher's grade bonus. +${levelBonus} (level ${room.level || 1})${teachers.map((t) => ` + ${teachingBonus(t.grades[subject])} (${shortName(t)}, ${gradeLetter(t.grades[subject])})`).join("")} = +${classBonus}. It lasts while they're seated here; grades themselves grow with class XP either way.`
     : "";
 
   // Deskmates (seats 2k and 2k+1) sit side by side at one desk — they bond — so the tiles come in
