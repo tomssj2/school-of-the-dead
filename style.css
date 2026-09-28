@@ -723,19 +723,19 @@ html[data-gfx="low"] .staff-add { animation: none; }
   outline: none;
 }
 .info-dot:hover, .info-dot:focus { background: var(--turn-accent); color: #111; border-color: var(--turn-accent); }
-/* The tooltip itself: shown while the dot is hovered or focused, and position: fixed so a scrolling
-   panel can't clip it — main.js (placeInfoTip) sets --tip-x / --tip-y / --tip-b from the dot. A
-   title, a breakdown (labels left, numbers right, a total under a rule) and short bullet notes. */
-.info-dot .tip-box, .hover-tip {
+/* The one tooltip box: a direct child of <body>, above everything (pop-ups included), placed by
+   main.js next to whatever is hovered. An info dot only carries its tooltip's markup (hidden);
+   main.js shows it in this box. A title, a breakdown (labels left, numbers right, a total under a
+   rule) and short bullet notes — or a single line. */
+.info-dot .tip-box { display: none; }
+.hover-tip {
   display: none;
   position: fixed;
-  left: var(--tip-x, 8px);
-  top: var(--tip-y, auto);
-  bottom: var(--tip-b, auto);
-  z-index: 200;
+  left: 0;
+  top: 0;
+  z-index: 5000;
   box-sizing: border-box;
   width: max-content;
-  min-width: 190px;
   max-width: 280px;
   padding: 9px 11px;
   border-radius: 8px;
@@ -750,10 +750,8 @@ html[data-gfx="low"] .staff-add { animation: none; }
   pointer-events: none;
   animation: tip-in 0.12s ease-out;
 }
-.info-dot:hover .tip-box, .info-dot:focus .tip-box { display: block; }
-/* Every other tooltip in the game (title / data-tip), in the same box — main.js places it. */
-.hover-tip { z-index: 300; min-width: 0; }
 .hover-tip.show { display: block; }
+.hover-tip:has(.tip-title, .tip-rows) { min-width: 190px; }
 .tip-plain { display: block; }
 .tip-title { display: block; font-weight: 700; font-size: 13px; color: #fff; padding-bottom: 5px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
 .tip-rows { display: grid; grid-template-columns: 1fr auto; column-gap: 16px; row-gap: 2px; }

@@ -85,7 +85,8 @@ function hideHoverTip() {
   hoverTip.classList.remove("show");
 }
 function showHoverTip(el) {
-  const html = el.dataset.tip || tipFromText(el.dataset.tipText || "");
+  // An info dot carries its tooltip inside it (hidden); everything else in data-tip / title text.
+  const html = el.classList.contains("info-dot") ? el.querySelector(".tip-box")?.innerHTML : el.dataset.tip || tipFromText(el.dataset.tipText || "");
   if (!html) return;
   hoverTip.innerHTML = html;
   hoverTip.classList.add("show");
@@ -99,9 +100,10 @@ function showHoverTip(el) {
   hoverTip.style.left = `${Math.round(x)}px`;
   hoverTip.style.top = `${Math.round(y)}px`;
 }
+// Info dots show theirs straight away; other elements after a short pause, like the browser's.
 document.addEventListener("pointerover", (e) => {
-  const el = e.target.closest?.("[title], [data-tip], [data-tip-text]");
-  if (!el || el.closest(".info-dot")) {
+  const el = e.target.closest?.(".info-dot, [title], [data-tip], [data-tip-text]");
+  if (!el) {
     if (tipTarget && !tipTarget.contains(e.target)) hideHoverTip();
     return;
   }
@@ -113,11 +115,20 @@ document.addEventListener("pointerover", (e) => {
   if (el === tipTarget) return;
   hideHoverTip();
   tipTarget = el;
-  tipTimer = setTimeout(() => { if (tipTarget === el && el.isConnected) showHoverTip(el); }, 200);
+  tipTimer = setTimeout(() => { if (tipTarget === el && el.isConnected) showHoverTip(el); }, el.classList.contains("info-dot") ? 0 : 200);
 });
 document.addEventListener("pointerout", (e) => { if (tipTarget && !tipTarget.contains(e.relatedTarget)) hideHoverTip(); });
 document.addEventListener("pointerdown", hideHoverTip, true);
 document.addEventListener("scroll", hideHoverTip, true);
+// Tapping (or tabbing to) an info dot focuses it: show its tooltip until focus moves on.
+document.addEventListener("focusin", (e) => {
+  const dot = e.target.closest?.(".info-dot");
+  if (!dot) return;
+  hideHoverTip();
+  tipTarget = dot;
+  showHoverTip(dot);
+});
+document.addEventListener("focusout", (e) => { if (e.target === tipTarget) hideHoverTip(); });
 
 // Weapons used to be a single "weapon" slot/type with no category/damage/range/requires — backfill
 // those from the current template (falling back to sane melee defaults if the template's gone).
@@ -1253,28 +1264,6 @@ root.addEventListener("click", (e) => {
   }
 });
 
-// Info-dot tooltips open rightward from the dot; slide them back when that would run off the
-// window (the bubble is at most min(280px, 76vw) wide — see .info-dot::after in style.css).
-// Info bubbles are position: fixed (so a scrolling content area can't clip them) and placed from
-// the dot: under it, or above it when there isn't room below, kept inside the window sideways.
-// Rects come back in screen pixels, fixed positions are in layout pixels, hence the zoom.
-function placeInfoTip(e) {
-  const dot = e.target.closest?.(".info-dot");
-  if (!dot) return;
-  const zoom = parseFloat(document.documentElement.style.zoom) || 1;
-  const r = dot.getBoundingClientRect();
-  const vw = window.innerWidth / zoom;
-  const vh = window.innerHeight / zoom;
-  const tipWidth = 280;
-  const x = Math.max(8, Math.min(r.left / zoom - 8, vw - 8 - tipWidth));
-  const below = r.bottom / zoom + 6;
-  const flip = vh - below < 180 && r.top / zoom > vh - below;
-  dot.style.setProperty("--tip-x", `${Math.round(x)}px`);
-  dot.style.setProperty("--tip-y", flip ? "auto" : `${Math.round(below)}px`);
-  dot.style.setProperty("--tip-b", flip ? `${Math.round(vh - r.top / zoom + 6)}px` : "auto");
-}
-root.addEventListener("pointerover", placeInfoTip);
-root.addEventListener("focusin", placeInfoTip);
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openMenu || openQuarantine || openRaid || openNest || scoutReport || clearRoom)) {
