@@ -148,7 +148,6 @@ function migrateState(s) {
   }
   if (!s.rooms.gym) s.rooms.gym = { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS };
   if (!s.rooms.cafeteria) s.rooms.cafeteria = { teacherCapacity: CAFETERIA_MAX_TEACHERS };
-  if (!s.rooms.headmaster) s.rooms.headmaster = { level: 1 };
   // The Lounge is gone (students rest in the Nurse's Office now): refund what its upgrades cost.
   if (s.rooms.lounge) {
     const slotLevels = Math.max(0, Math.round((s.rooms.lounge.studentCapacity - 10) / 5));
@@ -187,7 +186,19 @@ function migrateState(s) {
     G.addLog(s, `🧠 The Research tree was redesigned around permanent buffs — ${refund} research refunded from ${legacyTech.length} old project(s).`);
   }
   if (!s.entranceGrid) s.entranceGrid = { size: ENTRANCE_GRID_SIZE, students: {}, defenses: {} };
-  if (s.rescue === undefined) s.rescue = null; // an older save past day 3 gets its broadcast at the next day rollover
+  if (s.rescue === undefined) s.rescue = null;
+  // The Student Council became the Radio Station, and the antenna repairs its upgrades: an old
+  // save's repairs carry over, and a finished antenna keeps its rescue date.
+  if (!s.radio) {
+    const done = Math.min(5, s.rescue?.stagesDone || 0);
+    s.radio = { stage: done };
+    if (s.rescue && !s.rescue.evacuated && done < 5 && !s.rescue.landed) s.rescue = null;
+    if (s.rescue) delete s.rescue.stagesDone;
+  }
+  s.boardedRooms = (s.boardedRooms || []).map((k) => (k === "council" ? "radio" : k));
+  delete s.rooms.council;
+  delete s.rooms.headmaster; // the office has no levels any more
+  for (const c of s.characters) if (c.post === "council") c.post = null;
   if (s.victory === undefined) s.victory = false;
   if (!s.bossesSlain) s.bossesSlain = [];
   if (!s.rooms.infirmary) s.rooms.infirmary = { studentCapacity: INFIRMARY_CAPACITY, teacherCapacity: INFIRMARY_MAX_TEACHERS };
@@ -256,7 +267,6 @@ function migrateState(s) {
     };
     for (const id of CLASSROOM_IDS) upgrades[`classroom:${id}`] = bought(r.classrooms[id].seats.length, LEGACY_SIZE.classroom, 6);
     r.crafting = r.crafting || {};
-    r.council = r.council || {};
     delete r.infirmary.care;
     for (const key of G.ROOM_KEYS) {
       const room = G.roomState(s, key);
@@ -1088,8 +1098,8 @@ root.addEventListener("click", (e) => {
       if (!G.buyTech(state, el.dataset.id)) flash("Can't buy that yet.");
       render();
       break;
-    case "repair-antenna":
-      if (!G.repairAntenna(state)) flash("Not enough resources for that repair yet.");
+    case "radio-upgrade":
+      if (!G.buildRadioUpgrade(state)) flash("Not enough resources for that upgrade yet.");
       render();
       break;
     case "evac-go":

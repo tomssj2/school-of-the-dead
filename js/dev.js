@@ -24,7 +24,7 @@ export function maxOutSchool(state) {
   const alive = (role) => state.characters.filter((c) => c.alive && c.role === role && !c.infection);
 
   // teachers: every post up to its slots
-  const posts = [...CLASSROOM_IDS.map((id) => `classroom:${id}`), "gym:PE", "gym:Gymnastics", "cafeteria", "infirmary", "research", "crafting", "council"];
+  const posts = [...CLASSROOM_IDS.map((id) => `classroom:${id}`), "gym:PE", "gym:Gymnastics", "cafeteria", "infirmary", "research", "crafting"];
   for (const post of posts) {
     const slots = G.roomState(state, G.postRoomKey(post)).teacherCapacity;
     while (alive("teacher").filter((t) => t.post === post).length < slots) {

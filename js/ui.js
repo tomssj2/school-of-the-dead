@@ -4,18 +4,18 @@ import {
   GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_MAX_LEVEL, roomUpgradeCost,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
-  ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
+  ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
-  RESCUE_DELAY_DAYS, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, councilChance, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
-  isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
+  getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, radioRecruitChance, radioStage, satelliteReady, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  isHexExplored, canScoutHex, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
@@ -308,7 +308,6 @@ const TEACHER_POST_LABEL = {
   infirmary: "Nurse's Office",
   research: "Research Room",
   crafting: "Crafting Room",
-  council: "Student Council",
 };
 
 // Where a character currently is — a teacher's post, or a student's active daily assignment
@@ -555,9 +554,9 @@ const TB_INFO = {
   teachers: "Teachers — recruited through exploration or promoted from high-level students, capped at 20.",
   happiness: "Happiness — rises from won battles and new recruits, falls from failed missions and deaths. Skews random events toward good or bad.",
   food: "Food — grown at the Farm and looted from exploration sites. Consumed every night to feed the school.",
-  materials: "Scrap — looted from exploration and salvaged at the Scrapyard. Spent on room upgrades, defenses, the antenna and the Crafting Room.",
+  materials: "Scrap — looted from exploration and salvaged at the Scrapyard. Spent on room upgrades, defenses, the Radio Station and the Crafting Room.",
   medicine: "Medicine — looted from exploration sites during Turn 2. Spent treating patients in the Nurse's Office (3 each) and, automatically, saving defenders who go down in the night battle (5 each).",
-  research: "Research — produced by teachers in the Research Room (Floor 3). Spent on the Research tech tree and the antenna.",
+  research: "Research — produced by teachers in the Research Room (Floor 3). Spent on the Research tech tree and the Radio Station.",
   serum: "Antiviral Serum — rare, and the only cure for an infection: one cures one infected person in the Nurse's Office. Sometimes found at the Hospital, Pharmacy and Fire Station; every raid boss drops some.",
 };
 
@@ -588,14 +587,15 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
   const meals = served.length
     ? `<span class="hud-buffs">${served.map((d) => `<span class="tb-buff" title="Today's meal: ${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon}</span>`).join("")}</span>`
     : "";
-  const rescue = state.rescue && !state.rescue.evacuated
-    ? `<button class="hud-stat hud-rescue ${antennaReady(state) ? "hud-rescue-ready" : ""}" data-action="set-tab" data-tab="rescue"
-        title="Evacuation on day ${state.rescue.day} — the rooftop antenna has to be working by then (${state.rescue.stagesDone}/${ANTENNA_STAGES.length} repaired). Click for the rescue plan.">
+  const stage = radioStage(state);
+  const rescue = state.rescue?.evacuated
+    ? ""
+    : `<button class="hud-stat hud-rescue ${satelliteReady(state) ? "hud-rescue-ready" : ""}" data-action="set-tab" data-tab="floor3"
+        title="${state.rescue ? `A helicopter lands on day ${state.rescue.day}.` : `Radio Station: ${stage}/${RADIO_UPGRADES.length} upgrades — satellite communications bring the rescue.`} Click to go to the Radio Station.">
         <span class="hud-icon" style="--tile:${HUD_TILE.antenna}">${pixelIcon("antenna", 20)}</span>
-        <span class="hud-val"><span class="hud-num"><b>Day ${state.rescue.day}</b></span><small>Evac</small></span>
-        <span class="hud-rescue-bars">${ANTENNA_STAGES.map((_, i) => `<i class="${i < state.rescue.stagesDone ? "on" : ""}"></i>`).join("")}</span>
-      </button>`
-    : "";
+        <span class="hud-val"><span class="hud-num"><b>${state.rescue ? `Day ${state.rescue.day}` : "Radio"}</b></span><small>${state.rescue ? "Evac" : `${stage}/${RADIO_UPGRADES.length}`}</small></span>
+        <span class="hud-rescue-bars">${RADIO_UPGRADES.map((_, i) => `<i class="${i < stage ? "on" : ""}"></i>`).join("")}</span>
+      </button>`;
   return `
   <header class="hud ${infected || r.serum || served.length > 1 ? "hud-tight" : ""}">
     <div class="hud-left">
@@ -604,7 +604,6 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
         <div class="options-menu">
           <button class="options-item ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
           <button class="options-item ${activeTab === "itemlist" ? "active" : ""}" data-action="set-tab" data-tab="itemlist">📖 Item List</button>
-          ${state.rescue ? `<button class="options-item ${activeTab === "rescue" ? "active" : ""}" data-action="set-tab" data-tab="rescue">📡 Rescue Plan</button>` : ""}
           <button class="options-item" data-action="save-game">💾 Save</button>
           <button class="options-item" data-action="reset-game">🔄 New Game</button>
           ${getBest() ? `<div class="options-item options-note">🏆 Best run: day ${getBest().day}</div>` : ""}
@@ -731,8 +730,8 @@ export function renderEvacuationModal(state) {
   const best = getBest();
   return `<div class="modal-overlay">
     <div class="char-card mission-card evac-modal" data-action="noop">
-      <h3>🚁 The helicopters have landed</h3>
-      <p>They followed your signal to the roof and can fly all ${alive} survivor${alive === 1 ? "" : "s"} out right now — ending the run on <b>day ${state.day}</b>.</p>
+      <h3>🚁 The helicopter has landed</h3>
+      <p>It followed the satellite signal to the roof and can fly all ${alive} survivor${alive === 1 ? "" : "s"} out right now — ending the run on <b>day ${state.day}</b>.</p>
       <p class="muted">Or send them away and keep holding the school. They'll come back on day ${back}, and your score is the last day the school stands — but the horde grows every night.${best ? ` Your best is day ${best.day}.` : ""}</p>
       <div class="row-actions">
         <button class="btn" data-action="evac-delay">🏫 Hold out until day ${back}</button>
@@ -1625,7 +1624,7 @@ export function renderAssaultModal() {
 
 // ---------- assignment picker ----------
 // A single generic "who should fill this slot" modal, replacing what used to be 8 separate
-// plain <select> dropdowns (Gym/Cafeteria/Classroom/Research/Crafting/Council/Farm/Scrapyard/
+// plain <select> dropdowns (Gym/Cafeteria/Classroom/Research/Crafting/Farm/Scrapyard/
 // Ranch). Characters already busy elsewhere still show up (greyed out, sorted to the bottom, no
 // Assign button) instead of silently disappearing, so the player can see where everyone is.
 
@@ -2162,7 +2161,7 @@ export function renderFloor3(state) {
   const placeholders = (n) => Array.from({ length: Math.max(0, n) }, () => `<div class="person-tile pt-slot"></div>`).join("");
   const officeHow = `Students who reach level ${PROMOTE_LEVEL_THRESHOLD} can be promoted to teachers here — they'll teach whatever they're best at; the office puts forward ${promoSlots} at a time, best first. Survivors who want to join wait here too: ${recSlots} at most — when it's full, newcomers are turned away (a legendary survivor always finds room). The school has room for ${MAX_TEACHERS} teachers. To expel someone, open their card.`;
   const office = `<div class="room room-office">
-    ${roomScene("headmaster", [...shownReady, ...pool], `Headmaster's Office${levelBadge(state, "headmaster")}`, "", roomUpgradeButton(state, "headmaster"), `🎓 <b>${teacherCount(state)}/${MAX_TEACHERS}</b> teachers ${infoDot(officeHow)}`)}
+    ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office", "", "", `🎓 <b>${teacherCount(state)}/${MAX_TEACHERS}</b> teachers ${infoDot(officeHow)}`)}
     <div class="office-split">
       <div>
         <div class="mini-label">Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more ready` : ""}</div>
@@ -2209,22 +2208,46 @@ export function renderFloor3(state) {
       : "Assign a teacher: each crafter turns up to 4 scrap a day into permanent fortification — more with a high DEX.";
     return `🛡 <b>+${total}</b> fortification a day ${infoDot(how)}`;
   };
-  // Student Council: every member rolls their own daily chance to find a recruit.
-  const councilFooter = (staff) => {
-    const chances = staff.map((t) => Math.min(1, councilChance(state, t)));
-    const atLeastOne = 1 - chances.reduce((p, c) => p * (1 - c), 1);
-    const how = staff.length
-      ? `Each member has their own daily chance to hear of a survivor who wants to join: 15% + CHA ÷ 300 + a bonus for the room's level. ${staff.map((t, i) => `${shortName(t)}: ${Math.round(chances[i] * 100)}%`).join(" · ")} — so a ${Math.round(atLeastOne * 100)}% chance of at least one a day.`
-      : "Assign a teacher: each member has a daily chance to hear of a survivor who wants to join — better with a high CHA.";
-    return `🙋 <b>${Math.round(atLeastOne * 100)}%</b> chance of a recruit a day ${infoDot(how)}`;
-  };
+  // The Radio Station: no teachers — five upgrades, built in order, listed under the banner. The
+  // first four put the school on the air (a daily chance a survivor hears it and asks to join); the
+  // last reaches the military, and a helicopter comes for the school.
+  const radio = (() => {
+    if (isBoarded(state, "radio")) return renderBoardedRoom(state, "radio", "radio", "room-radio");
+    const stage = radioStage(state);
+    const chance = Math.round(radioRecruitChance(state) * 100);
+    const costLabel = (cost) => Object.entries(cost).map(([res, amt]) => `${TECH_EFFECT_ICON[res]} ${amt}`).join(" ");
+    const rows = RADIO_UPGRADES.map((up, i) => {
+      const affordable = Object.entries(up.cost).every(([res, amt]) => (state.resources[res] || 0) >= amt);
+      const status = i < stage
+        ? '<span class="tag tag-ok">✓ Done</span>'
+        : i === stage
+        ? `<button class="btn btn-sm btn-primary" data-action="radio-upgrade" ${affordable ? "" : "disabled"}>Build ${costLabel(up.cost)}</button>`
+        : `<span class="radio-locked">🔒 ${costLabel(up.cost)}</span>`;
+      const effect = up.recruitChance ? ` · ${Math.round(up.recruitChance * 100)}% recruit chance a day` : "";
+      return `<div class="radio-row ${i < stage ? "radio-done" : ""} ${i === stage ? "radio-next" : ""}">
+        <span class="radio-icon">${up.icon}</span>
+        <span class="radio-text"><b>${esc(up.name)}</b><small>${esc(up.desc)}${effect}</small></span>
+        ${status}
+      </div>`;
+    }).join("");
+    const pill = state.rescue
+      ? state.rescue.evacuated ? "🚁 The helicopter has come and gone" : `🚁 Helicopter lands on <b>day ${state.rescue.day}</b>`
+      : stage
+      ? `📻 <b>${chance}%</b> chance of a recruit a day`
+      : "📻 Off the air";
+    const how = `Build the upgrades in order. Powering the antenna puts the school on the air — every day there's a chance a survivor hears the broadcast and asks to join (15%, then 25 / 35 / 45% with each range upgrade; Fresh Bread and research can raise it). Satellite communications reach the military: a helicopter lands ${RESCUE_ARRIVAL_DAYS} days later, and you choose to evacuate or hold out. It's the only way out of the city.`;
+    return `<div class="room room-radio">
+      ${roomScene("radio", [], "Radio Station", "", "", `${pill} ${infoDot(how)}`)}
+      <div class="radio-list">${rows}</div>
+    </div>`;
+  })();
 
   return `
   <div class="card">
     <h2>Floor 3 — Headmaster's Office &amp; Special Rooms</h2>
     <div class="floor1-grid floor3-grid">
       ${office}
-      ${utilityRoom("council", "Student Council", "A daily chance that a survivor asks to join — better with a high CHA.", "council", "CHA", "SocialStudies", councilFooter)}
+      ${radio}
       ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
         ${roomScene("research", researchers, `Research Room${levelBadge(state, "research")}`,
           `Produces research points each day: 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT (Physics grade) across every teacher posted here, plus the room's level bonus.`,
@@ -2504,50 +2527,6 @@ export function renderResearch(state) {
       <div>Research banked: <b>${state.resources.research}</b></div>
     </div>
     <div class="tech-grid">${branches}</div>
-  </div>`;
-}
-
-// ---------- rescue plan ----------
-
-export function renderRescue(state) {
-  const r = state.rescue;
-  if (!r) return renderComingSoon("📡", "Rescue", "Keep the radio on — maybe someone out there is still broadcasting.");
-  if (r.evacuated) {
-    return renderComingSoon("🚁", "Rescue", "The evacuation has come and gone. Whoever stayed behind is on their own now.");
-  }
-
-  const daysLeft = r.day - state.day;
-  const next = r.stagesDone;
-  const costLabel = (cost) => Object.entries(cost).map(([res, amt]) => `${TECH_EFFECT_ICON[res]} ${amt}`).join("  ");
-  const stages = ANTENNA_STAGES.map((stage, i) => {
-    const affordable = Object.entries(stage.cost).every(([res, amt]) => (state.resources[res] || 0) >= amt);
-    const action =
-      i < next
-        ? `<span class="tag tag-ok">✓ Done</span>`
-        : i === next
-        ? `<button class="btn btn-sm btn-primary" data-action="repair-antenna" ${affordable ? "" : "disabled"}>🔧 Repair (${costLabel(stage.cost)})</button>`
-        : `<span class="tag tag-injured">🔒 ${costLabel(stage.cost)}</span>`;
-    return `<div class="subcard tech-node ${i < next ? "tech-owned" : ""}">
-      <div class="tech-node-main">
-        <div><span class="tech-icon">${stage.icon}</span> <b>${i + 1}. ${esc(stage.name)}</b></div>
-        ${action}
-      </div>
-    </div>`;
-  }).join("");
-
-  return `
-  <div class="card">
-    <h2>📡 Rescue Plan</h2>
-    <p class="muted">A military evacuation sweeps the city on <b>day ${r.day}</b> — ${
-      daysLeft > 0 ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} from now` : "today"
-    }. They'll only find survivors who can signal them, so the rooftop antenna has to be fully repaired by then.
-    If it isn't, the helicopters leave and try again 5 days later — and the horde doesn't wait. When they land you can
-    evacuate, or send them away and hold out longer: your score is the last day the school stands.</p>
-    <div class="rescue-progress"><span style="width:${Math.round((next / ANTENNA_STAGES.length) * 100)}%"></span></div>
-    <div class="summary-list">
-      <div>Antenna: <b>${next}/${ANTENNA_STAGES.length}</b> ${antennaReady(state) ? "— on the air! Just hold out until the helicopters arrive." : "repairs done"}</div>
-    </div>
-    <div class="rescue-stages">${stages}</div>
   </div>`;
 }
 
@@ -3036,7 +3015,6 @@ export function renderApp(state, activeTab, rosterFilter = "student", floaties =
   else if (activeTab === "research") content = renderResearch(state);
   else if (activeTab === "armory") content = renderArmory(state);
   else if (activeTab === "itemlist") content = renderItemList();
-  else if (activeTab === "rescue") content = renderRescue(state);
   else if (activeTab === "log") content = renderLog(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 

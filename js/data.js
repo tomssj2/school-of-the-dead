@@ -103,7 +103,7 @@ export const TEACHER_SECONDARY_WEIGHTS = [50, 33, 17];
 export const TEACH_BONUS_BY_TIER = { S: 10, A: 7, B: 5, C: 3, D: 1, F: 0 }; // grade points a day, per teacher
 
 // Teachers stay at the school full-time (no exploring/defending) and are capped and rarer.
-export const MAX_TEACHERS = 22; // one teacher + one assistant for each of the 11 rooms at max level
+export const MAX_TEACHERS = 20; // one teacher + one assistant for each of the 10 rooms with teachers at max level
 export const TEACHER_RECRUIT_CHANCE = 0.12; // share of recruited survivors who turn out to be teachers
 
 // Traits: each character spawns with 1-3 of these. A trait speeds up grade growth in its
@@ -254,7 +254,7 @@ export const BATTLE_MAX_TICKS = 40;
 export const DOWNED_DEATH_CHANCE = 0.2; // before the Biology modifier, when there's no medicine to spare
 export const MEDICINE_PER_STABILIZE = 5; // spent automatically to save a downed defender outright
 // Raised alongside the stat rework (dodging, leadership, awareness, smarter traps) to keep an
-// engaged player at roughly a 90% rescue rate over 30 days — re-run the balance harness if changed.
+// engaged player at roughly a 90% survival rate over 30 days — re-run the balance harness if changed.
 export function zombieCountForDay(day) {
   return 3 + Math.floor(day * 0.8);
 }
@@ -291,20 +291,20 @@ export function hordeComposition(day) {
   return { walker: count - runner - brute - spitter, runner, brute, spitter, boss: isBossNight(day) ? 1 : 0 };
 }
 
-// ===== The rescue (the run's goal) =====
-// At the end of day RESCUE_BROADCAST_DAY - 1 the radio announces an evacuation on RESCUE_DAY —
-// if the rooftop antenna is repaired by then. If it isn't, the helicopters come back
-// RESCUE_DELAY_DAYS later.
-export const RESCUE_BROADCAST_DAY = 3;
-export const RESCUE_DAY = 30;
-export const RESCUE_DELAY_DAYS = 5;
-export const ANTENNA_STAGES = [
-  { name: "Salvage the wiring", icon: "🔌", cost: { materials: 30 } },
-  { name: "Rebuild the mast", icon: "🗼", cost: { materials: 50 } },
-  { name: "Rig a generator", icon: "🔋", cost: { materials: 40, research: 15 } },
-  { name: "Fix the transmitter", icon: "📻", cost: { research: 35 } },
-  { name: "Boost the signal", icon: "📡", cost: { materials: 50, research: 30 } },
+// ===== The Radio Station and the rescue (the run's goal) =====
+// The Radio Station (Floor 3, no teachers) is built up one upgrade at a time: powering the antenna
+// puts the school on the air, each range upgrade reaches more survivors (a daily chance one asks
+// to join), and satellite communications reach the military — a helicopter lands
+// RESCUE_ARRIVAL_DAYS later. Sent away, it comes back RESCUE_DELAY_DAYS later.
+export const RADIO_UPGRADES = [
+  { id: "power", name: "Power the antenna", icon: "⚡", cost: { materials: 30 }, desc: "Put the school on the air — survivors who hear the broadcast come looking.", recruitChance: 0.15 },
+  { id: "range1", name: "Increase range I", icon: "📶", cost: { materials: 40 }, desc: "Reach further across the city.", recruitChance: 0.25 },
+  { id: "range2", name: "Increase range II", icon: "📶", cost: { materials: 40, research: 15 }, desc: "Reach the suburbs.", recruitChance: 0.35 },
+  { id: "range3", name: "Increase range III", icon: "📶", cost: { materials: 50, research: 25 }, desc: "Reach the whole region.", recruitChance: 0.45 },
+  { id: "satellite", name: "Satellite communications", icon: "🛰", cost: { materials: 60, research: 40 }, desc: "Reach the military — a helicopter comes to save the school." },
 ];
+export const RESCUE_ARRIVAL_DAYS = 3;
+export const RESCUE_DELAY_DAYS = 5;
 
 // ===== Expedition loot =====
 export const EXPEDITION_ITEM_CHANCE = 0.3; // + 0.08 per location difficulty, on a success
@@ -374,7 +374,7 @@ export const BOARDED_ROOMS = {
   "classroom:4": { name: "Classroom 4", cost: 30, zombies: [{ type: "walker", look: "walker" }, { type: "runner", look: "walker" }, { type: "walker", look: "jersey" }, { type: "walker", look: "walker" }] },
   research: { name: "Research Room", cost: 25, zombies: [{ type: "walker", look: "labcoat" }, { type: "walker", look: "labcoat" }] },
   crafting: { name: "Crafting Room", cost: 20, zombies: [{ type: "walker", look: "walker" }, { type: "brute", look: "soldier" }] },
-  council: { name: "Student Council", cost: 20, zombies: [{ type: "walker", look: "jersey" }, { type: "runner", look: "walker" }, { type: "walker", look: "jersey" }] },
+  radio: { name: "Radio Station", cost: 20, zombies: [{ type: "walker", look: "jersey" }, { type: "runner", look: "walker" }, { type: "walker", look: "jersey" }] },
 };
 export const ROOM_ZOMBIE = { hp: 24, damage: 5 }; // before ZOMBIE_TYPES multipliers
 export const ROOM_FIGHT_SQUAD = 4; // students per room-clearing squad
@@ -585,13 +585,11 @@ export const roomUpgradeCost = (level) => 20 * level; // from `level` to the nex
 export const ROOM_REPAIR_COST = 10; // scrap per worker slot a facility raid broke
 export const CAFETERIA_RATIONS_BY_LEVEL = [6, 8, 10, 12, 14]; // food the cooks stretch the rations by
 export const RESEARCH_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra research a day while staffed
-// The Headmaster's Office: students it can put forward for promotion, and survivors who can wait
-// there to join (a newcomer is turned away when it's full — legendary ones always find room).
-// 4 / 7 / 10 / 13 / 16 slots in all, like the other rooms.
-export const OFFICE_PROMOTION_SLOTS = [2, 4, 5, 7, 8];
-export const OFFICE_RECRUIT_SLOTS = [2, 3, 5, 6, 8];
+// The Headmaster's Office (no levels): students it puts forward for promotion, and survivors who
+// can wait there to join (a newcomer is turned away when it's full — legendary ones always fit).
+export const OFFICE_PROMOTION_SLOTS = 8;
+export const OFFICE_RECRUIT_SLOTS = 8;
 export const CRAFTING_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra fortification per crafter
-export const COUNCIL_CHANCE_BY_LEVEL = [0, 0.03, 0.06, 0.09, 0.12]; // added to each member's recruit chance
 const roomSlots = (label, base, per = 0) => ({ label, base, per });
 const training = (name, ref) => ({
   name, ref, students: roomSlots("Student slots", GYM_CAPACITY, 3), teachers: roomSlots("Teacher slots", GYM_MAX_TEACHERS),
@@ -625,17 +623,6 @@ export const ROOM_LEVELS = {
   crafting: {
     name: "Crafting Room", teachers: roomSlots("Crafters", 1),
     perks: [{ label: "Bonus fortification", by: CRAFTING_BONUS_BY_LEVEL, fmt: (v) => `+${v} per crafter` }],
-  },
-  headmaster: {
-    name: "Headmaster's Office",
-    perks: [
-      { label: "Promotion slots", by: OFFICE_PROMOTION_SLOTS, fmt: (v) => String(v) },
-      { label: "Recruit slots", by: OFFICE_RECRUIT_SLOTS, fmt: (v) => String(v) },
-    ],
-  },
-  council: {
-    name: "Student Council", teachers: roomSlots("Members", 1),
-    perks: [{ label: "Recruit chance", by: COUNCIL_CHANCE_BY_LEVEL, fmt: (v) => `+${Math.round(v * 100)}% each` }],
   },
   farm: { name: "Farm", students: roomSlots("Workers", FARM_CAPACITY, 2), plots: roomSlots("Plots", FACILITY_PLOTS.farm, 2) },
   ranch: { name: "Ranch", students: roomSlots("Workers", RANCH_CAPACITY, 2), plots: roomSlots("Pens", FACILITY_PLOTS.ranch, 1) },
