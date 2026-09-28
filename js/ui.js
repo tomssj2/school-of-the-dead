@@ -488,7 +488,7 @@ function renderBoardedRoom(state, roomKey, scene, cls = "") {
   const b = BOARDED_ROOMS[roomKey];
   const afford = state.resources.materials >= b.cost;
   return `<div class="room ${cls} room-boarded">
-    <div class="room-scene room-scene-boarded" style="background-image:${sceneBackground(scene)}">
+    <div class="room-scene room-scene-boarded" style="background-image:${sceneBackground(`${scene}@1`)}">
       <div class="boards"></div>
       <div class="scene-plaque">🔒 ${b.name}</div>
     </div>
@@ -900,7 +900,7 @@ function renderTurn1Overview(state) {
   const count = (flag, value = true) => state.characters.filter((c) => c.alive && (value === true ? c[flag] : c[flag] === value)).length;
   const posted = (post) => state.characters.filter((c) => c.role === "teacher" && c.alive && c.post === post).length;
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-  const locked = (key, scene, tab) => overviewCard({ tab, scene, name: BOARDED_ROOMS[key].name, big: "Boarded up", locked: true, meta: `${BOARDED_ROOMS[key].cost} scrap to clear` });
+  const locked = (key, scene, tab) => overviewCard({ tab, scene: `${scene}@1`, name: BOARDED_ROOMS[key].name, big: "Boarded up", locked: true, meta: `${BOARDED_ROOMS[key].cost} scrap to clear` });
 
   const classrooms = CLASSROOM_IDS.map((id) => {
     const key = `classroom:${id}`;
@@ -909,7 +909,7 @@ function renderTurn1Overview(state) {
     const lesson = classroomLesson(state, id);
     const seated = room.seats.filter(Boolean).length;
     return overviewCard({
-      tab: "floor2", scene: room.subject ? `classroom_${room.subject}` : "classroom_empty", name: roomDisplayName(state, id), level: levelBadge(state, key),
+      tab: "floor2", scene: `${room.subject ? `classroom_${room.subject}` : "classroom_empty"}@${room.level || 1}`, name: roomDisplayName(state, id), level: levelBadge(state, key),
       big: lesson.subject ? `+${lesson.gain}` : "—", unit: lesson.subject ? `${STAT_OF_SUBJECT[room.subject]} a day` : "",
       used: seated, cap: room.seats.length, meta: `${seated}/${room.seats.length} students · ${plural(posted(key), "teacher")}`,
       warn: lesson.subject ? "" : "No teacher — no class",
@@ -927,25 +927,25 @@ function renderTurn1Overview(state) {
   const cooks = cooksOnDuty(state).length;
   const resting = count("restToday");
   const cafeCap = state.rooms.cafeteria.studentCapacity;
-  const cafeteria = overviewCard({ tab: "floor1", scene: "cafeteria", name: "Cafeteria", level: levelBadge(state, "cafeteria"), big: `+${cafeteriaRest(state)}`, unit: "stamina rest",
+  const cafeteria = overviewCard({ tab: "floor1", scene: `cafeteria@${roomLevel(state, "cafeteria")}`, name: "Cafeteria", level: levelBadge(state, "cafeteria"), big: `+${cafeteriaRest(state)}`, unit: "stamina rest",
     used: resting, cap: cafeCap, meta: `${resting}/${cafeCap} resting · 🍲 ${state.dishesToday.length}/${dishCapacity(state)} dishes`,
     warn: !cooks ? "No cook" : state.dishesToday.length < dishCapacity(state) ? "A dish is ready to cook" : "" });
   const patients = count("infirmaryToday");
   const infected = infectedChars(state).length;
   const bedCap = state.rooms.infirmary.studentCapacity;
-  const nurse = overviewCard({ tab: "floor1", scene: "infirmary", name: "Nurse's Office", level: levelBadge(state, "infirmary"), big: `+${healHealAmount(state)}`, unit: "HP a treatment",
+  const nurse = overviewCard({ tab: "floor1", scene: `infirmary@${roomLevel(state, "infirmary")}`, name: "Nurse's Office", level: levelBadge(state, "infirmary"), big: `+${healHealAmount(state)}`, unit: "HP a treatment",
     used: patients, cap: bedCap, meta: `${patients}/${bedCap} healing`, warn: infected ? `🦠 ${infected} in quarantine` : "" });
 
   const ready = state.characters.filter((c) => c.role === "student" && c.alive && overallLevel(c) >= PROMOTE_LEVEL_THRESHOLD).length;
   const office = overviewCard({ tab: "floor3", scene: "headmaster", name: "Headmaster's Office", big: `${state.recruitPool.length}`, unit: "recruits waiting",
     used: state.recruitPool.length, cap: recruitSlots(state), meta: `${ready} ready to promote · ${teacherCount(state)}/${MAX_TEACHERS} teachers` });
-  const radio = isBoarded(state, "radio") ? locked("radio", "radio", "floor3") : overviewCard({ tab: "floor3", scene: "radio", name: "Radio Station", level: levelBadge(state, "radio"),
+  const radio = isBoarded(state, "radio") ? locked("radio", "radio", "floor3") : overviewCard({ tab: "floor3", scene: `radio@${radioStage(state)}`, name: "Radio Station", level: levelBadge(state, "radio"),
     big: `${Math.round(radioRecruitChance(state) * 100)}%`, unit: "recruit chance a day", used: count("radioToday"), cap: state.rooms.radio.studentCapacity,
     meta: state.rescue && !state.rescue.evacuated ? `🚁 Helicopter on day ${state.rescue.day}` : `${count("radioToday")}/${state.rooms.radio.studentCapacity} on the air · ${plural(posted("radio"), "teacher")}` });
-  const research = isBoarded(state, "research") ? locked("research", "research", "floor3") : overviewCard({ tab: "floor3", scene: "research", name: "Research Room", level: levelBadge(state, "research"),
+  const research = isBoarded(state, "research") ? locked("research", "research", "floor3") : overviewCard({ tab: "floor3", scene: `research@${roomLevel(state, "research")}`, name: "Research Room", level: levelBadge(state, "research"),
     big: `+${researchRoomYield(state)}`, unit: "research a day", used: posted("research"), cap: state.rooms.research.teacherCapacity, meta: plural(posted("research"), "teacher"),
     warn: posted("research") ? "" : "No teacher" });
-  const crafting = isBoarded(state, "crafting") ? locked("crafting", "crafting", "floor3") : overviewCard({ tab: "floor3", scene: "crafting", name: "Crafting Room", level: levelBadge(state, "crafting"),
+  const crafting = isBoarded(state, "crafting") ? locked("crafting", "crafting", "floor3") : overviewCard({ tab: "floor3", scene: `crafting@${roomLevel(state, "crafting")}`, name: "Crafting Room", level: levelBadge(state, "crafting"),
     big: `+${craftingToday(state)}`, unit: "fortification a day", used: posted("crafting"), cap: state.rooms.crafting.teacherCapacity, meta: plural(posted("crafting"), "teacher"),
     warn: posted("crafting") ? "" : "No teacher" });
 
@@ -2102,7 +2102,7 @@ export function renderFloor1(state) {
       ${renderTrainingRoom(state, "PE")}
       ${renderTrainingRoom(state, "Gymnastics")}
       <div class="room room-cafeteria">
-        ${roomScene("cafeteria", [...cooks, ...resting], `Cafeteria${levelBadge(state, "cafeteria")}`,
+        ${roomScene(`cafeteria@${cafeLevel}`, [...cooks, ...resting], `Cafeteria${levelBadge(state, "cafeteria")}`,
           "",
           roomUpgradeButton(state, "cafeteria"),
           `🍲 <b>${dishCapacity(state)}</b> dish${dishCapacity(state) === 1 ? "" : "es"} a day · 😴 <b>+${cafeteriaRest(state)}</b> stamina ${infoDot(cafeHow)}`)}
@@ -2125,7 +2125,7 @@ export function renderFloor1(state) {
         </div>
       </div>
       <div class="room room-infirmary">
-        ${roomScene("infirmary", [...nurses, ...infected, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
+        ${roomScene(`infirmary@${roomLevel(state, "infirmary")}`, [...nurses, ...infected, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
           "",
           roomUpgradeButton(state, "infirmary"),
           `💊 Heal <b>+${healHp}</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`)}
@@ -2289,7 +2289,7 @@ function renderClassroom(state, roomId) {
   return `
   <div class="room room-classroom">
     ${roomScene(
-      subject ? `classroom_${subject}` : "classroom_empty",
+      `${subject ? `classroom_${subject}` : "classroom_empty"}@${room.level || 1}`,
       [...teachers, ...room.seats.filter(Boolean).map((id) => getChar(state, id)).filter((c) => c && c.alive)],
       `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`}${levelBadge(state, post)}`,
       "",
@@ -2373,7 +2373,7 @@ export function renderFloor3(state) {
     const staff = state.characters.filter((c) => c.role === "teacher" && c.post === postKey && c.alive);
     const slots = state.rooms[postKey].teacherCapacity;
     return `<div class="room room-utility">
-      ${roomScene(scene, staff, `${title}${levelBadge(state, postKey)}`, desc, roomUpgradeButton(state, postKey), footer(staff))}
+      ${roomScene(`${scene}@${roomLevel(state, postKey)}`, staff, `${title}${levelBadge(state, postKey)}`, desc, roomUpgradeButton(state, postKey), footer(staff))}
       ${staffLine(state, "Teacher", staff, slots,
         (t) => staffRow(t, gradeLetter(t.grades[statKey]), `${t.name} — ${statLabel} ${gradeLetter(t.grades[statKey])}`),
         `data-action="open-picker" data-kind="utility" data-post="${postKey}"`)}
@@ -2423,7 +2423,7 @@ export function renderFloor3(state) {
       ? state.rescue.evacuated ? "🚁 The helicopter has come and gone" : `🚁 Helicopter lands on <b>day ${state.rescue.day}</b> · 📻 ${pct(chance)}`
       : `📻 <b>${pct(chance)}</b> chance of a recruit a day`;
     return `<div class="room room-radio">
-      ${roomScene("radio", [...teachers, ...onAir], `Radio Station${levelBadge(state, "radio")}`, "", roomUpgradeButton(state, "radio"), `${pill} ${infoDot(how)}`)}
+      ${roomScene(`radio@${radioStage(state)}`, [...teachers, ...onAir], `Radio Station${levelBadge(state, "radio")}`, "", roomUpgradeButton(state, "radio"), `${pill} ${infoDot(how)}`)}
       ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
         (t) => staffRow(t, `${gradeLetter(t.grades.SocialStudies)} <span class="muted">+${pct(radioCrewBonus(t))}</span>`, `${t.name} — CHA ${t.grades.SocialStudies}, adds ${pct(radioCrewBonus(t))} a day`),
         'data-action="open-picker" data-kind="utility" data-post="radio"')}
@@ -2447,7 +2447,7 @@ export function renderFloor3(state) {
       ${office}
       ${radio}
       ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
-        ${roomScene("research", researchers, `Research Room${levelBadge(state, "research")}`,
+        ${roomScene(`research@${roomLevel(state, "research")}`, researchers, `Research Room${levelBadge(state, "research")}`,
           "",
           roomUpgradeButton(state, "research"),
           `🧠 <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`)}
@@ -2487,7 +2487,7 @@ function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "")
 
   return `
   <div class="card room-outside">
-    ${roomScene(roomKey, workers, `${title}${levelBadge(state, roomKey)}`, desc, roomUpgradeButton(state, roomKey),
+    ${roomScene(`${roomKey}@${roomLevel(state, roomKey)}`, workers, `${title}${levelBadge(state, roomKey)}`, desc, roomUpgradeButton(state, roomKey),
       `${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}`)}
     <div class="mini-label">Working today (${workers.length}/${room.studentCapacity})</div>
     ${tileGrid(
