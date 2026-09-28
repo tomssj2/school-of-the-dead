@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
-  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, STAMINA_COST_GYM, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
+  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, STAMINA_COST_GYM, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   RESCUE_DELAY_DAYS, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
@@ -1873,25 +1873,21 @@ function renderTrainingRoom(state, side) {
   // How a session adds up: the room's level bonus, plus each teacher's bonus for their grade.
   const lesson = gymLesson(state, side);
   const level = roomLevel(state, info.roomKey);
-  const gainHow = lesson.subject
-    ? `Each session every student here gains ${info.gains} (${info.label}) for good: the room's bonus (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus each teacher's (D +1 · C +3 · B +5 · A +7 · S +10). +${lesson.levelBonus} (level ${level})${teachers.map((t) => ` + ${teachingBonus(t.grades[side])} (${shortName(t)}, ${gradeLetter(t.grades[side])})`).join("")} = +${lesson.gain} a session. Nobody trains past their teacher: students stop at ${lesson.ceiling}, the best teacher's grade. More ${info.gains} also means more ${info.also}. Training costs ${STAMINA_COST_GYM} stamina.`
-    : `Assign a teacher to start training: each session every student here gains ${info.gains} — the room's bonus plus the teacher's — up to the teacher's own grade. More ${info.gains} also means more ${info.also}.`;
+  const gainHow = `Each session every student here gains ${info.gains} (${info.label}) for good: the room's bonus (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus each teacher's (D +1 · C +3 · B +5 · A +7 · S +10). +${lesson.levelBonus} (level ${level})${teachers.map((t) => ` + ${teachingBonus(t.grades[side])} (${shortName(t)}, ${gradeLetter(t.grades[side])})`).join("")}${teachers.length ? "" : " — no teacher yet"} = +${lesson.gain} a session, up to ${lesson.ceiling}. Nobody trains past the limit: the best teacher's grade, or ${NO_TEACHER_CAP} with no teacher (a teacher never lowers it). More ${info.gains} also means more ${info.also}. Training costs ${STAMINA_COST_GYM} stamina.`;
   return `<div class="room room-${info.roomKey}">
     ${roomScene(info.roomKey, [...teachers, ...students], `${info.room}${levelBadge(state, info.roomKey)}`,
-      `Trains ${info.gains} (${info.label}), which also raises ${info.also}: every session gives each student here the room's level bonus + each teacher's bonus, up to the best teacher's own grade — no teacher, no training. Training costs ${STAMINA_COST_GYM} stamina.`,
+      `Trains ${info.gains} (${info.label}), which also raises ${info.also}: every session gives each student here the room's level bonus + each teacher's bonus, up to the best teacher's own grade (${NO_TEACHER_CAP} with no teacher). Training costs ${STAMINA_COST_GYM} stamina.`,
       roomUpgradeButton(state, info.roomKey),
-      lesson.subject
-        ? `${info.icon} <b>+${lesson.gain}</b> ${info.gains} · up to ${lesson.ceiling} · ${STAMINA_COST_GYM} stamina ${infoDot(gainHow)}`
-        : `${info.icon} No teacher yet ${infoDot(gainHow)}`)}
+      `${info.icon} <b>+${lesson.gain}</b> ${info.gains} · up to ${lesson.ceiling} · ${STAMINA_COST_GYM} stamina ${infoDot(gainHow)}`)}
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[side])} <span class="muted">+${teachingBonus(t.grades[side])}</span>`, `${t.name} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])}, adds +${teachingBonus(t.grades[side])} a session`),
       `data-action="open-picker" data-kind="gym-teacher" data-post="${side}"`)}
       <div class="mini-label">Training today (${students.length}/${room.studentCapacity})</div>
       ${tileGrid(
         students.map((s) => personTile(s, {
-          extra: lesson.subject ? gainLine(s.grades[side], s.grades[side] + trainingGain(state, s, side), "max") : "",
+          extra: gainLine(s.grades[side], s.grades[side] + trainingGain(state, s, side), "max"),
           remove: "remove-gym",
-          title: `${s.name} — ${info.gains} ${s.grades[side]} → ${s.grades[side] + trainingGain(state, s, side)} after today's session${lesson.subject && s.grades[side] >= lesson.ceiling ? " (caught up with the teacher)" : ""}`,
+          title: `${s.name} — ${info.gains} ${s.grades[side]} → ${s.grades[side] + trainingGain(state, s, side)} after today's session${s.grades[side] >= lesson.ceiling ? ` (at the limit of ${lesson.ceiling})` : ""}`,
         })),
         room.studentCapacity - students.length,
         `data-action="open-picker" data-kind="gym-student" data-post="${side}"`
@@ -2069,7 +2065,7 @@ export function renderMenuModal(state) {
 export function renderFloor2(state) {
   const rooms = CLASSROOM_IDS.map((roomId) => renderClassroom(state, roomId)).join("");
   return `<div class="card"><h2>Floor 2 — Classrooms &amp; Dorms ${infoDot(
-    `Students live and sleep in their assigned classroom. Each room is unassigned ("Classroom N") until a teacher is posted there, then it takes on whichever subject that teacher is best qualified to teach — and reverts to unassigned if it goes unstaffed, so rooms can be freely repurposed. Deskmates who fight together bond — opposite-gender deskmates may become a couple at bond ${BOND_COUPLE_THRESHOLD}+.`
+    `Students live and sleep in their assigned classroom. Each room starts with its own subject and teaches it even with no teacher (the room's bonus, up to ${NO_TEACHER_CAP}). The first teacher posted to a room with nobody teaching switches it to whichever subject they're best at, and it keeps that subject after they leave — so rooms can be freely repurposed. Deskmates who fight together bond — opposite-gender deskmates may become a couple at bond ${BOND_COUPLE_THRESHOLD}+.`
   )}</h2>
   <p class="room-tagline">The teacher posted in a room picks its subject · deskmates bond</p>
   <div class="floor2-grid">${rooms}</div></div>`;
@@ -2086,7 +2082,7 @@ function renderClassroom(state, roomId) {
   // Today's lesson: the room's level bonus plus each teacher's, up to the best teacher's grade.
   const lesson = classroomLesson(state, roomId);
   const classHow = lesson.subject
-    ? `Every day each student seated here gains ${SUBJECT_LABEL[subject]} (${STAT_OF_SUBJECT[subject]}) for good: the room's bonus (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus each teacher's (D +1 · C +3 · B +5 · A +7 · S +10). +${lesson.levelBonus} (level ${room.level || 1})${teachers.map((t) => ` + ${teachingBonus(t.grades[subject])} (${shortName(t)}, ${gradeLetter(t.grades[subject])})`).join("")}${lesson.gain !== lesson.levelBonus + teachers.reduce((s, t) => s + teachingBonus(t.grades[subject]), 0) ? " + Study Groups" : ""} = +${lesson.gain} a day. Nobody learns past their teacher: students stop at ${lesson.ceiling}, the best teacher's grade — then it's time to move them to another class.`
+    ? `Every day each student seated here gains ${SUBJECT_LABEL[subject]} (${STAT_OF_SUBJECT[subject]}) for good: the room's bonus (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus each teacher's (D +1 · C +3 · B +5 · A +7 · S +10). +${lesson.levelBonus} (level ${room.level || 1})${teachers.map((t) => ` + ${teachingBonus(t.grades[subject])} (${shortName(t)}, ${gradeLetter(t.grades[subject])})`).join("")}${lesson.gain !== lesson.levelBonus + teachers.reduce((s, t) => s + teachingBonus(t.grades[subject]), 0) ? " + Study Groups" : ""}${teachers.length ? "" : " — no teacher yet"} = +${lesson.gain} a day, up to ${lesson.ceiling}. Nobody learns past the limit: the best teacher's grade, or ${NO_TEACHER_CAP} with no teacher (a teacher never lowers it). At the limit, move them to another class.`
     : "";
 
   // Deskmates (seats 2k and 2k+1) sit side by side at one desk — they bond — so the tiles come in
@@ -2102,7 +2098,7 @@ function renderClassroom(state, roomId) {
     const grade = subject ? occ.grades[subject] : null;
     return personTile(occ, {
       remove: "unseat",
-      title: `${occ.name}${partner ? ` — deskmate ${partner.name}, bond ${bond}${couple ? " 💞" : ""}` : ""}${lesson.subject ? ` · ${STAT_OF_SUBJECT[subject]} ${grade} → ${grade + classGain(state, occ)} after today's class${grade >= lesson.ceiling ? " (caught up with the teacher)" : ""}` : ""}`,
+      title: `${occ.name}${partner ? ` — deskmate ${partner.name}, bond ${bond}${couple ? " 💞" : ""}` : ""}${lesson.subject ? ` · ${STAT_OF_SUBJECT[subject]} ${grade} → ${grade + classGain(state, occ)} after today's class${grade >= lesson.ceiling ? ` (at the limit of ${lesson.ceiling})` : ""}` : ""}`,
       extra: lesson.subject ? gainLine(grade, grade + classGain(state, occ), "max") : "",
     });
   };
@@ -2119,7 +2115,7 @@ function renderClassroom(state, roomId) {
       subject ? `classroom_${subject}` : "classroom_empty",
       [...teachers, ...room.seats.filter(Boolean).map((id) => getChar(state, id)).filter((c) => c && c.alive)],
       `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`}${levelBadge(state, post)}`,
-      subject ? "" : "Unassigned — the first teacher posted here decides the subject.",
+      teachers.length ? "" : `No teacher: the room still teaches its bonus, up to ${NO_TEACHER_CAP}. The first teacher posted here switches it to their best subject.`,
       roomUpgradeButton(state, post),
       lesson.subject
         ? `📚 <b>+${lesson.gain}</b> ${STAT_OF_SUBJECT[subject]} a day · up to ${lesson.ceiling} ${infoDot(classHow)}`

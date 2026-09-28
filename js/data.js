@@ -364,6 +364,8 @@ export const SKILL_TREE = {
 // the moment its one teacher is assigned. It reverts to unassigned once that teacher leaves.
 export const CLASSROOM_SUBJECTS = ["Biology", "Physics", "History", "SocialStudies"];
 export const CLASSROOM_IDS = ["1", "2", "3", "4"];
+// What each classroom teaches until a teacher posted there switches it to their best subject.
+export const CLASSROOM_DEFAULT_SUBJECT = { 1: "Biology", 2: "Physics", 3: "History", 4: "SocialStudies" };
 
 // A new game opens with part of the school still overrun: these rooms (keyed like teacher posts)
 // start boarded up, so there are fewer jobs than teachers early on. Clearing one means fighting
@@ -402,10 +404,10 @@ export const CLASSROOM_MAX_TEACHERS = 1; // at level 1; an assistant joins at ro
 
 // Two training rooms, taught like the classrooms: the Gymnasium raises STR (PE) and Acrobatics
 // DEX (Gymnastics) by the room's level bonus + each teacher's bonus a session, up to the best
-// teacher's own grade (see gymLesson). STR and DEX in turn raise max HP and max stamina.
+// teacher's own grade, or NO_TEACHER_CAP with no teacher (see gymLesson). STR and DEX in turn raise max HP and max stamina.
 // Students train in c.gymToday = "PE" | "Gymnastics"; teachers are posted to "gym:PE" / "gym:Gymnastics".
 export const GYM_CAPACITY = 4; // student slots per room at level 1
-export const GYM_MAX_TEACHERS = 1; // teacher slots at level 1 (no teacher, no training)
+export const GYM_MAX_TEACHERS = 1; // teacher slots at level 1
 export const GYM_SIDES = {
   // `ref` is how a sentence names the room ("training in the Gymnasium", "training in Acrobatics").
   PE: { label: "PE", icon: "💪", gains: "STR", also: "max HP", room: "Gymnasium", ref: "the Gymnasium", roomKey: "gym" },
@@ -577,6 +579,9 @@ export const ROOM_MAX_LEVEL = 5;
 // The stat a room itself gives each student, by its level: the base of every Gymnasium /
 // Acrobatics session (teachers' ranks come on top) and a classroom's standing bonus to its subject.
 export const ROOM_STAT_BONUS_BY_LEVEL = [1, 3, 5, 7, 10];
+// With no teacher a room still teaches its level bonus, up to this grade. A teacher raises the
+// limit to their own grade (never lower than this).
+export const NO_TEACHER_CAP = 50;
 export const ROOM_TEACHER_LEVELS = [5];
 export const roomUpgradeCost = (level) => 20 * level; // from `level` to the next: 20, 40, 60, 80
 export const ROOM_REPAIR_COST = 10; // scrap per worker slot a facility raid broke
