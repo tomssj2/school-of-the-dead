@@ -3,7 +3,7 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal } from "./ui.js";
 import { recordRun } from "./score.js";
-import { emptyEquipment, starterArmory, withTeacherHonorific, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
+import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
 import { maxOutSchool, infectStudents } from "./dev.js";
@@ -131,6 +131,8 @@ function migrateState(s) {
       if (!c.teachSubject) {
         c.teachSubject = SUBJECTS.reduce((best, s) => (c.grades[s] > c.grades[best] ? s : best), SUBJECTS[0]);
       }
+      capTeacherGrades(c);
+      c.traits = [];
     }
   };
   s.characters.forEach(fixup);

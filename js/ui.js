@@ -2834,7 +2834,7 @@ function renderTeacherStatsTab(c) {
     </div>`;
   }).join("");
   return `<div class="cc-section-label">Grades &amp; Teaching Bonus</div><div class="grade-list">${gradeRows}</div>
-    <p class="muted cc-grade-note">🌟 = their specialty (always S rank). Assign them to a Floor 2 classroom to give every
+    <p class="muted cc-grade-note">🌟 = their specialty, always their best grade — every other grade is at least one rank lower. Assign them to a Floor 2 classroom to give every
     seated student a standing bonus to that subject, or to the Gymnasium / Acrobatics to speed up PE / Gymnastics training.</p>`;
 }
 
@@ -3012,18 +3012,17 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
     .map((t) => `<span class="trait-pill" title="${esc(t.desc)}">${t.icon} ${esc(t.name)}</span>`)
     .join("");
 
-  // Teachers don't train, equip gear for combat, or level up — they only have grades/bonuses
-  // and relationships, so their card drops the Inventory and Skills tabs entirely.
-  const TABS = isTeacher
-    ? [["stats", "📊 Stats"], ["social", "👥 Social"]]
-    : [["stats", "📊 Stats"], ["inventory", "🧳 Inventory"], ["skills", "🌳 Skills"], ["social", "👥 Social"]];
-  const tabBar = `<div class="cc-tabs">${TABS.map(
+  // Teachers don't train, equip gear, level up or make friends — their card is just their
+  // grades and teaching bonuses, with no tabs at all.
+  const TABS = [["stats", "📊 Stats"], ["inventory", "🧳 Inventory"], ["skills", "🌳 Skills"], ["social", "👥 Social"]];
+  const tabBar = isTeacher ? "" : `<div class="cc-tabs">${TABS.map(
     ([id, label]) => `<button class="cc-tab-btn ${cardTab === id ? "active" : ""}" data-action="set-card-tab" data-tab="${id}">${label}</button>`
   ).join("")}</div>`;
 
   let body;
-  if (cardTab === "inventory" && !isTeacher) body = renderInventoryTab(state, c);
-  else if (cardTab === "skills" && !isTeacher) body = renderSkillsTab(c);
+  if (isTeacher) body = renderStatsTab(state, c);
+  else if (cardTab === "inventory") body = renderInventoryTab(state, c);
+  else if (cardTab === "skills") body = renderSkillsTab(c);
   else if (cardTab === "social") body = renderSocialTab(state, c);
   else body = renderStatsTab(state, c);
 
@@ -3050,7 +3049,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
         ${!isTeacher ? `<div class="cc-skillpoints ${points > 0 ? "has-points" : ""}" title="Earned 1 per level, spent on the Skills tab">
           ✨ ${points} skill point${points === 1 ? "" : "s"}
         </div>` : ""}
-        ${traitBadges ? `<div class="cc-section-label cc-talents-label">Talents</div><div class="cc-traits">${traitBadges}</div>` : ""}
+        ${traitBadges && !isTeacher ? `<div class="cc-section-label cc-talents-label">Talents</div><div class="cc-traits">${traitBadges}</div>` : ""}
       </div>
       <div class="cc-right">
         <div class="cc-top-stats">

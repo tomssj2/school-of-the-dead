@@ -192,6 +192,19 @@ export function randomTeacherGrades() {
   return { grades, specialty };
 }
 
+// A teacher's specialty is always their best grade: every other grade sits at least one rank
+// below it (an A in Biology means nothing above B elsewhere). Grades over that are lowered to the
+// top of the rank below.
+export function capTeacherGrades(c) {
+  if (c.role !== "teacher" || !c.teachSubject) return;
+  const top = c.grades[c.teachSubject];
+  const rank = GRADE_TIERS.indexOf(gradeLetter(top));
+  const cap = rank > 0 ? GRADE_RANGES[GRADE_TIERS[rank - 1]][1] : top;
+  for (const s of SUBJECTS) {
+    if (s !== c.teachSubject && c.grades[s] > cap) c.grades[s] = cap;
+  }
+}
+
 // The bonus a teacher's grade in a subject gives every student in the room while teaching it.
 export function teachingBonus(teacherGradeValue) {
   return TEACH_BONUS_BY_TIER[gradeLetter(teacherGradeValue)] || 0;
@@ -246,7 +259,8 @@ export function makeCharacter(role, gender) {
     grades = randomGrades();
     teachSubject = null;
   }
-  const traits = pickTraits();
+  // Talents are a student thing — teachers don't train, so they get none.
+  const traits = role === "teacher" ? [] : pickTraits();
   for (const t of traits) grades[t.subject] = bumpTier(grades[t.subject]);
 
   const id = nextId();
@@ -257,7 +271,7 @@ export function makeCharacter(role, gender) {
     gender, // 'M' | 'F'
     role, // 'student' | 'teacher'
     grades,
-    teachSubject, // teachers only: the one subject they specialize in (always S rank)
+    teachSubject, // teachers only: the subject they specialize in — always their best grade (capTeacherGrades)
     traits: traits.map((t) => t.id),
     equipment: emptyEquipment(),
     skills: [], // purchased skill keys, e.g. "PE:D" (students only)
@@ -290,6 +304,7 @@ export function makeLegendaryItem(template = pick(LEGENDARY_ITEM_TEMPLATES)) {
 export function makeLegendaryCharacter(role, gender) {
   const c = makeCharacter(role, gender);
   for (const s of SUBJECTS) c.grades[s] = bumpTier(c.grades[s]);
+  capTeacherGrades(c);
   c.maxHp = maxHpFor(c.grades);
   c.hp = c.maxHp;
   c.maxStamina = maxStaminaFor(c);

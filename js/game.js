@@ -29,7 +29,7 @@ import {
 } from "./data.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
-  makeCharacter, makeLegendaryCharacter, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
+  makeCharacter, makeLegendaryCharacter, capTeacherGrades, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, teachingBonus,
   bestClassroomSubjectFor, emptyEquipment, makeItem, makeLegendaryItem, maxStaminaFor, skillCount,
 } from "./characters.js";
@@ -2001,6 +2001,8 @@ export function promoteToTeacher(state, id) {
   clearEntranceCellForChar(state, id);
   // Their teaching specialty becomes whatever subject they excelled in as a student.
   c.teachSubject = SUBJECTS.reduce((best, s) => (c.grades[s] > c.grades[best] ? s : best), SUBJECTS[0]);
+  capTeacherGrades(c);
+  c.traits = [];
   c.name = withTeacherHonorific(c.name, c.gender);
   addLog(state, `${c.name} has been promoted to teacher!`);
   return true;
