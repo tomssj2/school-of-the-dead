@@ -1,7 +1,7 @@
 import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
   CLASSROOM_CAPACITY, LOCATIONS,
-  BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_MAX_LEVEL, roomUpgradeCost,
+  GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_MAX_LEVEL, roomUpgradeCost,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
@@ -2079,9 +2079,7 @@ export function renderMenuModal(state) {
 
 export function renderFloor2(state) {
   const rooms = CLASSROOM_IDS.map((roomId) => renderClassroom(state, roomId)).join("");
-  return `<div class="card"><h2>Floor 2 — Classrooms ${infoDot(
-    `Students live and sleep in their assigned classroom. Each room is unassigned ("Classroom N") until a teacher is posted there, then it takes on whichever subject that teacher is best qualified to teach — and reverts to unassigned if it goes unstaffed, so rooms can be freely repurposed. Deskmates who fight together bond — opposite-gender deskmates may become a couple at bond ${BOND_COUPLE_THRESHOLD}+.`
-  )}</h2>
+  return `<div class="card"><h2>Floor 2 — Classrooms</h2>
   <p class="room-tagline">The teacher posted in a room picks its subject · deskmates bond</p>
   <div class="floor2-grid">${rooms}</div></div>`;
 }
