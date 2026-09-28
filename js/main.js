@@ -35,6 +35,7 @@ migrateState(state);
 repairIds(state);
 let activeTab = "overview";
 let openCardId = null;
+let promoteAsk = false; // the open card is asking to confirm a promotion
 let cardTab = "stats";
 let rosterFilter = "student"; // the Roster shows students or teachers
 let rosterSortKey = "name";
@@ -472,6 +473,7 @@ function computeFloaties() {
 
 function render() {
   hideHoverTip(); // whatever it pointed at is about to be replaced
+  if (!openCardId) promoteAsk = false; // a closed card takes its promotion question with it
   const card = openCardId ? G.getCharAnywhere(state, openCardId) : null;
   if (openCardId && !card) openCardId = null; // e.g. expelled while card was open
   if (openMissionLocationId && !state.teamLocations.includes(openMissionLocationId)) openMissionLocationId = null;
@@ -525,7 +527,7 @@ function render() {
     : state.rescue?.landed && !state.gameOver
     ? renderEvacuationModal(state)
     : card
-    ? renderCharacterCard(state, card, cardTab)
+    ? renderCharacterCard(state, card, cardTab, promoteAsk ? "promote" : "")
     : clearRoom
     ? renderClearRoomModal(state, clearRoom)
     : scoutReport
@@ -938,6 +940,26 @@ root.addEventListener("click", (e) => {
       break;
     case "promote":
       G.promoteToTeacher(state, el.dataset.id);
+      render();
+      break;
+    case "ask-promote":
+      openCardId = el.dataset.id;
+      cardTab = "stats";
+      promoteAsk = true;
+      render();
+      break;
+    case "confirm-promote":
+      G.promoteToTeacher(state, el.dataset.id);
+      openCardId = null;
+      render();
+      break;
+    case "never-promote":
+      G.setNeverPromote(state, el.dataset.id, true);
+      openCardId = null;
+      render();
+      break;
+    case "allow-promote":
+      G.setNeverPromote(state, el.dataset.id, false);
       render();
       break;
     case "expel":

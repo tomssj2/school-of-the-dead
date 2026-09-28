@@ -14,7 +14,7 @@ import {
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -954,7 +954,7 @@ function renderTurn1Overview(state) {
   const nurse = overviewCard({ tab: "floor1", scene: `infirmary@${roomLevel(state, "infirmary")}`, name: "Nurse's Office", level: levelBadge(state, "infirmary"), big: `+${healHealAmount(state)}`, unit: "HP a treatment",
     used: patients, cap: bedCap, meta: `${patients}/${bedCap} healing`, warn: infected ? `🦠 ${infected} in quarantine` : "" });
 
-  const ready = state.characters.filter((c) => c.role === "student" && c.alive && overallLevel(c) >= PROMOTE_LEVEL_THRESHOLD).length;
+  const ready = state.characters.filter(promotable).length;
   const office = overviewCard({ tab: "floor3", scene: "headmaster", name: "Headmaster's Office", big: `${state.recruitPool.length}`, unit: "recruits waiting",
     used: state.recruitPool.length, cap: recruitSlots(state), meta: `${ready} ready to promote · ${teacherCount(state)} teachers` });
   const radio = isBoarded(state, "radio") ? locked("radio", "radio", "floor3") : overviewCard({ tab: "floor3", scene: `radio@${radioStage(state)}`, name: "Radio Station", level: levelBadge(state, "radio"),
@@ -2344,13 +2344,12 @@ export function renderFloor3(state) {
   // The Headmaster's Office: its bottom half is split — the students ready to become teachers
   // (level PROMOTE_LEVEL_THRESHOLD+, best first) on the left, survivors waiting to join on the right,
   // each with as many slots as the office's level gives.
-  const ready = students.filter((s) => overallLevel(s) >= PROMOTE_LEVEL_THRESHOLD);
+  const ready = students.filter(promotable);
   const promoSlots = promotionSlots(state);
   const shownReady = ready.slice(0, promoSlots);
   const readyTiles = shownReady.map((s) => personTile(s, {
     title: `${s.name} — level ${overallLevel(s)}, best at ${SUBJECT_LABEL[SUBJECTS.reduce((b, x) => (s.grades[x] > s.grades[b] ? x : b), SUBJECTS[0])]}`,
-    extra: `<span class="pt-gain">Lv ${overallLevel(s)}</span>
-      <button class="pt-corner pt-promote" data-action="promote" data-id="${s.id}" title="Promote to teacher">🎓</button>`,
+    extra: `<button class="pt-promote-btn" data-action="ask-promote" data-id="${s.id}" title="Promote ${esc(s.name)} to teacher">Promote</button>`,
   }));
   const pool = state.recruitPool;
   const recSlots = recruitSlots(state);
@@ -3188,7 +3187,22 @@ function renderSkillsTab(c) {
     <div class="skills-list">${rows}</div>`;
 }
 
-export function renderCharacterCard(state, c, cardTab = "stats") {
+// Under a student's card when promoting them from the Headmaster's Office: yes, no, or keep them
+// a student for good (which frees their promotion slot).
+function promoteConfirm(c) {
+  const best = SUBJECTS.reduce((b, s) => (c.grades[s] > c.grades[b] ? s : b), SUBJECTS[0]);
+  return `<div class="cc-confirm">
+    <div class="cc-confirm-text"><b>🎓 Promote ${esc(c.name)} to teacher?</b>
+      <span class="muted">They'd teach ${SUBJECT_LABEL[best]} (${gradeLetter(c.grades[best])}). A teacher can't go back to being a student.</span></div>
+    <div class="cc-confirm-actions">
+      <button class="btn btn-primary" data-action="confirm-promote" data-id="${c.id}">✓ Yes</button>
+      <button class="btn" data-action="close-card">No</button>
+      <button class="btn btn-danger" data-action="never-promote" data-id="${c.id}" title="Keep them a student and free their promotion slot">🚫 Never promote</button>
+    </div>
+  </div>`;
+}
+
+export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
   const sprite = characterSprite(c, 150);
   const isTeacher = c.role === "teacher";
   const points = availableSkillPoints(c);
@@ -3218,7 +3232,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
 
   return `
   <div class="modal-overlay" data-action="close-card">
-    <div class="char-card" data-action="noop">
+    <div class="char-card ${confirm ? "cc-with-confirm" : ""}" data-action="noop">
       <button class="cc-close" data-action="close-card" title="Close">✕</button>
       <div class="cc-left">
         <div class="cc-sprite-wrap ${!c.alive ? "cc-dead" : ""}">
@@ -3235,6 +3249,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
           ✨ ${points} skill point${points === 1 ? "" : "s"}
         </div>` : ""}
         ${traitBadges && !isTeacher ? `<div class="cc-section-label cc-talents-label">Talents</div><div class="cc-traits">${traitBadges}</div>` : ""}
+        ${!isTeacher && c.neverPromote ? `<div class="cc-kept">🚫 Staying a student <button class="btn btn-sm" data-action="allow-promote" data-id="${c.id}">Allow promotion</button></div>` : ""}
         ${!isTeacher && c.alive && state.characters.includes(c) ? `<button class="btn btn-sm btn-danger cc-expel" data-action="expel" data-id="${c.id}" title="Send them away from the school for good">🚪 Expel</button>` : ""}
       </div>
       <div class="cc-right">
@@ -3250,6 +3265,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
         ${tabBar}
         ${body}
       </div>
+      ${confirm === "promote" ? promoteConfirm(c) : ""}
     </div>
   </div>`;
 }

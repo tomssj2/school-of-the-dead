@@ -2022,6 +2022,17 @@ function checkGameOver(state) {
 
 export const PROMOTE_LEVEL_THRESHOLD = STUDENT_MAX_LEVEL; // only students at the top level can become teachers
 
+// A top-level student the Headmaster's Office puts forward — unless they've been marked to stay a student.
+export const promotable = (c) => c.role === "student" && c.alive && overallLevel(c) >= PROMOTE_LEVEL_THRESHOLD && !c.neverPromote;
+// Keep a student a student for good (they leave the promotion list), or put them back on it.
+export function setNeverPromote(state, id, value) {
+  const c = getChar(state, id);
+  if (!c || c.role !== "student") return false;
+  c.neverPromote = !!value;
+  addLog(state, value ? `${c.name} will stay a student — they won't be put forward for promotion.` : `${c.name} can be put forward for promotion again.`);
+  return true;
+}
+
 export function expelCharacter(state, id) {
   const idx = state.characters.findIndex((c) => c.id === id);
   if (idx === -1) return false;
