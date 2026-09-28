@@ -636,7 +636,6 @@ export const BOND_COUPLE_THRESHOLD = 6;
 // ===== Stamina =====
 // Only students use stamina; teachers never tire — they're a standing boost to the room they're
 // posted to. Max stamina comes from DEX and WIS — see STAT_TUNING and maxStaminaFor() in characters.js.
-export const STAMINA_COST_GYM = 20; // per day trained
 export const STAMINA_COST_EXPLORE = 20; // per expedition
 
 // ===== Happiness =====

@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
-  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, STAMINA_COST_GYM, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
+  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   RESCUE_DELAY_DAYS, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
@@ -828,7 +828,7 @@ function renderTurn1Overview(state) {
   return `
   <div class="card">
     <h2>Turn 1 — Classes ${infoDot(`Students in their home classroom earn XP toward their grade in that subject. Send students to train: the Gymnasium (PE) builds max HP, Acrobatics (Gymnastics) max stamina, and the better the teachers in a room, the more each session gives. A Floor 2 classroom teacher doesn't speed up grades, but gives every seated student a standing bonus to that subject.`)}</h2>
-    <p class="room-tagline">Classes build grades · training costs 20 stamina · exploring costs ${exploreStaminaCost(state)} · resting in the Cafeteria restores ${cafeteriaRest(state)}</p>
+    <p class="room-tagline">Classes and training build stats · exploring costs ${exploreStaminaCost(state)} · resting in the Cafeteria restores ${cafeteriaRest(state)}</p>
     <ul class="summary-list">
       ${classroomSummaries}
       <li><b>Gymnasium</b>: ${gymCount("PE")}/${state.rooms.gym.studentCapacity} training PE today</li>
@@ -1696,7 +1696,7 @@ function resolvePickerCandidates(state, picker) {
       return {
         role: "student", title: `Send a Student to ${GYM_SIDES[postKey].ref}`,
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.gymToday !== postKey)
-          .map((c) => studentRow(c, "gymToday", (c) => (c.stamina <= 0 ? "Exhausted" : null))),
+          .map((c) => studentRow(c, "gymToday")),
       };
     case "cafeteria-teacher":
       return {
@@ -1888,12 +1888,12 @@ function renderTrainingRoom(state, side) {
   // How a session adds up: the room's level bonus, plus each teacher's bonus for their grade.
   const lesson = gymLesson(state, side);
   const level = roomLevel(state, info.roomKey);
-  const gainHow = `Each session every student here gains ${info.gains} (${info.label}) for good: the room's bonus (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus each teacher's (D +1 · C +3 · B +5 · A +7 · S +10). +${lesson.levelBonus} (level ${level})${teachers.map((t) => ` + ${teachingBonus(t.grades[side])} (${shortName(t)}, ${gradeLetter(t.grades[side])})`).join("")}${teachers.length ? "" : " — no teacher yet"} = +${lesson.gain} a session, up to ${lesson.ceiling}. Nobody trains past the limit: the best teacher's grade, or ${NO_TEACHER_CAP} with no teacher (a teacher never lowers it). More ${info.gains} also means more ${info.also}. Training costs ${STAMINA_COST_GYM} stamina.`;
+  const gainHow = `Each session every student here gains ${info.gains} (${info.label}) for good: the room's bonus (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus each teacher's (D +1 · C +3 · B +5 · A +7 · S +10). +${lesson.levelBonus} (level ${level})${teachers.map((t) => ` + ${teachingBonus(t.grades[side])} (${shortName(t)}, ${gradeLetter(t.grades[side])})`).join("")}${teachers.length ? "" : " — no teacher yet"} = +${lesson.gain} a session, up to ${lesson.ceiling}. Nobody trains past the limit: the best teacher's grade, or ${NO_TEACHER_CAP} with no teacher (a teacher never lowers it). More ${info.gains} also means more ${info.also}.`;
   return `<div class="room room-${info.roomKey}">
     ${roomScene(info.roomKey, [...teachers, ...students], `${info.room}${levelBadge(state, info.roomKey)}`,
-      `Trains ${info.gains} (${info.label}), which also raises ${info.also}: every session gives each student here the room's level bonus + each teacher's bonus, up to the best teacher's own grade (${NO_TEACHER_CAP} with no teacher). Training costs ${STAMINA_COST_GYM} stamina.`,
+      `Trains ${info.gains} (${info.label}), which also raises ${info.also}: every session gives each student here the room's level bonus + each teacher's bonus, up to the best teacher's own grade (${NO_TEACHER_CAP} with no teacher).`,
       roomUpgradeButton(state, info.roomKey),
-      `${info.icon} <b>+${lesson.gain}</b> ${info.gains} · up to ${lesson.ceiling} · ${STAMINA_COST_GYM} stamina ${infoDot(gainHow)}`)}
+      `${info.icon} <b>+${lesson.gain}</b> ${info.gains} · up to ${lesson.ceiling} ${infoDot(gainHow)}`)}
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[side])} <span class="muted">+${teachingBonus(t.grades[side])}</span>`, `${t.name} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])}, adds +${teachingBonus(t.grades[side])} a session`),
       `data-action="open-picker" data-kind="gym-teacher" data-post="${side}"`)}

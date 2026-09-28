@@ -8,7 +8,7 @@ import {
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, COUNCIL_CHANCE_BY_LEVEL,
-  STAMINA_COST_GYM, STAMINA_COST_EXPLORE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
+  STAMINA_COST_EXPLORE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
@@ -466,7 +466,6 @@ export function setGymToday(state, studentId, side) {
   if (!c || c.role !== "student") return false;
   if (side) {
     if (c.infection) return false; // in quarantine
-    if (c.stamina <= 0) return false; // too exhausted to train
     const count = state.characters.filter((x) => x.gymToday === side && x.id !== c.id).length;
     if (count >= gymRoom(state, side).studentCapacity) return false;
   }
@@ -985,7 +984,6 @@ export function resolveTraining(state) {
         refreshMaxStats(c);
         c.hp = Math.min(c.maxHp, c.hp + Math.max(0, c.maxHp - before));
       }
-      c.stamina = Math.max(0, c.stamina - STAMINA_COST_GYM);
     }
     addLog(state, `${GYM_SIDES[side].room}: ${students.length} student(s) trained, up to +${lesson.gain} ${GYM_SIDES[side].gains} each.`);
     teamBondBumps(state, students.map((c) => c.id));
