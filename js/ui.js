@@ -268,9 +268,9 @@ function nameTag(c, { icon = true } = {}) {
   return `<span class="unit-link" data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${legendary}${role}${esc(shortName(c))}${couple}</span>`;
 }
 
-// A room's staff on one row: its teacher (cook, nurse…) and the substitute slot, each with the
+// A room's staff on one row: its teacher (cook, nurse…) and the assistant slot, each with the
 // person's card, an Assign button when someone is free to fill it, or a greyed-out lock until the
-// room reaches the level that opens it. The first one posted is the teacher; the second the substitute.
+// room reaches the level that opens it. The first one posted is the teacher; the second the assistant.
 function staffLine(state, label, teachers, capacity, rowHtml, pickerAttrs) {
   const free = state.characters.some((c) => c.role === "teacher" && c.alive && !c.infection && !c.post);
   const unlockLevel = ROOM_TEACHER_LEVELS[0];
@@ -283,7 +283,7 @@ function staffLine(state, label, teachers, capacity, rowHtml, pickerAttrs) {
     else body = `<span class="staff-none" title="Every teacher already has a post">none free</span>`;
     return `<span class="mini-label ${i >= capacity ? "staff-label-locked" : ""}">${name}</span><div class="staff-slot">${body}</div>`;
   };
-  return `<div class="staff-row">${slot(0, label)}${slot(1, "Substitute")}</div>`;
+  return `<div class="staff-row">${slot(0, label)}${slot(1, "Assistant")}</div>`;
 }
 
 // A teacher in a room's staff list: name and their grade for the job, four to a line; the ✕
@@ -1927,7 +1927,7 @@ export function renderFloor1(state) {
       ${renderTrainingRoom(state, "Gymnastics")}
       <div class="room room-cafeteria">
         ${roomScene("cafeteria", [...cooks, ...resting], `Cafeteria${levelBadge(state, "cafeteria")}`,
-          `A cook (plus a substitute cook from level 5). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+${CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1]} food a day between them). Up to ${cafeRoom.studentCapacity} students can rest here instead of working, each getting +${cafeteriaRest(state)} stamina back; upgrading the room raises both.`,
+          `A cook (plus an assistant cook from level 5). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+${CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1]} food a day between them). Up to ${cafeRoom.studentCapacity} students can rest here instead of working, each getting +${cafeteriaRest(state)} stamina back; upgrading the room raises both.`,
           roomUpgradeButton(state, "cafeteria"),
           `🍲 <b>${dishCapacity(state)}</b> dish${dishCapacity(state) === 1 ? "" : "es"} a day · 😴 <b>+${cafeteriaRest(state)}</b> stamina ${infoDot(cafeHow)}`)}
         ${staffLine(state, "Cook", cooks, cafeRoom.teacherCapacity,
