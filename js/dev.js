@@ -11,8 +11,10 @@ export function maxOutSchool(state) {
   const scrap = state.resources.materials;
   state.boardedRooms = [];
   state.resources.materials = 1e9;
-  for (const key of G.ROOM_KEYS) while (G.upgradeRoom(state, key));
+  for (const key of G.ROOM_KEYS) if (key !== "radio") while (G.upgradeRoom(state, key));
   state.resources.materials = scrap;
+  // the Radio Station to level 4 — level 5 (satellite) would send for the helicopter
+  buildRadio(state, 4);
 
   const hired = { teachers: 0, students: 0 };
   const hire = (role) => {
@@ -24,7 +26,7 @@ export function maxOutSchool(state) {
   const alive = (role) => state.characters.filter((c) => c.alive && c.role === role && !c.infection);
 
   // teachers: every post up to its slots
-  const posts = [...CLASSROOM_IDS.map((id) => `classroom:${id}`), "gym:PE", "gym:Gymnastics", "cafeteria", "infirmary", "research", "crafting"];
+  const posts = [...CLASSROOM_IDS.map((id) => `classroom:${id}`), "gym:PE", "gym:Gymnastics", "cafeteria", "infirmary", "research", "crafting", "radio"];
   for (const post of posts) {
     const slots = G.roomState(state, G.postRoomKey(post)).teacherCapacity;
     while (alive("teacher").filter((t) => t.post === post).length < slots) {
@@ -44,7 +46,7 @@ export function maxOutSchool(state) {
   }
 
   // daily jobs: fill each room's student slots from whoever is free
-  const busy = (c) => c.gymToday || c.infirmaryToday || c.restToday || c.farmToday || c.ranchToday || c.scrapyardToday || c.exploreTeam !== null || c.defending;
+  const busy = (c) => c.gymToday || c.radioToday || c.infirmaryToday || c.restToday || c.farmToday || c.ranchToday || c.scrapyardToday || c.exploreTeam !== null || c.defending;
   const fill = (count, assign) => {
     for (let i = 0; i < count; i++) {
       const c = alive("student").find((x) => !busy(x));
@@ -54,6 +56,7 @@ export function maxOutSchool(state) {
   const count = (flag, value = true) => state.characters.filter((c) => c.alive && (value === true ? c[flag] : c[flag] === value)).length;
   fill(state.rooms.gym.studentCapacity - count("gymToday", "PE"), (c) => G.setGymToday(state, c.id, "PE"));
   fill(state.rooms.acrobatics.studentCapacity - count("gymToday", "Gymnastics"), (c) => G.setGymToday(state, c.id, "Gymnastics"));
+  fill(state.rooms.radio.studentCapacity - count("radioToday"), (c) => G.setRadioToday(state, c.id, true));
   fill(state.rooms.cafeteria.studentCapacity - count("restToday"), (c) => {
     c.stamina = Math.round(c.maxStamina * 0.25);
     return G.setRestToday(state, c.id, true);

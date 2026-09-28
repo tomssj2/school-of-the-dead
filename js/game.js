@@ -17,7 +17,7 @@ import {
   ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
-  RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
+  RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
   INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
@@ -85,7 +85,7 @@ export function infect(state, c, how) {
   if (!c || !c.alive || c.infection) return false;
   if (c.role === "teacher" && c.post) setTeacherPost(state, c.id, null);
   c.infection = { dueDay: state.day + INFECTION_DAYS };
-  Object.assign(c, { gymToday: false, infirmaryToday: false, restToday: false, farmToday: false, scrapyardToday: false, ranchToday: false, exploreTeam: null, defending: false });
+  Object.assign(c, { gymToday: false, radioToday: false, infirmaryToday: false, restToday: false, farmToday: false, scrapyardToday: false, ranchToday: false, exploreTeam: null, defending: false });
   clearEntranceCellForChar(state, c.id);
   state.raidDefenders = (state.raidDefenders || []).filter((id) => id !== c.id);
   addLog(state, `🦠 ${c.name} ${how} and is infected! Quarantined in the Nurse's Office — cure them with antiviral serum by the end of day ${c.infection.dueDay}, or they die.`);
@@ -126,7 +126,6 @@ export function createInitialState() {
     exploredHexes: [], // "q,r" keys the fog of war has been lifted from
     techUnlocked: [], // TECH_TREE ids purchased with banked Research
     entranceGrid: { size: ENTRANCE_GRID_SIZE, students: {}, defenses: {} }, // "row,col" -> id
-    radio: { stage: 0 }, // Radio Station upgrades built so far (RADIO_UPGRADES)
     rescue: null, // { day, evacuated, landed } once satellite communications reach the military
     victory: false,
     bossesSlain: [], // boss names, for the epilogue
@@ -500,14 +499,32 @@ export function crafterGain(state, crafter, scrap) {
   return Math.round((scrap + crafter.grades.Gymnastics / 20) * 0.8) + CRAFTING_BONUS_BY_LEVEL[roomLevel(state, "crafting") - 1];
 }
 
-// The Radio Station's daily chance that a survivor hears the broadcast and asks to join.
+// The Radio Station's recruiters: teachers posted there and students on the air today.
+export const radioCrew = (state) => state.characters.filter((c) => c.alive && !c.infection && (c.post === "radio" || c.radioToday));
+// What one recruiter adds to the daily recruit chance, by their CHA.
+export const radioCrewBonus = (c) => c.grades.SocialStudies / RADIO_CHA_PER_PERCENT / 100;
+// The Radio Station's daily chance that a survivor hears the broadcast and asks to join: the
+// level's base chance plus every recruiter's CHA bonus (then meals and research on top).
 export function radioRecruitChance(state) {
-  const stage = radioStage(state);
-  const base = stage ? RADIO_UPGRADES[Math.min(stage, 4) - 1].recruitChance : 0;
+  if (isBoarded(state, "radio")) return 0;
+  const base = RADIO_UPGRADES[radioStage(state) - 1].baseChance + radioCrew(state).reduce((sum, c) => sum + radioCrewBonus(c), 0);
   return Math.min(1, base * dishMultiplier(state, "recruitChance") * (1 + techPerk(state, "recruitChance")));
 }
-export const radioStage = (state) => state.radio?.stage || 0;
+export const radioStage = (state) => roomLevel(state, "radio");
 export const satelliteReady = (state) => radioStage(state) >= RADIO_UPGRADES.length;
+
+// Puts a student on the air at the Radio Station today (or takes them off).
+export function setRadioToday(state, studentId, value) {
+  const c = getChar(state, studentId);
+  if (!c || c.role !== "student") return false;
+  if (value) {
+    if (c.infection || isBoarded(state, "radio")) return false;
+    const count = state.characters.filter((x) => x.alive && x.radioToday && x.id !== c.id).length;
+    if (count >= state.rooms.radio.studentCapacity) return false;
+  }
+  c.radioToday = !!value;
+  return true;
+}
 
 // HP a patient gets back tonight: a treatment when there's medicine for them, bed rest otherwise.
 export function healAmount(state, c, treated) {
@@ -608,7 +625,7 @@ export const setRanchToday = makeOutsideFacilitySetter("ranchToday", "ranch");
 
 export const ROOM_KEYS = [
   ...CLASSROOM_IDS.map((id) => `classroom:${id}`),
-  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "farm", "ranch", "scrapyard",
+  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "radio", "farm", "ranch", "scrapyard",
 ];
 // The Headmaster's Office's two sides.
 export const promotionSlots = () => OFFICE_PROMOTION_SLOTS;
@@ -691,6 +708,7 @@ export function roomUpgradeCostFor(state, key) {
 }
 
 export function upgradeRoom(state, key) {
+  if (key === "radio") return buildRadioUpgrade(state); // paid for in scrap and research, its own way
   const room = roomState(state, key);
   const cost = roomUpgradeCostFor(state, key);
   if (!room || cost === null || isBoarded(state, key)) return false;
@@ -1746,22 +1764,24 @@ function resolveOvernightRecovery(state) {
 
 // ---------- the rescue ----------
 
-// Builds the Radio Station's next upgrade (RADIO_UPGRADES, in order). The last one, satellite
-// communications, reaches the military: a helicopter will land RESCUE_ARRIVAL_DAYS later.
+// Levels the Radio Station up with its next upgrade (RADIO_UPGRADES, in order, paid in scrap and
+// research). The last one, satellite communications, reaches the military: a helicopter will land
+// RESCUE_ARRIVAL_DAYS later.
 export function buildRadioUpgrade(state) {
   if (isBoarded(state, "radio")) return false;
-  const stage = radioStage(state);
-  const up = RADIO_UPGRADES[stage];
+  const level = radioStage(state);
+  const up = RADIO_UPGRADES[level];
   if (!up) return false;
-  const cost = Object.entries(up.cost);
+  const cost = Object.entries(up.cost || {});
   if (cost.some(([res, amt]) => (state.resources[res] || 0) < amt)) return false;
   for (const [res, amt] of cost) state.resources[res] -= amt;
-  state.radio = { stage: stage + 1 };
+  state.rooms.radio.level = level + 1;
+  applyRoomLevel(state, "radio");
   if (satelliteReady(state)) {
     state.rescue = { day: state.day + RESCUE_ARRIVAL_DAYS, evacuated: false, landed: false };
     addLog(state, `🛰 Contact! The satellite link reaches the military — a helicopter will land on the roof on day ${state.rescue.day}. Hold out until then.`);
   } else {
-    addLog(state, stage === 0 ? "📻 The antenna hums to life — the school is on the air." : `📶 ${up.name}: the broadcast reaches further.`);
+    addLog(state, `📶 ${up.name}: the broadcast reaches further.`);
   }
   return true;
 }
@@ -1825,6 +1845,7 @@ export function advanceTurn(state) {
   }
   for (const c of state.characters) {
     c.gymToday = false;
+    c.radioToday = false;
     c.infirmaryToday = false;
     c.restToday = false;
     c.farmToday = false;

@@ -268,8 +268,9 @@ export function makeCharacter(role, gender) {
     alive: true,
     injured: false,
     seat: null, // { subject, index } for floor2 classroom seating (students only, persistent "home")
-    post: null, // teacher's job post: 'classroom:<subject>' | 'gym' | 'cafeteria' | 'research' | 'crafting' | null
+    post: null, // teacher's job post: 'classroom:<subject>' | 'gym' | 'cafeteria' | 'research' | 'crafting' | 'radio' | null
     gymToday: false,
+    radioToday: false, // on the air at the Radio Station today (students)
     infirmaryToday: false, // a patient in the Nurse's Office today: "heal" or false (students)
     restToday: false, // resting in the Cafeteria today (students)
     exploreTeam: null, // 0,1,2 or null - this turn's exploration assignment (students only)

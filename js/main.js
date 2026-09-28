@@ -189,12 +189,13 @@ function migrateState(s) {
   if (s.rescue === undefined) s.rescue = null;
   // The Student Council became the Radio Station, and the antenna repairs its upgrades: an old
   // save's repairs carry over, and a finished antenna keeps its rescue date.
-  if (!s.radio) {
-    const done = Math.min(5, s.rescue?.stagesDone || 0);
-    s.radio = { stage: done };
+  if (!s.rooms.radio) {
+    const done = Math.min(5, s.radio?.stage ?? s.rescue?.stagesDone ?? 0);
+    s.rooms.radio = { level: Math.max(1, done) };
     if (s.rescue && !s.rescue.evacuated && done < 5 && !s.rescue.landed) s.rescue = null;
     if (s.rescue) delete s.rescue.stagesDone;
   }
+  delete s.radio; // the Radio Station's progress is its room level now
   s.boardedRooms = (s.boardedRooms || []).map((k) => (k === "council" ? "radio" : k));
   delete s.rooms.council;
   delete s.rooms.headmaster; // the office has no levels any more
@@ -750,6 +751,10 @@ root.addEventListener("click", (e) => {
       G.setRestToday(state, el.dataset.id, false);
       render();
       break;
+    case "remove-radio":
+      G.setRadioToday(state, el.dataset.id, false);
+      render();
+      break;
     case "remove-infirmary":
       G.setInfirmaryToday(state, el.dataset.id, false);
       render();
@@ -1134,6 +1139,7 @@ root.addEventListener("click", (e) => {
         case "infirmary-teacher": G.setTeacherPost(state, id, "infirmary"); break;
         case "infirmary-student": G.setInfirmaryToday(state, id, "heal"); break;
         case "cafeteria-rest": G.setRestToday(state, id, true); break;
+        case "radio-student": G.setRadioToday(state, id, true); break;
         case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;
         case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
         case "utility": G.setTeacherPost(state, id, postKey); break;

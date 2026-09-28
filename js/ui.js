@@ -7,14 +7,14 @@ import {
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
-  RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, radioRecruitChance, radioStage, satelliteReady, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -146,6 +146,7 @@ function staminaBar(c) {
 // it opens a popup with what the next level brings. Nothing at max level (the plaque says MAX
 // instead), unless a raid left something to repair.
 function roomUpgradeButton(state, key) {
+  if (key === "radio") return radioStage(state) >= RADIO_UPGRADES.length ? "" : `<button class="scene-upgrade" data-action="open-upgrade" data-room="radio">Upgrade</button>`;
   const cost = roomUpgradeCostFor(state, key);
   const repair = roomRepairCost(state, key);
   if (cost === null && !repair) return "";
@@ -166,6 +167,7 @@ function roomTitle(state, key) {
 // The Upgrade popup: the room's level, what each of its numbers goes to at the next level (the
 // ones that change are highlighted), the cost, and a repair if a raid broke a worker slot.
 export function renderRoomUpgradeModal(state, key) {
+  if (key === "radio") return renderRadioUpgradeModal(state);
   const level = roomLevel(state, key);
   const maxed = level >= ROOM_MAX_LEVEL;
   const now = roomLevelStats(key, level);
@@ -192,6 +194,40 @@ export function renderRoomUpgradeModal(state, key) {
         <button class="btn btn-primary" data-action="confirm-upgrade" ${scrap < cost ? "disabled" : ""}>Upgrade · ${cost} scrap</button>
         ${scrap < cost ? `<span class="muted">You have ${scrap}/${cost} scrap</span>` : ""}
       </div>`}
+    </div>
+  </div>`;
+}
+
+// The Radio Station's upgrades, one per level, in a pop-up like the other rooms' — the next one
+// can be built here (in scrap and research).
+function renderRadioUpgradeModal(state) {
+  const level = radioStage(state);
+  const room = state.rooms.radio;
+  const costLabel = (cost) => Object.entries(cost || {}).map(([res, amt]) => `${TECH_EFFECT_ICON[res]} ${amt}`).join(" ");
+  const rows = RADIO_UPGRADES.map((up, i) => {
+    const affordable = Object.entries(up.cost || {}).every(([res, amt]) => (state.resources[res] || 0) >= amt);
+    const status = i < level
+      ? '<span class="tag tag-ok">✓ Done</span>'
+      : i === level
+      ? `<button class="btn btn-sm btn-primary" data-action="radio-upgrade" ${affordable ? "" : "disabled"}>Build ${costLabel(up.cost)}</button>`
+      : `<span class="radio-locked">🔒 ${costLabel(up.cost)}</span>`;
+    const effect = up.id === "satellite" ? "" : ` · base ${Math.round(up.baseChance * 100)}% a day`;
+    return `<div class="radio-row ${i < level ? "radio-done" : ""} ${i === level ? "radio-next" : ""}">
+      <span class="radio-lv">Lv ${i + 1}</span>
+      <span class="radio-icon">${up.icon}</span>
+      <span class="radio-text"><b>${esc(up.name)}</b><small>${esc(up.desc)}${effect}</small></span>
+      ${status}
+    </div>`;
+  }).join("");
+  const pips = Array.from({ length: RADIO_UPGRADES.length }, (_, i) =>
+    `<span class="upg-pip ${i < level ? "upg-pip-on" : i === level ? "upg-pip-next" : ""}"></span>`).join("");
+  return `<div class="modal-overlay" data-action="close-upgrade">
+    <div class="char-card mission-card upgrade-modal radio-modal" data-action="noop">
+      <button class="cc-close" data-action="close-upgrade" title="Close">✕</button>
+      <h3>Radio Station</h3>
+      <div class="upg-level"><span>${level >= RADIO_UPGRADES.length ? `Level ${level} · <b>Max</b>` : `Level ${level} → <b>Level ${level + 1}</b>`}</span><span class="upg-pips">${pips}</span></div>
+      <p class="muted upg-note">Each level adds an on-air student slot (${room.studentCapacity} now); an assistant teacher joins at level 5.</p>
+      <div class="radio-list">${rows}</div>
     </div>
   </div>`;
 }
@@ -308,6 +344,7 @@ const TEACHER_POST_LABEL = {
   infirmary: "Nurse's Office",
   research: "Research Room",
   crafting: "Crafting Room",
+  radio: "Radio Station",
 };
 
 // Where a character currently is — a teacher's post, or a student's active daily assignment
@@ -323,6 +360,7 @@ function occupationLabel(state, c) {
   if (c.exploreTeam !== null) return c.exploreTeam === RAID_TEAM ? "Raiding" : `Exploring (Team ${c.exploreTeam + 1})`;
   if (c.infirmaryToday) return "Nurse's Office";
   if (c.restToday) return "Resting (Cafeteria)";
+  if (c.radioToday) return "Radio Station";
   if (c.gymToday) return GYM_SIDES[c.gymToday].room;
   if (c.farmToday) return "Farm";
   if (c.scrapyardToday) return "Scrapyard";
@@ -1669,6 +1707,7 @@ function studentBusyLabel(c, exceptFlag) {
   if (exceptFlag !== "gymToday" && c.gymToday) return `Training in ${GYM_SIDES[c.gymToday].ref}`;
   if (exceptFlag !== "infirmaryToday" && c.infirmaryToday) return "In the Nurse's Office";
   if (exceptFlag !== "restToday" && c.restToday) return "Resting in the Cafeteria";
+  if (exceptFlag !== "radioToday" && c.radioToday) return "On the air at the Radio Station";
   if (exceptFlag !== "farmToday" && c.farmToday) return "Working the Farm";
   if (exceptFlag !== "scrapyardToday" && c.scrapyardToday) return "Working the Scrapyard";
   if (exceptFlag !== "ranchToday" && c.ranchToday) return "Working the Ranch";
@@ -1709,6 +1748,13 @@ function resolvePickerCandidates(state, picker) {
         role: "student", title: "Send a Student to the Nurse",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.infirmaryToday)
           .map((c) => studentRow(c, "infirmaryToday", (c) => (c.hp >= c.maxHp ? "Already at full HP" : null))),
+      };
+    case "radio-student":
+      return {
+        role: "student", title: "Put a Student on the Air",
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.radioToday)
+          .sort((a, b) => b.grades.SocialStudies - a.grades.SocialStudies)
+          .map((c) => studentRow(c, "radioToday")),
       };
     case "cafeteria-rest":
       return {
@@ -2208,37 +2254,37 @@ export function renderFloor3(state) {
       : "Assign a teacher: each crafter turns up to 4 scrap a day into permanent fortification — more with a high DEX.";
     return `🛡 <b>+${total}</b> fortification a day ${infoDot(how)}`;
   };
-  // The Radio Station: no teachers — five upgrades, built in order, listed under the banner. The
-  // first four put the school on the air (a daily chance a survivor hears it and asks to join); the
-  // last reaches the military, and a helicopter comes for the school.
+  // The Radio Station: levels like the other rooms (its upgrades are in the Upgrade pop-up), a
+  // teacher (+ an assistant at level 5) and students on the air today, who all recruit with their CHA.
   const radio = (() => {
     if (isBoarded(state, "radio")) return renderBoardedRoom(state, "radio", "radio", "room-radio");
-    const stage = radioStage(state);
-    const chance = Math.round(radioRecruitChance(state) * 100);
-    const costLabel = (cost) => Object.entries(cost).map(([res, amt]) => `${TECH_EFFECT_ICON[res]} ${amt}`).join(" ");
-    const rows = RADIO_UPGRADES.map((up, i) => {
-      const affordable = Object.entries(up.cost).every(([res, amt]) => (state.resources[res] || 0) >= amt);
-      const status = i < stage
-        ? '<span class="tag tag-ok">✓ Done</span>'
-        : i === stage
-        ? `<button class="btn btn-sm btn-primary" data-action="radio-upgrade" ${affordable ? "" : "disabled"}>Build ${costLabel(up.cost)}</button>`
-        : `<span class="radio-locked">🔒 ${costLabel(up.cost)}</span>`;
-      const effect = up.recruitChance ? ` · ${Math.round(up.recruitChance * 100)}% recruit chance a day` : "";
-      return `<div class="radio-row ${i < stage ? "radio-done" : ""} ${i === stage ? "radio-next" : ""}">
-        <span class="radio-icon">${up.icon}</span>
-        <span class="radio-text"><b>${esc(up.name)}</b><small>${esc(up.desc)}${effect}</small></span>
-        ${status}
-      </div>`;
-    }).join("");
+    const room = state.rooms.radio;
+    const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === "radio" && c.alive);
+    const onAir = state.characters.filter((c) => c.radioToday && c.alive);
+    const chance = radioRecruitChance(state);
+    const pct = (v) => `${(v * 100).toFixed(v * 100 < 10 && v * 100 % 1 ? 1 : 0)}%`;
+    const base = RADIO_UPGRADES[radioStage(state) - 1].baseChance;
+    const crew = radioCrew(state);
+    const crewPart = crew.map((c) => `${pct(radioCrewBonus(c))} (${shortName(c)}, CHA ${c.grades.SocialStudies})`).join(" + ");
+    const how = `Every day there's a chance a survivor hears the broadcast and asks to join: the station's base (5 / 7 / 9 / 11% at levels 1–4) plus every recruiter's CHA ÷ ${RADIO_CHA_PER_PERCENT} — the teacher posted here and the students on the air today. ${pct(base)} (level ${radioStage(state)})${crewPart ? ` + ${crewPart}` : " — nobody on the air yet"} = ${pct(chance)} a day${chance > 0 && Math.abs(chance - base - crew.reduce((s, c) => s + radioCrewBonus(c), 0)) > 0.0005 ? " (with meals / research)" : ""}. The last upgrade, satellite communications, sends for the helicopter — it lands ${RESCUE_ARRIVAL_DAYS} days later.`;
     const pill = state.rescue
-      ? state.rescue.evacuated ? "🚁 The helicopter has come and gone" : `🚁 Helicopter lands on <b>day ${state.rescue.day}</b>`
-      : stage
-      ? `📻 <b>${chance}%</b> chance of a recruit a day`
-      : "📻 Off the air";
-    const how = `Build the upgrades in order. Powering the antenna puts the school on the air — every day there's a chance a survivor hears the broadcast and asks to join (15%, then 25 / 35 / 45% with each range upgrade; Fresh Bread and research can raise it). Satellite communications reach the military: a helicopter lands ${RESCUE_ARRIVAL_DAYS} days later, and you choose to evacuate or hold out. It's the only way out of the city.`;
+      ? state.rescue.evacuated ? "🚁 The helicopter has come and gone" : `🚁 Helicopter lands on <b>day ${state.rescue.day}</b> · 📻 ${pct(chance)}`
+      : `📻 <b>${pct(chance)}</b> chance of a recruit a day`;
     return `<div class="room room-radio">
-      ${roomScene("radio", [], "Radio Station", "", "", `${pill} ${infoDot(how)}`)}
-      <div class="radio-list">${rows}</div>
+      ${roomScene("radio", [...teachers, ...onAir], `Radio Station${levelBadge(state, "radio")}`, "", roomUpgradeButton(state, "radio"), `${pill} ${infoDot(how)}`)}
+      ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
+        (t) => staffRow(t, `${gradeLetter(t.grades.SocialStudies)} <span class="muted">+${pct(radioCrewBonus(t))}</span>`, `${t.name} — CHA ${t.grades.SocialStudies}, adds ${pct(radioCrewBonus(t))} a day`),
+        'data-action="open-picker" data-kind="utility" data-post="radio"')}
+      <div class="mini-label">On the air today (${onAir.length}/${room.studentCapacity})</div>
+      ${tileGrid(
+        onAir.map((s) => personTile(s, {
+          remove: "remove-radio",
+          title: `${s.name} — CHA ${s.grades.SocialStudies}, adds ${pct(radioCrewBonus(s))} to today's recruit chance`,
+          extra: `<span class="pt-gain">+<b>${pct(radioCrewBonus(s))}</b></span>`,
+        })),
+        room.studentCapacity - onAir.length,
+        'data-action="open-picker" data-kind="radio-student"'
+      )}
     </div>`;
   })();
 

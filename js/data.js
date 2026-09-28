@@ -103,7 +103,7 @@ export const TEACHER_SECONDARY_WEIGHTS = [50, 33, 17];
 export const TEACH_BONUS_BY_TIER = { S: 10, A: 7, B: 5, C: 3, D: 1, F: 0 }; // grade points a day, per teacher
 
 // Teachers stay at the school full-time (no exploring/defending) and are capped and rarer.
-export const MAX_TEACHERS = 20; // one teacher + one assistant for each of the 10 rooms with teachers at max level
+export const MAX_TEACHERS = 22; // one teacher + one assistant for each of the 11 rooms with teachers at max level
 export const TEACHER_RECRUIT_CHANCE = 0.12; // share of recruited survivors who turn out to be teachers
 
 // Traits: each character spawns with 1-3 of these. A trait speeds up grade growth in its
@@ -292,17 +292,20 @@ export function hordeComposition(day) {
 }
 
 // ===== The Radio Station and the rescue (the run's goal) =====
-// The Radio Station (Floor 3, no teachers) is built up one upgrade at a time: powering the antenna
-// puts the school on the air, each range upgrade reaches more survivors (a daily chance one asks
-// to join), and satellite communications reach the military — a helicopter lands
-// RESCUE_ARRIVAL_DAYS later. Sent away, it comes back RESCUE_DELAY_DAYS later.
+// The Radio Station (Floor 3) levels up like the other rooms, one upgrade per level: level 1 is the
+// antenna, powered as soon as the room is cleared; levels 2-4 widen the range; level 5 is
+// satellite communications, which reach the military — a helicopter lands RESCUE_ARRIVAL_DAYS
+// later. Sent away, it comes back RESCUE_DELAY_DAYS later. Every day there's a chance a survivor
+// hears the broadcast and asks to join: the level's base chance, plus each teacher posted there
+// and each student on the air today adding their CHA / RADIO_CHA_PER_PERCENT percent.
 export const RADIO_UPGRADES = [
-  { id: "power", name: "Power the antenna", icon: "⚡", cost: { materials: 30 }, desc: "Put the school on the air — survivors who hear the broadcast come looking.", recruitChance: 0.15 },
-  { id: "range1", name: "Increase range I", icon: "📶", cost: { materials: 40 }, desc: "Reach further across the city.", recruitChance: 0.25 },
-  { id: "range2", name: "Increase range II", icon: "📶", cost: { materials: 40, research: 15 }, desc: "Reach the suburbs.", recruitChance: 0.35 },
-  { id: "range3", name: "Increase range III", icon: "📶", cost: { materials: 50, research: 25 }, desc: "Reach the whole region.", recruitChance: 0.45 },
-  { id: "satellite", name: "Satellite communications", icon: "🛰", cost: { materials: 60, research: 40 }, desc: "Reach the military — a helicopter comes to save the school." },
+  { id: "power", name: "Power the antenna", icon: "⚡", cost: null, desc: "On the air as soon as the room is cleared.", baseChance: 0.05 },
+  { id: "range1", name: "Increase range I", icon: "📶", cost: { materials: 40 }, desc: "Reach further across the city.", baseChance: 0.07 },
+  { id: "range2", name: "Increase range II", icon: "📶", cost: { materials: 40, research: 15 }, desc: "Reach the suburbs.", baseChance: 0.09 },
+  { id: "range3", name: "Increase range III", icon: "📶", cost: { materials: 50, research: 25 }, desc: "Reach the whole region.", baseChance: 0.11 },
+  { id: "satellite", name: "Satellite communications", icon: "🛰", cost: { materials: 60, research: 40 }, desc: "Reach the military — a helicopter comes to save the school.", baseChance: 0.11 },
 ];
+export const RADIO_CHA_PER_PERCENT = 20; // CHA 100 on the air adds +5% a day
 export const RESCUE_ARRIVAL_DAYS = 3;
 export const RESCUE_DELAY_DAYS = 5;
 
@@ -619,6 +622,9 @@ export const ROOM_LEVELS = {
   research: {
     name: "Research Room", teachers: roomSlots("Researchers", RESEARCH_ROOM_TEACHERS),
     perks: [{ label: "Bonus research", by: RESEARCH_BONUS_BY_LEVEL, fmt: (v) => `+${v} a day` }],
+  },
+  radio: {
+    name: "Radio Station", students: roomSlots("On-air students", 1, 1), teachers: roomSlots("Teachers", 1),
   },
   crafting: {
     name: "Crafting Room", teachers: roomSlots("Crafters", 1),
