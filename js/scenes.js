@@ -369,6 +369,62 @@ const SCENES = {
     for (const [x, y, c] of [[70, 6, "#f4d35e"], [72, 5, "#f4d35e"], [68, 5, "#e0602a"], [74, 7, "#f4d35e"]]) r(x, y, x, y, c);
     r(92, 4, 93, 15, "#c49a64");
   },
+  // Wood panelling, a bookshelf, a window, the school pennant, a framed diploma, a trophy cabinet
+  // and the headmaster's big desk with a lamp and a globe.
+  headmaster(r) {
+    indoor(r, "#6b4f3a", "#5a4230", "#7a2f3a", "#6a2832", "carpet");
+    for (let x = 2; x < SW; x += 12) r(x, 10, x, 14, "#4a3526");
+    // bookshelf
+    r(3, 1, 15, 15, "#4a3120");
+    r(4, 2, 14, 14, "#2e1f14");
+    for (const y of [5, 9, 13]) r(4, y + 1, 14, y + 1, "#5a3b24");
+    const books = ["#d64545", "#3fa7d6", "#f4d35e", "#4caf7d", "#8a5ad6", "#e0602a"];
+    for (const [row, y] of [[0, 3], [1, 7], [2, 11]]) {
+      for (let i = 0; i < 5; i++) r(5 + i * 2, y - (i % 2), 5 + i * 2, y + 2, books[(i + row * 2) % books.length]);
+    }
+    // window with the ruined city outside
+    r(20, 2, 36, 11, "#3a2a1e");
+    r(21, 3, 35, 10, "#e8a56a");
+    r(21, 3, 35, 5, "#d98a5a");
+    for (const [x0, x1, top] of [[21, 24, 7], [25, 27, 5], [28, 31, 8], [32, 35, 6]]) r(x0, top, x1, 10, "#4a3a44");
+    r(28, 3, 28, 10, "#3a2a1e");
+    r(21, 6, 35, 6, "#3a2a1e");
+    // school pennant
+    r(43, 1, 53, 1, "#8a5a1a");
+    r(44, 2, 52, 7, "#b03030");
+    r(45, 8, 51, 8, "#b03030");
+    r(47, 9, 49, 9, "#b03030");
+    r(48, 10, 48, 10, "#b03030");
+    r(47, 3, 49, 5, "#f4d35e");
+    r(48, 6, 48, 6, "#f4d35e");
+    // framed diploma
+    r(58, 2, 68, 8, "#c9a227");
+    r(59, 3, 67, 7, "#efe4c8");
+    for (const y of [4, 6]) r(61, y, 65, y, "#8a7a5a");
+    r(66, 7, 66, 7, "#b03030");
+    // trophy cabinet
+    r(78, 2, 91, 15, "#4a3120");
+    r(79, 3, 90, 14, "#8fb1c4");
+    r(79, 8, 90, 8, "#4a3120");
+    for (const [x, y] of [[81, 5], [86, 4], [83, 11], [88, 11]]) {
+      r(x, y, x + 2, y, "#f4d35e");
+      r(x + 1, y + 1, x + 1, y + 1, "#c9a227");
+      r(x, y + 2, x + 2, y + 2, "#c9a227");
+    }
+    // the headmaster's desk, with a lamp, a globe and a stack of papers
+    r(34, 12, 64, 15, "#5a3620");
+    r(34, 11, 64, 12, "#8a5a33");
+    r(34, 11, 64, 11, "#a8753f");
+    r(47, 13, 51, 14, "#c9a227");
+    r(37, 7, 40, 8, "#2f7a4f");
+    r(38, 9, 38, 10, "#c9a227");
+    r(37, 10, 39, 10, "#c9a227");
+    r(58, 7, 61, 9, "#3fa7d6");
+    r(59, 8, 60, 8, "#4caf7d");
+    r(59, 10, 60, 10, "#6b4a2f");
+    r(52, 9, 55, 10, "#efe4c8");
+    r(53, 8, 56, 8, "#e0d6bc");
+  },
   council(r) {
     indoor(r, "#3d4c7d", "#324069", "#6a3d3d", "#5a3232", "carpet");
     r(40, 1, 56, 11, "#d64545");

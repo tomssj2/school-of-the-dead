@@ -2136,22 +2136,23 @@ function renderClassroom(state, roomId) {
 export function renderFloor3(state) {
   const students = state.characters.filter((c) => c.role === "student" && c.alive).sort((a, b) => overallLevel(b) - overallLevel(a));
   const atTeacherCap = teacherCount(state) >= MAX_TEACHERS;
-  const promoteRows = students
-    .map((s) => {
-      const lvl = overallLevel(s);
-      const eligible = lvl >= PROMOTE_LEVEL_THRESHOLD && !atTeacherCap;
-      const reason = atTeacherCap ? `Already at the ${MAX_TEACHERS}-teacher cap` : `Needs level ${PROMOTE_LEVEL_THRESHOLD}+`;
-      return `<tr>
-        <td>${nameTag(s)}</td>
-        <td>Lv${lvl}</td>
-        <td>${statChips(s)}</td>
-        <td>
-          <button class="btn btn-sm" data-action="promote" data-id="${s.id}" ${eligible ? "" : "disabled"} title="${eligible ? "Promote to teacher" : reason}">🎓 Promote</button>
-          <button class="btn btn-sm btn-danger" data-action="expel" data-id="${s.id}">🚪 Expel</button>
-        </td>
-      </tr>`;
-    })
-    .join("");
+  // The Headmaster's Office: the students ready to become teachers (level PROMOTE_LEVEL_THRESHOLD+),
+  // best first, as tiles with a promote button — two rows at most.
+  const ready = students.filter((s) => overallLevel(s) >= PROMOTE_LEVEL_THRESHOLD);
+  const OFFICE_TILES = 16;
+  const readyTiles = ready.slice(0, OFFICE_TILES).map((s) => personTile(s, {
+    title: `${s.name} — level ${overallLevel(s)}, best at ${SUBJECT_LABEL[SUBJECTS.reduce((b, x) => (s.grades[x] > s.grades[b] ? x : b), SUBJECTS[0])]}`,
+    extra: `<span class="pt-gain">Lv ${overallLevel(s)}</span>
+      <button class="pt-promote" data-action="promote" data-id="${s.id}" ${atTeacherCap ? "disabled" : ""} title="${atTeacherCap ? `Already at the ${MAX_TEACHERS}-teacher cap` : "Promote to teacher"}">🎓</button>`,
+  }));
+  const officeHow = `Students who reach level ${PROMOTE_LEVEL_THRESHOLD} can be promoted to teachers here — they'll teach whatever they're best at. The school has room for ${MAX_TEACHERS} teachers at most. To expel someone, open their card.`;
+  const office = `<div class="room room-office">
+    ${roomScene("headmaster", ready, "Headmaster's Office", "", "", `🎓 <b>${teacherCount(state)}/${MAX_TEACHERS}</b> teachers ${infoDot(officeHow)}`)}
+    <div class="mini-label">Ready to promote (${ready.length})</div>
+    ${ready.length
+      ? `<div class="person-tiles">${readyTiles.join("")}</div>${ready.length > OFFICE_TILES ? `<p class="muted">+${ready.length - OFFICE_TILES} more — the best are shown first.</p>` : ""}`
+      : `<p class="muted">No student has reached level ${PROMOTE_LEVEL_THRESHOLD} yet.</p>`}
+  </div>`;
 
   const recruits = state.recruitPool
     .map((r, i) => {
@@ -2214,19 +2215,12 @@ export function renderFloor3(state) {
   return `
   <div class="card">
     <h2>Floor 3 — Headmaster's Office &amp; Special Rooms</h2>
-    <div class="subcard">
-      <h3>🧑‍💼 Headmaster's Office ${infoDot(`Promote high-achieving students (Level ${PROMOTE_LEVEL_THRESHOLD}+) to teachers, or expel anyone. The school has room for ${MAX_TEACHERS} teachers at most.`)}</h3>
-      <p class="room-tagline">Promote Level ${PROMOTE_LEVEL_THRESHOLD}+ students · teachers ${teacherCount(state)}/${MAX_TEACHERS}</p>
-      <div class="table-wrap">
-        <table class="roster-table">
-          <thead><tr><th>Name</th><th>Level</th><th>Stats</th><th>Actions</th></tr></thead>
-          <tbody>${promoteRows || '<tr><td colspan="4" class="muted">No students.</td></tr>'}</tbody>
-        </table>
+    <div class="floor1-grid floor3-top">
+      ${office}
+      <div class="subcard recruits-card">
+        <h3>🙋 Pending Recruits</h3>
+        ${recruits ? `<div class="recruit-list">${recruits}</div>` : '<p class="muted">No one is waiting to join right now. Explore the city or staff the Student Council room to find survivors.</p>'}
       </div>
-    </div>
-    <div class="subcard">
-      <h3>🙋 Pending Recruits</h3>
-      ${recruits ? `<div class="recruit-list">${recruits}</div>` : '<p class="muted">No one is waiting to join right now. Explore the city or staff the Student Council room to find survivors.</p>'}
     </div>
     <div class="floor3-grid">
       ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
@@ -3005,6 +2999,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
           ✨ ${points} skill point${points === 1 ? "" : "s"}
         </div>` : ""}
         ${traitBadges && !isTeacher ? `<div class="cc-section-label cc-talents-label">Talents</div><div class="cc-traits">${traitBadges}</div>` : ""}
+        ${!isTeacher && c.alive && state.characters.includes(c) ? `<button class="btn btn-sm btn-danger cc-expel" data-action="expel" data-id="${c.id}" title="Send them away from the school for good">🚪 Expel</button>` : ""}
       </div>
       <div class="cc-right">
         <div class="cc-top-stats">

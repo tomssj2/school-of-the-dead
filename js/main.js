@@ -851,6 +851,7 @@ root.addEventListener("click", (e) => {
         const c = G.getChar(state, el.dataset.id);
         if (c && confirm(`Expel ${c.name} from the school? This cannot be undone.`)) {
           G.expelCharacter(state, el.dataset.id);
+          if (openCardId === el.dataset.id) openCardId = null;
           render();
         }
       }
