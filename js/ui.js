@@ -2,7 +2,7 @@ import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
   CLASSROOM_CAPACITY, LOCATIONS,
   BOND_COUPLE_THRESHOLD, GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_MAX_LEVEL, roomUpgradeCost,
-  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
+  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, ANTENNA_STAGES,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, GYM_MAX_BONUS, STAMINA_COST_GYM, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
@@ -268,15 +268,22 @@ function nameTag(c, { icon = true } = {}) {
   return `<span class="unit-link" data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${legendary}${role}${esc(shortName(c))}${couple}</span>`;
 }
 
-// A room's teachers on one row: the label, their cards, and — only while there's a free slot and
-// an unassigned teacher to fill it — an Assign button at the right end.
+// A room's staff on one row: its teacher (cook, nurse…) and the substitute slot, each with the
+// person's card, an Assign button when someone is free to fill it, or a greyed-out lock until the
+// room reaches the level that opens it. The first one posted is the teacher; the second the substitute.
 function staffLine(state, label, teachers, capacity, rowHtml, pickerAttrs) {
-  const canAssign = teachers.length < capacity && state.characters.some((c) => c.role === "teacher" && c.alive && !c.infection && !c.post);
-  return `<div class="staff-row">
-    <span class="mini-label">${label} (${teachers.length}/${capacity})</span>
-    <ul class="assign-list staff-list">${teachers.map(rowHtml).join("") || '<li class="muted">none</li>'}</ul>
-    ${canAssign ? `<button class="btn btn-sm staff-add" ${pickerAttrs} title="Assign a teacher">+ Assign</button>` : ""}
-  </div>`;
+  const free = state.characters.some((c) => c.role === "teacher" && c.alive && !c.infection && !c.post);
+  const unlockLevel = ROOM_TEACHER_LEVELS[0];
+  const slot = (i, name) => {
+    let body;
+    if (teachers[i]) body = `<ul class="assign-list staff-list">${rowHtml(teachers[i])}</ul>`;
+    else if (i >= capacity) {
+      body = `<button class="staff-locked" data-action="locked-slot" data-msg="The ${name.toLowerCase()} slot unlocks when this room reaches level ${unlockLevel}." title="Unlocks at room level ${unlockLevel}">🔒 Lv ${unlockLevel}</button>`;
+    } else if (free) body = `<button class="btn btn-sm staff-add" ${pickerAttrs} title="Assign a teacher">+ Assign</button>`;
+    else body = `<span class="staff-none" title="Every teacher already has a post">none free</span>`;
+    return `<span class="mini-label ${i >= capacity ? "staff-label-locked" : ""}">${name}</span><div class="staff-slot">${body}</div>`;
+  };
+  return `<div class="staff-row">${slot(0, label)}${slot(1, "Substitute")}</div>`;
 }
 
 // A teacher in a room's staff list: name and their grade for the job, four to a line; the ✕
@@ -1875,7 +1882,7 @@ function renderTrainingRoom(state, side) {
       `Trains ${info.label}, which builds ${info.gains}: every session gives each student here 1 + the combined ${info.label} rank of the teachers posted here (F 0, D 1, C 2, B 3, A 4, S 5), up to +${GYM_MAX_BONUS} ${info.gains} in total. Students also earn ${info.label} grade XP. Up to ${room.studentCapacity} students and ${room.teacherCapacity} teachers; training costs ${STAMINA_COST_GYM} stamina.`,
       roomUpgradeButton(state, info.roomKey),
       `${info.icon} <b>+${gain} ${info.gains}</b> · ${STAMINA_COST_GYM} stamina ${infoDot(gainHow)}`)}
-    ${staffLine(state, "Teachers", teachers, room.teacherCapacity,
+    ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[side])} <span class="muted">+${teacherRank(t, side)}</span>`, `${t.name} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])}, adds +${teacherRank(t, side)} a session`),
       `data-action="open-picker" data-kind="gym-teacher" data-post="${side}"`)}
       <div class="mini-label">Training today (${students.length}/${room.studentCapacity})</div>
@@ -1920,10 +1927,10 @@ export function renderFloor1(state) {
       ${renderTrainingRoom(state, "Gymnastics")}
       <div class="room room-cafeteria">
         ${roomScene("cafeteria", [...cooks, ...resting], `Cafeteria${levelBadge(state, "cafeteria")}`,
-          `Up to ${cafeRoom.teacherCapacity} teachers (cooks). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+${CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1]} food a day between them). Up to ${cafeRoom.studentCapacity} students can rest here instead of working, each getting +${cafeteriaRest(state)} stamina back; upgrading the room raises both.`,
+          `A cook (plus a substitute cook from level 5). Each cook can serve one dish a day — its buff covers the whole school until tonight — stretches the rations (+${CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1]} food a day between them). Up to ${cafeRoom.studentCapacity} students can rest here instead of working, each getting +${cafeteriaRest(state)} stamina back; upgrading the room raises both.`,
           roomUpgradeButton(state, "cafeteria"),
           `🍲 <b>${dishCapacity(state)}</b> dish${dishCapacity(state) === 1 ? "" : "es"} a day · 😴 <b>+${cafeteriaRest(state)}</b> stamina ${infoDot(cafeHow)}`)}
-        ${staffLine(state, "Cooks", cooks, cafeRoom.teacherCapacity,
+        ${staffLine(state, "Cook", cooks, cafeRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
           'data-action="open-picker" data-kind="cafeteria-teacher"')}
         <div class="mini-label">Resting today (${resting.length}/${cafeRoom.studentCapacity})</div>
@@ -1946,7 +1953,7 @@ export function renderFloor1(state) {
           `Up to ${infRoom.studentCapacity} patients a day. 💊 Each treatment heals ${healHp} HP for ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — with none to spare only bed rest (+${INFIRMARY_BED_REST} HP). Upgrading the room and posting nurses with a high CON heal more. The infected are kept apart in quarantine (they don't take a bed) until they're cured with antiviral serum. Everyone also gets a little stamina and HP back on nights the school is fed.`,
           roomUpgradeButton(state, "infirmary"),
           `💊 Heal <b>+${healHp}</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`)}
-        ${staffLine(state, "Nurses", nurses, infRoom.teacherCapacity,
+        ${staffLine(state, "Nurse", nurses, infRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
           'data-action="open-picker" data-kind="infirmary-teacher"')}
         <div class="mini-label">Healing today (${patients.length}/${infRoom.studentCapacity})</div>
@@ -2117,7 +2124,7 @@ function renderClassroom(state, roomId) {
         ? `📚 <b>+${classBonus}</b> ${STAT_OF_SUBJECT[subject]} for every student ${infoDot(classHow)}`
         : `📚 No subject yet ${infoDot("The first teacher posted here decides what the room teaches — whichever of Biology, Physics, History or Social Studies they're best at.")}`
     )}
-    ${staffLine(state, "Teachers", teachers, room.teacherCapacity,
+    ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[subject])} <span class="muted">+${teachingBonus(t.grades[subject])}</span>`, `${t.name} — ${SUBJECT_LABEL[subject]} ${teachBonusLabel(t.grades[subject])}`),
       `data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}"`)}
     <div class="mini-label">Students (${count}/${room.seats.length}) · deskmates bond</div>
@@ -2176,7 +2183,7 @@ export function renderFloor3(state) {
     const slots = state.rooms[postKey].teacherCapacity;
     return `<div class="room room-utility">
       ${roomScene(scene, staff, `${title}${levelBadge(state, postKey)}`, desc, roomUpgradeButton(state, postKey), footer(staff))}
-      ${staffLine(state, "Teachers", staff, slots,
+      ${staffLine(state, "Teacher", staff, slots,
         (t) => staffRow(t, gradeLetter(t.grades[statKey]), `${t.name} — ${statLabel} ${gradeLetter(t.grades[statKey])}`),
         `data-action="open-picker" data-kind="utility" data-post="${postKey}"`)}
     </div>`;
@@ -2228,7 +2235,7 @@ export function renderFloor3(state) {
           `Produces research points each day: 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT (Physics grade) across every teacher posted here, plus the room's level bonus.`,
           roomUpgradeButton(state, "research"),
           `🧠 <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`)}
-        ${staffLine(state, "Teachers", researchers, researchSlots,
+        ${staffLine(state, "Teacher", researchers, researchSlots,
           (t) => staffRow(t, gradeLetter(t.grades.Physics), `${t.name} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)})`),
           'data-action="open-picker" data-kind="utility" data-post="research"')}
       </div>`}

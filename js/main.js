@@ -721,6 +721,9 @@ root.addEventListener("click", (e) => {
       G.setTeacherPost(state, el.dataset.id, null);
       render();
       break;
+    case "locked-slot":
+      flash(el.dataset.msg);
+      break;
     case "remove-gym":
       G.setGymToday(state, el.dataset.id, false);
       render();

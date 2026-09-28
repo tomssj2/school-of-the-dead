@@ -398,7 +398,7 @@ export const OBJECTIVES = [
 // and each level adds a desk — 8, 10, 12, 14, 16.
 export const CLASSROOM_CAPACITY = 8;
 export const CLASSROOM_SEATS_PER_LEVEL = 2;
-export const CLASSROOM_MAX_TEACHERS = 1; // at level 1; more join at room levels 3 and 5, all teaching the room's subject
+export const CLASSROOM_MAX_TEACHERS = 1; // at level 1; a substitute joins at room level 5, teaching the same subject
 
 // Two training rooms: the Gymnasium (PE) builds max HP and Acrobatics (Gymnastics) max stamina.
 // Each has its own capacity and upgrades. A session adds 1 + the combined rank of that room's
@@ -571,11 +571,12 @@ export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout 
 // recruits well reaches ~30 students by day 30.
 // Every room and facility starts at level 1 and is upgraded one level at a time, up to
 // ROOM_MAX_LEVEL, for scrap. Each level adds student slots (and Farm plots / Ranch pens), the
-// levels in ROOM_TEACHER_LEVELS add a teacher slot (every room starts with 1, so 3 at most), and
+// levels in ROOM_TEACHER_LEVELS add a teacher slot (every room starts with its teacher and gets a
+// substitute at level 5, so 2 at most), and
 // rooms without students grow a perk
 // instead. Rooms are keyed "classroom:<id>", "gym", "acrobatics", "cafeteria", and so on.
 export const ROOM_MAX_LEVEL = 5;
-export const ROOM_TEACHER_LEVELS = [3, 5];
+export const ROOM_TEACHER_LEVELS = [5];
 export const roomUpgradeCost = (level) => 20 * level; // from `level` to the next: 20, 40, 60, 80
 export const ROOM_REPAIR_COST = 10; // scrap per worker slot a facility raid broke
 export const CAFETERIA_RATIONS_BY_LEVEL = [6, 8, 10, 12, 14]; // food the cooks stretch the rations by
