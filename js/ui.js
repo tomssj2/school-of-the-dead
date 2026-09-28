@@ -2343,7 +2343,7 @@ export function renderFloor3(state) {
     ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office")}
     <div class="office-split">
       <div>
-        ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, `🎓 <b>${teacherCount(state)}</b> teachers ${infoDot(officeHow)}`)}
+        ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, infoDot(officeHow))}
         <div class="person-tiles">${readyTiles.join("")}${placeholders(promoSlots - shownReady.length)}</div>
       </div>
       <div>
