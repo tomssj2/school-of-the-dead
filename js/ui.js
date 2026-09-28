@@ -1,7 +1,7 @@
 import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
   CLASSROOM_CAPACITY, LOCATIONS,
-  GRADE_TIERS, SKILL_TREE, MAX_TEACHERS, ROOM_MAX_LEVEL, roomUpgradeCost,
+  GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, roomUpgradeCost,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
@@ -626,7 +626,7 @@ function hudTips(state) {
   const teachers = teacherCount(state);
   return {
     population: { title: "👥 People", rows: [["Students", `${pop - teachers}`], ["Teachers", `${teachers}`]], total: ["Everyone alive", `${pop}`] },
-    teachers: { title: "🎓 Teachers", rows: [["At the school", `${teachers}/${MAX_TEACHERS}`]], notes: ["Found on expeditions or through the Radio Station", `Or promoted from level-${PROMOTE_LEVEL_THRESHOLD} students in the Headmaster's Office`] },
+    teachers: { title: "🎓 Teachers", rows: [["At the school", `${teachers}`]], notes: ["Found on expeditions or through the Radio Station", `Or promoted from level-${PROMOTE_LEVEL_THRESHOLD} students in the Headmaster's Office`] },
     happiness: { title: "😊 Morale", rows: [["Now", `${state.happiness}`]], notes: ["Rises with won battles and new recruits", "Falls with failed missions and deaths", "Tilts random events toward good or bad"] },
     food: { title: "🍞 Food", rows: [["On hand", `${r.food}`], ["Eaten tonight", `−${pop}`]], total: ["Left after tonight", `${r.food - pop}`], notes: ["Grown at the Farm and Ranch, found on expeditions"] },
     materials: { title: "⚙ Scrap", rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
@@ -943,7 +943,7 @@ function renderTurn1Overview(state) {
 
   const ready = state.characters.filter((c) => c.role === "student" && c.alive && overallLevel(c) >= PROMOTE_LEVEL_THRESHOLD).length;
   const office = overviewCard({ tab: "floor3", scene: "headmaster", name: "Headmaster's Office", big: `${state.recruitPool.length}`, unit: "recruits waiting",
-    used: state.recruitPool.length, cap: recruitSlots(state), meta: `${ready} ready to promote · ${teacherCount(state)}/${MAX_TEACHERS} teachers` });
+    used: state.recruitPool.length, cap: recruitSlots(state), meta: `${ready} ready to promote · ${teacherCount(state)} teachers` });
   const radio = isBoarded(state, "radio") ? locked("radio", "radio", "floor3") : overviewCard({ tab: "floor3", scene: `radio@${radioStage(state)}`, name: "Radio Station", level: levelBadge(state, "radio"),
     big: `${Math.round(radioRecruitChance(state) * 100)}%`, unit: "recruit chance a day", used: count("radioToday"), cap: state.rooms.radio.studentCapacity,
     meta: state.rescue && !state.rescue.evacuated ? `🚁 Helicopter on day ${state.rescue.day}` : `${count("radioToday")}/${state.rooms.radio.studentCapacity} on the air · ${plural(posted("radio"), "teacher")}` });
@@ -2311,7 +2311,6 @@ function renderClassroom(state, roomId) {
 
 export function renderFloor3(state) {
   const students = state.characters.filter((c) => c.role === "student" && c.alive).sort((a, b) => overallLevel(b) - overallLevel(a));
-  const atTeacherCap = teacherCount(state) >= MAX_TEACHERS;
   // The Headmaster's Office: its bottom half is split — the students ready to become teachers
   // (level PROMOTE_LEVEL_THRESHOLD+, best first) on the left, survivors waiting to join on the right,
   // each with as many slots as the office's level gives.
@@ -2321,31 +2320,30 @@ export function renderFloor3(state) {
   const readyTiles = shownReady.map((s) => personTile(s, {
     title: `${s.name} — level ${overallLevel(s)}, best at ${SUBJECT_LABEL[SUBJECTS.reduce((b, x) => (s.grades[x] > s.grades[b] ? x : b), SUBJECTS[0])]}`,
     extra: `<span class="pt-gain">Lv ${overallLevel(s)}</span>
-      <button class="pt-corner pt-promote" data-action="promote" data-id="${s.id}" ${atTeacherCap ? "disabled" : ""} title="${atTeacherCap ? `Already at the ${MAX_TEACHERS}-teacher cap` : "Promote to teacher"}">🎓</button>`,
+      <button class="pt-corner pt-promote" data-action="promote" data-id="${s.id}" title="Promote to teacher">🎓</button>`,
   }));
   const pool = state.recruitPool;
   const recSlots = recruitSlots(state);
   const recruitTiles = pool.map((r, i) => {
-    const blocked = r.role === "teacher" && atTeacherCap;
     return personTile(r, {
       cls: r.legendary ? "pt-legendary" : "",
-      title: `${r.legendary ? "✨ Legendary — " : ""}${r.name} — ${r.role === "teacher" ? `teacher (${SUBJECT_LABEL[r.teachSubject]})` : `student, level ${overallLevel(r)}`} wants to join${blocked ? ` — no room, already ${MAX_TEACHERS} teachers` : ""}`,
+      title: `${r.legendary ? "✨ Legendary — " : ""}${r.name} — ${r.role === "teacher" ? `teacher (${SUBJECT_LABEL[r.teachSubject]})` : `student, level ${overallLevel(r)}`} wants to join`,
       extra: `<span class="pt-gain">${r.role === "teacher" ? "Teacher" : `Lv ${overallLevel(r)}`}</span>
-        <button class="pt-corner pt-accept" data-action="accept-recruit" data-index="${i}" ${blocked ? "disabled" : ""} title="Accept">✓</button>
+        <button class="pt-corner pt-accept" data-action="accept-recruit" data-index="${i}" title="Accept">✓</button>
         <button class="pt-corner pt-reject" data-action="reject-recruit" data-index="${i}" title="Turn away">✕</button>`,
     });
   });
   const placeholders = (n) => Array.from({ length: Math.max(0, n) }, () => `<div class="person-tile pt-slot"></div>`).join("");
   const officeHow = {
     title: "🎓 Headmaster's Office",
-    rows: [["Teachers", `${teacherCount(state)}/${MAX_TEACHERS}`], ["Ready to promote", `${ready.length}`], ["Recruits waiting", `${pool.length}/${recSlots}`]],
+    rows: [["Teachers", `${teacherCount(state)}`], ["Ready to promote", `${ready.length}`], ["Recruits waiting", `${pool.length}/${recSlots}`]],
     notes: [`Students at level ${PROMOTE_LEVEL_THRESHOLD}+ can become teachers — they teach their best subject`, `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`, "Expel someone from their character card"],
   };
   const office = `<div class="room room-office">
     ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office")}
     <div class="office-split">
       <div>
-        ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, `🎓 <b>${teacherCount(state)}/${MAX_TEACHERS}</b> teachers ${infoDot(officeHow)}`)}
+        ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, `🎓 <b>${teacherCount(state)}</b> teachers ${infoDot(officeHow)}`)}
         <div class="person-tiles">${readyTiles.join("")}${placeholders(promoSlots - shownReady.length)}</div>
       </div>
       <div>

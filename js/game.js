@@ -5,7 +5,7 @@ import {
   FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
   LOCATIONS, STAT_OF_SUBJECT, TRAITS,
-  GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
+  GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL,
   STAMINA_COST_EXPLORE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
@@ -218,9 +218,9 @@ export function teacherCount(state) {
   return state.characters.filter((c) => c.role === "teacher" && c.alive).length;
 }
 
-// Teachers are rare finds, and the school only has room for so many (MAX_TEACHERS).
+// Teachers are rare finds.
 function rollRecruitRole(state) {
-  if (teacherCount(state) < MAX_TEACHERS && Math.random() < TEACHER_RECRUIT_CHANCE) return "teacher";
+  if (Math.random() < TEACHER_RECRUIT_CHANCE) return "teacher";
   return "student";
 }
 
@@ -1672,7 +1672,7 @@ export function resolveFacilityRaid(state) {
 // manage gear from, so a legendary teacher's item goes to the shared armory instead of sitting
 // on their sheet, unusable.
 function addLegendaryRecruit(state) {
-  const role = teacherCount(state) < MAX_TEACHERS && Math.random() < LEGENDARY_TEACHER_CHANCE ? "teacher" : "student";
+  const role = Math.random() < LEGENDARY_TEACHER_CHANCE ? "teacher" : "student";
   const recruit = makeLegendaryCharacter(role, pick(["M", "F"]));
   if (role === "teacher") {
     const { meleeWeapon, rangedWeapon, armor, accessories } = recruit.equipment;
@@ -1981,7 +1981,6 @@ export function promoteToTeacher(state, id) {
   const c = getChar(state, id);
   if (!c || c.role !== "student") return false;
   if (overallLevel(c) < PROMOTE_LEVEL_THRESHOLD) return false;
-  if (teacherCount(state) >= MAX_TEACHERS) return false;
   unseat(state, id);
   c.role = "teacher";
   c.post = null;
@@ -2000,10 +1999,6 @@ export function promoteToTeacher(state, id) {
 export function acceptRecruit(state, index) {
   const recruit = state.recruitPool[index];
   if (!recruit) return false;
-  if (recruit.role === "teacher" && teacherCount(state) >= MAX_TEACHERS) {
-    addLog(state, `The school has no room for another teacher (${MAX_TEACHERS} max) — ${recruit.name} was turned away.`);
-    return false;
-  }
   state.characters.push(recruit);
   state.recruitPool.splice(index, 1);
   adjustHappiness(state, HAPPINESS_GAIN_RECRUIT);
