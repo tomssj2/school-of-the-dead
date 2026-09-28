@@ -2720,14 +2720,16 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
   return `<div class="card">
     <h2>Roster</h2>
     <div class="roster-controls">
-      ${filterBar}
+      <div class="roster-filters">
+        ${filterBar}
+        <label class="check-row"><input type="checkbox" data-action="toggle-show-dead" ${showDead ? "checked" : ""}/> Show deceased</label>
+      </div>
       <div class="picker-sort-row">
         <span class="mini-label">Sort by</span>
         <select data-action="set-roster-sort">${sortOptions}</select>
         <button class="btn btn-sm" data-action="toggle-roster-sort-dir" title="Toggle ascending/descending">${sortDir === "asc" ? "⬆ Ascending" : "⬇ Descending"}</button>
       </div>
     </div>
-    <label class="check-row"><input type="checkbox" data-action="toggle-show-dead" ${showDead ? "checked" : ""}/> Show deceased</label>
     <div class="table-wrap">
       <table class="roster-table">
         <thead><tr><th>Name</th><th>Sex</th>${teachersView ? "<th>Teaches</th>" : "<th>Lvl</th><th>HP</th><th>Stamina</th>"}<th>Status</th><th>Assignment</th><th>Stats</th></tr></thead>
