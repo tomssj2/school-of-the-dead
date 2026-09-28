@@ -1371,6 +1371,9 @@ html[data-gfx="low"] .staff-add { animation: none; }
 
 .picker-sort-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
 .picker-sort-row select { font-size: 12.5px; padding: 3px 6px; }
+/* The Roster's controls on one row: Students / Teachers on the left, sorting on the right. */
+.roster-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 8px; }
+.roster-controls .subtabs, .roster-controls .picker-sort-row { margin: 0; }
 
 .picker-list { max-height: 340px; }
 .picker-row {
