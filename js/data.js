@@ -103,7 +103,7 @@ export const TEACHER_SECONDARY_WEIGHTS = [50, 33, 17];
 export const TEACH_BONUS_BY_TIER = { S: 10, A: 7, B: 5, C: 3, D: 1, F: 0 }; // grade points a day, per teacher
 
 // Teachers stay at the school full-time (no exploring/defending) and are capped and rarer.
-export const MAX_TEACHERS = 20;
+export const MAX_TEACHERS = 22; // one teacher + one assistant for each of the 11 rooms at max level
 export const TEACHER_RECRUIT_CHANCE = 0.12; // share of recruited survivors who turn out to be teachers
 
 // Traits: each character spawns with 1-3 of these. A trait speeds up grade growth in its
