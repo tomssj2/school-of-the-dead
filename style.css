@@ -619,6 +619,9 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 }
 .scene-person svg { display: block; }
 .scene-person:hover { z-index: 2; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8)); }
+/* The back row of a full room: a step up and a little dimmer, behind the front row. */
+.scene-person.scene-back { bottom: 17px; z-index: 0; filter: brightness(0.8) drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35)); }
+.scene-person.scene-back:hover { z-index: 2; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8)); }
 @keyframes idle-bob {
   0%, 100% { transform: translate(-50%, 0); }
   50% { transform: translate(-50%, -2px); }

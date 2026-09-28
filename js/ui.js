@@ -383,18 +383,28 @@ function infoDot(text) {
 }
 
 // Pixel-art banner for a room with everyone working in it standing on the floor — click one to
-// open their card. Past 7 people the rest collapse into a "+N" chip so nobody overlaps too much.
-const SCENE_MAX_PEOPLE = 7;
-// `actions` (the room's upgrade buttons) stack in the top-right corner; `footer` (the room's
-// headline number, with its own info dot) sits in the bottom-left corner.
+// open their card. Up to SCENE_ROW people stand in one row; more split into a back row (teachers
+// first, slightly raised and dimmed) and a front row, alternating so every head shows, like a class
+// photo. Past SCENE_MAX_PEOPLE the rest collapse into a "+N" chip.
+const SCENE_ROW = 9;
+const SCENE_MAX_PEOPLE = 18;
+// `actions` (the Upgrade button) sits in the bottom-left corner with the figures to its right;
+// `footer` (the room's headline number, with its own info dot) sits in the top-right corner.
 function roomScene(kind, people, title, info = "", actions = "", footer = "") {
-  // The Upgrade button takes the bottom-left corner, and the figures stand to its right (one fewer fits).
-  const shown = people.slice(0, actions ? SCENE_MAX_PEOPLE - 1 : SCENE_MAX_PEOPLE);
+  const shown = [...people].sort((a, b) => (b.role === "teacher") - (a.role === "teacher")).slice(0, SCENE_MAX_PEOPLE);
   const extra = people.length - shown.length;
-  const figures = shown
-    .map((c, i) => {
-      const left = (((i + 1) / (shown.length + 1)) * 100).toFixed(1);
-      return `<span class="scene-person" style="left:${left}%;animation-delay:-${((i * 0.43) % 1.8).toFixed(2)}s"
+  const twoRows = shown.length > SCENE_ROW;
+  // Two rows: the back row takes the first half (teachers first) and stands in the even slots, the
+  // front row in the odd ones, so neighbours in a row are two slots apart.
+  const back = twoRows ? shown.slice(0, Math.ceil(shown.length / 2)) : [];
+  const front = twoRows ? shown.slice(back.length) : shown;
+  const placed = twoRows
+    ? shown.map((_, k) => (k % 2 === 0 ? { c: back[k / 2], row: "back" } : { c: front[(k - 1) / 2], row: "front" })).filter((p) => p.c)
+    : front.map((c) => ({ c, row: "" }));
+  const figures = placed
+    .map(({ c, row }, i) => {
+      const left = (((i + 1) / (placed.length + 1)) * 100).toFixed(1);
+      return `<span class="scene-person ${row === "back" ? "scene-back" : ""}" style="left:${left}%;animation-delay:-${((i * 0.43) % 1.8).toFixed(2)}s"
         data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${characterSprite(c, 40)}</span>`;
     })
     .join("");
