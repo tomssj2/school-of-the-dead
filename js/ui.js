@@ -388,7 +388,8 @@ const SCENE_MAX_PEOPLE = 7;
 // `actions` (the room's upgrade buttons) stack in the top-right corner; `footer` (the room's
 // headline number, with its own info dot) sits in the bottom-left corner.
 function roomScene(kind, people, title, info = "", actions = "", footer = "") {
-  const shown = people.slice(0, SCENE_MAX_PEOPLE);
+  // The Upgrade button takes the bottom-left corner, and the figures stand to its right (one fewer fits).
+  const shown = people.slice(0, actions ? SCENE_MAX_PEOPLE - 1 : SCENE_MAX_PEOPLE);
   const extra = people.length - shown.length;
   const figures = shown
     .map((c, i) => {
@@ -399,10 +400,12 @@ function roomScene(kind, people, title, info = "", actions = "", footer = "") {
     .join("");
   return `<div class="room-scene" style="background-image:${sceneBackground(kind)}">
     <div class="scene-top">
-      <div class="scene-title-row"><div class="scene-plaque">${title}${info ? infoDot(info) : ""}</div>${actions}</div>
+      <div class="scene-plaque">${title}${info ? infoDot(info) : ""}</div>
       ${footer ? `<div class="scene-footer">${footer}</div>` : ""}
     </div>
-    ${figures}
+    ${actions
+      ? `<div class="scene-bottom"><div class="scene-actions">${actions}</div><div class="scene-figures">${figures}</div></div>`
+      : figures}
     ${extra > 0 ? `<span class="scene-more">+${extra}</span>` : ""}
   </div>`;
 }
