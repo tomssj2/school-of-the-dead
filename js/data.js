@@ -101,7 +101,7 @@ export const TEACHER_SECONDARY_WEIGHTS = [50, 33, 17];
 
 // How much a teacher's grade in a subject boosts that subject for every student in the room
 // while teaching it — keyed by the teacher's letter grade in that subject.
-export const TEACH_BONUS_BY_TIER = { S: 20, A: 10, B: 5, C: 2, D: 0, F: 0 };
+export const TEACH_BONUS_BY_TIER = { S: 10, A: 7, B: 5, C: 3, D: 1, F: 0 }; // grade points a day, per teacher
 
 // Teachers stay at the school full-time (no exploring/defending) and are capped and rarer.
 export const MAX_TEACHERS = 20;
@@ -702,7 +702,7 @@ export const TECH_TREE = [
   { id: "word_of_mouth", branch: "scavenging", name: "Word of Mouth", icon: "🗣", cost: 75, requires: "treasure_hunters", perk: { recruitChance: 0.5 }, desc: "Expeditions are 50% more likely to find survivors who want to join." },
   { id: "ghost_walkers", branch: "scavenging", name: "Ghost Walkers", icon: "👣", cost: 110, requires: "word_of_mouth", perk: { casualtyReduction: 0.5, exploreStaminaReduction: 0.5 }, desc: "Expedition casualties are halved, and expeditions cost half the stamina." },
   // 🏫 School Life
-  { id: "study_groups", branch: "school", name: "Study Groups", icon: "📚", cost: 15, requires: null, perk: { classXp: 0.25 }, desc: "Classes grant 25% more XP." },
+  { id: "study_groups", branch: "school", name: "Study Groups", icon: "📚", cost: 15, requires: null, perk: { classXp: 0.25 }, desc: "Classes teach 25% more a day." },
   { id: "power_naps", branch: "school", name: "Power Naps", icon: "😴", cost: 30, requires: "study_groups", perk: { restRecovery: 20 }, desc: "Resting in the Cafeteria recovers 20 more stamina." },
   { id: "school_spirit", branch: "school", name: "School Spirit", icon: "🎉", cost: 50, requires: "power_naps", perk: { happinessLossReduction: 0.5 }, desc: "Happiness losses are halved." },
   { id: "home_economics", branch: "school", name: "Home Economics", icon: "🍳", cost: 75, requires: "school_spirit", perk: { extraDishesPerCook: 1 }, desc: "Each cook can serve two dishes a day instead of one." },

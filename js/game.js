@@ -917,26 +917,50 @@ export function researchRoomYield(state) {
   return Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) + RESEARCH_BONUS_BY_LEVEL[roomLevel(state, "research") - 1];
 }
 
+// A classroom's lesson today, in grade points for every seated student: the room's level bonus
+// plus each teacher's bonus for their grade in the subject. A student can't learn past the best
+// teacher's own grade, so a class stops growing once it has caught up with its teacher.
+export function classroomLesson(state, roomId) {
+  const room = state.rooms.classrooms[roomId];
+  const subject = room?.subject;
+  const teachers = subject ? state.characters.filter((t) => t.role === "teacher" && t.alive && t.post === `classroom:${roomId}`) : [];
+  if (!teachers.length) return { subject: null, gain: 0, ceiling: 0, levelBonus: 0, teachers };
+  const levelBonus = ROOM_STAT_BONUS_BY_LEVEL[(room.level || 1) - 1];
+  const base = levelBonus + teachers.reduce((sum, t) => sum + teachingBonus(t.grades[subject]), 0);
+  return {
+    subject,
+    gain: Math.round(base * (1 + techPerk(state, "classXp"))),
+    ceiling: Math.max(...teachers.map((t) => t.grades[subject])),
+    levelBonus,
+    teachers,
+  };
+}
+// What one seated student learns today (0 once they've reached their teacher's grade).
+export function classGain(state, c) {
+  if (!c || !c.seat || !c.alive || c.infection) return 0;
+  const lesson = classroomLesson(state, c.seat.room);
+  if (!lesson.subject) return 0;
+  return Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[lesson.subject], 100 - c.grades[lesson.subject]));
+}
+
 // ---------- TURN 1: training ----------
 
 export function resolveTraining(state) {
-  // classrooms — a good teacher gives seated students a standing effective-grade bonus (see
-  // classroomTeachingBonus/effectiveGrade) rather than speeding up their academic growth, so
-  // daily XP gain here is teacher-independent.
+  // classrooms — every seated student's grade in the room's subject rises by the day's lesson
+  // (see classroomLesson), up to the teacher's own grade.
   for (const roomId of CLASSROOM_IDS) {
-    const room = state.rooms.classrooms[roomId];
-    const subject = room.subject;
-    const studentIds = room.seats.filter(Boolean);
-    if (!subject) continue; // no teacher has ever claimed this room yet — nothing is taught here
-    for (const sid of studentIds) {
+    const lesson = classroomLesson(state, roomId);
+    if (!lesson.subject) continue; // no teacher here — nothing is taught
+    let taught = 0;
+    for (const sid of state.rooms.classrooms[roomId].seats.filter(Boolean)) {
       const c = getChar(state, sid);
-      if (!c || !c.alive || c.infection) continue;
-      const gain = (4 + randInt(0, 2)) * (1 + techPerk(state, "classXp"));
-      grantXp(state, sid, subject, gain);
+      const add = classGain(state, c);
+      if (!add) continue;
+      c.grades[lesson.subject] += add;
+      refreshMaxStats(c);
+      taught++;
     }
-    if (studentIds.length) {
-      addLog(state, `${SUBJECT_LABEL[subject]} class held for ${studentIds.length} student(s).`);
-    }
+    if (taught) addLog(state, `${SUBJECT_LABEL[lesson.subject]} class: ${taught} student${taught === 1 ? "" : "s"} learned (up to +${lesson.gain} ${STAT_OF_SUBJECT[lesson.subject]}).`);
 
   }
 

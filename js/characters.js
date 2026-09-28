@@ -2,7 +2,7 @@ import {
   SUBJECTS, MALE_NAMES, FEMALE_NAMES, LAST_NAMES, GRADE_TIERS, GRADE_RANGES,
   STUDENT_TIER_WEIGHTS, TEACHER_SECONDARY_TIERS, TEACHER_SECONDARY_WEIGHTS, TRAITS,
   STAT_OF_SUBJECT, TEACH_BONUS_BY_TIER, ITEM_TEMPLATES, STARTER_ARMORY_IDS, CLASSROOM_SUBJECTS,
-  LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING, ROOM_STAT_BONUS_BY_LEVEL,
+  LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING,
 } from "./data.js";
 
 let _idCounter = 1;
@@ -80,27 +80,9 @@ export function bestClassroomSubjectFor(t) {
   return CLASSROOM_SUBJECTS.reduce((best, s) => (t.grades[s] > t.grades[best] ? s : best), CLASSROOM_SUBJECTS[0]);
 }
 
-// A live bonus a student gets in one subject for as long as they're seated in a classroom
-// currently teaching that subject and a teacher is assigned to teach it there — the teacher's
-// grade in that subject determines the size (see teachingBonus below). A standing buff, not a
-// one-time XP gain, and it follows whatever subject the room is currently teaching.
-export function classroomTeachingBonus(state, c, subject) {
-  if (c.role !== "student" || !c.seat) return 0;
-  const room = state.rooms.classrooms[c.seat.room];
-  if (!room || room.subject !== subject) return 0;
-  const teachers = state.characters.filter(
-    (t) => t.role === "teacher" && t.alive && t.post === `classroom:${c.seat.room}`
-  );
-  return classroomLevelBonus(room) + teachers.reduce((sum, t) => sum + teachingBonus(t.grades[subject]), 0);
-}
-// What a classroom itself adds to its subject, by its level (on top of the teachers' bonuses).
-export const classroomLevelBonus = (room) => ROOM_STAT_BONUS_BY_LEVEL[(room.level || 1) - 1];
-
-// A subject's grade plus any equipment bonus to its stat, plus any classroom teaching bonus —
-// used for combat/expedition math. Academic grades themselves (and their letter tiers) are
-// never touched by either.
+// A subject's grade plus any equipment bonus to its stat — used for combat/expedition math.
 export function effectiveGrade(state, c, subject) {
-  return c.grades[subject] + equipmentBonus(c, STAT_OF_SUBJECT[subject]) + classroomTeachingBonus(state, c, subject);
+  return c.grades[subject] + equipmentBonus(c, STAT_OF_SUBJECT[subject]);
 }
 
 export function randInt(min, max) {
@@ -208,7 +190,7 @@ export function capTeacherGrades(c) {
   }
 }
 
-// The bonus a teacher's grade in a subject gives every student in the room while teaching it.
+// The grade points a teacher adds to every student in their classroom each day, by their grade.
 export function teachingBonus(teacherGradeValue) {
   return TEACH_BONUS_BY_TIER[gradeLetter(teacherGradeValue)] || 0;
 }

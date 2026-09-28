@@ -10,14 +10,14 @@ import {
   RESCUE_DELAY_DAYS, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
-  overallLevel, gradeLetter, classroomLevelBonus, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
-  classroomTeachingBonus, bestClassroomSubjectFor, stripHonorific,
+  overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
+  bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
   getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, councilChance, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
-  gymTeachers, gymGain, gymLevelBonus, gymRoom, teacherRank, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
+  gymTeachers, gymGain, gymLevelBonus, classroomLesson, classGain, gymRoom, teacherRank, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
@@ -356,11 +356,12 @@ function personTile(c, { bar = "", extra = "", remove = "", title = "", cls = ""
 }
 
 // "100 → 110": what a stat is now and what today's job takes it to (just "100 max" / "full" when
-// there's nothing left to gain). Shown on a tile in place of an HP/stamina bar.
+// there's nothing left to gain; "max" is red, so a maxed-out student stands out to be moved).
+// Shown on a tile in place of an HP/stamina bar.
 function gainLine(from, to, done = "max") {
   return to > from
     ? `<span class="pt-gain">${from} → <b>${to}</b></span>`
-    : `<span class="pt-gain pt-gain-done">${from} ${done}</span>`;
+    : `<span class="pt-gain pt-gain-done ${done === "max" ? "pt-gain-max" : ""}">${from} ${done}</span>`;
 }
 
 // The tiles plus one dashed "+" tile per free slot (each opens the picker).
@@ -2082,11 +2083,10 @@ function renderClassroom(state, roomId) {
   const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === post && c.alive);
 
   const count = room.seats.filter(Boolean).length;
-  // The room's level bonus plus every teacher's grade bonus, on each seated student's ${subject} stat.
-  const levelBonus = classroomLevelBonus(room);
-  const classBonus = subject ? levelBonus + teachers.reduce((sum, t) => sum + teachingBonus(t.grades[subject]), 0) : 0;
-  const classHow = subject
-    ? `Every student seated here gets a standing bonus to ${SUBJECT_LABEL[subject]} (${STAT_OF_SUBJECT[subject]}): the room's own (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus each teacher's grade bonus. +${levelBonus} (level ${room.level || 1})${teachers.map((t) => ` + ${teachingBonus(t.grades[subject])} (${shortName(t)}, ${gradeLetter(t.grades[subject])})`).join("")} = +${classBonus}. It lasts while they're seated here; grades themselves grow with class XP either way.`
+  // Today's lesson: the room's level bonus plus each teacher's, up to the best teacher's grade.
+  const lesson = classroomLesson(state, roomId);
+  const classHow = lesson.subject
+    ? `Every day each student seated here gains ${SUBJECT_LABEL[subject]} (${STAT_OF_SUBJECT[subject]}) for good: the room's bonus (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus each teacher's (D +1 · C +3 · B +5 · A +7 · S +10). +${lesson.levelBonus} (level ${room.level || 1})${teachers.map((t) => ` + ${teachingBonus(t.grades[subject])} (${shortName(t)}, ${gradeLetter(t.grades[subject])})`).join("")}${lesson.gain !== lesson.levelBonus + teachers.reduce((s, t) => s + teachingBonus(t.grades[subject]), 0) ? " + Study Groups" : ""} = +${lesson.gain} a day. Nobody learns past their teacher: students stop at ${lesson.ceiling}, the best teacher's grade — then it's time to move them to another class.`
     : "";
 
   // Deskmates (seats 2k and 2k+1) sit side by side at one desk — they bond — so the tiles come in
@@ -2102,8 +2102,8 @@ function renderClassroom(state, roomId) {
     const grade = subject ? occ.grades[subject] : null;
     return personTile(occ, {
       remove: "unseat",
-      title: `${occ.name}${partner ? ` — deskmate ${partner.name}, bond ${bond}${couple ? " 💞" : ""}` : ""}${subject ? ` · ${STAT_OF_SUBJECT[subject]} ${grade} → ${grade + classBonus} with the teachers' bonus` : ""}`,
-      extra: subject ? gainLine(grade, grade + classBonus, "") : "",
+      title: `${occ.name}${partner ? ` — deskmate ${partner.name}, bond ${bond}${couple ? " 💞" : ""}` : ""}${lesson.subject ? ` · ${STAT_OF_SUBJECT[subject]} ${grade} → ${grade + classGain(state, occ)} after today's class${grade >= lesson.ceiling ? " (caught up with the teacher)" : ""}` : ""}`,
+      extra: lesson.subject ? gainLine(grade, grade + classGain(state, occ), "max") : "",
     });
   };
   const desks = [];
@@ -2121,8 +2121,8 @@ function renderClassroom(state, roomId) {
       `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`}${levelBadge(state, post)}`,
       subject ? "" : "Unassigned — the first teacher posted here decides the subject.",
       roomUpgradeButton(state, post),
-      subject
-        ? `📚 <b>+${classBonus}</b> ${STAT_OF_SUBJECT[subject]} for every student ${infoDot(classHow)}`
+      lesson.subject
+        ? `📚 <b>+${lesson.gain}</b> ${STAT_OF_SUBJECT[subject]} a day · up to ${lesson.ceiling} ${infoDot(classHow)}`
         : `📚 No subject yet ${infoDot("The first teacher posted here decides what the room teaches — whichever of Biology, Physics, History or Social Studies they're best at.")}`
     )}
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
@@ -2803,13 +2803,11 @@ function renderStudentStatsTab(state, c) {
     const letter = gradeLetter(val);
     const stat = STAT_OF_SUBJECT[s];
     const gearBonus = equipmentBonus(c, stat);
-    const classBonus = classroomTeachingBonus(state, c, s);
-    const total = val + gearBonus + classBonus;
-    const hasBonus = gearBonus + classBonus > 0;
+    const total = val + gearBonus;
+    const hasBonus = gearBonus > 0;
     const isBest = val === bestGrade;
     const bonusParts = [];
     if (gearBonus) bonusParts.push(`+${gearBonus} from equipped gear`);
-    if (classBonus) bonusParts.push(`+${classBonus} from classroom teacher`);
     const tooltip = bonusParts.join(", ");
     return `<div class="grade-row-v2 ${isBest ? "grade-row-best" : ""}">
       <span class="gr-col gr-name" title="${stat}: ${esc(STAT_EFFECTS[stat])}">${isBest ? "🌟 " : ""}${SUBJECT_LABEL[s]}</span>
@@ -2823,7 +2821,7 @@ function renderStudentStatsTab(state, c) {
   }).join("");
   return `<div class="cc-section-label">Grades</div><div class="grade-list">${gradeRows}</div>
     <p class="muted cc-grade-note">The letter grade reflects academic performance only. A highlighted number includes a
-    bonus from equipped gear or a classroom teacher — hover it to see the breakdown. Hover a subject to see what its stat does. The 🌟 marks their strongest stat.</p>`;
+    bonus from equipped gear — hover it to see the breakdown. Hover a subject to see what its stat does. The 🌟 marks their strongest stat.</p>`;
 }
 
 // Teachers don't have combat stats — their grades only matter as a teaching bonus for whatever
@@ -2838,12 +2836,12 @@ function renderTeacherStatsTab(c) {
       <span class="gr-sep">|</span>
       <span class="gr-col gr-letter grade-letter-${letter}">${letter}</span>
       <span class="gr-sep">|</span>
-      <span class="gr-teacher-bonus">Class bonus: <b>+${teachingBonus(val)}</b></span>
+      <span class="gr-teacher-bonus">Teaches: <b>+${teachingBonus(val)}</b> a day</span>
     </div>`;
   }).join("");
   return `<div class="cc-section-label">Grades &amp; Teaching Bonus</div><div class="grade-list">${gradeRows}</div>
-    <p class="muted cc-grade-note">🌟 = their specialty, always their best grade — every other grade is at least one rank lower. Assign them to a Floor 2 classroom to give every
-    seated student a standing bonus to that subject, or to the Gymnasium / Acrobatics to speed up PE / Gymnastics training.</p>`;
+    <p class="muted cc-grade-note">🌟 = their specialty, always their best grade — every other grade is at least one rank lower. Assign them to a Floor 2 classroom and every
+    seated student gains that much of the subject a day, up to the teacher's own grade — or to the Gymnasium / Acrobatics to speed up training.</p>`;
 }
 
 function renderInventoryTab(state, c) {

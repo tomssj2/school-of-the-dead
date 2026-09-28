@@ -2043,6 +2043,7 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
 .pt-gain { font-size: 10px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pt-gain b { color: #7fe0a8; }
 .pt-gain-done { color: var(--muted); opacity: 0.8; }
+.pt-gain-max { color: #ff7a7a; opacity: 1; font-weight: 700; }
 .pt-x { position: absolute; top: 1px; right: 1px; opacity: 0; transition: opacity 0.1s; }
 .person-tile:hover .pt-x, .pt-x:focus { opacity: 1; }
 .pt-empty {
