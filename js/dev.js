@@ -2,11 +2,11 @@
 // the /max and /min project commands run them). Nothing here saves — the player's Save does.
 import * as G from "./game.js";
 import { makeCharacter } from "./characters.js";
-import { CLASSROOM_IDS, PRODUCERS } from "./data.js";
+import { CLASSROOM_IDS, PRODUCERS, STUDENT_MAX_LEVEL, xpToNextLevel } from "./data.js";
 
 // Every room and facility to the top level, and every slot filled: teachers in every post,
 // every classroom seat, training, resting, beds, outside workers, plots and pens. Hires whoever is
-// needed. Scrap is put back afterwards, so only the rooms change.
+// needed. Students get levels spread from 1 to 10. Scrap is put back afterwards.
 export function maxOutSchool(state) {
   const scrap = state.resources.materials;
   state.boardedRooms = [];
@@ -70,6 +70,13 @@ export function maxOutSchool(state) {
   fill(state.rooms.farm.studentCapacity - count("farmToday"), (c) => G.setFarmToday(state, c.id, true));
   fill(state.rooms.ranch.studentCapacity - count("ranchToday"), (c) => G.setRanchToday(state, c.id, true));
   fill(state.rooms.scrapyard.studentCapacity - count("scrapyardToday"), (c) => G.setScrapyardToday(state, c.id, true));
+
+  // student levels spread from 1 to the top, with some experience toward the next, so every level
+  // (and promotion at the top) can be tried out
+  alive("student").forEach((c, i) => {
+    c.level = 1 + (i % STUDENT_MAX_LEVEL);
+    c.exp = c.level >= STUDENT_MAX_LEVEL ? 0 : Math.floor(Math.random() * xpToNextLevel(c.level));
+  });
 
   // plots and pens: plant or pen something in every empty one
   for (const facility of ["farm", "ranch"]) {
