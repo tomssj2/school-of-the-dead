@@ -6,7 +6,7 @@ import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
-import { maxOutSchool, infectStudents } from "./dev.js";
+import { maxOutSchool, infectStudents, buildRadio } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
@@ -1352,6 +1352,13 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       if (!beforeMax) beforeMax = JSON.stringify(state);
       if (serum !== null) state.resources.serum = serum;
       const summary = infectStudents(state, n);
+      render();
+      return summary;
+    },
+    // schoolDev.radio(stage): build the Radio Station up to `stage` (5 = satellite) for free.
+    radio(stage = 5) {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      const summary = buildRadio(state, stage);
       render();
       return summary;
     },

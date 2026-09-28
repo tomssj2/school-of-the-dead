@@ -93,3 +93,15 @@ export function infectStudents(state, n = 3) {
   });
   return `${picked.length} student${picked.length === 1 ? "" : "s"} quarantined · ${G.infectedChars(state).length} in quarantine`;
 }
+
+// Clears the Radio Station's boards and builds its first `stage` upgrades for free (5 = satellite
+// communications, which sends for the helicopter).
+export function buildRadio(state, stage = 5) {
+  state.boardedRooms = (state.boardedRooms || []).filter((k) => k !== "radio");
+  const saved = { ...state.resources };
+  state.resources.materials = state.resources.research = 1e6;
+  while (G.radioStage(state) < stage && G.buildRadioUpgrade(state));
+  state.resources.materials = saved.materials;
+  state.resources.research = saved.research;
+  return `Radio Station at ${G.radioStage(state)}/5${state.rescue ? ` · helicopter lands on day ${state.rescue.day}` : ""}`;
+}
