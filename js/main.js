@@ -148,6 +148,7 @@ function migrateState(s) {
   }
   if (!s.rooms.gym) s.rooms.gym = { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS };
   if (!s.rooms.cafeteria) s.rooms.cafeteria = { teacherCapacity: CAFETERIA_MAX_TEACHERS };
+  if (!s.rooms.headmaster) s.rooms.headmaster = { level: 1 };
   // The Lounge is gone (students rest in the Nurse's Office now): refund what its upgrades cost.
   if (s.rooms.lounge) {
     const slotLevels = Math.max(0, Math.round((s.rooms.lounge.studentCapacity - 10) / 5));

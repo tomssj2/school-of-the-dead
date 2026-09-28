@@ -585,6 +585,11 @@ export const roomUpgradeCost = (level) => 20 * level; // from `level` to the nex
 export const ROOM_REPAIR_COST = 10; // scrap per worker slot a facility raid broke
 export const CAFETERIA_RATIONS_BY_LEVEL = [6, 8, 10, 12, 14]; // food the cooks stretch the rations by
 export const RESEARCH_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra research a day while staffed
+// The Headmaster's Office: students it can put forward for promotion, and survivors who can wait
+// there to join (a newcomer is turned away when it's full — legendary ones always find room).
+// 4 / 7 / 10 / 13 / 16 slots in all, like the other rooms.
+export const OFFICE_PROMOTION_SLOTS = [2, 4, 5, 7, 8];
+export const OFFICE_RECRUIT_SLOTS = [2, 3, 5, 6, 8];
 export const CRAFTING_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra fortification per crafter
 export const COUNCIL_CHANCE_BY_LEVEL = [0, 0.03, 0.06, 0.09, 0.12]; // added to each member's recruit chance
 const roomSlots = (label, base, per = 0) => ({ label, base, per });
@@ -620,6 +625,13 @@ export const ROOM_LEVELS = {
   crafting: {
     name: "Crafting Room", teachers: roomSlots("Crafters", 1),
     perks: [{ label: "Bonus fortification", by: CRAFTING_BONUS_BY_LEVEL, fmt: (v) => `+${v} per crafter` }],
+  },
+  headmaster: {
+    name: "Headmaster's Office",
+    perks: [
+      { label: "Promotion slots", by: OFFICE_PROMOTION_SLOTS, fmt: (v) => String(v) },
+      { label: "Recruit slots", by: OFFICE_RECRUIT_SLOTS, fmt: (v) => String(v) },
+    ],
   },
   council: {
     name: "Student Council", teachers: roomSlots("Members", 1),

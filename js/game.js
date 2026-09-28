@@ -6,7 +6,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
   LOCATIONS, STAT_OF_SUBJECT, TRAITS,
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
-  ROOM_LEVELS, ROOM_MAX_LEVEL, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
+  ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, COUNCIL_CHANCE_BY_LEVEL,
   STAMINA_COST_EXPLORE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
@@ -603,8 +603,21 @@ export const setRanchToday = makeOutsideFacilitySetter("ranchToday", "ranch");
 
 export const ROOM_KEYS = [
   ...CLASSROOM_IDS.map((id) => `classroom:${id}`),
-  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "council", "farm", "ranch", "scrapyard",
+  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "council", "farm", "ranch", "scrapyard", "headmaster",
 ];
+// The Headmaster's Office's two sides, by its level.
+export const promotionSlots = (state) => OFFICE_PROMOTION_SLOTS[roomLevel(state, "headmaster") - 1];
+export const recruitSlots = (state) => OFFICE_RECRUIT_SLOTS[roomLevel(state, "headmaster") - 1];
+// A survivor asks to join: they wait in the Headmaster's Office — or, when every recruit slot is
+// taken, they're turned away (a legendary survivor always finds room). Returns whether they stayed.
+export function addRecruit(state, recruit) {
+  if (!recruit.legendary && state.recruitPool.length >= recruitSlots(state)) {
+    addLog(state, `${recruit.name} wanted to join, but the Headmaster's Office had no room (${recruitSlots(state)} waiting) — they moved on.`);
+    return false;
+  }
+  state.recruitPool.push(recruit);
+  return true;
+}
 const roomType = (key) => key.split(":")[0];
 
 export function roomState(state, key) {
@@ -983,8 +996,7 @@ export function resolveTraining(state) {
     if (Math.random() >= councilChance(state, council)) continue;
     const role = rollRecruitRole(state);
     const recruit = makeCharacter(role, Math.random() < 0.5 ? "M" : "F");
-    state.recruitPool.push(recruit);
-    addLog(state, `${council.name} hears of a survivor, ${recruit.name}, wanting to join.`);
+    if (addRecruit(state, recruit)) addLog(state, `${council.name} hears of a survivor, ${recruit.name}, wanting to join.`);
   }
 
   addLog(state, `Turn 1 (Classes) resolved.`);
@@ -1150,9 +1162,10 @@ export function resolveExploration(state) {
     if (Math.random() < recruitChance) {
       const role = rollRecruitRole(state);
       const recruit = makeCharacter(role, Math.random() < 0.5 ? "M" : "F");
-      state.recruitPool.push(recruit);
-      report.recruit = recruit.name;
-      addLog(state, `Your team found a survivor at ${location.name}: ${recruit.name} wants to join.`);
+      if (addRecruit(state, recruit)) {
+        report.recruit = recruit.name;
+        addLog(state, `Your team found a survivor at ${location.name}: ${recruit.name} wants to join.`);
+      }
     }
 
   }
@@ -1647,7 +1660,7 @@ function addLegendaryRecruit(state) {
     }
     recruit.equipment = emptyEquipment();
   }
-  state.recruitPool.push(recruit);
+  addRecruit(state, recruit); // legendary: always finds room
   return recruit;
 }
 
@@ -1885,8 +1898,7 @@ function applyEffect(state, e) {
 
   if (e.recruit) {
     const recruit = makeCharacter(e.recruit, pick(["M", "F"]));
-    state.recruitPool.push(recruit);
-    addLog(state, `${recruit.name} wants to join the school.`);
+    if (addRecruit(state, recruit)) addLog(state, `${recruit.name} wants to join the school.`);
   }
   if (e.kill) {
     const victims = aliveChars(state);
@@ -2260,8 +2272,9 @@ function rollHexFind(state, scout, q, r) {
     text = `a stray ${PRODUCERS[id].stockName.toLowerCase()} — led back to the ranch`;
   } else if (type === "survivor") {
     const recruit = makeCharacter(rollRecruitRole(state), pick(["M", "F"]));
-    state.recruitPool.push(recruit);
-    text = `a survivor hiding out — ${recruit.name} wants to join`;
+    text = addRecruit(state, recruit)
+      ? `a survivor hiding out — ${recruit.name} wants to join`
+      : `a survivor hiding out — but the Headmaster's Office had no room for ${recruit.name}`;
   } else {
     state.nests.push(hexKey(q, r));
     text = "a zombie nest! Everything around it is more dangerous until a squad clears it out";
