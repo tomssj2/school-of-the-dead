@@ -574,7 +574,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
    96x24 scene tiles sideways so wide cards get a longer room rather than a blurry stretch. */
 .room-scene {
   position: relative;
-  height: 112px;
+  height: 130px;
   margin: -12px -12px 10px;
   border-radius: 7px 7px 0 0;
   background-repeat: repeat-x;
@@ -583,15 +583,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   image-rendering: pixelated;
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.3), inset 0 18px 22px -14px rgba(0, 0, 0, 0.45);
 }
-.room-outside .room-scene { height: 128px; margin: -18px -18px 12px; border-radius: 11px 11px 0 0; }
-/* The Facilities floor's rooms are narrow, so their headline number sits on a second line — a taller
-   banner keeps it clear of the figures. */
-.floor3-grid .room-scene { height: 136px; }
-/* A crowded room (two rows of people) gets a taller banner so its art still shows above them — and
-   so do the other banners on that floor, to keep rooms side by side lined up. */
-.room-scene.scene-crowded,
-.floor1-grid:has(.scene-crowded) .room-scene,
-.floor2-grid:has(.scene-crowded) .room-scene { height: 150px; }
+.room-outside .room-scene { margin: -18px -18px 12px; border-radius: 11px 11px 0 0; }
 .scene-plaque {
   position: absolute;
   top: 7px;

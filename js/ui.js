@@ -408,7 +408,7 @@ function roomScene(kind, people, title, info = "", actions = "", footer = "") {
         data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${characterSprite(c, 40)}</span>`;
     })
     .join("");
-  return `<div class="room-scene ${twoRows ? "scene-crowded" : ""}" style="background-image:${sceneBackground(kind)}">
+  return `<div class="room-scene" style="background-image:${sceneBackground(kind)}">
     <div class="scene-top">
       <div class="scene-plaque">${title}${info ? infoDot(info) : ""}</div>
       ${footer ? `<div class="scene-footer">${footer}</div>` : ""}
