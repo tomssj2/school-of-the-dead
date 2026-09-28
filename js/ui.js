@@ -145,14 +145,18 @@ function staminaBar(c) {
 // The room's one Upgrade button, in the top-right corner of its banner (roomScene's `actions`):
 // it opens a popup with what the next level brings. At the top level it just says Max — unless a
 // raid broke something, when it opens the popup to repair it.
+// Nothing at max level (the plaque says MAX instead), unless a raid left something to repair.
 function roomUpgradeButton(state, key) {
   const cost = roomUpgradeCostFor(state, key);
   const repair = roomRepairCost(state, key);
-  if (cost === null && !repair) return `<span class="scene-upgrade scene-upgrade-maxed">Max</span>`;
+  if (cost === null && !repair) return "";
   return `<button class="scene-upgrade ${repair ? "scene-upgrade-damaged" : ""}" data-action="open-upgrade" data-room="${key}">${repair ? "⚠ " : ""}${cost === null ? "Repair" : "Upgrade"}</button>`;
 }
 
-const levelBadge = (state, key) => `<span class="plaque-level">Lv ${roomLevel(state, key)}</span>`;
+const levelBadge = (state, key) => {
+  const level = roomLevel(state, key);
+  return level >= ROOM_MAX_LEVEL ? `<span class="plaque-level plaque-max">MAX</span>` : `<span class="plaque-level">Lv ${level}</span>`;
+};
 
 // "Gymnasium", "Biology" / "Classroom 2" — how the popup titles a room.
 function roomTitle(state, key) {
@@ -384,8 +388,7 @@ const SCENE_MAX_PEOPLE = 7;
 // `actions` (the room's upgrade buttons) stack in the top-right corner; `footer` (the room's
 // headline number, with its own info dot) sits in the bottom-left corner.
 function roomScene(kind, people, title, info = "", actions = "", footer = "") {
-  // With a footer in the bottom-left corner the figures stand in the space to its right (so fewer fit).
-  const shown = people.slice(0, footer ? SCENE_MAX_PEOPLE - 1 : SCENE_MAX_PEOPLE);
+  const shown = people.slice(0, SCENE_MAX_PEOPLE);
   const extra = people.length - shown.length;
   const figures = shown
     .map((c, i) => {
@@ -395,13 +398,12 @@ function roomScene(kind, people, title, info = "", actions = "", footer = "") {
     })
     .join("");
   return `<div class="room-scene" style="background-image:${sceneBackground(kind)}">
-    <div class="scene-plaque">${title}${info ? infoDot(info) : ""}</div>
-    ${actions ? `<div class="scene-actions">${actions}</div>` : ""}
-    ${footer
-      ? `<div class="scene-bottom"><div class="scene-footer">${footer}</div><div class="scene-figures">${figures}</div></div>`
-      : figures}
+    <div class="scene-top">
+      <div class="scene-title-row"><div class="scene-plaque">${title}${info ? infoDot(info) : ""}</div>${actions}</div>
+      ${footer ? `<div class="scene-footer">${footer}</div>` : ""}
+    </div>
+    ${figures}
     ${extra > 0 ? `<span class="scene-more">+${extra}</span>` : ""}
-    ${people.length ? "" : `<span class="scene-empty">empty</span>`}
   </div>`;
 }
 
