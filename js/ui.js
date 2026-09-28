@@ -2079,7 +2079,7 @@ export function renderMenuModal(state) {
 
 export function renderFloor2(state) {
   const rooms = CLASSROOM_IDS.map((roomId) => renderClassroom(state, roomId)).join("");
-  return `<div class="card"><h2>Floor 2 — Classrooms &amp; Dorms ${infoDot(
+  return `<div class="card"><h2>Floor 2 — Classrooms ${infoDot(
     `Students live and sleep in their assigned classroom. Each room is unassigned ("Classroom N") until a teacher is posted there, then it takes on whichever subject that teacher is best qualified to teach — and reverts to unassigned if it goes unstaffed, so rooms can be freely repurposed. Deskmates who fight together bond — opposite-gender deskmates may become a couple at bond ${BOND_COUPLE_THRESHOLD}+.`
   )}</h2>
   <p class="room-tagline">The teacher posted in a room picks its subject · deskmates bond</p>
