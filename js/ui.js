@@ -921,7 +921,7 @@ function renderTurn1Overview(state) {
     const lesson = gymLesson(state, side);
     const n = count("gymToday", side);
     const cap = gymRoom(state, side).studentCapacity;
-    return overviewCard({ tab: "floor1", scene: info.roomKey, name: info.room, level: levelBadge(state, info.roomKey), big: `+${lesson.gain}`, unit: `${info.gains} a session`,
+    return overviewCard({ tab: "floor1", scene: `${info.roomKey}@${roomLevel(state, info.roomKey)}`, name: info.room, level: levelBadge(state, info.roomKey), big: `+${lesson.gain}`, unit: `${info.gains} a session`,
       used: n, cap, meta: `${n}/${cap} training · up to ${lesson.ceiling}` });
   }).join("");
   const cooks = cooksOnDuty(state).length;
@@ -2041,7 +2041,7 @@ function renderTrainingRoom(state, side) {
     notes: [`Stops at <b>${lesson.ceiling}</b> — the best teacher's grade (${NO_TEACHER_CAP} with none)`, "Teachers add D +1 · C +3 · B +5 · A +7 · S +10", `More ${info.gains} also means more ${info.also}`],
   };
   return `<div class="room room-${info.roomKey}">
-    ${roomScene(info.roomKey, [...teachers, ...students], `${info.room}${levelBadge(state, info.roomKey)}`,
+    ${roomScene(`${info.roomKey}@${level}`, [...teachers, ...students], `${info.room}${levelBadge(state, info.roomKey)}`,
       "",
       roomUpgradeButton(state, info.roomKey),
       `${info.icon} <b>+${lesson.gain}</b> ${info.gains} · up to ${lesson.ceiling} ${infoDot(gainHow)}`)}

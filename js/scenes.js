@@ -2,7 +2,7 @@
 // style as the character sprites (no image assets). Scenes are 96x24 and anchored to the floor so
 // wider cards crop from the top; the UI stands the room's characters on top of them.
 
-import { shadowOf, lightOf, outlineOf } from "./sprite.js";
+import { shadowOf, lightOf, outlineOf, mix } from "./sprite.js";
 
 // ---------- room scenes ----------
 
@@ -566,19 +566,170 @@ const SCENES = {
   },
 };
 
+// ---------- high-resolution room scenes ----------
+// 192x48, twice the detail of the old 96x24 ones, and drawn by room level: a level-1 room is
+// run-down (boarded windows, cracks, boxes), each level adds equipment, light and decor, and a
+// maxed room is fully kitted out. Rows 0-31 are wall (the wainscot from 22), 32-47 the floor.
+// The banner's labels cover the top corners (about x < 66 and x > 104 above y 14) and the crowd
+// the floor, so what should be seen sits on the wall between y 13 and 30.
+
+const HW = 192;
+const HH = 48;
+
+// A filled box with a darker 1px edge.
+function box(r, x0, y0, x1, y1, fill, edge = shadowOf(fill)) {
+  r(x0, y0, x1, y1, edge);
+  if (x1 - x0 > 1 && y1 - y0 > 1) r(x0 + 1, y0 + 1, x1 - 1, y1 - 1, fill);
+}
+
+// Walls of painted cinder block over a wainscot, a baseboard, and a plank or tile floor.
+function hiRoom(r, { wall, wainscot, floor, floorLine, blocks = true }) {
+  r(0, 0, HW - 1, 31, wall);
+  if (blocks) {
+    const mortar = mix(wall, "#1d2330", 0.18);
+    for (let y = 4; y < 22; y += 5) {
+      r(0, y, HW - 1, y, mortar);
+      for (let x = (y / 5) % 2 ? 0 : 8; x < HW; x += 16) r(x, y - 4, x, y - 1, mortar);
+    }
+  }
+  r(0, 22, HW - 1, 30, wainscot);
+  r(0, 22, HW - 1, 22, lightOf(wainscot));
+  r(0, 23, HW - 1, 23, shadowOf(wainscot));
+  r(0, 31, HW - 1, 31, "#241c2a");
+  r(0, 32, HW - 1, 47, floor);
+  r(0, 32, HW - 1, 32, shadowOf(floor));
+  for (let y = 36; y < HH; y += 4) {
+    r(0, y, HW - 1, y, floorLine);
+    for (let x = (y / 4) % 2 ? 6 : 20; x < HW; x += 28) r(x, y - 3, x, y - 1, floorLine);
+  }
+}
+
+// A hanging ceiling lamp: `on` glows, off (or broken) hangs dark.
+function lamp(r, x, len, on) {
+  r(x, 0, x, len, "#3a3f48");
+  r(x - 3, len + 1, x + 3, len + 2, on ? "#f4d35e" : "#5a5f68");
+  r(x - 2, len + 1, x + 2, len + 1, on ? "#fff4b0" : "#6a707a");
+  if (on) for (const [dx, dy] of [[-5, 4], [5, 4], [-3, 5], [3, 5], [0, 5]]) r(x + dx, len + dy, x + dx, len + dy, "#fff4b066");
+}
+
+// Window `w` wide on the wall; level 1 boarded up, level 2 half-boarded, then clean glass.
+function hiWindow(r, x, y, w, h, lv) {
+  box(r, x, y, x + w, y + h, "#3a4150");
+  r(x + 1, y + 1, x + w - 1, y + h - 1, lv <= 1 ? "#262b36" : "#a9d4ef");
+  if (lv >= 2) {
+    r(x + 1, y + h - 2, x + w - 1, y + h - 1, "#cfe8f8");
+    for (let i = 0; i < 3; i++) r(x + 3 + i, y + 1 + i, x + 3 + i, y + 1 + i, "#ffffff");
+  }
+  r(x + Math.floor(w / 2), y + 1, x + Math.floor(w / 2), y + h - 1, "#3a4150");
+  const board = (yy) => { r(x - 1, yy, x + w + 1, yy + 1, "#8a5f33"); r(x - 1, yy, x + w + 1, yy, "#a8753f"); };
+  if (lv <= 1) { board(y + 1); board(y + Math.floor(h / 2)); board(y + h - 2); }
+  else if (lv === 2) board(y + Math.floor(h / 2));
+}
+
+const HI_SCENES = {
+  // The Gymnasium, level 1 to 5: an abandoned hall with boxes and a rusty barbell, then a punching
+  // bag and a bench, a weight rack and wall bars, a basketball hoop and mats, and at the top a
+  // scoreboard, a trophy shelf and pennants under bright lights.
+  gym(r, lv) {
+    const wall = ["#5b6678", "#63789a", "#6a86b2", "#7090bd", "#7899c6"][lv - 1];
+    hiRoom(r, { wall, wainscot: mix(wall, "#20283a", 0.35), floor: lv <= 1 ? "#8f6a48" : "#bd8a55", floorLine: lv <= 1 ? "#7a5a3c" : "#a37545" });
+    // high windows, in the middle so the labels don't hide them
+    for (let i = 0; i < 3; i++) hiWindow(r, 70 + i * 17, 2, 13, 8, lv);
+    // lights
+    if (lv <= 1) lamp(r, 96, 12, false);
+    else for (const x of lv >= 3 ? [34, 96, 158] : [96]) lamp(r, x, lv >= 5 ? 3 : 5, true);
+    if (lv >= 5) for (const x of [34, 96, 158]) r(x - 4, 9, x + 4, 9, "#fff4b033");
+    if (lv <= 2) {
+      // cracks in the plaster and a taped-up X
+      for (const [x, y] of [[20, 14], [21, 15], [22, 15], [23, 16], [24, 18], [120, 13], [121, 14], [121, 15], [122, 17]]) r(x, y, x, y, "#2e3440");
+      for (let i = 0; i < 6; i++) { r(142 + i, 14 + i, 142 + i, 14 + i, "#c9b58c"); r(147 - i, 14 + i, 147 - i, 14 + i, "#c9b58c"); }
+    }
+    if (lv <= 1) {
+      // boxes stacked against the wall and a rusty barbell
+      box(r, 150, 20, 166, 31, "#a8814f");
+      box(r, 154, 12, 166, 20, "#b58e5a");
+      r(150, 25, 166, 25, "#8a6a3f");
+      box(r, 168, 24, 182, 31, "#9c7747");
+      r(52, 29, 80, 29, "#6b6259");
+      for (const x of [52, 78]) box(r, x - 2, 26, x + 2, 31, "#5a524a");
+      return;
+    }
+    // punching bag
+    r(40, 0, 40, 13, "#5d6168");
+    box(r, 36, 14, 44, 29, "#b03030", "#7a2020");
+    r(37, 15, 38, 28, "#d0453e");
+    r(36, 18, 44, 18, "#7a2020");
+    // bench
+    box(r, 102, 26, 126, 28, "#8a5f33");
+    r(104, 29, 105, 31, "#6b4a2f");
+    r(123, 29, 124, 31, "#6b4a2f");
+    if (lv >= 3) {
+      // weight rack with colored plates
+      box(r, 50, 16, 66, 31, "#4a4f58");
+      for (const [y, colors] of [[19, ["#d64545", "#3f6fb5", "#f4d35e"]], [25, ["#3a3a3a", "#d64545", "#3f6fb5"]]]) {
+        r(51, y + 2, 65, y + 2, "#9aa0a8");
+        colors.forEach((c, i) => box(r, 52 + i * 5, y, 55 + i * 5, y + 4, c));
+      }
+      // wall bars
+      for (const x of [132, 146]) box(r, x, 11, x + 1, 30, "#c49a64", "#8a6a3f");
+      for (let y = 13; y < 30; y += 3) r(133, y, 145, y, "#d9b27c");
+    }
+    if (lv >= 4) {
+      // basketball hoop and backboard
+      box(r, 166, 10, 186, 22, "#f4f6f8", "#9aa0a8");
+      box(r, 172, 14, 180, 19, "#f4f6f8", "#d64545");
+      r(171, 23, 181, 23, "#e0602a");
+      for (let x = 172; x <= 180; x += 2) r(x, 24, x, 28, "#e8e8e8");
+      r(173, 28, 179, 28, "#e8e8e8");
+      // crash mats against the wall
+      box(r, 108, 20, 126, 25, "#3f6fb5");
+      r(109, 21, 125, 21, "#5b8ad0");
+      // a ball on the floor
+      box(r, 150, 28, 155, 31, "#e0602a", "#8a3a1a");
+    }
+    if (lv >= 5) {
+      // scoreboard
+      box(r, 68, 13, 98, 21, "#1d2026", "#3a3f48");
+      for (const [x, c] of [[71, "#ff5b5b"], [75, "#ff5b5b"], [89, "#f4d35e"], [93, "#f4d35e"]]) box(r, x, 15, x + 2, 19, c, mix(c, "#000000", 0.5));
+      r(82, 16, 84, 16, "#7fe0a8");
+      r(82, 18, 84, 18, "#7fe0a8");
+      // trophy shelf
+      r(100, 17, 127, 17, "#6b4a2f");
+      for (const x of [103, 110, 117, 123]) {
+        box(r, x, 13, x + 3, 16, "#f4d35e", "#c9a227");
+        r(x + 1, 14, x + 2, 14, "#fff4b0");
+      }
+      // pennants strung across the top of the wall
+      for (let x = 70; x < 128; x += 6) {
+        const c = ["#d64545", "#f4d35e", "#3f6fb5", "#4caf7d"][(x / 6) % 4 | 0];
+        r(x, 11, x + 4, 11, c);
+        r(x + 1, 12, x + 3, 12, c);
+        r(x + 2, 13, x + 2, 13, c);
+      }
+      // court line and a polished shine on the floor
+      r(0, 38, HW - 1, 38, "#efe6cf");
+      for (const x of [30, 90, 140]) r(x, 34, x + 10, 34, "#e0b07a");
+    }
+  },
+};
+
 const sceneCache = new Map();
 
 // Returned as a CSS url() so the banner can tile it sideways — full-width cards get a longer
-// room instead of a stretched or cropped one.
+// room instead of a stretched or cropped one. `kind` may carry the room's level ("gym@3"); the
+// high-resolution scenes are drawn for it (level 5 if none is given), the old ones ignore it.
 export function sceneBackground(kind) {
   if (!sceneCache.has(kind)) {
+    const [name, lvText] = kind.split("@");
+    const hi = HI_SCENES[name];
     let rects = "";
     const r = (x0, y0, x1, y1, c) => {
       rects += `<rect x="${x0}" y="${y0}" width="${x1 - x0 + 1}" height="${y1 - y0 + 1}" fill="${c}"/>`;
     };
-    SCENES[kind](r);
-    const w = SW;
-    const svg = `<svg viewBox="0 0 ${w} ${SH}" width="${w}" height="${SH}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
+    if (hi) hi(r, Math.min(5, Math.max(1, Number(lvText) || 5)));
+    else SCENES[name](r);
+    const [w, h] = hi ? [HW, HH] : [SW, SH];
+    const svg = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
     sceneCache.set(kind, `url('data:image/svg+xml,${encodeURIComponent(svg)}')`);
   }
   return sceneCache.get(kind);
