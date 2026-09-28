@@ -2340,10 +2340,10 @@ export function renderFloor3(state) {
     notes: [`Students at level ${PROMOTE_LEVEL_THRESHOLD}+ can become teachers — they teach their best subject`, `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`, "Expel someone from their character card"],
   };
   const office = `<div class="room room-office">
-    ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office")}
+    ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office", officeHow)}
     <div class="office-split">
       <div>
-        ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, infoDot(officeHow))}
+        ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, "")}
         <div class="person-tiles">${readyTiles.join("")}${placeholders(promoSlots - shownReady.length)}</div>
       </div>
       <div>
