@@ -1,7 +1,7 @@
 import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
   CLASSROOM_CAPACITY, LOCATIONS,
-  GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, roomUpgradeCost,
+  GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, CRAFT_HELP_DEX_PER_POINT, roomUpgradeCost,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
@@ -14,7 +14,7 @@ import {
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -232,6 +232,17 @@ function renderRadioUpgradeModal(state) {
   </div>`;
 }
 
+// A student's level tooltip: experience toward the next level, and how it's earned.
+function levelTip(c) {
+  const lv = overallLevel(c);
+  if (lv >= STUDENT_MAX_LEVEL) return { title: `⭐ Level ${lv} — max`, notes: ["Can be promoted to teacher in the Headmaster's Office"] };
+  return {
+    title: `⭐ Level ${lv}`,
+    rows: [["Experience", `${c.exp || 0}/${xpToNextLevel(lv)}`]],
+    notes: ["Earned in classes, training and work (+8–10 a day)", "Scouting, expeditions, defending and raids give more", `Level ${STUDENT_MAX_LEVEL} unlocks promotion to teacher`],
+  };
+}
+
 function statChips(c) {
   if (c.role === "teacher") {
     return `<div class="stat-chips">
@@ -361,6 +372,8 @@ function occupationLabel(state, c) {
   if (c.infirmaryToday) return "Nurse's Office";
   if (c.restToday) return "Resting (Cafeteria)";
   if (c.radioToday) return "Radio Station";
+  if (c.researchToday) return "Research Room";
+  if (c.craftingToday) return "Crafting Room";
   if (c.gymToday) return GYM_SIDES[c.gymToday].room;
   if (c.farmToday) return "Farm";
   if (c.scrapyardToday) return "Scrapyard";
@@ -626,7 +639,7 @@ function hudTips(state) {
   const teachers = teacherCount(state);
   return {
     population: { title: "👥 People", rows: [["Students", `${pop - teachers}`], ["Teachers", `${teachers}`]], total: ["Everyone alive", `${pop}`] },
-    teachers: { title: "🎓 Teachers", rows: [["At the school", `${teachers}`]], notes: ["Found on expeditions or through the Radio Station", `Or promoted from level-${PROMOTE_LEVEL_THRESHOLD} students in the Headmaster's Office`] },
+    teachers: { title: "🎓 Teachers", rows: [["At the school", `${teachers}`]], notes: ["Found on expeditions or through the Radio Station", `Or promoted from students who reach level ${PROMOTE_LEVEL_THRESHOLD} (max)`] },
     happiness: { title: "😊 Morale", rows: [["Now", `${state.happiness}`]], notes: ["Rises with won battles and new recruits", "Falls with failed missions and deaths", "Tilts random events toward good or bad"] },
     food: { title: "🍞 Food", rows: [["On hand", `${r.food}`], ["Eaten tonight", `−${pop}`]], total: ["Left after tonight", `${r.food - pop}`], notes: ["Grown at the Farm and Ranch, found on expeditions"] },
     materials: { title: "⚙ Scrap", rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
@@ -976,11 +989,12 @@ const healHealAmount = (state) => infirmaryHeal(state) + infirmaryNurseBonus(sta
 // The Crafting Room's fortification today: each crafter in turn uses up to 4 of the scrap left.
 function craftingToday(state) {
   let scrap = state.resources.materials;
-  return state.characters.filter((c) => c.role === "teacher" && c.post === "crafting" && c.alive).reduce((sum, t) => {
+  const crafters = state.characters.filter((c) => c.role === "teacher" && c.post === "crafting" && c.alive).reduce((sum, t) => {
     const use = Math.min(Math.max(scrap, 0), 4);
     scrap -= use;
     return sum + (use > 0 ? crafterGain(state, t, use) : 0);
   }, 0);
+  return crafters + state.characters.filter((c) => c.craftingToday && c.alive && !c.infection).reduce((sum, c) => sum + craftHelpGain(c), 0);
 }
 
 function renderTurn2Overview(state) {
@@ -1816,6 +1830,8 @@ function studentBusyLabel(c, exceptFlag) {
   if (exceptFlag !== "infirmaryToday" && c.infirmaryToday) return "In the Nurse's Office";
   if (exceptFlag !== "restToday" && c.restToday) return "Resting in the Cafeteria";
   if (exceptFlag !== "radioToday" && c.radioToday) return "On the air at the Radio Station";
+  if (exceptFlag !== "researchToday" && c.researchToday) return "Assisting in the Research Room";
+  if (exceptFlag !== "craftingToday" && c.craftingToday) return "Helping in the Crafting Room";
   if (exceptFlag !== "farmToday" && c.farmToday) return "Working the Farm";
   if (exceptFlag !== "scrapyardToday" && c.scrapyardToday) return "Working the Scrapyard";
   if (exceptFlag !== "ranchToday" && c.ranchToday) return "Working the Ranch";
@@ -1856,6 +1872,20 @@ function resolvePickerCandidates(state, picker) {
         role: "student", title: "Send a Student to the Nurse",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.infirmaryToday)
           .map((c) => studentRow(c, "infirmaryToday", (c) => (c.hp >= c.maxHp ? "Already at full HP" : null))),
+      };
+    case "research-student":
+      return {
+        role: "student", title: "Send a Student to the Research Room",
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.researchToday)
+          .sort((a, b) => b.grades.Physics - a.grades.Physics)
+          .map((c) => studentRow(c, "researchToday")),
+      };
+    case "crafting-student":
+      return {
+        role: "student", title: "Send a Student to the Crafting Room",
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.craftingToday)
+          .sort((a, b) => b.grades.Gymnastics - a.grades.Gymnastics)
+          .map((c) => studentRow(c, "craftingToday")),
       };
     case "radio-student":
       return {
@@ -2337,7 +2367,7 @@ export function renderFloor3(state) {
   const officeHow = {
     title: "🎓 Headmaster's Office",
     rows: [["Teachers", `${teacherCount(state)}`], ["Ready to promote", `${ready.length}`], ["Recruits waiting", `${pool.length}/${recSlots}`]],
-    notes: [`Students at level ${PROMOTE_LEVEL_THRESHOLD}+ can become teachers — they teach their best subject`, `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`, "Expel someone from their character card"],
+    notes: [`Students who reach level ${PROMOTE_LEVEL_THRESHOLD} (max) can become teachers — they teach their best subject`, "Students level up from experience: classes, training, work, scouting and fighting", `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`, "Expel someone from their character card"],
   };
   const office = `<div class="room room-office">
     ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office", officeHow)}
@@ -2355,28 +2385,36 @@ export function renderFloor3(state) {
 
 
   const researchers = state.characters.filter((c) => c.role === "teacher" && c.post === "research" && c.alive);
+  const assistants = state.characters.filter((c) => c.researchToday && c.alive);
   const researchSlots = state.rooms.research.teacherCapacity;
-  const totalInt = researchers.reduce((sum, t) => sum + t.grades.Physics, 0);
-  const researchLevelBonus = researchers.length ? researchRoomYield(state) - Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) : 0;
-  const researchHow = researchers.length
+  const crew = researchCrew(state);
+  const totalInt = crew.reduce((sum, t) => sum + t.grades.Physics, 0);
+  const researchLevelBonus = crew.length ? researchRoomYield(state) - Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) : 0;
+  const researchHow = crew.length
     ? {
         title: `🧠 +${researchRoomYield(state)} research a day`,
-        rows: [["INT of the teachers here", `${totalInt}`], [`Research · 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT`, `+${Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT)}`], [`Room · level ${roomLevel(state, "research")}`, `+${researchLevelBonus}`]],
+        rows: [[`INT of the ${crew.length} working here`, `${totalInt}`], [`Research · 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT`, `+${Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT)}`], [`Room · level ${roomLevel(state, "research")}`, `+${researchLevelBonus}`]],
         total: ["Total", `+${researchRoomYield(state)}`],
-        notes: ["Post high-INT teachers here", "Research buys the tech tree and the Radio Station's upgrades"],
+        notes: ["Teachers and assisting students all add their INT", "Research buys the tech tree and the Radio Station's upgrades"],
       }
-    : { title: "🧠 No research yet", notes: [`Post a teacher: 1 research for every ${RESEARCH_ROOM_INT_PER_POINT} INT, plus a level bonus`] };
+    : { title: "🧠 No research yet", notes: [`Post a teacher or send a student: 1 research for every ${RESEARCH_ROOM_INT_PER_POINT} INT, plus a level bonus`] };
+  const helpersOf = (postKey) => state.characters.filter((c) => c.alive && c[`${postKey}Today`]);
   // `footer(staff)` gives the room's headline: its daily result with a breakdown.
   const utilityRoom = (scene, title, desc, postKey, statLabel, statKey, footer) => {
     if (isBoarded(state, postKey)) return renderBoardedRoom(state, postKey, scene, "room-utility");
     const staff = state.characters.filter((c) => c.role === "teacher" && c.post === postKey && c.alive);
     const slots = state.rooms[postKey].teacherCapacity;
     return `<div class="room room-utility">
-      ${roomScene(`${scene}@${roomLevel(state, postKey)}`, staff, `${title}${levelBadge(state, postKey)}`, desc, roomUpgradeButton(state, postKey))}
+      ${roomScene(`${scene}@${roomLevel(state, postKey)}`, [...staff, ...helpersOf(postKey)], `${title}${levelBadge(state, postKey)}`, desc, roomUpgradeButton(state, postKey))}
       ${staffLine(state, "Teacher", staff, slots,
         (t) => staffRow(t, gradeLetter(t.grades[statKey]), `${t.name} — ${statLabel} ${gradeLetter(t.grades[statKey])}`),
         `data-action="open-picker" data-kind="utility" data-post="${postKey}"`)}
-      ${statRow("Output", footer(staff))}
+      ${statRow(`Helping today (${helpersOf(postKey).length}/${state.rooms[postKey].studentCapacity})`, footer(staff))}
+      ${tileGrid(
+        helpersOf(postKey).map((s) => personTile(s, { remove: `remove-${postKey}`, title: `${s.name} — DEX ${s.grades.Gymnastics}, adds +${craftHelpGain(s)} fortification`, extra: `<span class="pt-gain">+<b>${craftHelpGain(s)}</b> 🛡</span>` })),
+        state.rooms[postKey].studentCapacity - helpersOf(postKey).length,
+        `data-action="open-picker" data-kind="${postKey}-student"`
+      )}
     </div>`;
   };
   // Crafting: each crafter turns up to 4 scrap into fortification, in turn, while the scrap lasts.
@@ -2387,15 +2425,16 @@ export function renderFloor3(state) {
       scrap -= use;
       return { t, use, gain: use > 0 ? crafterGain(state, t, use) : 0 };
     });
-    const total = parts.reduce((sum, p) => sum + p.gain, 0);
-    const how = staff.length
+    const helpers = helpersOf("crafting");
+    const total = parts.reduce((sum, p) => sum + p.gain, 0) + helpers.reduce((sum, c) => sum + craftHelpGain(c), 0);
+    const how = staff.length || helpers.length
       ? {
           title: `🛡 +${total} fortification a day`,
-          rows: parts.map((p) => [`${esc(shortName(p.t))} · ${p.use} scrap`, `+${p.gain}`]),
+          rows: [...parts.map((p) => [`${esc(shortName(p.t))} · ${p.use} scrap`, `+${p.gain}`]), ...helpers.map((c) => [`${esc(shortName(c))} · DEX ${c.grades.Gymnastics}`, `+${craftHelpGain(c)}`])],
           total: ["Total", `+${total}`],
-          notes: ["Each crafter turns up to 4 scrap a day into fortification", "More with a high DEX and a higher room level"],
+          notes: ["Each crafter turns up to 4 scrap a day into fortification", `Students help for free: +1 per ${CRAFT_HELP_DEX_PER_POINT} DEX`],
         }
-      : { title: "🛡 No crafting yet", notes: ["Post a teacher: up to 4 scrap a day becomes permanent fortification", "More with a high DEX"] };
+      : { title: "🛡 No crafting yet", notes: ["Post a teacher: up to 4 scrap a day becomes permanent fortification", "Or send students: +1 per 25 DEX, no scrap"] };
     return `🛡 <b>+${total}</b> fortification a day ${infoDot(how)}`;
   };
   // The Radio Station: levels like the other rooms (its upgrades are in the Upgrade pop-up), a
@@ -2447,13 +2486,18 @@ export function renderFloor3(state) {
       ${office}
       ${radio}
       ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
-        ${roomScene(`research@${roomLevel(state, "research")}`, researchers, `Research Room${levelBadge(state, "research")}`,
+        ${roomScene(`research@${roomLevel(state, "research")}`, [...researchers, ...assistants], `Research Room${levelBadge(state, "research")}`,
           "",
           roomUpgradeButton(state, "research"))}
         ${staffLine(state, "Teacher", researchers, researchSlots,
           (t) => staffRow(t, gradeLetter(t.grades.Physics), `${t.name} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)})`),
           'data-action="open-picker" data-kind="utility" data-post="research"')}
-        ${statRow("Output", `🧠 <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`)}
+        ${statRow(`Assisting today (${assistants.length}/${state.rooms.research.studentCapacity})`, `🧠 <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`)}
+        ${tileGrid(
+          assistants.map((s) => personTile(s, { remove: "remove-research", title: `${s.name} — adds INT ${s.grades.Physics} to the room`, extra: `<span class="pt-gain">INT <b>${s.grades.Physics}</b></span>` })),
+          state.rooms.research.studentCapacity - assistants.length,
+          'data-action="open-picker" data-kind="research-student"'
+        )}
       </div>`}
       ${utilityRoom("crafting", "Crafting Room", "", "crafting", "DEX", "Gymnastics", craftingFooter)}
     </div>
@@ -3170,7 +3214,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
 
   const topStatFirst = isTeacher
     ? `<div class="cc-stat-box"><span class="cc-label">Teaches</span><span class="cc-value">🌟 ${SUBJECT_LABEL[c.teachSubject]}</span></div>`
-    : `<div class="cc-stat-box"><span class="cc-label">Level</span><span class="cc-value">${overallLevel(c)}</span></div>`;
+    : `<div class="cc-stat-box" ${tipAttr(levelTip(c))}><span class="cc-label">Level</span><span class="cc-value">${overallLevel(c) >= STUDENT_MAX_LEVEL ? "MAX" : overallLevel(c)}</span>${overallLevel(c) >= STUDENT_MAX_LEVEL ? "" : `<span class="xp-bar"><i style="width:${Math.round(((c.exp || 0) / xpToNextLevel(overallLevel(c))) * 100)}%"></i></span>`}</div>`;
 
   return `
   <div class="modal-overlay" data-action="close-card">

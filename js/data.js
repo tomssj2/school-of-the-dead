@@ -305,6 +305,28 @@ export const RADIO_UPGRADES = [
   { id: "satellite", name: "Satellite communications", icon: "🛰", cost: { materials: 60, research: 40 }, desc: "Reach the military — a helicopter comes to save the school.", baseChance: 0.11 },
 ];
 export const RADIO_CHA_PER_PERCENT = 20; // CHA 100 on the air adds +5% a day
+
+// ===== Student levels =====
+// A student's level (1 to STUDENT_MAX_LEVEL) comes from experience earned doing things — not from
+// their grades. Reaching the top level is what lets them be promoted to teacher. It takes
+// xpToNextLevel(level) XP to go up a level (40, 60, 80 … 200: about 1,100 in all).
+export const STUDENT_MAX_LEVEL = 10;
+export const xpToNextLevel = (level) => 20 + 20 * level;
+export const LEVEL_XP = {
+  class: 10, // studying in a classroom that's teaching
+  training: 10, // a Gymnasium / Acrobatics session
+  work: 8, // the Farm, Ranch, Scrapyard, Radio Station, Research Room or Crafting Room
+  scout: 10, // scouting a hex
+  expedition: 15, // going on an expedition
+  expeditionWin: 10, // … and coming back successful
+  defend: 15, // defending the entrance at night (or a facility raid)
+  roomFight: 25, // clearing a boarded-up room
+  nest: 25, // burning out a zombie nest
+  raid: 40, // a landmark raid or chasing down the horde's leader
+};
+// A student helping in the Research Room adds their INT to the pool; one in the Crafting Room adds
+// a point of fortification a day for every CRAFT_HELP_DEX_PER_POINT DEX.
+export const CRAFT_HELP_DEX_PER_POINT = 25;
 export const RESCUE_ARRIVAL_DAYS = 3;
 export const RESCUE_DELAY_DAYS = 5;
 
@@ -619,14 +641,14 @@ export const ROOM_LEVELS = {
     ],
   },
   research: {
-    name: "Research Room", teachers: roomSlots("Researchers", RESEARCH_ROOM_TEACHERS),
+    name: "Research Room", students: roomSlots("Assistants", 1, 1), teachers: roomSlots("Researchers", RESEARCH_ROOM_TEACHERS),
     perks: [{ label: "Bonus research", by: RESEARCH_BONUS_BY_LEVEL, fmt: (v) => `+${v} a day` }],
   },
   radio: {
     name: "Radio Station", students: roomSlots("On-air students", 1, 1), teachers: roomSlots("Teachers", 1),
   },
   crafting: {
-    name: "Crafting Room", teachers: roomSlots("Crafters", 1),
+    name: "Crafting Room", students: roomSlots("Helpers", 1, 1), teachers: roomSlots("Crafters", 1),
     perks: [{ label: "Bonus fortification", by: CRAFTING_BONUS_BY_LEVEL, fmt: (v) => `+${v} per crafter` }],
   },
   farm: { name: "Farm", students: roomSlots("Workers", FARM_CAPACITY, 2), plots: roomSlots("Plots", FACILITY_PLOTS.farm, 2) },

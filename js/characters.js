@@ -271,6 +271,10 @@ export function makeCharacter(role, gender) {
     post: null, // teacher's job post: 'classroom:<subject>' | 'gym' | 'cafeteria' | 'research' | 'crafting' | 'radio' | null
     gymToday: false,
     radioToday: false, // on the air at the Radio Station today (students)
+    researchToday: false, // assisting in the Research Room today (students)
+    craftingToday: false, // helping in the Crafting Room today (students)
+    level: 1, // students: 1 to STUDENT_MAX_LEVEL, from experience (see gainExp)
+    exp: 0,
     infirmaryToday: false, // a patient in the Nurse's Office today: "heal" or false (students)
     restToday: false, // resting in the Cafeteria today (students)
     exploreTeam: null, // 0,1,2 or null - this turn's exploration assignment (students only)
@@ -289,6 +293,7 @@ export function makeLegendaryCharacter(role, gender) {
   const c = makeCharacter(role, gender);
   for (const s of SUBJECTS) c.grades[s] = bumpTier(c.grades[s]);
   c.legendary = true;
+  if (role === "student") c.level = 5; // a legendary survivor arrives seasoned
   capTeacherGrades(c); // a legendary teacher's specialty is S, the rest A at most
   c.maxHp = maxHpFor(c.grades);
   c.hp = c.maxHp;
@@ -307,10 +312,9 @@ export function makeLegendaryCharacter(role, gender) {
   return c;
 }
 
+// A student's level, earned through experience (see gainExp in game.js).
 export function overallLevel(c) {
-  const vals = SUBJECTS.map((s) => c.grades[s]);
-  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-  return Math.max(1, Math.floor(avg / 10));
+  return c.level || 1;
 }
 
 // 1 skill point is earned per level; spending one on a skill node uses it up permanently.

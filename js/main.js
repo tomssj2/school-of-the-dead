@@ -187,6 +187,14 @@ function migrateState(s) {
     if (c.scrapyardToday === undefined) c.scrapyardToday = false;
     delete c.labToday; // the Lab was replaced by the Ranch
     delete c.bonds; // friendships and couples were removed
+    // Levels come from experience now: a student keeps the level their grades gave them.
+    if (c.level == null) {
+      const avg = Object.values(c.grades).reduce((a, b) => a + b, 0) / Object.values(c.grades).length;
+      c.level = c.role === "student" ? Math.min(10, Math.max(1, Math.floor(avg / 10))) : 1;
+      c.exp = 0;
+    }
+    if (c.researchToday === undefined) c.researchToday = false;
+    if (c.craftingToday === undefined) c.craftingToday = false;
     delete c.coupleId;
     if (c.ranchToday === undefined) c.ranchToday = false;
     if (c.role === "teacher") {
@@ -817,6 +825,14 @@ root.addEventListener("click", (e) => {
       G.setRadioToday(state, el.dataset.id, false);
       render();
       break;
+    case "remove-research":
+      G.setResearchToday(state, el.dataset.id, false);
+      render();
+      break;
+    case "remove-crafting":
+      G.setCraftingToday(state, el.dataset.id, false);
+      render();
+      break;
     case "remove-infirmary":
       G.setInfirmaryToday(state, el.dataset.id, false);
       render();
@@ -1202,6 +1218,8 @@ root.addEventListener("click", (e) => {
         case "infirmary-student": G.setInfirmaryToday(state, id, "heal"); break;
         case "cafeteria-rest": G.setRestToday(state, id, true); break;
         case "radio-student": G.setRadioToday(state, id, true); break;
+        case "research-student": G.setResearchToday(state, id, true); break;
+        case "crafting-student": G.setCraftingToday(state, id, true); break;
         case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;
         case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
         case "utility": G.setTeacherPost(state, id, postKey); break;

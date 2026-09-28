@@ -17,7 +17,7 @@ import {
   ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
-  RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
+  RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
   INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
@@ -85,7 +85,7 @@ export function infect(state, c, how) {
   if (!c || !c.alive || c.infection) return false;
   if (c.role === "teacher" && c.post) setTeacherPost(state, c.id, null);
   c.infection = { dueDay: state.day + INFECTION_DAYS };
-  Object.assign(c, { gymToday: false, radioToday: false, infirmaryToday: false, restToday: false, farmToday: false, scrapyardToday: false, ranchToday: false, exploreTeam: null, defending: false });
+  Object.assign(c, { gymToday: false, radioToday: false, researchToday: false, craftingToday: false, infirmaryToday: false, restToday: false, farmToday: false, scrapyardToday: false, ranchToday: false, exploreTeam: null, defending: false });
   clearEntranceCellForChar(state, c.id);
   state.raidDefenders = (state.raidDefenders || []).filter((id) => id !== c.id);
   addLog(state, `🦠 ${c.name} ${how} and is infected! Quarantined in the Nurse's Office — cure them with antiviral serum by the end of day ${c.infection.dueDay}, or they die.`);
@@ -338,6 +338,7 @@ export function fightForRoom(state, roomKey, ids) {
     }
     grantXp(state, c.id, "PE", 2 + randInt(0, 2));
     grantXp(state, c.id, "Gymnastics", 2 + randInt(0, 2));
+    gainExp(state, c, LEVEL_XP.roomFight);
   }
   if (sim.won) {
     state.resources.materials -= room.cost;
@@ -857,6 +858,23 @@ export function cookDish(state, dishId) {
   return true;
 }
 
+// ---------- student levels ----------
+// Experience from what a student does (LEVEL_XP) raises their level, up to STUDENT_MAX_LEVEL —
+// where they can be promoted to teacher.
+export function gainExp(state, c, amount) {
+  if (!c || !c.alive || c.role !== "student" || amount <= 0) return;
+  c.level = c.level || 1;
+  if (c.level >= STUDENT_MAX_LEVEL) return;
+  c.exp = (c.exp || 0) + amount;
+  while (c.level < STUDENT_MAX_LEVEL && c.exp >= xpToNextLevel(c.level)) {
+    c.exp -= xpToNextLevel(c.level);
+    c.level++;
+    addLog(state, c.level >= STUDENT_MAX_LEVEL ? `⭐ ${c.name} reached level ${c.level} — ready to be promoted to teacher!` : `⭐ ${c.name} reached level ${c.level}.`);
+  }
+  if (c.level >= STUDENT_MAX_LEVEL) c.exp = 0;
+}
+const gainExpAll = (state, list, amount) => list.forEach((c) => gainExp(state, c, amount));
+
 function grantXp(state, charId, subject, amount) {
   const c = getChar(state, charId);
   if (!c || !c.alive) return;
@@ -891,10 +909,28 @@ export function exploreStaminaCost(state) {
   return Math.round(STAMINA_COST_EXPLORE * (1 - techPerk(state, "exploreStaminaReduction")));
 }
 
-// One research point per RESEARCH_ROOM_INT_PER_POINT of the posted teachers' combined INT, plus
-// the room's level bonus while anyone is working there.
+// One research point per RESEARCH_ROOM_INT_PER_POINT of the combined INT of the teachers posted there
+// and the students assisting today, plus the room's level bonus while anyone is working there.
+export const researchCrew = (state) => state.characters.filter((c) => c.alive && !c.infection && ((c.role === "teacher" && c.post === "research") || c.researchToday));
+// Fortification a student helping in the Crafting Room adds today.
+export const craftHelpGain = (c) => Math.floor(c.grades.Gymnastics / CRAFT_HELP_DEX_PER_POINT);
+
+// A student's job in the Research or Crafting Room today (`flag` researchToday / craftingToday).
+function setRoomJob(state, studentId, flag, roomKey, value) {
+  const c = getChar(state, studentId);
+  if (!c || c.role !== "student") return false;
+  if (value) {
+    if (c.infection || isBoarded(state, roomKey)) return false;
+    const count = state.characters.filter((x) => x.alive && x[flag] && x.id !== c.id).length;
+    if (count >= state.rooms[roomKey].studentCapacity) return false;
+  }
+  c[flag] = !!value;
+  return true;
+}
+export const setResearchToday = (state, id, value) => setRoomJob(state, id, "researchToday", "research", value);
+export const setCraftingToday = (state, id, value) => setRoomJob(state, id, "craftingToday", "crafting", value);
 export function researchRoomYield(state) {
-  const researchers = state.characters.filter((c) => c.role === "teacher" && c.post === "research" && c.alive);
+  const researchers = researchCrew(state);
   if (!researchers.length) return 0;
   const totalInt = researchers.reduce((sum, c) => sum + c.grades.Physics, 0);
   return Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) + RESEARCH_BONUS_BY_LEVEL[roomLevel(state, "research") - 1];
@@ -944,6 +980,7 @@ export function resolveTraining(state) {
     let taught = 0;
     for (const sid of state.rooms.classrooms[roomId].seats.filter(Boolean)) {
       const c = getChar(state, sid);
+      if (c && !c.infection) gainExp(state, c, LEVEL_XP.class);
       const add = classGain(state, c);
       if (!add) continue;
       c.grades[lesson.subject] += add;
@@ -962,6 +999,7 @@ export function resolveTraining(state) {
     if (!students.length) continue;
     const lesson = gymLesson(state, side);
     for (const c of students) {
+      gainExp(state, c, LEVEL_XP.training);
       const add = trainingGain(state, c, side);
       if (add) {
         const before = c.maxHp;
@@ -1003,6 +1041,7 @@ export function resolveTraining(state) {
     state.resources.research += researchGain;
     addLog(state, `The Research Room produces ${researchGain} research.`);
   }
+  gainExpAll(state, state.characters.filter((c) => c.researchToday && c.alive), LEVEL_XP.work);
 
   // crafting
   for (const crafter of state.characters.filter((c) => c.role === "teacher" && c.post === "crafting" && c.alive)) {
@@ -1013,12 +1052,21 @@ export function resolveTraining(state) {
     state.fortification = Math.min(FORTIFICATION_CAP, state.fortification + gain);
     addLog(state, `${crafter.name} reinforces the school defenses (+${gain} fortification).`);
   }
+  const helpers = state.characters.filter((c) => c.craftingToday && c.alive && !c.infection);
+  const helped = helpers.reduce((sum, c) => sum + craftHelpGain(c), 0);
+  if (helped) {
+    state.fortification = Math.min(FORTIFICATION_CAP, state.fortification + helped);
+    addLog(state, `${helpers.length} student${helpers.length === 1 ? "" : "s"} helped in the Crafting Room (+${helped} fortification).`);
+  }
+  gainExpAll(state, helpers, LEVEL_XP.work);
 
   // the Radio Station: a survivor may hear the school's broadcast
   if (!isBoarded(state, "radio") && Math.random() < radioRecruitChance(state)) {
     const recruit = makeCharacter(rollRecruitRole(state), Math.random() < 0.5 ? "M" : "F");
     if (addRecruit(state, recruit)) addLog(state, `📻 ${recruit.name} heard the school's broadcast and wants to join.`);
   }
+
+  gainExpAll(state, state.characters.filter((c) => c.radioToday && c.alive), LEVEL_XP.work);
 
   addLog(state, `Turn 1 (Classes) resolved.`);
 }
@@ -1153,6 +1201,7 @@ export function resolveExploration(state) {
     }
 
     const staminaCost = exploreStaminaCost(state);
+    gainExpAll(state, members, LEVEL_XP.expedition + (success ? LEVEL_XP.expeditionWin : 0));
     for (const c of members) {
       c.stamina = Math.max(0, c.stamina - staminaCost);
       const roll = Math.random();
@@ -1192,6 +1241,7 @@ export function resolveExploration(state) {
   }
 
   const raid = resolveRaid(state);
+  gainExpAll(state, state.characters.filter((c) => c.alive && (c.farmToday || c.ranchToday || c.scrapyardToday)), LEVEL_XP.work);
 
   // outside facilities — passive daily yield for students working the Farm/Scrapyard/Ranch
   // instead of exploring. Farm and Ranch workers also tend the plots/pens.
@@ -1545,6 +1595,7 @@ export function resolveDefense(state) {
     }
     c.hp = Math.max(1, s.hp);
     c.injured = c.hp < c.maxHp * 0.5;
+    gainExp(state, c, LEVEL_XP.defend);
     const killBonus = Math.min(3, s.kills);
     grantXp(state, c.id, "PE", 2 + randInt(0, 2) + (s.usedMelee ? killBonus : 0));
     grantXp(state, c.id, "Gymnastics", 2 + randInt(0, 2) + (s.usedRanged ? killBonus : 0));
@@ -1638,6 +1689,7 @@ export function resolveFacilityRaid(state) {
   if (success) {
     addLog(state, `The team beat back the raid on the ${raid.facility}.`);
     for (const c of defenders) grantXp(state, c.id, "PE", 2 + randInt(0, 2));
+    gainExpAll(state, defenders, LEVEL_XP.defend);
   } else {
     adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL);
     if (room && room.studentCapacity > 1) {
@@ -1707,6 +1759,7 @@ export function resolveAssault(state, chase) {
       state.resources[key] += amt;
     }
     for (const c of squad) grantXp(state, c.id, "PE", 4 + randInt(0, 3));
+    gainExpAll(state, squad, LEVEL_XP.raid);
     addLog(state, `The squad ran down the horde's leader and looted its trail — a big haul.`);
 
     if (Math.random() < LEGENDARY_CHANCE) {
@@ -1846,6 +1899,8 @@ export function advanceTurn(state) {
   for (const c of state.characters) {
     c.gymToday = false;
     c.radioToday = false;
+    c.researchToday = false;
+    c.craftingToday = false;
     c.infirmaryToday = false;
     c.restToday = false;
     c.farmToday = false;
@@ -1965,7 +2020,7 @@ function checkGameOver(state) {
 
 // ---------- headmaster actions ----------
 
-export const PROMOTE_LEVEL_THRESHOLD = 6; // overallLevel >= 6 (avg grade >= 60)
+export const PROMOTE_LEVEL_THRESHOLD = STUDENT_MAX_LEVEL; // only students at the top level can become teachers
 
 export function expelCharacter(state, id) {
   const idx = state.characters.findIndex((c) => c.id === id);
@@ -2198,6 +2253,7 @@ export function scoutHex(state, studentId, q, r) {
   if (!canScoutHex(state, q, r)) return null;
 
   c.stamina -= cost;
+  gainExp(state, c, LEVEL_XP.scout);
 
   const encounterChance = scoutEncounterChance(state, q, r, c);
   const encountered = Math.random() < encounterChance;
@@ -2324,6 +2380,7 @@ export function clearNest(state, q, r, ids) {
     for (const c of squad) {
       grantXp(state, c.id, "PE", 3 + randInt(0, 2));
       grantXp(state, c.id, "Gymnastics", 3 + randInt(0, 2));
+      gainExp(state, c, LEVEL_XP.nest);
     }
     const loot = `+${amt} scrap${item ? ` and ${item.icon} ${item.name}` : ""}`;
     addLog(state, `${names} burned out a zombie nest: ${loot}.`);
@@ -2463,6 +2520,7 @@ function resolveRaid(state) {
     }
     grantXp(state, c.id, "PE", 5 + randInt(0, 3));
     grantXp(state, c.id, "Gymnastics", 5 + randInt(0, 3));
+    gainExp(state, c, LEVEL_XP.raid);
   }
   if (sim.won) {
     for (const [key, amt] of Object.entries(landmark.rewards)) {

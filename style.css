@@ -1704,6 +1704,9 @@ html[data-gfx="low"] .staff-add { animation: none; }
 .cc-value { font-size: 15px; font-weight: 700; }
 .cc-occupation { font-size: 13px; white-space: nowrap; }
 .cc-hp-box .hpbar { width: 110px; }
+/* A student's experience toward their next level, under the Level number on their card. */
+.xp-bar { display: block; width: 100%; height: 4px; margin-top: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.xp-bar i { display: block; height: 100%; background: #f4d35e; }
 
 .cc-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-top: 4px; border-top: 1px solid var(--border); padding-top: 8px; }
 .cc-talents-label { border-top: none; padding-top: 0; margin-top: 2px; text-align: center; }

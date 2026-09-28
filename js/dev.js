@@ -46,7 +46,7 @@ export function maxOutSchool(state) {
   }
 
   // daily jobs: fill each room's student slots from whoever is free
-  const busy = (c) => c.gymToday || c.radioToday || c.infirmaryToday || c.restToday || c.farmToday || c.ranchToday || c.scrapyardToday || c.exploreTeam !== null || c.defending;
+  const busy = (c) => c.gymToday || c.radioToday || c.researchToday || c.craftingToday || c.infirmaryToday || c.restToday || c.farmToday || c.ranchToday || c.scrapyardToday || c.exploreTeam !== null || c.defending;
   const fill = (count, assign) => {
     for (let i = 0; i < count; i++) {
       const c = alive("student").find((x) => !busy(x));
@@ -57,6 +57,8 @@ export function maxOutSchool(state) {
   fill(state.rooms.gym.studentCapacity - count("gymToday", "PE"), (c) => G.setGymToday(state, c.id, "PE"));
   fill(state.rooms.acrobatics.studentCapacity - count("gymToday", "Gymnastics"), (c) => G.setGymToday(state, c.id, "Gymnastics"));
   fill(state.rooms.radio.studentCapacity - count("radioToday"), (c) => G.setRadioToday(state, c.id, true));
+  fill(state.rooms.research.studentCapacity - count("researchToday"), (c) => G.setResearchToday(state, c.id, true));
+  fill(state.rooms.crafting.studentCapacity - count("craftingToday"), (c) => G.setCraftingToday(state, c.id, true));
   fill(state.rooms.cafeteria.studentCapacity - count("restToday"), (c) => {
     c.stamina = Math.round(c.maxStamina * 0.25);
     return G.setRestToday(state, c.id, true);
