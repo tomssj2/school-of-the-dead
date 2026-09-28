@@ -587,6 +587,11 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 /* The Facilities floor's rooms are narrow, so their headline number sits on a second line — a taller
    banner keeps it clear of the figures. */
 .floor3-grid .room-scene { height: 136px; }
+/* A crowded room (two rows of people) gets a taller banner so its art still shows above them — and
+   so do the other banners on that floor, to keep rooms side by side lined up. */
+.room-scene.scene-crowded,
+.floor1-grid:has(.scene-crowded) .room-scene,
+.floor2-grid:has(.scene-crowded) .room-scene { height: 150px; }
 .scene-plaque {
   position: absolute;
   top: 7px;
