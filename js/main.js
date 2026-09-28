@@ -125,6 +125,8 @@ function migrateState(s) {
     if (c.farmToday === undefined) c.farmToday = false;
     if (c.scrapyardToday === undefined) c.scrapyardToday = false;
     delete c.labToday; // the Lab was replaced by the Ranch
+    delete c.bonds; // friendships and couples were removed
+    delete c.coupleId;
     if (c.ranchToday === undefined) c.ranchToday = false;
     if (c.role === "teacher") {
       if (!/^(mr|mrs)\.\s/i.test(c.name)) c.name = withTeacherHonorific(c.name, c.gender);

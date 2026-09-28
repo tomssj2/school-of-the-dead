@@ -269,8 +269,6 @@ export function makeCharacter(role, gender) {
     injured: false,
     seat: null, // { subject, index } for floor2 classroom seating (students only, persistent "home")
     post: null, // teacher's job post: 'classroom:<subject>' | 'gym' | 'cafeteria' | 'research' | 'crafting' | 'council' | null
-    coupleId: null,
-    bonds: {}, // otherId -> integer bond strength
     gymToday: false,
     infirmaryToday: false, // a patient in the Nurse's Office today: "heal" or false (students)
     restToday: false, // resting in the Cafeteria today (students)

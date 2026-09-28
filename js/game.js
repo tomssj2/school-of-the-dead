@@ -4,7 +4,7 @@ import {
   RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME,
   FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
-  LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
+  LOCATIONS, STAT_OF_SUBJECT, TRAITS,
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, COUNCIL_CHANCE_BY_LEVEL,
@@ -413,16 +413,6 @@ export function unseat(state, studentId) {
   c.seat = null;
 }
 
-export function deskPartner(state, studentId) {
-  const c = getChar(state, studentId);
-  if (!c || !c.seat) return null;
-  const deskIndex = Math.floor(c.seat.index / 2);
-  const otherIndex = c.seat.index % 2 === 0 ? c.seat.index + 1 : c.seat.index - 1;
-  const room = state.rooms.classrooms[c.seat.room];
-  const otherId = room.seats[otherIndex];
-  return otherId ? getChar(state, otherId) : null;
-}
-
 // teacher posts: 'classroom:<roomId>', 'gym:PE', 'gym:Gymnastics', 'cafeteria', 'infirmary', 'research',
 // 'crafting', 'council', or null. Each room holds as many teachers as its level allows.
 // A classroom room has no subject ("Classroom N") until its first teacher is assigned, at which
@@ -708,47 +698,6 @@ export function repairRoom(state, key) {
   return true;
 }
 
-// ---------- bonds / couples ----------
-
-function bumpBond(state, aId, bId, amount) {
-  if (aId === bId) return;
-  const a = getChar(state, aId);
-  const b = getChar(state, bId);
-  if (!a || !b || !a.alive || !b.alive) return;
-  a.bonds[bId] = (a.bonds[bId] || 0) + amount;
-  b.bonds[aId] = (b.bonds[aId] || 0) + amount;
-  maybeFormCouple(state, a, b);
-}
-
-function maybeFormCouple(state, a, b) {
-  if (a.coupleId || b.coupleId) return;
-  if (a.gender === b.gender) return;
-  if (a.role !== "student" || b.role !== "student") return;
-  const bond = a.bonds[b.id] || 0;
-  if (bond >= BOND_COUPLE_THRESHOLD && Math.random() < 0.25) {
-    a.coupleId = b.id;
-    b.coupleId = a.id;
-    for (const stat of ["CHA", "CON"]) {
-      const subj = Object.keys(STAT_OF_SUBJECT).find((k) => STAT_OF_SUBJECT[k] === stat);
-      a.grades[subj] = clamp(a.grades[subj] + 3, 0, 100);
-      b.grades[subj] = clamp(b.grades[subj] + 3, 0, 100);
-    }
-    addLog(state, `${a.name} and ${b.name} have become a couple! They fight better side by side.`);
-  }
-}
-
-// Charming people make friends faster: each pair may bond an extra point, by their average CHA.
-function teamBondBumps(state, memberIds) {
-  for (let i = 0; i < memberIds.length; i++) {
-    for (let j = i + 1; j < memberIds.length; j++) {
-      const a = getChar(state, memberIds[i]);
-      const b = getChar(state, memberIds[j]);
-      const avgCha = a && b ? (a.grades.SocialStudies + b.grades.SocialStudies) / 2 : 0;
-      bumpBond(state, memberIds[i], memberIds[j], 1 + (Math.random() < avgCha * TUNE.bondPerCha ? 1 : 0));
-    }
-  }
-}
-
 // ---------- xp / grades ----------
 
 function xpThreshold(grade) {
@@ -986,7 +935,6 @@ export function resolveTraining(state) {
       }
     }
     addLog(state, `${GYM_SIDES[side].room}: ${students.length} student(s) trained, up to +${lesson.gain} ${GYM_SIDES[side].gains} each.`);
-    teamBondBumps(state, students.map((c) => c.id));
   }
 
   // cafeteria — cooks stretch the rations (their dishes are served on demand, see cookDish).
@@ -1207,7 +1155,6 @@ export function resolveExploration(state) {
       addLog(state, `Your team found a survivor at ${location.name}: ${recruit.name} wants to join.`);
     }
 
-    teamBondBumps(state, members.map((c) => c.id));
   }
 
   const raid = resolveRaid(state);
@@ -1607,7 +1554,6 @@ export function resolveDefense(state) {
   if (routed) addLog(state, `The defense was overwhelming. The horde was routed with ease.`);
   else if (won) addLog(state, `The entrance held — ${killed} of ${spawned} zombies were put down.`);
 
-  teamBondBumps(state, defenders.map((c) => c.id));
 
   // A won battle can lead into one (never both) follow-up: a facility raid demanding an
   // immediate response, or a chance to chase the horde down for a bigger prize.
@@ -2005,10 +1951,6 @@ export function expelCharacter(state, id) {
   if (idx === -1) return false;
   const c = state.characters[idx];
   unseat(state, id);
-  if (c.coupleId) {
-    const partner = getChar(state, c.coupleId);
-    if (partner) partner.coupleId = null;
-  }
   state.characters.splice(idx, 1);
   addLog(state, `${c.name} was expelled from the school.`);
   return true;

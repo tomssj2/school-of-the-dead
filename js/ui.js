@@ -14,7 +14,7 @@ import {
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, deskPartner, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, councilChance, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, councilChance, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, meetsItemRequirement, antennaReady, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -266,10 +266,9 @@ function shortName(c) {
 }
 
 function nameTag(c, { icon = true } = {}) {
-  const couple = c.coupleId ? " 💞" : "";
   const role = icon ? `${c.role === "teacher" ? "🎓" : "🧳"} ` : "";
   const legendary = c.legendary ? "✨ " : "";
-  return `<span class="unit-link" data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${legendary}${role}${esc(shortName(c))}${couple}</span>`;
+  return `<span class="unit-link" data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${legendary}${role}${esc(shortName(c))}</span>`;
 }
 
 // A room's staff on one row: its teacher (cook, nurse…) and the assistant slot, each with the
@@ -336,11 +335,10 @@ function occupationLabel(state, c) {
 
 // Like nameTag, but swaps the role emoji for a mini version of the character's own card portrait.
 function rosterNameTag(c) {
-  const couple = c.coupleId ? " 💞" : "";
   const portrait = characterSprite(c, 40);
   return `<span class="roster-name unit-link" data-action="open-card" data-id="${c.id}">
     <span class="mini-portrait ${!c.alive ? "cc-dead" : ""}">${portrait}</span>
-    <span>${c.legendary ? "✨ " : ""}${esc(c.name)}${couple}</span>
+    <span>${c.legendary ? "✨ " : ""}${esc(c.name)}</span>
   </span>`;
 }
 
@@ -2080,7 +2078,7 @@ export function renderMenuModal(state) {
 export function renderFloor2(state) {
   const rooms = CLASSROOM_IDS.map((roomId) => renderClassroom(state, roomId)).join("");
   return `<div class="card"><h2>Floor 2 — Classrooms</h2>
-  <p class="room-tagline">The teacher posted in a room picks its subject · deskmates bond</p>
+  <p class="room-tagline">The teacher posted in a room picks its subject</p>
   <div class="floor2-grid">${rooms}</div></div>`;
 }
 
@@ -2098,29 +2096,21 @@ function renderClassroom(state, roomId) {
     ? `Every day each student seated here gains ${SUBJECT_LABEL[subject]} (${STAT_OF_SUBJECT[subject]}) for good: the room's bonus (+1 · +3 · +5 · +7 · +10 at levels 1–5) plus each teacher's (D +1 · C +3 · B +5 · A +7 · S +10). +${lesson.levelBonus} (level ${room.level || 1})${teachers.map((t) => ` + ${teachingBonus(t.grades[subject])} (${shortName(t)}, ${gradeLetter(t.grades[subject])})`).join("")}${lesson.gain !== lesson.levelBonus + teachers.reduce((s, t) => s + teachingBonus(t.grades[subject]), 0) ? " + Study Groups" : ""} = +${lesson.gain} a day, up to ${lesson.ceiling}. Nobody learns past the best teacher's grade (the limit is never below ${NO_TEACHER_CAP}). At the limit, move them to another class.`
     : "";
 
-  // Deskmates (seats 2k and 2k+1) sit side by side at one desk — they bond — so the tiles come in
-  // pairs, four desks to a row.
+  // Seats 2k and 2k+1 share a desk, so the tiles come in pairs, four desks to a row.
   const seatTile = (idx) => {
     const occ = getChar(state, room.seats[idx]);
     if (!occ) {
       return `<button class="person-tile pt-empty" data-action="open-picker" data-kind="classroom-seat" data-room="${roomId}" data-seat="${idx}" title="Seat someone here">+</button>`;
     }
-    const partner = deskPartner(state, occ.id);
-    const bond = partner ? occ.bonds[partner.id] || 0 : 0;
-    const couple = occ.coupleId && partner && occ.coupleId === partner.id;
     const grade = subject ? occ.grades[subject] : null;
     return personTile(occ, {
       remove: "unseat",
-      title: `${occ.name}${partner ? ` — deskmate ${partner.name}, bond ${bond}${couple ? " 💞" : ""}` : ""}${lesson.subject ? ` · ${STAT_OF_SUBJECT[subject]} ${grade} → ${grade + classGain(state, occ)} after today's class${grade >= lesson.ceiling ? ` (at the limit of ${lesson.ceiling})` : ""}` : ""}`,
+      title: `${occ.name}${lesson.subject ? ` — ${STAT_OF_SUBJECT[subject]} ${grade} → ${grade + classGain(state, occ)} after today's class${grade >= lesson.ceiling ? ` (at the limit of ${lesson.ceiling})` : ""}` : ""}`,
       extra: lesson.subject ? gainLine(grade, grade + classGain(state, occ), "max") : "",
     });
   };
   const desks = [];
-  for (let i = 0; i < room.seats.length; i += 2) {
-    const a = getChar(state, room.seats[i]);
-    const couple = a && a.coupleId && a.coupleId === room.seats[i + 1];
-    desks.push(`<div class="pt-desk ${couple ? "desk-couple" : ""}" ${couple ? 'title="A couple 💞"' : ""}>${seatTile(i)}${seatTile(i + 1)}</div>`);
-  }
+  for (let i = 0; i < room.seats.length; i += 2) desks.push(`<div class="pt-desk">${seatTile(i)}${seatTile(i + 1)}</div>`);
 
   return `
   <div class="room room-classroom">
@@ -2137,7 +2127,7 @@ function renderClassroom(state, roomId) {
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[subject])} <span class="muted">+${teachingBonus(t.grades[subject])}</span>`, `${t.name} — ${SUBJECT_LABEL[subject]} ${teachBonusLabel(t.grades[subject])}`),
       `data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}"`)}
-    <div class="mini-label">Students (${count}/${room.seats.length}) · deskmates bond</div>
+    <div class="mini-label">Students (${count}/${room.seats.length})</div>
     <div class="desk-tiles">${desks.join("")}</div>
   </div>`;
 }
@@ -2764,7 +2754,7 @@ function logCategory(msg) {
   const m = msg.toLowerCase();
   if (/fell|wounded|ambushed|attack|horde|defend|fought off|routed|breached|hurt|chase|zombie|went down/.test(m)) return "log-combat";
   if (/discovered|scouted|expedition|brought back/.test(m)) return "log-explore";
-  if (/joined|couple|survivor|wants to join/.test(m)) return "log-social";
+  if (/joined|survivor|wants to join/.test(m)) return "log-social";
   if (/food|scrap|medicine|research|salvage|upgrad|fortif|stockpile/.test(m)) return "log-economy";
   return "";
 }
@@ -2972,50 +2962,6 @@ function renderSkillsTab(c) {
     <div class="skills-list">${rows}</div>`;
 }
 
-function renderSocialTab(state, c) {
-  let teacherSection = "";
-  if (c.role === "student" && c.seat) {
-    const roomId = c.seat.room;
-    const teachers = state.characters.filter((t) => t.role === "teacher" && t.post === `classroom:${roomId}` && t.alive);
-    teacherSection = `<div class="social-section">
-      <div class="cc-section-label">Homeroom Teacher — ${roomDisplayName(state, roomId)}</div>
-      ${teachers.length ? teachers.map((t) => `<div class="social-row">${nameTag(t)}</div>`).join("") : '<p class="muted">No teacher currently assigned to this classroom.</p>'}
-    </div>`;
-  } else if (c.role === "teacher" && c.post && c.post.startsWith("classroom:")) {
-    const roomId = c.post.split(":")[1];
-    const studentCount = state.rooms.classrooms[roomId].seats.filter(Boolean).length;
-    teacherSection = `<div class="social-section">
-      <div class="cc-section-label">Teaching — ${roomDisplayName(state, roomId)}</div>
-      <p class="muted">${studentCount} student(s) in this classroom.</p>
-    </div>`;
-  }
-
-  let loveSection = "";
-  if (c.coupleId) {
-    const partner = getChar(state, c.coupleId);
-    if (partner) {
-      loveSection = `<div class="social-section">
-        <div class="cc-section-label">💞 Love Interest</div>
-        <div class="social-row">${nameTag(partner)}</div>
-      </div>`;
-    }
-  }
-
-  const friendEntries = Object.entries(c.bonds || {})
-    .filter(([id, bond]) => bond > 0 && id !== c.coupleId)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 6)
-    .map(([id, bond]) => ({ char: getChar(state, id), bond }))
-    .filter((e) => e.char && e.char.alive);
-
-  const friendsSection = `<div class="social-section">
-    <div class="cc-section-label">Friends</div>
-    ${friendEntries.length ? friendEntries.map((e) => `<div class="social-row">${nameTag(e.char)} <span class="muted">bond ${e.bond}</span></div>`).join("") : '<p class="muted">No close bonds yet — team them up on expeditions or defense.</p>'}
-  </div>`;
-
-  return `${teacherSection}${loveSection}${friendsSection}`;
-}
-
 export function renderCharacterCard(state, c, cardTab = "stats") {
   const sprite = characterSprite(c, 150);
   const isTeacher = c.role === "teacher";
@@ -3027,9 +2973,9 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
     .map((t) => `<span class="trait-pill" title="${esc(t.desc)}">${t.icon} ${esc(t.name)}</span>`)
     .join("");
 
-  // Teachers don't train, equip gear, level up or make friends — their card is just their
+  // Teachers don't train, equip gear or level up — their card is just their
   // grades and teaching bonuses, with no tabs at all.
-  const TABS = [["stats", "📊 Stats"], ["inventory", "🧳 Inventory"], ["skills", "🌳 Skills"], ["social", "👥 Social"]];
+  const TABS = [["stats", "📊 Stats"], ["inventory", "🧳 Inventory"], ["skills", "🌳 Skills"]];
   const tabBar = isTeacher ? "" : `<div class="cc-tabs">${TABS.map(
     ([id, label]) => `<button class="cc-tab-btn ${cardTab === id ? "active" : ""}" data-action="set-card-tab" data-tab="${id}">${label}</button>`
   ).join("")}</div>`;
@@ -3038,7 +2984,6 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
   if (isTeacher) body = renderStatsTab(state, c);
   else if (cardTab === "inventory") body = renderInventoryTab(state, c);
   else if (cardTab === "skills") body = renderSkillsTab(c);
-  else if (cardTab === "social") body = renderSocialTab(state, c);
   else body = renderStatsTab(state, c);
 
   const topStatFirst = isTeacher
@@ -3060,7 +3005,6 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
           <span class="cc-role-tag">${isTeacher ? "🎓 Teacher" : "🧳 Student"}</span>
           ${statusTag(c)}
         </div>
-        ${c.coupleId ? `<div class="cc-couple">💞 In a relationship</div>` : ""}
         ${!isTeacher ? `<div class="cc-skillpoints ${points > 0 ? "has-points" : ""}" title="Earned 1 per level, spent on the Skills tab">
           ✨ ${points} skill point${points === 1 ? "" : "s"}
         </div>` : ""}

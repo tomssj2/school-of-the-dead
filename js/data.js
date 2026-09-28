@@ -37,7 +37,7 @@ export const STAT_EFFECTS = {
   CON: "Fights: less damage taken, and a better chance to survive going down. Also: most of max HP, and faster healing overnight. A nurse with a high CON heals more in the Nurse's Office.",
   INT: "Fights: the defenders' smarts make traps hit harder and walls hold longer. Also: faster learning (more XP from everything) and better odds of finding gear on expeditions. For teachers, research.",
   WIS: "Fights: the most aware defender warns everyone, so the whole team takes less damage. Also: part of max stamina, keeps expedition teams safe, and finds more loot.",
-  CHA: "Fights: the most charismatic defender leads — the whole team hits harder. Also: finding survivors, faster friendships, and a daily lift to the school's mood. For teachers, recruiting.",
+  CHA: "Fights: the most charismatic defender leads — the whole team hits harder. Also: finding survivors and a daily lift to the school's mood. For teachers, recruiting.",
 };
 
 // How much each stat point is worth. "best" = the squad's highest, "avg" = its average.
@@ -64,7 +64,6 @@ export const STAT_TUNING = {
   awarenessPerWis: 1 / 700, // whole squad takes (best WIS / 700) less damage, capped below
   awarenessCap: 0.15,
   leadershipPerCha: 1 / 800, // whole squad hits (best CHA / 800) harder: +12.5% at 100
-  bondPerCha: 1 / 150, // chance a shared day builds an extra point of friendship: avg CHA / 150
   moralePerCha: 50, // each morning: +1 happiness per 50 CHA of the school's most charismatic student
 };
 
@@ -394,7 +393,7 @@ export const OBJECTIVES = [
   { id: "survive_week", title: "Hold out for a week", hint: "Keep the school standing until day 7.", reward: { materials: 20, food: 20 } },
 ];
 
-// Seats come in desks of two (deskmates bond), shown four desks to a row: level 1 is one full row,
+// Seats come in desks of two, shown four desks to a row: level 1 is one full row,
 // and each level adds a desk — 8, 10, 12, 14, 16.
 export const CLASSROOM_CAPACITY = 8;
 export const CLASSROOM_SEATS_PER_LEVEL = 2;
@@ -631,7 +630,6 @@ export const ROOM_LEVELS = {
   scrapyard: { name: "Scrapyard", students: roomSlots("Workers", SCRAPYARD_CAPACITY, 2) },
 };
 
-export const BOND_COUPLE_THRESHOLD = 6;
 
 // ===== Stamina =====
 // Only students use stamina; teachers never tire — they're a standing boost to the room they're
