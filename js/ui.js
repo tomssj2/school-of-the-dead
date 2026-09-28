@@ -2662,7 +2662,9 @@ function rosterSortValue(c, key) {
 export function renderRoster(state, filter = "student", sortKey = "name", sortDir = "asc") {
   if (filter !== "teacher") filter = "student";
   const teachersView = filter === "teacher";
-  const showDead = window.__showDead;
+  // "Show deceased" only appears when someone in this view has died.
+  const anyDead = state.characters.some((c) => !c.alive && c.role === filter);
+  const showDead = anyDead && window.__showDead;
   const fields = ROSTER_SORT_FIELDS;
   const effectiveSortKey = fields.some((f) => f.key === sortKey) && !(teachersView && ["level", "hp", "stamina"].includes(sortKey)) ? sortKey : "name";
   const list = state.characters
@@ -2722,7 +2724,7 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
     <div class="roster-controls">
       <div class="roster-filters">
         ${filterBar}
-        <label class="check-row"><input type="checkbox" data-action="toggle-show-dead" ${showDead ? "checked" : ""}/> Show deceased</label>
+        ${anyDead ? `<label class="check-row"><input type="checkbox" data-action="toggle-show-dead" ${showDead ? "checked" : ""}/> Show deceased</label>` : ""}
       </div>
       <div class="picker-sort-row">
         <span class="mini-label">Sort by</span>
