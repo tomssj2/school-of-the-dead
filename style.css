@@ -726,7 +726,7 @@ html[data-gfx="low"] .staff-add { animation: none; }
 /* The tooltip itself: shown while the dot is hovered or focused, and position: fixed so a scrolling
    panel can't clip it — main.js (placeInfoTip) sets --tip-x / --tip-y / --tip-b from the dot. A
    title, a breakdown (labels left, numbers right, a total under a rule) and short bullet notes. */
-.info-dot .tip-box {
+.info-dot .tip-box, .hover-tip {
   display: none;
   position: fixed;
   left: var(--tip-x, 8px);
@@ -751,12 +751,17 @@ html[data-gfx="low"] .staff-add { animation: none; }
   animation: tip-in 0.12s ease-out;
 }
 .info-dot:hover .tip-box, .info-dot:focus .tip-box { display: block; }
+/* Every other tooltip in the game (title / data-tip), in the same box — main.js places it. */
+.hover-tip { z-index: 300; min-width: 0; }
+.hover-tip.show { display: block; }
+.tip-plain { display: block; }
 .tip-title { display: block; font-weight: 700; font-size: 13px; color: #fff; padding-bottom: 5px; margin-bottom: 6px; border-bottom: 1px solid var(--border); }
 .tip-rows { display: grid; grid-template-columns: 1fr auto; column-gap: 16px; row-gap: 2px; }
 .tip-label { color: var(--muted); }
 .tip-value { text-align: right; font-weight: 700; color: #7fe0a8; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tip-rows .tip-total { margin-top: 3px; padding-top: 4px; border-top: 1px solid var(--border); color: #fff; font-weight: 700; }
 .tip-rows .tip-value.tip-total { color: #7fe0a8; }
+.tip-rows .tip-value.tip-neg { color: #ff8a8a; }
 .tip-dim { opacity: 0.55; }
 .tip-notes { display: block; margin: 7px 0 0; color: #c9ced8; }
 .tip-note { display: block; position: relative; margin: 2px 0; padding-left: 13px; }

@@ -1,7 +1,7 @@
 import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal } from "./ui.js";
+  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, tipFromText } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
@@ -68,6 +68,56 @@ let floatyClearTimer = null;
 let dayRecap = null; // { day, entries } shown once right after a day rolls over
 
 const root = document.getElementById("app");
+
+// Every hover tooltip in the game — title="…" text or data-tip="…" markup — shows in one styled
+// box (the info dots' look) instead of the browser's plain one: a short delay, placed under the
+// element (or above it near the bottom), kept inside the window. Rects come back in screen pixels,
+// fixed positions are in layout pixels, hence the zoom.
+const hoverTip = document.createElement("div");
+hoverTip.className = "tip-box hover-tip";
+hoverTip.setAttribute("role", "tooltip");
+document.body.appendChild(hoverTip);
+let tipTarget = null;
+let tipTimer = 0;
+function hideHoverTip() {
+  clearTimeout(tipTimer);
+  tipTarget = null;
+  hoverTip.classList.remove("show");
+}
+function showHoverTip(el) {
+  const html = el.dataset.tip || tipFromText(el.dataset.tipText || "");
+  if (!html) return;
+  hoverTip.innerHTML = html;
+  hoverTip.classList.add("show");
+  const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+  const r = el.getBoundingClientRect();
+  const vw = window.innerWidth / zoom;
+  const vh = window.innerHeight / zoom;
+  const x = Math.max(8, Math.min(r.left / zoom, vw - 8 - hoverTip.offsetWidth));
+  let y = r.bottom / zoom + 6;
+  if (y + hoverTip.offsetHeight > vh - 8) y = Math.max(8, r.top / zoom - 6 - hoverTip.offsetHeight);
+  hoverTip.style.left = `${Math.round(x)}px`;
+  hoverTip.style.top = `${Math.round(y)}px`;
+}
+document.addEventListener("pointerover", (e) => {
+  const el = e.target.closest?.("[title], [data-tip], [data-tip-text]");
+  if (!el || el.closest(".info-dot")) {
+    if (tipTarget && !tipTarget.contains(e.target)) hideHoverTip();
+    return;
+  }
+  // Take the text off title="" so the browser's own tooltip never shows.
+  if (el.hasAttribute("title")) {
+    el.dataset.tipText = el.getAttribute("title");
+    el.removeAttribute("title");
+  }
+  if (el === tipTarget) return;
+  hideHoverTip();
+  tipTarget = el;
+  tipTimer = setTimeout(() => { if (tipTarget === el && el.isConnected) showHoverTip(el); }, 200);
+});
+document.addEventListener("pointerout", (e) => { if (tipTarget && !tipTarget.contains(e.relatedTarget)) hideHoverTip(); });
+document.addEventListener("pointerdown", hideHoverTip, true);
+document.addEventListener("scroll", hideHoverTip, true);
 
 // Weapons used to be a single "weapon" slot/type with no category/damage/range/requires — backfill
 // those from the current template (falling back to sane melee defaults if the template's gone).
@@ -402,6 +452,7 @@ function computeFloaties() {
 }
 
 function render() {
+  hideHoverTip(); // whatever it pointed at is about to be replaced
   const card = openCardId ? G.getCharAnywhere(state, openCardId) : null;
   if (openCardId && !card) openCardId = null; // e.g. expelled while card was open
   if (openMissionLocationId && !state.teamLocations.includes(openMissionLocationId)) openMissionLocationId = null;

@@ -414,7 +414,8 @@ function tileGrid(tiles, freeSlots, pickerAttrs) {
 // Tooltip contents, built to scan rather than read: a title, an optional breakdown — rows of
 // [label, value, cls] and a total — and a few one-line notes. Never a paragraph.
 function tip({ title = "", rows = [], total = null, notes = [] } = {}) {
-  const row = ([label, value, cls = ""]) => `<span class="tip-label ${cls}">${label}</span><span class="tip-value ${cls}">${value}</span>`;
+  const row = ([label, value, cls = ""]) =>
+    `<span class="tip-label ${cls}">${label}</span><span class="tip-value ${cls} ${/^[−-]\d/.test(String(value)) ? "tip-neg" : ""}">${value}</span>`;
   // Only spans (styled as blocks), so a tooltip can sit inside a <p> or a heading.
   return (title ? `<span class="tip-title">${title}</span>` : "")
     + (rows.length ? `<span class="tip-rows">${rows.map(row).join("")}${total ? row([total[0], total[1], "tip-total"]) : ""}</span>` : "")
@@ -428,6 +429,21 @@ function infoDot(content) {
 }
 // "No teacher yet" and the like: a greyed-out breakdown row.
 const tipNone = (label, value) => [label, value, "tip-dim"];
+// A hover tooltip with tip() markup, for an element's attributes (main.js shows it on hover).
+const tipAttr = (spec) => `data-tip="${esc(tip(spec))}"`;
+// A plain title="…" as a tooltip: "Head — the rest." becomes a bold title over one note per
+// sentence; a short line stays one line. (main.js calls this for every title on hover.)
+export function tipFromText(text) {
+  const clean = String(text || "").trim();
+  if (!clean) return "";
+  const sentences = (s) => s.replace(/\b(Mr|Mrs)\. /g, "$1.\u0001").split(/(?<=[.!?])\s+/)
+    .map((x) => x.replace(/\u0001/g, " ").trim().replace(/\.$/, "")).filter(Boolean)
+    .map((x) => esc(x.charAt(0).toUpperCase() + x.slice(1)));
+  const dash = clean.indexOf(" — ");
+  if (dash > 0 && dash < 48) return tip({ title: esc(clean.slice(0, dash)), notes: sentences(clean.slice(dash + 3)) });
+  const parts = sentences(clean);
+  return parts.length > 1 ? tip({ notes: parts }) : `<span class="tip-plain">${esc(clean)}</span>`;
+}
 
 // Pixel-art banner for a room with everyone working in it standing on the floor — click one to
 // open their card. Up to SCENE_ROW people stand in one row; more split into a back row (teachers
@@ -598,18 +614,23 @@ function tbItemClass(floaties, key) {
   return floaties.some((f) => f.key === key) ? "tb-item tb-pulse" : "tb-item";
 }
 
-// Name + "how you get it" shown on hover over every topbar stat — esc() isn't needed since
-// these are all static, developer-authored strings, never user/character data.
-const TB_INFO = {
-  population: "Population — every student and teacher alive at the school right now.",
-  teachers: "Teachers — recruited through exploration or promoted from high-level students, capped at 20.",
-  happiness: "Happiness — rises from won battles and new recruits, falls from failed missions and deaths. Skews random events toward good or bad.",
-  food: "Food — grown at the Farm and looted from exploration sites. Consumed every night to feed the school.",
-  materials: "Scrap — looted from exploration and salvaged at the Scrapyard. Spent on room upgrades, defenses, the Radio Station and the Crafting Room.",
-  medicine: "Medicine — looted from exploration sites during Turn 2. Spent treating patients in the Nurse's Office (3 each) and, automatically, saving defenders who go down in the night battle (5 each).",
-  research: "Research — produced by teachers in the Research Room (Floor 3). Spent on the Research tech tree and the Radio Station.",
-  serum: "Antiviral Serum — rare, and the only cure for an infection: one cures one infected person in the Nurse's Office. Sometimes found at the Hospital, Pharmacy and Fire Station; every raid boss drops some.",
-};
+// The tooltip on each topbar stat: what it stands at, and where it comes from / goes.
+function hudTips(state) {
+  const r = state.resources;
+  const pop = aliveChars(state).length;
+  const teachers = teacherCount(state);
+  return {
+    population: { title: "👥 People", rows: [["Students", `${pop - teachers}`], ["Teachers", `${teachers}`]], total: ["Everyone alive", `${pop}`] },
+    teachers: { title: "🎓 Teachers", rows: [["At the school", `${teachers}/${MAX_TEACHERS}`]], notes: ["Found on expeditions or through the Radio Station", `Or promoted from level-${PROMOTE_LEVEL_THRESHOLD} students in the Headmaster's Office`] },
+    happiness: { title: "😊 Morale", rows: [["Now", `${state.happiness}`]], notes: ["Rises with won battles and new recruits", "Falls with failed missions and deaths", "Tilts random events toward good or bad"] },
+    food: { title: "🍞 Food", rows: [["On hand", `${r.food}`], ["Eaten tonight", `−${pop}`]], total: ["Left after tonight", `${r.food - pop}`], notes: ["Grown at the Farm and Ranch, found on expeditions"] },
+    materials: { title: "⚙ Scrap", rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
+    medicine: { title: "💊 Medicine", rows: [["On hand", `${r.medicine}`]], notes: [`Treating a patient costs ${INFIRMARY_MEDICINE_PER_PATIENT}`, "Saving a defender who goes down costs 5 (automatic)", "Found on expeditions"] },
+    research: { title: "🧠 Research", rows: [["On hand", `${r.research}`], ["Made a day", `+${researchRoomYield(state)}`]], notes: ["Made by teachers in the Research Room", "Spent on the tech tree and the Radio Station"] },
+    serum: { title: "💉 Antiviral Serum", rows: [["On hand", `${r.serum}`]], notes: ["The only cure for an infection — one per person", "Hospital, Pharmacy and Fire Station; every raid boss drops some"] },
+    infected: { title: "🦠 Infected", rows: [["In quarantine", `${infectedChars(state).length}`]], notes: ["Each needs a serum by the end of their fifth day, or they die", "Cure them from the Nurse's Office"] },
+  };
+}
 
 const DAY_STEPS = [["sun", "Classes"], ["dusk", "Explore"], ["moon", "Night"]];
 
@@ -621,8 +642,8 @@ const HUD_TILE = {
 
 // One HUD counter: an icon tile, the number, and a small label (hidden on narrow screens).
 // `extra` goes after the number (today's meal buffs ride on the Food counter).
-function hudStat(floaties, key, iconHtml, tile, value, label, title, { sub = "", cls = "", extra = "" } = {}) {
-  return `<span class="${key ? tbItemClass(floaties, key) : "tb-item"} hud-stat ${cls}" title="${title}">
+function hudStat(floaties, key, iconHtml, tile, value, label, tipSpec, { sub = "", cls = "", extra = "" } = {}) {
+  return `<span class="${key ? tbItemClass(floaties, key) : "tb-item"} hud-stat ${cls}" ${tipAttr(tipSpec)}>
     <span class="hud-icon" style="--tile:${tile}">${iconHtml}</span>
     <span class="hud-val"><span class="hud-num"><b>${value}</b>${sub}</span><small>${label}</small></span>
     ${extra}
@@ -636,13 +657,16 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
   const infected = infectedChars(state).length;
   const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
   const meals = served.length
-    ? `<span class="hud-buffs">${served.map((d) => `<span class="tb-buff" title="Today's meal: ${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon}</span>`).join("")}</span>`
+    ? `<span class="hud-buffs">${served.map((d) => `<span class="tb-buff" ${tipAttr({ title: `${d.icon} ${esc(d.name)}`, notes: [esc(d.desc), "Today's meal — wears off tonight"] })}>${d.icon}</span>`).join("")}</span>`
     : "";
+  const tips = hudTips(state);
   const stage = radioStage(state);
   const rescue = state.rescue?.evacuated
     ? ""
     : `<button class="hud-stat hud-rescue ${satelliteReady(state) ? "hud-rescue-ready" : ""}" data-action="set-tab" data-tab="floor3"
-        title="${state.rescue ? `A helicopter lands on day ${state.rescue.day}.` : `Radio Station: ${stage}/${RADIO_UPGRADES.length} upgrades — satellite communications bring the rescue.`} Click to go to the Radio Station.">
+        ${tipAttr(state.rescue
+          ? { title: "🚁 Rescue", rows: [["Helicopter lands", `day ${state.rescue.day}`]], notes: ["Evacuate or hold out when it lands", "Click to go to the Radio Station"] }
+          : { title: "📻 Radio Station", rows: [["Upgrades", `${stage}/${RADIO_UPGRADES.length}`], ["Recruit chance", `${Math.round(radioRecruitChance(state) * 100)}% a day`]], notes: ["Level 5 — satellite communications — calls the rescue helicopter", "Click to go to the Radio Station"] })}>
         <span class="hud-icon" style="--tile:${HUD_TILE.antenna}">${pixelIcon("antenna", 20)}</span>
         <span class="hud-val"><span class="hud-num"><b>${state.rescue ? `Day ${state.rescue.day}` : "Radio"}</b></span><small>${state.rescue ? "Evac" : `${stage}/${RADIO_UPGRADES.length}`}</small></span>
         <span class="hud-rescue-bars">${RADIO_UPGRADES.map((_, i) => `<i class="${i < stage ? "on" : ""}"></i>`).join("")}</span>
@@ -671,22 +695,21 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
         </div>
       </details>
       <div class="hud-group">
-        ${hudStat(floaties, "population", pixelIcon("people", 20), HUD_TILE.people, pop, "People", TB_INFO.population)}
-        ${hudStat(floaties, null, pixelIcon("teacher", 20), HUD_TILE.teacher, teacherCount(state), "Teachers", TB_INFO.teachers)}
-        ${hudStat(floaties, "happiness", moodIcon(state.happiness, 20), HUD_TILE.mood, state.happiness, "Morale", TB_INFO.happiness)}
+        ${hudStat(floaties, "population", pixelIcon("people", 20), HUD_TILE.people, pop, "People", tips.population)}
+        ${hudStat(floaties, null, pixelIcon("teacher", 20), HUD_TILE.teacher, teacherCount(state), "Teachers", tips.teachers)}
+        ${hudStat(floaties, "happiness", moodIcon(state.happiness, 20), HUD_TILE.mood, state.happiness, "Morale", tips.happiness)}
       </div>
     </div>
     <div class="hud-center">${rescue}</div>
     <div class="hud-right">
       <div class="hud-group">
-        ${hudStat(floaties, "food", pixelIcon("food", 20), HUD_TILE.food, r.food, "Food", `${TB_INFO.food} ${r.food} on hand, ${pop} needed tonight.`,
+        ${hudStat(floaties, "food", pixelIcon("food", 20), HUD_TILE.food, r.food, "Food", tips.food,
           { sub: `<span class="tb-sub">−${pop}</span>`, cls: r.food < pop ? "tb-warn" : "", extra: meals })}
-        ${hudStat(floaties, "materials", pixelIcon("scrap", 20), HUD_TILE.scrap, r.materials, "Scrap", TB_INFO.materials)}
-        ${hudStat(floaties, "medicine", pixelIcon("medicine", 20), HUD_TILE.medicine, r.medicine, "Meds", TB_INFO.medicine)}
-        ${hudStat(floaties, "research", pixelIcon("research", 20), HUD_TILE.research, r.research, "Research", TB_INFO.research)}
-        ${infected ? hudStat(floaties, null, pixelIcon("virus", 20), HUD_TILE.virus, infected, "Infected",
-          `Infected — ${infected} in quarantine in the Nurse's Office. Each needs a vial of antiviral serum by the end of their fifth day, or they die.`, { cls: "tb-infected hud-compact" }) : ""}
-        ${r.serum ? hudStat(floaties, "serum", pixelIcon("serum", 20), HUD_TILE.serum, r.serum, "Serum", TB_INFO.serum, { cls: "hud-compact" }) : ""}
+        ${hudStat(floaties, "materials", pixelIcon("scrap", 20), HUD_TILE.scrap, r.materials, "Scrap", tips.materials)}
+        ${hudStat(floaties, "medicine", pixelIcon("medicine", 20), HUD_TILE.medicine, r.medicine, "Meds", tips.medicine)}
+        ${hudStat(floaties, "research", pixelIcon("research", 20), HUD_TILE.research, r.research, "Research", tips.research)}
+        ${infected ? hudStat(floaties, null, pixelIcon("virus", 20), HUD_TILE.virus, infected, "Infected", tips.infected, { cls: "tb-infected hud-compact" }) : ""}
+        ${r.serum ? hudStat(floaties, "serum", pixelIcon("serum", 20), HUD_TILE.serum, r.serum, "Serum", tips.serum, { cls: "hud-compact" }) : ""}
       </div>
     </div>
   </header>`;
@@ -1563,7 +1586,7 @@ export function renderMissionModal(state, locationId) {
         <span>Difficulty ${loc.difficulty}/5</span>
         <span>Danger ${loc.danger}/5</span>
         ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
-        ${loc.serumChance ? `<span title="${esc(TB_INFO.serum)}">💉 Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
+        ${loc.serumChance ? `<span ${tipAttr({ title: "💉 Antiviral Serum", notes: ["The only cure for an infection — one per person", "Rare: found here, at the Hospital, Pharmacy and Fire Station, and on raid bosses"] })}>💉 Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
       </div>
       ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">⚠ A zombie nest next door: lower odds and more injuries until it's cleared.</div>` : ""}
       ${successHtml}
