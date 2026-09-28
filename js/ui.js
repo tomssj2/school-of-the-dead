@@ -7,7 +7,7 @@ import {
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
-  RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -15,13 +15,14 @@ import {
 } from "./characters.js";
 import {
   getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
-  isHexExplored, canScoutHex, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
+  isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, tendedPlots, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
-  hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
+  hexTileKey, tileBackground, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
 } from "./map.js";
+import { hexToWorld, viewBox, cityBaseUrl, fogUrl, WORLD_W, WORLD_H } from "./citymap.js";
 import { zombieSprite } from "./zombies.js";
 import { characterSprite } from "./sprite.js";
 import { getBest, isBestRun } from "./score.js";
@@ -62,20 +63,11 @@ const RESOURCE_ICON = { food: "🍞", materials: "🔧", medicine: "💊", resea
 const TEAM_COLORS = ["#4caf7d", "#3fa7d6", "#e0a536", "#e0455f"];
 const teamLabel = (i) => (i === RAID_TEAM ? "Raid squad" : `Team ${i + 1}`);
 
-const HEX_W = 76;
-const HEX_H = 66;
-const HEX_SIZE = HEX_W / 2;
-
-// Flat-top axial hex -> pixel center, and axial distance from the origin.
-function hexCenter(q, r) {
-  return { x: 1.5 * HEX_SIZE * q, y: Math.sqrt(3) * HEX_SIZE * (r + q / 2) };
-}
 function hexDistance(q, r) {
   return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
 }
 
-// All axial hexes within `radius` of the school, minus the school grounds themselves (drawn as
-// one big campus), for a full fog-of-war field rather than just the sparse curated LOCATIONS.
+// All axial hexes within `radius` of the school, minus the school grounds themselves.
 const HEX_RADIUS = MAP_RADIUS;
 function hexesInRadius(radius) {
   const hexes = [];
@@ -88,43 +80,6 @@ function hexesInRadius(radius) {
   return hexes;
 }
 
-// The school spans its own hex and the six around it: one pixel-art campus clipped to that
-// seven-hex flower, with a gold outline traced around just its outer edge.
-const SCHOOL_CELLS = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
-function renderCampus(mapWidth, mapHeight) {
-  const size = HEX_SIZE;
-  const half = (Math.sqrt(3) / 2) * size;
-  const boxW = 5 * size;
-  const boxH = 6 * half;
-  const corners = [[size, 0], [size / 2, half], [-size / 2, half], [-size, 0], [-size / 2, -half], [size / 2, -half]];
-  const hexes = SCHOOL_CELLS.map(([q, r]) => {
-    const { x, y } = hexCenter(q, r);
-    return corners.map(([dx, dy]) => [x + dx + boxW / 2, y + dy + boxH / 2]);
-  });
-  // Edges shared by two cells are inside the flower; the ones used once make up its outline.
-  const edgeCount = new Map();
-  const key = ([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`;
-  for (const pts of hexes) {
-    pts.forEach((p, i) => {
-      const q = pts[(i + 1) % 6];
-      const k = [key(p), key(q)].sort().join("|");
-      edgeCount.set(k, (edgeCount.get(k) || 0) + 1);
-    });
-  }
-  const outline = [...edgeCount].filter(([, n]) => n === 1).map(([k]) => {
-    const [a, b] = k.split("|");
-    return `M${a} L${b}`;
-  }).join(" ");
-  const polygons = hexes.map((pts) => `<polygon points="${pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ")}"/>`).join("");
-  return `<div class="hex-campus" style="left:${mapWidth / 2 - boxW / 2}px;top:${mapHeight / 2 - boxH / 2}px;width:${boxW}px;height:${boxH}px;">
-    <svg width="${boxW}" height="${boxH}" viewBox="0 0 ${boxW} ${boxH}">
-      <defs><clipPath id="campus-clip">${polygons}</clipPath></defs>
-      <image href="${tileDataUri("campus")}" x="0" y="0" width="${boxW}" height="${boxH}" preserveAspectRatio="none" clip-path="url(#campus-clip)"/>
-      <path class="campus-edge" d="${outline}"/>
-    </svg>
-    <span class="hex-name hex-name-school">🏫 School</span>
-  </div>`;
-}
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -998,153 +953,178 @@ function craftingToday(state) {
 }
 
 function renderTurn2Overview(state) {
-  const missionChips = [0, 1, 2]
+  // The side panel: the three expedition teams and the raid squad, each with where it's headed.
+  const teamRows = [0, 1, 2]
     .map((i) => {
       const locId = state.teamLocations[i];
-      if (!locId) return "";
-      const loc = LOCATIONS.find((l) => l.id === locId);
+      const loc = locId && LOCATIONS.find((l) => l.id === locId);
       const memberCount = state.characters.filter((c) => c.exploreTeam === i && c.alive).length;
-      return `<button class="mission-chip" style="--team:${TEAM_COLORS[i]}" data-action="open-mission" data-location="${locId}">
-        <span><i class="team-dot"></i>${LOCATION_ICON[locId]} ${esc(loc.name)}</span>
-        <span class="muted">${memberCount}/5</span>
-        <span class="btn-x" data-action="clear-mission" data-team="${i}" title="Recall team">✕</span>
-      </button>`;
+      return loc
+        ? `<button class="ex-team" style="--team:${TEAM_COLORS[i]}" data-action="open-mission" data-location="${locId}">
+            <i class="team-dot"></i><span class="ex-team-name">${teamLabel(i)}</span>
+            <span class="ex-team-target">${LOCATION_ICON[locId]} ${esc(loc.name)}</span>
+            <span class="ex-team-count ${memberCount ? "" : "plot-warn"}">${memberCount}/5</span>
+            <span class="btn-x" data-action="clear-mission" data-team="${i}" title="Recall team">✕</span>
+          </button>`
+        : `<div class="ex-team ex-team-idle" style="--team:${TEAM_COLORS[i]}">
+            <i class="team-dot"></i><span class="ex-team-name">${teamLabel(i)}</span>
+            <span class="ex-team-target muted">Pick a place on the map</span>
+          </div>`;
     })
     .join("");
   const raidLm = LANDMARKS.find((l) => l.id === state.raidTarget);
   const raidCount = state.characters.filter((c) => c.exploreTeam === RAID_TEAM && c.alive).length;
-  const raidChip = raidLm
-    ? `<button class="mission-chip mission-chip-raid" style="--team:${TEAM_COLORS[RAID_TEAM]}" data-action="open-raid" data-landmark="${raidLm.id}">
-        <span><i class="team-dot"></i>☠ ${esc(raidLm.boss.name)}</span>
-        <span class="${raidCount < raidLm.minTeam ? "plot-warn" : "muted"}">${raidCount}/${raidLm.minTeam}+</span>
+  const raidRow = raidLm
+    ? `<button class="ex-team" style="--team:${TEAM_COLORS[RAID_TEAM]}" data-action="open-raid" data-landmark="${raidLm.id}">
+        <i class="team-dot"></i><span class="ex-team-name">${teamLabel(RAID_TEAM)}</span>
+        <span class="ex-team-target">☠ ${esc(raidLm.boss.name)}</span>
+        <span class="ex-team-count ${raidCount < raidLm.minTeam ? "plot-warn" : ""}">${raidCount}/${raidLm.minTeam}+</span>
         <span class="btn-x" data-action="clear-raid" title="Call off the raid">✕</span>
       </button>`
     : "";
 
   return `
-  <div class="card">
-    <h2>Turn 2 — Exploration ${infoDot({ title: "🗺 Turn 2 — Exploration", notes: ["Click a location to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Scout the fog (?) to grow the map", "Landmarks at the edge hold raid bosses and legendary gear", "Teachers stay at the school"] })}</h2>
-    <p class="room-tagline">Send teams to locations · scout the fog to grow the map · raid the landmarks at the edge of town</p>
-    ${renderExplorationMap(state)}
-    <div class="mission-chips">${missionChips + raidChip || '<p class="muted">No teams assigned yet — click a location on the map to start a mission, or a "?" to scout.</p>'}</div>
-    <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 Launch Expeditions &amp; Advance to Night</button>
+  <div class="card explore-card">
+    <div class="explore-layout">
+      ${renderExplorationMap(state)}
+      <aside class="explore-side">
+        <h2>Exploration ${infoDot({ title: "🗺 Turn 2 — Exploration", notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Landmarks at the edge hold raid bosses and legendary gear", "Teachers stay at the school"] })}</h2>
+        <div class="mini-label">Teams</div>
+        ${teamRows}${raidRow}
+        <div class="ex-legend">
+          <span><b class="ex-key ex-key-fog">?</b> Scout the fog</span>
+          <span><b class="ex-key">🏪</b> Send a team</span>
+          <span><b class="ex-key ex-key-nest">🧟</b> Zombie nest</span>
+          <span><b class="ex-key ex-key-raid">☠</b> Raid boss</span>
+          <span><b class="ex-key ex-key-drop">📦</b> Grab supplies</span>
+          <span><b class="ex-key ex-key-nest">👣</b> The horde</span>
+        </div>
+        <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 Launch Expeditions</button>
+      </aside>
+    </div>
   </div>`;
+}
+
+// Why a block is riskier than usual: a nest next door, the horde close by, or both.
+const NEIGHBORS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+function dangerNotes(state, q, r) {
+  const notes = [];
+  if (NEIGHBORS.some(([dq, dr]) => isNest(state, q + dq, r + dr))) notes.push("⚠ A zombie nest next door");
+  if (nearHorde(state, q, r)) notes.push("⚠ The horde is close");
+  return notes;
 }
 
 function hexTile(key) {
   return `<div class="hex-tile" style="background-image:${tileBackground(key)}"></div>`;
 }
 
+// The town around the school (js/citymap.js draws it): the scouted streets, fog over the rest,
+// and a marker on everything you can click — "?" on the fog a scout can reach, a label on every
+// place found, nests and raid landmarks. The map is scaled to fit its box (main.js fitCityMap),
+// framing just the part of town that matters so far.
 function renderExplorationMap(state) {
-  const width = 1.5 * HEX_SIZE * HEX_RADIUS * 2 + HEX_W + 20;
-  const height = Math.sqrt(3) * HEX_SIZE * HEX_RADIUS * 2 + HEX_H + 20;
-  const toPos = (x, y) => ({ left: x + width / 2 - HEX_W / 2, top: y + height / 2 - HEX_H / 2 });
-  // Tooltips open upward and centred, except near an edge where they'd be cut off.
-  const tipClass = (pos) =>
-    `hex-tooltip ${pos.top < 120 ? "hex-tip-below" : ""} ${pos.left < 70 ? "hex-tip-right" : pos.left > width - 150 ? "hex-tip-left" : ""}`;
-
   const teamAt = {};
   state.teamLocations.forEach((id, i) => {
     if (id) teamAt[id] = i;
   });
   if (state.raidTarget) teamAt[state.raidTarget] = RAID_TEAM;
 
-  let hexesHtml = renderCampus(width, height);
+  const clear = [...state.exploredHexes];
+  const reachable = [];
+  const shown = [];
+  let cells = "";
   let routes = "";
+  const at = (q, r) => {
+    const { x, y } = hexToWorld(q, r);
+    return `--x:${x.toFixed(1)};--y:${y.toFixed(1)};`;
+  };
 
   for (const { q, r } of hexesInRadius(HEX_RADIUS)) {
-    const { x, y } = hexCenter(q, r);
-    const pos = toPos(x, y);
-    const style = `left:${pos.left}px;top:${pos.top}px;`;
-
     if (!isHexExplored(state, q, r)) {
-      const reachable = canScoutHex(state, q, r);
-      const danger = reachable && nextToNest(state, q, r);
-      hexesHtml += `<div class="hex hex-fog ${reachable ? "hex-fog-reachable" : ""}" ${reachable ? `data-action="open-scout" data-q="${q}" data-r="${r}"` : ""} style="${style}">
-        <div class="hex-tile hex-fog-tile"></div>
-        ${reachable ? `<span class="hex-fog-icon">?</span>` : ""}
-        ${reachable ? `<div class="${tipClass(pos)}"><b>Unexplored</b><p class="muted">Send a scout (${scoutCost(q, r)} stamina) to see what's here.${danger ? " ⚠ Next to a zombie nest — expect trouble." : ""}</p></div>` : ""}
-      </div>`;
+      if (!canScoutHex(state, q, r)) continue;
+      reachable.push(`${q},${r}`);
+      shown.push({ q, r });
+      const danger = Math.round(scoutEncounterChance(state, q, r) * 100);
+      cells += `<div class="cm-cell cm-fog" data-action="open-scout" data-q="${q}" data-r="${r}" style="${at(q, r)}" ${tipAttr({
+        title: "🌫 Unexplored",
+        rows: [["Scout", `⚡ ${scoutCost(q, r)} stamina`], ["Zombie risk", `up to ${danger}%`]],
+        notes: dangerNotes(state, q, r),
+      })}><span class="cm-q">?</span></div>`;
       continue;
     }
-
+    shown.push({ q, r });
     const loc = locationAt(q, r);
     const lm = landmarkAt(q, r);
     const place = loc || lm;
     const team = place ? teamAt[place.id] : undefined;
-    let cls = "hex";
-    let action = "";
-    let extra = "";
-    let tip = "";
+    const teamStyle = team !== undefined ? `--team:${TEAM_COLORS[team]};` : "";
+    let squad = "";
+    if (team !== undefined) {
+      const members = state.characters.filter((c) => c.exploreTeam === team && c.alive);
+      squad = `<span class="cm-squad">${members.slice(0, 3).map((c) => characterSprite(c, 16)).join("")}${members.length > 3 ? `<b>+${members.length - 3}</b>` : members.length ? "" : "<b>0</b>"}</span>`;
+      const { x, y } = hexToWorld(q, r);
+      const sx = WORLD_W / 2;
+      const sy = WORLD_H / 2;
+      const len = Math.hypot(x - sx, y - sy) || 1;
+      const bend = team % 2 ? 14 : -14;
+      const mx = (sx + x) / 2 + (-(y - sy) / len) * bend;
+      const my = (sy + y) / 2 + ((x - sx) / len) * bend;
+      routes += `<path d="M${sx},${sy} Q${mx.toFixed(1)},${my.toFixed(1)} ${x.toFixed(1)},${y.toFixed(1)}" stroke="${TEAM_COLORS[team]}"/>`;
+    }
 
     if (loc) {
-      cls += " hex-loc hex-poi";
-      action = `data-action="open-mission" data-location="${loc.id}"`;
-      const rewardsStr = Object.entries(loc.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ~${v}`).join("  ");
-      tip = `<b>${esc(loc.name)}</b>
-        <p class="muted">${esc(loc.desc)}</p>
-        <div>Difficulty ${loc.difficulty}/5 · Danger ${loc.danger}/5</div>
-        <div>${rewardsStr}</div>
-        ${loc.serumChance ? `<div>💉 Rare: antiviral serum</div>` : ""}
-        ${nextToNest(state, q, r) ? `<div class="plot-warn">⚠ A zombie nest next door makes runs here riskier.</div>` : ""}`;
-      extra = `<span class="hex-name">${esc(loc.name)}</span>`;
+      const rewards = Object.entries(loc.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ~${v}`).join(" ");
+      cells += `<div class="cm-cell cm-place ${team !== undefined ? "cm-assigned" : ""}" data-action="open-mission" data-location="${loc.id}" style="${at(q, r)}${teamStyle}" ${tipAttr({
+        title: `${LOCATION_ICON[loc.id]} ${esc(loc.name)}`,
+        rows: [["Difficulty", `${loc.difficulty}/5`], ["Danger", `${loc.danger}/5`], ["Loot", rewards], ...(loc.serumChance ? [["Rare", "💉 serum"]] : [])],
+        notes: [esc(loc.desc), ...dangerNotes(state, q, r)],
+      })}>${squad}<span class="cm-label">${LOCATION_ICON[loc.id]}<span class="cm-name"> ${esc(loc.name)}</span></span></div>`;
     } else if (lm) {
       const cooldown = raidCooldownLeft(state, lm.id);
       const boss = raidBoss(state, lm);
-      cls += ` hex-loc hex-poi hex-landmark ${cooldown ? "hex-landmark-cleared" : ""}`;
-      action = `data-action="open-raid" data-landmark="${lm.id}"`;
-      tip = `<b>${esc(lm.name)}</b>
-        <p class="muted">${esc(lm.desc)}</p>
-        <div>☠ ${esc(boss.name)} — ${boss.hp} HP</div>
-        <div>Raid squad: ${lm.minTeam}+ students, Lv${lm.minLevel}+</div>
-        <div class="legend-text">🌟 Legendary gear · legendary survivors</div>
-        ${cooldown ? `<div class="muted">Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}.</div>` : ""}`;
-      extra = `<span class="hex-name">${esc(lm.name)}</span>
-        <span class="hex-badge ${cooldown ? "" : "hex-badge-boss"}">${cooldown ? `💤 ${cooldown}d` : "☠ Raid"}</span>`;
-    } else {
-      const terrain = hexTerrain(q, r);
-      if (isNest(state, q, r)) {
-        cls += " hex-nest hex-loc";
-        action = `data-action="open-nest" data-q="${q}" data-r="${r}"`;
-        tip = `<b>Zombie Nest</b><p class="muted">In the ${TERRAIN_NAMES[terrain].toLowerCase()}. Everything next to it is more dangerous until a squad burns it out.</p>`;
-        extra = `<span class="hex-badge hex-badge-nest">🧟 Nest</span>`;
-      } else {
-        cls += " hex-terrain";
-        tip = `<b>${TERRAIN_NAMES[terrain]}</b><p class="muted">Scouted.</p>`;
-      }
+      cells += `<div class="cm-cell cm-place cm-landmark ${cooldown ? "cm-cleared" : ""} ${team !== undefined ? "cm-assigned" : ""}" data-action="open-raid" data-landmark="${lm.id}" style="${at(q, r)}${teamStyle}" ${tipAttr({
+        title: `☠ ${esc(lm.name)}`,
+        rows: [["Boss", `${esc(boss.name)} · ${boss.hp} HP`], ["Squad", `${lm.minTeam}+ students, Lv ${lm.minLevel}+`]],
+        notes: ["🌟 Legendary gear and survivors", ...(cooldown ? [`Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}`] : [])],
+      })}>${squad}<span class="cm-label cm-label-raid">${cooldown ? `💤 ${cooldown}d` : "☠"}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
+    } else if (isNest(state, q, r)) {
+      cells += `<div class="cm-cell cm-nest" data-action="open-nest" data-q="${q}" data-r="${r}" style="${at(q, r)}" ${tipAttr({
+        title: "🧟 Zombie Nest",
+        notes: ["Everything next to it is more dangerous", "Send a squad to burn it out"],
+      })}><span class="cm-badge">🧟</span></div>`;
     }
-
-    if (team !== undefined) {
-      const color = TEAM_COLORS[team];
-      const members = state.characters.filter((c) => c.exploreTeam === team && c.alive);
-      cls += " hex-assigned";
-      extra += `<div class="hex-team" style="--team:${color}">
-        ${members.slice(0, 3).map((c) => `<span class="hex-team-sprite">${characterSprite(c, 16)}</span>`).join("")}
-        ${members.length > 3 || !members.length ? `<span class="hex-team-more">${members.length ? `+${members.length - 3}` : "0"}</span>` : ""}
-      </div>`;
-      // A gently curved, marching dashed route from the school to the team's target.
-      const sx = width / 2;
-      const sy = height / 2;
-      const ex = x + width / 2;
-      const ey = y + height / 2;
-      const len = Math.hypot(ex - sx, ey - sy) || 1;
-      const bend = team % 2 ? 18 : -18;
-      const cx = (sx + ex) / 2 + (-(ey - sy) / len) * bend;
-      const cy = (sy + ey) / 2 + ((ex - sx) / len) * bend;
-      routes += `<path d="M${sx},${sy} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex},${ey}" stroke="${color}"/>`;
-    }
-
-    hexesHtml += `<div class="${cls}" ${action} style="${style}${team !== undefined ? `--team:${TEAM_COLORS[team]};` : ""}">
-      ${hexTile(hexTileKey(q, r))}
-      ${extra}
-      ${tip ? `<div class="${tipClass(pos)}">${tip}</div>` : ""}
-    </div>`;
   }
 
-  return `<div class="hexmap-wrap"><div class="hexmap" style="width:${width}px;height:${height}px;">
-    <svg class="hex-routes" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${routes}</svg>
-    ${hexesHtml}
-  </div></div>`;
+  // Things that come and go: supply drops on scouted blocks, and the horde — big enough to see
+  // from the rooftop even through the fog.
+  for (const d of state.mapDrops || []) {
+    const md = MAP_DROPS[d.kind];
+    const left = d.expires - state.day + 1;
+    cells += `<div class="cm-cell cm-drop" data-action="open-drop" data-q="${d.q}" data-r="${d.r}" style="${at(d.q, d.r)}" ${tipAttr({
+      title: `${md.icon} ${md.name}`,
+      rows: [["Runner", `⚡ ${scoutCost(d.q, d.r)} stamina`], ["Gone in", left <= 1 ? "1 day" : `${left} days`]],
+      notes: ["Send a runner to grab it"],
+    })}><span class="cm-drop-icon">${md.icon}</span></div>`;
+  }
+  if (state.horde) {
+    const { q, r } = state.horde;
+    cells += `<div class="cm-cell cm-horde" style="${at(q, r)}"><span class="cm-horde-crowd" ${tipAttr({
+      title: "🧟 The Horde",
+      notes: ["Moves a block every day", "Scouting and runs on or next to it are more dangerous"],
+    })}>${zombieSprite("walker", 18)}${zombieSprite("walker", 18)}${zombieSprite("walker", 18)}</span></div>`;
+  }
+
+  const [vx, vy, vw, vh] = viewBox(shown);
+  const school = hexToWorld(0, 0);
+  return `<div class="citymap" data-view="${vx},${vy},${vw},${vh}">
+    <div class="cm-world" style="width:${WORLD_W}px;height:${WORLD_H}px">
+      <img class="cm-layer" src="${cityBaseUrl()}" alt="" draggable="false">
+      <img class="cm-layer" src="${fogUrl(clear, reachable)}" alt="" draggable="false">
+      <svg class="cm-routes" width="${WORLD_W}" height="${WORLD_H}" viewBox="0 0 ${WORLD_W} ${WORLD_H}">${routes}</svg>
+    </div>
+    <div class="cm-cell cm-school" style="--x:${school.x};--y:${school.y + 34};"><span class="cm-label cm-label-school">🏫<span class="cm-name"> School</span></span></div>
+    ${cells}
+  </div>`;
 }
 
 // What a scout turned up — the hex's tile and a line about the find.
@@ -1152,7 +1132,11 @@ export function renderScoutReport(state, report) {
   const { q, r, scoutName, result } = report;
   let title;
   let body;
-  if (result.location) {
+  if (result.drop) {
+    const d = MAP_DROPS[result.drop.kind];
+    title = `${d.icon} ${d.name}`;
+    body = `${esc(scoutName)} made it there and back: ${esc(result.drop.text)}.`;
+  } else if (result.location) {
     title = `Discovered: ${esc(result.location.name)}`;
     body = `${esc(scoutName)} found the ${esc(result.location.name)}. ${esc(result.location.desc)} Send a team there any day.`;
   } else if (result.landmark) {
@@ -1401,7 +1385,9 @@ export function renderExpeditionReport(state, anim) {
   </div>`;
 }
 
-export function renderScoutModal(state, q, r) {
+export function renderScoutModal(state, q, r, isDrop = false) {
+  const drop = isDrop ? dropAt(state, q, r) : null;
+  const d = drop && MAP_DROPS[drop.kind];
   const cost = scoutCost(q, r);
   const danger = Math.round(scoutEncounterChance(state, q, r) * 100);
   const eligible = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.stamina >= cost);
@@ -1419,10 +1405,13 @@ export function renderScoutModal(state, q, r) {
   <div class="modal-overlay" data-action="close-scout">
     <div class="char-card mission-card" data-action="noop">
       <button class="cc-close" data-action="close-scout" title="Close">✕</button>
-      <h3>🌫 Unexplored Territory</h3>
-      <p class="muted">Every hex hides something — supplies, gear, seeds, animals, survivors, or a zombie nest. The further from the school, the more it costs to get there.</p>
-      <div class="mission-stats-row"><span>⚡ ${cost} stamina</span><span class="${danger >= 40 ? "plot-warn" : ""}">🧟 up to ${danger}% chance of a zombie — less for a high-DEX scout</span></div>
-      <div class="mini-label">Send a scout</div>
+      ${d
+        ? `<h3>${d.icon} ${d.name}</h3>
+      <p class="muted">${{ crate: "Supplies someone left behind", wreck: "A car full of scrap", survivor: "Someone waving from a rooftop — they'd join the school" }[drop.kind]}. Gone ${drop.expires <= state.day ? "tomorrow" : `in ${drop.expires - state.day + 1} days`}.</p>`
+        : `<h3>🌫 Unexplored Territory</h3>
+      <p class="muted">Every block hides something — supplies, gear, seeds, animals, survivors, or a zombie nest. The further from the school, the more it costs to get there.</p>`}
+      <div class="mission-stats-row"><span>⚡ ${cost} stamina</span><span class="${danger >= 40 ? "plot-warn" : ""}">🧟 up to ${danger}% chance of a zombie — less for a high-DEX ${d ? "runner" : "scout"}</span></div>
+      <div class="mini-label">${d ? "Send a runner" : "Send a scout"}</div>
       <div class="check-list">${rows || `<p class="muted">Nobody has the ${cost} stamina it takes to get this far out${canEverGo ? " right now — let someone rest first." : ". Raise a student's max stamina in Acrobatics to reach it."}</p>`}</div>
     </div>
   </div>`;
@@ -1674,7 +1663,7 @@ export function renderMissionModal(state, locationId) {
         ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
         ${loc.serumChance ? `<span ${tipAttr({ title: "💉 Antiviral Serum", notes: ["The only cure for an infection — one per person", "Rare: found here, at the Hospital, Pharmacy and Fire Station, and on raid bosses"] })}>💉 Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
       </div>
-      ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">⚠ A zombie nest next door: lower odds and more injuries until it's cleared.</div>` : ""}
+      ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">${dangerNotes(state, loc.hex.q, loc.hex.r).join(" · ")}: lower odds and more injuries.</div>` : ""}
       ${successHtml}
       <div class="mini-label">Team (${members.length}/5)</div>
       <div class="check-list">${studentRows || '<p class="muted">No available students.</p>'}</div>

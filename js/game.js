@@ -25,7 +25,7 @@ import {
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
   OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
-  LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING,
+  MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING,
 } from "./data.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
@@ -142,6 +142,8 @@ export function createInitialState() {
     objectivesDone: [], // OBJECTIVES ids finished (see checkObjectives)
     expeditionsSent: 0,
     nests: [], // "q,r" keys of zombie nests found while scouting
+    horde: null, // { q, r } of the wandering horde, from day 2
+    mapDrops: [], // { q, r, kind, expires } — crates, wrecks and survivors waiting on scouted blocks
     raidTarget: null, // LANDMARKS id today's raid squad is going after
     raidCooldowns: {}, // landmark id -> day its boss is back after being killed
     raidKills: {}, // landmark id -> times its boss has been killed (each makes it tougher)
@@ -1895,6 +1897,8 @@ export function advanceTurn(state) {
     const bestCha = aliveChars(state).filter((c) => c.role === "student").reduce((m, c) => Math.max(m, c.grades.SocialStudies), 0);
     if (bestCha >= TUNE.moralePerCha) adjustHappiness(state, Math.floor(bestCha / TUNE.moralePerCha));
     rollRandomEvent(state);
+    moveHorde(state);
+    rollMapDrop(state);
   }
   for (const c of state.characters) {
     c.gymToday = false;
@@ -2256,6 +2260,30 @@ export function scoutEncounterChance(state, q, r, scout = null) {
   return clamp01((ringsOut * SCOUT_ENCOUNTER_CHANCE_PER_HEX + (nextToNest(state, q, r) ? NEST_SCOUT_DANGER : 0)) * stealth);
 }
 
+// A student heads out to a block (to scout it, or to grab something there): pays the stamina, and
+// may run into a zombie on the way — beat it for a little loot, or get ambushed and flee home.
+function runOut(state, c, q, r, cost) {
+  c.stamina -= cost;
+  gainExp(state, c, LEVEL_XP.scout);
+  const encountered = Math.random() < scoutEncounterChance(state, q, r, c);
+  if (!encountered) return { ambushed: false, encountered: false };
+  const power = (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2;
+  const winChance = clamp01(0.5 + (power - 40) / 100);
+  if (Math.random() >= winChance) {
+    c.hp = Math.max(1, c.hp - SCOUT_ENCOUNTER_HP_LOSS);
+    c.injured = c.hp < c.maxHp * 0.5;
+    addLog(state, `${c.name} was ambushed by a zombie out in the city and fled back to the school (-${SCOUT_ENCOUNTER_HP_LOSS} HP).`);
+    return { ambushed: true, encountered: true };
+  }
+  const lootKey = pick(["food", "materials", "medicine"]);
+  const amt = randInt(5, 15);
+  state.resources[lootKey] += amt;
+  grantXp(state, c.id, "PE", 3 + randInt(0, 2));
+  grantXp(state, c.id, "Gymnastics", 3 + randInt(0, 2));
+  addLog(state, `${c.name} fought off a zombie out in the city and salvaged ${amt} ${RESOURCE_NAME[lootKey]}.`);
+  return { ambushed: false, encountered: true };
+}
+
 export function scoutHex(state, studentId, q, r) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student" || !c.alive || c.infection) return null;
@@ -2263,27 +2291,8 @@ export function scoutHex(state, studentId, q, r) {
   if (c.stamina < cost) return null;
   if (!canScoutHex(state, q, r)) return null;
 
-  c.stamina -= cost;
-  gainExp(state, c, LEVEL_XP.scout);
-
-  const encounterChance = scoutEncounterChance(state, q, r, c);
-  const encountered = Math.random() < encounterChance;
-  if (encountered) {
-    const power = (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2;
-    const winChance = clamp01(0.5 + (power - 40) / 100);
-    if (Math.random() >= winChance) {
-      c.hp = Math.max(1, c.hp - SCOUT_ENCOUNTER_HP_LOSS);
-      c.injured = c.hp < c.maxHp * 0.5;
-      addLog(state, `${c.name} was ambushed by a zombie while scouting and fled back to the school (-${SCOUT_ENCOUNTER_HP_LOSS} HP).`);
-      return { ambushed: true, encountered: true, location: null };
-    }
-    const lootKey = pick(["food", "materials", "medicine"]);
-    const amt = randInt(5, 15);
-    state.resources[lootKey] += amt;
-    grantXp(state, c.id, "PE", 3 + randInt(0, 2));
-    grantXp(state, c.id, "Gymnastics", 3 + randInt(0, 2));
-    addLog(state, `${c.name} fought off a zombie while scouting and salvaged ${amt} ${RESOURCE_NAME[lootKey]}.`);
-  }
+  const { ambushed, encountered } = runOut(state, c, q, r, cost);
+  if (ambushed) return { ambushed: true, encountered: true, location: null };
 
   state.exploredHexes.push(hexKey(q, r));
   const location = locationAt(q, r);
@@ -2358,8 +2367,86 @@ export function isNest(state, q, r) {
   return state.nests.includes(hexKey(q, r));
 }
 
+// Danger from a nest next door — or from the wandering horde on or next to the block.
 export function nextToNest(state, q, r) {
-  return HEX_NEIGHBOR_OFFSETS.some(([dq, dr]) => isNest(state, q + dq, r + dr));
+  return HEX_NEIGHBOR_OFFSETS.some(([dq, dr]) => isNest(state, q + dq, r + dr)) || nearHorde(state, q, r);
+}
+
+// ---------- things that turn up on the map: the wandering horde, supply drops ----------
+
+export function nearHorde(state, q, r) {
+  const h = state.horde;
+  return !!h && hexDistance(q - h.q, r - h.r) <= 1;
+}
+
+// Day 2 it turns up out in the suburbs; after that it shambles one block a day, never onto the
+// school grounds or the ring right outside the fence.
+export function moveHorde(state) {
+  const onMap = (q, r) => hexDistance(q, r) >= SCHOOL_RADIUS + 2 && hexDistance(q, r) <= MAP_RADIUS;
+  if (!state.horde) {
+    const ring = [];
+    for (let q = -HORDE_START_RING; q <= HORDE_START_RING; q++)
+      for (let r = -HORDE_START_RING; r <= HORDE_START_RING; r++) if (hexDistance(q, r) === HORDE_START_RING) ring.push({ q, r });
+    state.horde = pick(ring);
+    addLog(state, "🧟 A horde has been spotted wandering the city. Keep an eye on the map.");
+    return;
+  }
+  const { q, r } = state.horde;
+  const steps = HEX_NEIGHBOR_OFFSETS.map(([dq, dr]) => ({ q: q + dq, r: r + dr })).filter((h) => onMap(h.q, h.r));
+  if (steps.length) state.horde = pick(steps);
+}
+
+export function dropAt(state, q, r) {
+  return (state.mapDrops || []).find((d) => d.q === q && d.r === r) || null;
+}
+
+// Each morning something may turn up on a scouted block (not a place, a nest or the horde's).
+// `force` skips the roll (for testing).
+export function rollMapDrop(state, force = false) {
+  state.mapDrops = (state.mapDrops || []).filter((d) => d.expires >= state.day);
+  if (state.mapDrops.length >= MAP_DROP_MAX || (!force && Math.random() >= MAP_DROP_CHANCE)) return;
+  const spots = state.exploredHexes
+    .map((k) => k.split(",").map(Number))
+    .filter(([q, r]) => !locationAt(q, r) && !landmarkAt(q, r) && !isNest(state, q, r) && !nearHorde(state, q, r) && !dropAt(state, q, r));
+  if (!spots.length) return;
+  const [q, r] = pick(spots);
+  const kind = weightedPick(Object.fromEntries(Object.entries(MAP_DROPS).map(([k, d]) => [k, d.weight])));
+  state.mapDrops.push({ q, r, kind, expires: state.day + MAP_DROP_DAYS - 1 });
+  addLog(state, `${MAP_DROPS[kind].icon} A ${MAP_DROPS[kind].name.toLowerCase()} turned up on the map — it won't be there for long.`);
+}
+
+// A runner goes to grab a drop: the same stamina and zombie risk as scouting that block.
+export function collectDrop(state, studentId, q, r) {
+  const c = getChar(state, studentId);
+  const drop = dropAt(state, q, r);
+  if (!c || !drop || c.role !== "student" || !c.alive || c.infection) return null;
+  const cost = scoutCost(q, r);
+  if (c.stamina < cost) return null;
+  const { ambushed, encountered } = runOut(state, c, q, r, cost);
+  if (ambushed) return { ambushed: true, encountered: true };
+  state.mapDrops = state.mapDrops.filter((d) => d !== drop);
+  let text;
+  if (drop.kind === "crate") {
+    const [a, b] = [pick(["food", "medicine"]), pick(["materials", "food"])];
+    const amtA = randInt(8, 16);
+    const amtB = randInt(5, 10);
+    state.resources[a] += amtA;
+    state.resources[b] += amtB;
+    text = `+${amtA} ${RESOURCE_NAME[a]} and +${amtB} ${RESOURCE_NAME[b]}`;
+  } else if (drop.kind === "wreck") {
+    const amt = randInt(12, 22);
+    state.resources.materials += amt;
+    const item = Math.random() < 0.3 ? makeItem(pick(ITEM_TEMPLATES.filter((t) => itemTier(t) <= 2)).id) : null;
+    if (item) state.armory.push(item);
+    text = `+${amt} scrap${item ? ` and ${item.icon} ${item.name}` : ""}`;
+  } else {
+    const recruit = makeCharacter(rollRecruitRole(state), pick(["M", "F"]));
+    text = addRecruit(state, recruit)
+      ? `${recruit.name}, who wants to join`
+      : `${recruit.name} — but the Headmaster's Office had no room for them`;
+  }
+  addLog(state, `${c.name} reached the ${MAP_DROPS[drop.kind].name.toLowerCase()}: ${text}.`);
+  return { ambushed: false, encountered, drop: { ...drop, text } };
 }
 
 const squadPower = (state, squad) =>

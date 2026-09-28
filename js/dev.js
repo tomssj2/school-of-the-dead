@@ -2,6 +2,7 @@
 // the /max and /min project commands run them). Nothing here saves — the player's Save does.
 import * as G from "./game.js";
 import { makeCharacter, makeLegendaryCharacter } from "./characters.js";
+import { MAP_RADIUS } from "./map.js";
 import { CLASSROOM_IDS, PRODUCERS, STUDENT_MAX_LEVEL, xpToNextLevel } from "./data.js";
 
 // Every room and facility to the top level, and every slot filled: teachers in every post,
@@ -115,6 +116,27 @@ export function addRecruits(state, n = 4) {
     if (G.addRecruit(state, i === 2 ? makeLegendaryCharacter(role, gender) : makeCharacter(role, gender))) added++;
   }
   return `${added} recruit${added === 1 ? "" : "s"} added · ${state.recruitPool.length} waiting`;
+}
+
+// Lifts the fog out to `rings` hexes from the school (no finds rolled — just the map revealed).
+export function exploreMap(state, rings = MAP_RADIUS) {
+  let added = 0;
+  for (let q = -rings; q <= rings; q++) {
+    for (let r = -rings; r <= rings; r++) {
+      const d = (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
+      if (d <= 1 || d > rings || G.isHexExplored(state, q, r)) continue;
+      state.exploredHexes.push(G.hexKey(q, r));
+      added++;
+    }
+  }
+  return `${added} blocks revealed · ${state.exploredHexes.length} explored`;
+}
+
+// Puts the wandering horde on the map (or moves it a block) and fills the map with supply drops.
+export function mapEvents(state) {
+  G.moveHorde(state);
+  for (let i = 0; i < 3; i++) G.rollMapDrop(state, true);
+  return `horde at ${state.horde.q},${state.horde.r} · ${state.mapDrops.length} drops on the map`;
 }
 
 // Clears the Radio Station's boards and builds its first `stage` upgrades for free (5 = satellite

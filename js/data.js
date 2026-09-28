@@ -968,6 +968,20 @@ export const NEST_EXPEDITION_PENALTY = 0.1; // less success / more casualties at
 export const NEST_CLEAR_STAMINA = 15;
 export const NEST_CLEAR_MAX = 3; // students per nest-clearing squad
 
+// Things that turn up on scouted blocks for a few days, for a runner to grab (same stamina and
+// zombie risk as scouting there). One may appear each morning, up to MAP_DROP_MAX at once.
+export const MAP_DROPS = {
+  crate: { icon: "📦", name: "Supply Crate", weight: 5 },
+  wreck: { icon: "🚗", name: "Wrecked Car", weight: 3 },
+  survivor: { icon: "🙋", name: "Stranded Survivor", weight: 2 },
+};
+export const MAP_DROP_CHANCE = 0.6;
+export const MAP_DROP_MAX = 3;
+export const MAP_DROP_DAYS = 3;
+// The wandering horde turns up this many rings out on day 2, then drifts a block a day. Being
+// next to it is as dangerous as being next to a nest.
+export const HORDE_START_RING = 5;
+
 // ===== Raid landmarks =====
 // Hidden at the very edge of the map (distance 7) until scouted. Each holds a raid boss that needs a bigger,
 // higher-level team than an expedition (a separate raid squad of up to RAID_MAX_TEAM, launched

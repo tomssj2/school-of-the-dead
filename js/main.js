@@ -6,7 +6,7 @@ import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
-import { maxOutSchool, infectStudents, buildRadio, addRecruits } from "./dev.js";
+import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
@@ -383,6 +383,8 @@ function migrateState(s) {
   if (s.roomFightsDone === undefined) s.roomFightsDone = 1;
   if (s.expeditionsSent === undefined) s.expeditionsSent = 1;
   if (!s.nests) s.nests = [];
+  if (!s.mapDrops) s.mapDrops = [];
+  if (s.horde === undefined) s.horde = null;
   if (s.raidTarget === undefined) s.raidTarget = null;
   if (!s.raidCooldowns) s.raidCooldowns = {};
   if (!s.raidKills) s.raidKills = {};
@@ -477,7 +479,7 @@ function render() {
   const card = openCardId ? G.getCharAnywhere(state, openCardId) : null;
   if (openCardId && !card) openCardId = null; // e.g. expelled while card was open
   if (openMissionLocationId && !state.teamLocations.includes(openMissionLocationId)) openMissionLocationId = null;
-  if (openScoutHex && G.isHexExplored(state, openScoutHex.q, openScoutHex.r)) openScoutHex = null;
+  if (openScoutHex && (openScoutHex.drop ? !G.dropAt(state, openScoutHex.q, openScoutHex.r) : G.isHexExplored(state, openScoutHex.q, openScoutHex.r))) openScoutHex = null;
 
   const newFloaties = computeFloaties();
   if (newFloaties.length) {
@@ -539,7 +541,7 @@ function render() {
     : openMissionLocationId
     ? renderMissionModal(state, openMissionLocationId)
     : openScoutHex
-    ? renderScoutModal(state, openScoutHex.q, openScoutHex.r)
+    ? renderScoutModal(state, openScoutHex.q, openScoutHex.r, openScoutHex.drop)
     : openPicker
     ? renderPickerModal(state, openPicker, pickerSortKey, pickerSortDir)
     : openDefenseBuild
@@ -555,30 +557,41 @@ function render() {
     : state.pendingAssault
     ? renderAssaultModal()
     : "";
-  // The whole app re-renders, so keep the exploration map scrolled where the player left it
-  // (centred on the school the first time — on a phone the map is wider than the screen).
-  const oldMap = root.querySelector('.hexmap-wrap');
-  const mapScroll = oldMap ? { left: oldMap.scrollLeft, top: oldMap.scrollTop } : null;
   // The page never scrolls — the content area does — so keep it where it was within the same tab.
   const contentScroll = sameTab ? root.querySelector(".content")?.scrollTop || 0 : 0;
   if (state.gameOver || state.victory) recordRun(state, G.aliveChars(state).length);
   root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml;
   const newContent = root.querySelector(".content");
   if (newContent) newContent.scrollTop = contentScroll;
-  const newMap = root.querySelector('.hexmap-wrap');
-  if (newMap) {
-    // The map window fills exactly the space left under the screen's header, so it is always fully
-    // in view and only the map inside it scrolls (rects are screen pixels, heights layout pixels).
-    if (newContent) {
-      const zoom = parseFloat(document.documentElement.style.zoom) || 1;
-      const box = newContent.getBoundingClientRect();
-      const above = (newMap.getBoundingClientRect().top - box.top) / zoom + newContent.scrollTop;
-      newMap.style.height = `${Math.max(320, Math.floor(box.height / zoom - above - 16))}px`;
-    }
-    newMap.scrollLeft = mapScroll ? mapScroll.left : (newMap.scrollWidth - newMap.clientWidth) / 2;
-    newMap.scrollTop = mapScroll ? mapScroll.top : (newMap.scrollHeight - newMap.clientHeight) / 2;
-  }
+  fitCityMap();
 }
+
+// The exploration map and its side panel fill exactly the space left under the screen's header,
+// and the town inside is scaled to show the part that matters (the view the map asks for in
+// data-view, in art pixels) as big as fits — up to 3.5x, so early on it's close in on the school.
+function fitCityMap() {
+  const layout = root.querySelector(".explore-layout");
+  const map = layout?.querySelector(".citymap");
+  const content = root.querySelector(".content");
+  if (!map || !content) return;
+  const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+  const box = content.getBoundingClientRect();
+  const above = (layout.getBoundingClientRect().top - box.top) / zoom + content.scrollTop;
+  let height = Math.max(360, Math.floor(box.height / zoom - above - 20));
+  layout.style.height = `${height}px`;
+  const over = content.scrollHeight - content.clientHeight; // the card's own padding below it
+  if (over > 0 && height > 360) layout.style.height = `${(height = Math.max(360, height - over))}px`;
+  const [vx, vy, vw, vh] = map.dataset.view.split(",").map(Number);
+  const cw = map.clientWidth;
+  const ch = map.clientHeight;
+  const s = Math.min(cw / vw, ch / vh, 3.5);
+  // Zoomed far out (a small screen, the whole town explored), names shrink to their icon.
+  map.classList.toggle("cm-compact", s < 1.35);
+  map.style.setProperty("--s", s.toFixed(4));
+  map.style.setProperty("--ox", `${(cw / 2 - (vx + vw / 2) * s).toFixed(1)}px`);
+  map.style.setProperty("--oy", `${(ch / 2 - (vy + vh / 2) * s).toFixed(1)}px`);
+}
+window.addEventListener("resize", fitCityMap);
 
 function loadGame() {
   try {
@@ -1028,6 +1041,17 @@ root.addEventListener("click", (e) => {
       render();
       break;
     }
+    case "open-drop": {
+      const q = Number(el.dataset.q);
+      const r = Number(el.dataset.r);
+      if (!G.dropAt(state, q, r)) break;
+      openCardId = null;
+      openMissionLocationId = null;
+      openPicker = null;
+      openScoutHex = { q, r, drop: true };
+      render();
+      break;
+    }
     case "open-clear-room":
       openCardId = null;
       clearRoom = { roomKey: el.dataset.room, ids: [] };
@@ -1131,17 +1155,17 @@ root.addEventListener("click", (e) => {
     case "confirm-scout": {
       if (!openScoutHex) break;
       const studentId = el.dataset.id;
-      const { q, r } = openScoutHex;
-      const result = G.scoutHex(state, studentId, q, r);
+      const { q, r, drop } = openScoutHex;
+      const result = drop ? G.collectDrop(state, studentId, q, r) : G.scoutHex(state, studentId, q, r);
       openScoutHex = null;
       if (!result) {
-        flash("Can't scout that hex.");
+        flash(drop ? "Can't get there right now." : "Can't scout that hex.");
         render();
         break;
       }
       const scoutName = G.getChar(state, studentId).name;
       const finish = () => {
-        if (result.ambushed) flash("Ambushed! The scout fled back to the school.");
+        if (result.ambushed) flash(drop ? "Ambushed! The runner fled back to the school." : "Ambushed! The scout fled back to the school.");
         else scoutReport = { q, r, scoutName, result };
         render();
       };
@@ -1454,6 +1478,20 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
     recruits(n = 4) {
       if (!beforeMax) beforeMax = JSON.stringify(state);
       const summary = addRecruits(state, n);
+      render();
+      return summary;
+    },
+    // schoolDev.explore(rings): lift the fog out to `rings` hexes from the school (7 = everything).
+    explore(rings) {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      const summary = exploreMap(state, rings);
+      render();
+      return summary;
+    },
+    // schoolDev.mapEvents(): the wandering horde on the map (or a block further on) and 3 supply drops.
+    mapEvents() {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      const summary = mapEvents(state);
       render();
       return summary;
     },

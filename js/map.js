@@ -717,14 +717,21 @@ export const CAMPUS_H = 52;
 
 const tileCache = new Map();
 
+// A tile's pixels: { w, h, g } with g[y][x] a colour (or null), for a key from hexTileKey().
+export function tilePixels(key) {
+  const [kind, variant = "0"] = key.split(":");
+  const [w, h] = kind === "campus" ? [CAMPUS_W, CAMPUS_H] : [32, 28];
+  const seed = [...key].reduce((acc, ch) => Math.imul(acc ^ ch.charCodeAt(0), 16777619), 2166136261);
+  const k = canvas(seed, w, h);
+  TILES[kind](k, Number(variant));
+  return { w, h, g: k.g };
+}
+
 // data: URI of a tile's SVG, for a key from hexTileKey() (or "school" / "campus").
 export function tileDataUri(key) {
   if (!tileCache.has(key)) {
-    const [kind, variant = "0"] = key.split(":");
-    const [w, h] = kind === "campus" ? [CAMPUS_W, CAMPUS_H] : [32, 28];
-    const seed = [...key].reduce((acc, ch) => Math.imul(acc ^ ch.charCodeAt(0), 16777619), 2166136261);
-    const k = canvas(seed, w, h);
-    TILES[kind](k, Number(variant));
+    const { w, h, g } = tilePixels(key);
+    const k = { g };
     let rects = "";
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; ) {

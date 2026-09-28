@@ -1219,39 +1219,232 @@ html[data-gfx="low"] .staff-add { animation: none; }
 }
 .cc-close:hover { color: var(--accent-2); }
 
-/* ---------- Exploration hex map ---------- */
+/* ---------- Exploration: the city map ---------- */
 
-/* The map is a window onto the city that fills the space under the screen's header (main.js sets
-   its height after each render) and scrolls on its own, starting centred on the school. */
-.hexmap-wrap {
-  overflow: auto;
-  height: 480px;
-  box-sizing: border-box;
-  margin: 14px 0;
-  background-color: #0a0d13;
-  background-image:
-    radial-gradient(ellipse at center, #1b222f 0%, #0e121a 60%, #07080c 100%),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 24px),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 24px);
+/* The map on the left, the teams and the Launch button on the right. main.js (fitCityMap) sizes the
+   pair to fill the space under the header, and scales the town to fit with --s / --ox / --oy. */
+.explore-layout { display: flex; gap: 12px; min-height: 360px; }
+.explore-side h2 { margin: 0 0 6px; }
+/* Zoomed far out: place names shrink to their icon (the tooltip still has the name). */
+.cm-compact .cm-name { display: none; }
+.cm-compact .cm-label { padding: 0 3px; font-size: 11px; }
+.citymap {
+  --s: 2;
+  --ox: 0px;
+  --oy: 0px;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 20px;
+  background: #151a23;
+  user-select: none;
 }
-.hexmap { position: relative; margin: 0 auto; }
+.cm-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform: translate(var(--ox), var(--oy)) scale(var(--s)); }
+.cm-layer { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
+.cm-routes { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.cm-routes path {
+  fill: none;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 2 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 1px #000);
+  animation: route-march 0.9s linear infinite;
+}
+@keyframes route-march {
+  to { stroke-dashoffset: -4; }
+}
 
-/* Each hex: an edge-coloured hexagon (::before) with the pixel-art tile inset inside it. Labels,
-   badges, team markers and tooltips sit outside the clip so nothing gets cut off. */
-.hex {
+/* A clickable block of town, sized to its hex (a 24 x 27.7 brick of the map, in art pixels) with
+   a hexagon that lights up on hover. Markers inside keep their size at any zoom. */
+.cm-cell {
   position: absolute;
-  width: 76px;
-  height: 66px;
+  left: calc(var(--ox) + (var(--x) - 12) * var(--s) * 1px);
+  top: calc(var(--oy) + (var(--y) - 13.86) * var(--s) * 1px);
+  width: calc(24px * var(--s));
+  height: calc(27.71px * var(--s));
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.12s, filter 0.12s;
-  --edge: #232833;
+  z-index: 2;
+  cursor: pointer;
 }
-.hex::before { content: ""; position: absolute; inset: 0; clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); background: var(--edge); }
+.cm-cell::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-4px * var(--s));
+  right: calc(-4px * var(--s));
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  transition: background 0.12s;
+  pointer-events: none;
+}
+.cm-cell:hover { z-index: 6; }
+.cm-cell:hover::before { background: rgba(255, 255, 255, 0.16); }
+.cm-school { cursor: default; pointer-events: none; z-index: 1; }
+
+/* Fog a scout can reach: a "?" that breathes. */
+.cm-q {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(20, 26, 36, 0.88);
+  border: 1.5px solid #8fa3c4;
+  color: #d4e0f4;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 0 8px rgba(143, 163, 196, 0.45);
+  animation: cm-q-pulse 2.6s ease-in-out infinite;
+}
+.cm-fog:hover .cm-q { background: #33405a; color: #fff; animation: none; }
+@keyframes cm-q-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(143, 163, 196, 0.3); }
+  50% { box-shadow: 0 0 12px rgba(143, 163, 196, 0.75); }
+}
+
+/* Places: a name tag under the building; team colour when a team is going; raid landmarks glow red. */
+.cm-label {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 60%);
+  max-width: min(170px, calc(54px * var(--s)));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(11, 13, 18, 0.9);
+  border: 1px solid rgba(244, 211, 94, 0.75);
+  color: #f1ead6;
+  font-size: 10.5px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.cm-label-raid { border-color: rgba(224, 69, 95, 0.9); color: #ffc2c2; }
+.cm-cleared .cm-label { border-color: #555b66; color: var(--muted); }
+.cm-label-school { border-color: #4fa3ff; color: #dcecff; }
+.cm-assigned .cm-label { border-color: var(--team); box-shadow: 0 0 6px var(--team); }
+.cm-assigned::before { background: color-mix(in srgb, var(--team) 32%, transparent); }
+.cm-landmark:not(.cm-cleared):not(.cm-assigned)::before { animation: cm-boss 2.4s ease-in-out infinite; }
+@keyframes cm-boss {
+  0%, 100% { background: rgba(224, 69, 95, 0.05); }
+  50% { background: rgba(224, 69, 95, 0.32); }
+}
+.cm-nest::before { background: rgba(170, 20, 40, 0.4); animation: nest-pulse 1.8s ease-in-out infinite; }
+.cm-badge {
+  position: relative;
+  padding: 1px 4px;
+  border-radius: 8px;
+  background: rgba(60, 10, 18, 0.9);
+  border: 1px solid #b0303f;
+  font-size: 13px;
+  line-height: 1.2;
+}
+/* Supply drops bob about to catch the eye; the horde is a small red-lit crowd. */
+.cm-drop { z-index: 3; }
+.cm-drop-icon {
+  padding: 1px 3px;
+  border-radius: 8px;
+  background: rgba(20, 26, 36, 0.88);
+  border: 1.5px solid #f4d35e;
+  box-shadow: 0 0 10px rgba(244, 211, 94, 0.55);
+  font-size: 14px;
+  line-height: 1.2;
+  animation: cm-bob 1.6s ease-in-out infinite;
+}
+@keyframes cm-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.cm-horde { z-index: 4; pointer-events: none; }
+.cm-horde::before { background: rgba(170, 20, 40, 0.3); animation: nest-pulse 1.4s ease-in-out infinite; }
+.cm-horde-crowd { display: flex; align-items: flex-end; transform: translateY(-55%); pointer-events: auto; cursor: help; filter: drop-shadow(0 0 3px rgba(224, 69, 95, 0.95)); }
+.cm-horde-crowd svg { display: block; margin: 0 -3px; }
+.cm-horde-crowd svg:nth-child(2) { transform: translateY(-4px); }
+.cm-squad {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -75%);
+  display: flex;
+  align-items: flex-end;
+  padding: 1px 5px 0;
+  border-radius: 8px;
+  background: rgba(10, 12, 18, 0.88);
+  border: 1px solid var(--team);
+  pointer-events: none;
+}
+.cm-squad svg { display: block; margin: 0 -2px; }
+.cm-squad b { align-self: center; margin-left: 4px; color: #fff; font-size: 9px; }
+@keyframes nest-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* The side panel: one row per team — where it's going and how full it is. */
+.explore-side { width: 240px; flex: none; display: flex; flex-direction: column; gap: 6px; }
+.explore-side .mini-label { margin: 0 0 2px; }
+.ex-team {
+  display: grid;
+  grid-template-columns: 8px 1fr auto auto;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--team);
+  background: var(--panel-2, #1c212c);
+  color: var(--text, #fff);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.ex-team:hover { border-color: var(--team); }
+.ex-team .team-dot { margin: 0; }
+.ex-team-name { font-size: 12px; font-weight: 700; }
+.ex-team-count { grid-column: 3; grid-row: 1; font-size: 12px; color: var(--muted); }
+.ex-team-target { grid-column: 2 / -1; grid-row: 2; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ex-team .btn-x { grid-column: 4; grid-row: 1; color: var(--muted); font-size: 11px; padding: 0 2px; }
+.ex-team .btn-x:hover { color: var(--accent-2); }
+.ex-team-idle { cursor: default; background: transparent; border-style: dashed; border-left-style: solid; }
+.ex-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 8px;
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.ex-legend span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ex-key {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(20, 26, 36, 0.88);
+  border: 1px solid rgba(244, 211, 94, 0.75);
+  font-size: 11px;
+}
+.ex-key-fog { border-color: #8fa3c4; color: #d4e0f4; }
+.ex-key-nest { border-color: #b0303f; }
+.ex-key-raid { border-color: #e0455f; color: #ffc2c2; }
+.ex-key-drop { border-color: #f4d35e; }
+.explore-side .btn-big { margin-top: auto; }
+
+/* A map tile shown in a pop-up (scout reports, nests, expeditions): the hex's pixel art. */
 .hex-tile {
   position: absolute;
   inset: 2px;
@@ -1259,77 +1452,12 @@ html[data-gfx="low"] .staff-add { animation: none; }
   background-size: 100% 100%;
   image-rendering: pixelated;
 }
-.hex-loc { cursor: pointer; }
-.hex-loc:hover, .hex-fog-reachable:hover { transform: scale(1.08); filter: brightness(1.12); z-index: 20; }
-/* Plain scouted ground sits back so the places you can actually go stand out: points of interest
-   are raised, framed in gold (red for raid landmarks) and glow. */
-.hex-terrain::before { background: #262b35; }
-.hex-terrain .hex-tile { filter: saturate(0.7) brightness(0.8); }
-.hex-poi {
-  --edge: #f4d35e;
-  z-index: 6;
-  transform: scale(1.14);
-  filter: drop-shadow(0 0 7px rgba(244, 211, 94, 0.55)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6));
-}
-.hex-poi:hover { transform: scale(1.22); z-index: 20; }
-.hex-landmark { --edge: #e0455f; animation: landmark-pulse 2.4s ease-in-out infinite; }
-.hex-landmark-cleared { --edge: #555b66; animation: none; filter: grayscale(0.6) brightness(0.85) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); }
-.hex-assigned { --edge: var(--team); filter: drop-shadow(0 0 8px var(--team)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); animation: none; }
-.hex-nest { --edge: #8a1f2a; }
 .hex-nest .hex-tile::after {
   content: "";
   position: absolute;
   inset: 0;
   background: radial-gradient(circle at 50% 55%, rgba(170, 20, 40, 0.55), rgba(90, 10, 20, 0.25) 60%, transparent 80%);
   animation: nest-pulse 1.8s ease-in-out infinite;
-}
-@keyframes landmark-pulse {
-  0%, 100% { filter: drop-shadow(0 0 5px rgba(224, 69, 95, 0.5)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); }
-  50% { filter: drop-shadow(0 0 12px rgba(224, 69, 95, 0.9)) drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); }
-}
-@keyframes nest-pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
-}
-
-/* Fog of war: slowly drifting mist; the frontier you can scout is lighter and marked. */
-.hex-fog { --edge: #1a1e26; }
-.hex-fog-tile {
-  background-color: #10141b;
-  background-image:
-    radial-gradient(circle at 30% 35%, rgba(150, 165, 190, 0.16), transparent 45%),
-    radial-gradient(circle at 70% 70%, rgba(150, 165, 190, 0.1), transparent 50%);
-  background-size: 200% 200%;
-  animation: mist-drift 9s ease-in-out infinite alternate;
-}
-.hex-fog:nth-child(3n) .hex-fog-tile { animation-delay: -3s; }
-.hex-fog:nth-child(3n + 1) .hex-fog-tile { animation-delay: -6s; }
-.hex-fog-reachable { --edge: #3d4a5c; cursor: pointer; }
-.hex-fog-reachable .hex-fog-tile { background-color: #19202b; }
-.hex-fog-icon { position: relative; z-index: 2; font-size: 15px; font-weight: 700; color: #93a3b8; pointer-events: none; }
-@keyframes mist-drift {
-  from { background-position: 0% 0%; }
-  to { background-position: 100% 100%; }
-}
-
-.hex-name {
-  position: absolute;
-  bottom: -4px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 4;
-  max-width: 96px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: #0b0d12;
-  border: 1px solid rgba(244, 211, 94, 0.6);
-  color: #e6e8ec;
-  font-size: 9.5px;
-  font-weight: 700;
-  pointer-events: none;
 }
 .hex-badge {
   position: absolute;
@@ -1346,85 +1474,9 @@ html[data-gfx="low"] .staff-add { animation: none; }
   white-space: nowrap;
   pointer-events: none;
 }
-.hex-badge-boss { color: #ff8a8a; border: 1px solid rgba(214, 69, 69, 0.7); }
 .hex-badge-nest { color: #ffb0b0; background: rgba(90, 15, 25, 0.9); }
-.hex-assigned .hex-badge { display: none; }
-.hex-team {
-  position: absolute;
-  top: -13px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
-  display: flex;
-  align-items: flex-end;
-  padding: 1px 5px 0;
-  border-radius: 8px;
-  background: rgba(10, 12, 18, 0.85);
-  border: 1px solid var(--team);
-  pointer-events: none;
-}
-.hex-team-sprite svg { display: block; margin: 0 -2px; }
-.hex-team-more { align-self: center; margin-left: 4px; color: #fff; font-size: 9px; font-weight: 700; }
-
-.hex-routes { position: absolute; left: 0; top: 0; z-index: 3; overflow: visible; pointer-events: none; }
-.hex-routes path {
-  fill: none;
-  stroke-width: 2.5;
-  stroke-dasharray: 5 6;
-  stroke-linecap: round;
-  opacity: 0.9;
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
-  animation: route-march 0.9s linear infinite;
-}
-@keyframes route-march {
-  to { stroke-dashoffset: -11; }
-}
-
-.hex-tooltip {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 200px;
-  background: #12151c;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 12px;
-  text-align: left;
-  pointer-events: none;
-  z-index: 10;
-  display: none;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
-}
-.hex-tip-below { bottom: auto; top: calc(100% + 8px); }
-.hex-tip-left { left: auto; right: 0; transform: none; }
-.hex-tip-right { left: 0; transform: none; }
-.hex-tooltip b { display: block; margin-bottom: 2px; }
-.hex-tooltip p { margin: 2px 0; }
-.hex:hover .hex-tooltip { display: block; }
 
 .scout-row { justify-content: space-between; cursor: default; }
-
-.mission-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.mission-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--panel-2, #1c212c);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 5px 10px;
-  font-size: 12.5px;
-  color: var(--text, #fff);
-  cursor: pointer;
-}
-.mission-chip .btn-x {
-  color: var(--muted);
-  font-size: 11px;
-  padding: 0 2px;
-}
-.mission-chip .btn-x:hover { color: var(--accent-2); }
 
 .mission-card { display: block; max-width: 480px; }
 .mission-stats-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin: 6px 0 10px; }
@@ -1829,7 +1881,6 @@ html[data-gfx="low"] .staff-add { animation: none; }
 
 /* ---------- Exploration: chips, scout reports, nests, raids, expedition report ---------- */
 
-.mission-chip { border-color: var(--team, var(--border)); }
 .team-dot { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--team); box-shadow: 0 0 6px var(--team); }
 .legend-text { color: #f4c542; }
 
@@ -1963,21 +2014,8 @@ html[data-gfx="low"] .staff-add { animation: none; }
   .raid-intro { flex-direction: column; text-align: center; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hex-fog-tile, .hex-routes path, .hex-landmark, .hex-nest .hex-tile::after, .exp-walker, .exp-walker svg { animation: none; }
+  .cm-q, .cm-routes path, .cm-cell::before, .cm-drop-icon, .hex-nest .hex-tile::after, .exp-walker, .exp-walker svg { animation: none; }
 }
-
-/* The school grounds: one campus over seven hexes, raised above the map with a blue outline so
-   it never reads as just another (gold) point of interest. */
-.hex-campus {
-  position: absolute;
-  z-index: 5;
-  pointer-events: none;
-  filter: drop-shadow(0 0 12px rgba(79, 163, 255, 0.6)) drop-shadow(0 5px 8px rgba(0, 0, 0, 0.65));
-}
-.hex-campus svg { display: block; overflow: visible; }
-.hex-campus image { image-rendering: pixelated; }
-.campus-edge { fill: none; stroke: #4fa3ff; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
-.hex-name-school { bottom: -10px; font-size: 11px; padding: 2px 8px; border-color: #4fa3ff; color: #dcecff; }
 
 
 .skill-effect { display: block; font-size: 10.5px; font-weight: 400; color: var(--muted); }
@@ -2077,9 +2115,10 @@ html[data-gfx="low"] .staff-add { animation: none; }
 html[data-gfx="medium"] body::before,
 html[data-gfx="medium"] body::after,
 html[data-gfx="medium"] .scene-person,
-html[data-gfx="medium"] .hex-fog-tile,
-html[data-gfx="medium"] .hex-routes path,
-html[data-gfx="medium"] .hex-landmark,
+html[data-gfx="medium"] .cm-q,
+html[data-gfx="medium"] .cm-routes path,
+html[data-gfx="medium"] .cm-cell::before,
+html[data-gfx="medium"] .cm-drop-icon,
 html[data-gfx="medium"] .hex-nest .hex-tile::after,
 html[data-gfx="medium"] .exp-walker svg,
 html[data-gfx="medium"] .upg-pip-next,
