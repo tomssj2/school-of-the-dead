@@ -6,7 +6,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
   LOCATIONS, BOND_COUPLE_THRESHOLD, STAT_OF_SUBJECT, TRAITS,
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, MAX_TEACHERS, TEACHER_RECRUIT_CHANCE,
-  ROOM_LEVELS, ROOM_MAX_LEVEL, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, CLASSROOM_DEFAULT_SUBJECT, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
+  ROOM_LEVELS, ROOM_MAX_LEVEL, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, COUNCIL_CHANCE_BY_LEVEL,
   STAMINA_COST_GYM, STAMINA_COST_EXPLORE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
@@ -147,7 +147,7 @@ export function createInitialState() {
     raidKills: {}, // landmark id -> times its boss has been killed (each makes it tougher)
     characters: [],
     rooms: {
-      classrooms: Object.fromEntries(CLASSROOM_IDS.map((id) => [id, { level: 1, subject: CLASSROOM_DEFAULT_SUBJECT[id], seats: [] }])),
+      classrooms: Object.fromEntries(CLASSROOM_IDS.map((id) => [id, { level: 1, subject: null, seats: [] }])),
       ...Object.fromEntries(ROOM_KEYS.filter((k) => !k.startsWith("classroom:")).map((k) => [k, { level: 1 }])),
     },
     recruitPool: [],
@@ -444,12 +444,17 @@ export function setTeacherPost(state, teacherId, post) {
 
   t.post = post;
 
-  // The first teacher in a classroom with nobody teaching switches it to their best subject; the
-  // room keeps teaching that after they leave (at the no-teacher pace, see lessonFrom).
+  // Leaving a classroom: if no teacher is left there, the room goes back to unassigned.
+  if (oldPost && oldPost.startsWith("classroom:") && oldPost !== post) {
+    const oldRoom = state.rooms.classrooms[oldPost.split(":")[1]];
+    const stillStaffed = state.characters.some((c) => c.role === "teacher" && c.alive && c.post === oldPost);
+    if (oldRoom && !stillStaffed) oldRoom.subject = null;
+  }
+
+  // Joining an unassigned classroom: it takes on this teacher's best classroom subject.
   if (post && post.startsWith("classroom:")) {
     const room = state.rooms.classrooms[post.split(":")[1]];
-    const alone = !state.characters.some((c) => c !== t && c.role === "teacher" && c.alive && c.post === post);
-    if (room && (alone || !room.subject)) room.subject = bestClassroomSubjectFor(t);
+    if (room && !room.subject) room.subject = bestClassroomSubjectFor(t);
   }
 
   return true;
@@ -918,7 +923,8 @@ export function classroomLesson(state, roomId) {
   const room = state.rooms.classrooms[roomId];
   const subject = room?.subject;
   const teachers = subject ? state.characters.filter((t) => t.role === "teacher" && t.alive && t.post === `classroom:${roomId}`) : [];
-  return lessonFrom(subject, teachers, room?.level || 1, techPerk(state, "classXp"));
+  // Unlike the training rooms, a classroom with no teacher teaches nothing.
+  return lessonFrom(teachers.length ? subject : null, teachers, room?.level || 1, techPerk(state, "classXp"));
 }
 // A day's teaching in `subject` from these teachers in a room of this level: its gain in grade
 // points (the level bonus + each teacher's, times 1 + `boost`) and the ceiling nobody learns past

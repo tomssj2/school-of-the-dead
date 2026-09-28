@@ -8,7 +8,7 @@ import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnab
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
 import { maxOutSchool, infectStudents } from "./dev.js";
 import {
-  SUBJECTS, CLASSROOM_IDS, CLASSROOM_DEFAULT_SUBJECT, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
+  SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, OBJECTIVES, ROOM_FIGHT_SQUAD, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
@@ -139,9 +139,10 @@ function migrateState(s) {
   (s.recruitPool || []).forEach(fixup);
 
   migrateClassroomRooms(s);
+  // A classroom with no teacher has no subject (saves from when rooms kept theirs).
   for (const id of CLASSROOM_IDS) {
     const room = s.rooms.classrooms?.[id];
-    if (room && !room.subject) room.subject = CLASSROOM_DEFAULT_SUBJECT[id];
+    if (room && !s.characters.some((c) => c.role === "teacher" && c.alive && c.post === `classroom:${id}`)) room.subject = null;
   }
   if (!s.rooms.gym) s.rooms.gym = { studentCapacity: GYM_CAPACITY, teacherCapacity: GYM_MAX_TEACHERS };
   if (!s.rooms.cafeteria) s.rooms.cafeteria = { teacherCapacity: CAFETERIA_MAX_TEACHERS };
