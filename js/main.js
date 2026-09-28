@@ -36,7 +36,7 @@ repairIds(state);
 let activeTab = "overview";
 let openCardId = null;
 let cardTab = "stats";
-let rosterFilter = "all";
+let rosterFilter = "student"; // the Roster shows students or teachers
 let rosterSortKey = "name";
 let rosterSortDir = "asc";
 let openMissionLocationId = null;

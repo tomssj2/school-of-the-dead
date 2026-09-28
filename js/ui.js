@@ -142,10 +142,9 @@ function staminaBar(c) {
   return `<div class="hpbar staminabar"><div class="hpfill ${cls}" style="width:${pct}%"></div><span>${c.stamina}/${c.maxStamina}</span></div>`;
 }
 
-// The room's one Upgrade button, in the top-right corner of its banner (roomScene's `actions`):
-// it opens a popup with what the next level brings. At the top level it just says Max — unless a
-// raid broke something, when it opens the popup to repair it.
-// Nothing at max level (the plaque says MAX instead), unless a raid left something to repair.
+// The room's one Upgrade button, in the bottom-left corner of its banner (roomScene's `actions`):
+// it opens a popup with what the next level brings. Nothing at max level (the plaque says MAX
+// instead), unless a raid left something to repair.
 function roomUpgradeButton(state, key) {
   const cost = roomUpgradeCostFor(state, key);
   const repair = roomRepairCost(state, key);
@@ -2660,12 +2659,14 @@ function rosterSortValue(c, key) {
   return c.grades[subject];
 }
 
-export function renderRoster(state, filter = "all", sortKey = "name", sortDir = "asc") {
+export function renderRoster(state, filter = "student", sortKey = "name", sortDir = "asc") {
+  if (filter !== "teacher") filter = "student";
+  const teachersView = filter === "teacher";
   const showDead = window.__showDead;
   const fields = ROSTER_SORT_FIELDS;
-  const effectiveSortKey = fields.some((f) => f.key === sortKey) ? sortKey : "name";
+  const effectiveSortKey = fields.some((f) => f.key === sortKey) && !(teachersView && ["level", "hp", "stamina"].includes(sortKey)) ? sortKey : "name";
   const list = state.characters
-    .filter((c) => (showDead || c.alive) && (filter === "all" || c.role === filter))
+    .filter((c) => (showDead || c.alive) && c.role === filter)
     .sort((a, b) => {
       const va = rosterSortValue(a, effectiveSortKey);
       const vb = rosterSortValue(b, effectiveSortKey);
@@ -2674,23 +2675,13 @@ export function renderRoster(state, filter = "all", sortKey = "name", sortDir = 
     });
   const rows = list
     .map((c) => {
-      const loc =
-        c.role === "teacher"
-          ? c.post
-            ? c.post.startsWith("classroom:")
-              ? roomDisplayName(state, c.post.split(":")[1])
-              : c.post
-            : "unassigned"
-          : c.seat
-          ? roomDisplayName(state, c.seat.room)
-          : "unassigned";
+      // Teachers: their post by name; students: their classroom.
+      const loc = c.role === "teacher" ? occupationLabel(state, c) : c.seat ? roomDisplayName(state, c.seat.room) : "Unassigned";
       return `<tr class="${c.alive ? "" : "row-dead"}">
         <td>${rosterNameTag(c)}</td>
-        <td>${c.role}</td>
         <td>${c.gender}</td>
-        <td>${c.role === "teacher" ? `🌟 ${SUBJECT_LABEL[c.teachSubject]}` : `Lv${overallLevel(c)}`}</td>
-        <td>${c.role === "teacher" ? '<span class="muted">—</span>' : hpBar(c)}</td>
-        <td>${c.role === "teacher" ? '<span class="muted">—</span>' : staminaBar(c)}</td>
+        <td>${teachersView ? `🌟 ${SUBJECT_LABEL[c.teachSubject]}` : overallLevel(c)}</td>
+        ${teachersView ? "" : `<td>${hpBar(c)}</td><td>${staminaBar(c)}</td>`}
         <td>${statusTag(c, state)}</td>
         <td>${esc(loc)}</td>
         <td>${statChips(c)}</td>
@@ -2699,7 +2690,6 @@ export function renderRoster(state, filter = "all", sortKey = "name", sortDir = 
     .join("");
 
   const filterTabs = [
-    ["all", "All"],
     ["student", "🧳 Students"],
     ["teacher", "🎓 Teachers"],
   ];
@@ -2707,7 +2697,7 @@ export function renderRoster(state, filter = "all", sortKey = "name", sortDir = 
     .map(([id, label]) => `<button class="subtab-btn ${filter === id ? "active" : ""}" data-action="set-roster-filter" data-filter="${id}">${label}</button>`)
     .join("")}</div>`;
 
-  const sortOptions = fields.map((f) => `<option value="${f.key}" ${f.key === effectiveSortKey ? "selected" : ""}>${f.label}</option>`).join("");
+  const sortOptions = fields.filter((f) => !teachersView || !["level", "hp", "stamina"].includes(f.key)).map((f) => `<option value="${f.key}" ${f.key === effectiveSortKey ? "selected" : ""}>${f.label}</option>`).join("");
 
   const fallen = state.characters.filter((c) => !c.alive);
   const memorial = fallen.length
@@ -2738,8 +2728,8 @@ export function renderRoster(state, filter = "all", sortKey = "name", sortDir = 
     <label class="check-row"><input type="checkbox" data-action="toggle-show-dead" ${showDead ? "checked" : ""}/> Show deceased</label>
     <div class="table-wrap">
       <table class="roster-table">
-        <thead><tr><th>Name</th><th>Role</th><th>Sex</th><th>Level / Teaches</th><th>HP</th><th>Stamina</th><th>Status</th><th>Assignment</th><th>Stats</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="9" class="muted">Nobody here.</td></tr>'}</tbody>
+        <thead><tr><th>Name</th><th>Sex</th>${teachersView ? "<th>Teaches</th>" : "<th>Lvl</th><th>HP</th><th>Stamina</th>"}<th>Status</th><th>Assignment</th><th>Stats</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="${teachersView ? 6 : 8}" class="muted">Nobody here.</td></tr>`}</tbody>
       </table>
     </div>
     ${memorial}
@@ -3029,7 +3019,7 @@ export function renderCharacterCard(state, c, cardTab = "stats") {
 
 // ---------- root ----------
 
-export function renderApp(state, activeTab, rosterFilter = "all", floaties = [], rosterSortKey = "name", rosterSortDir = "asc") {
+export function renderApp(state, activeTab, rosterFilter = "student", floaties = [], rosterSortKey = "name", rosterSortDir = "asc") {
   let content;
   if (activeTab === "floor1") content = renderFloor1(state);
   else if (activeTab === "floor2") content = renderFloor2(state);

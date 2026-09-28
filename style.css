@@ -931,14 +931,19 @@ html[data-gfx="low"] .staff-add { animation: none; }
 .tag-injured { background: #3d2f14; color: var(--warn); }
 .tag-dead { background: #3a1a1a; color: var(--accent-2); }
 
-.hpbar { position: relative; background: #10131a; border-radius: 4px; width: 90px; height: 15px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5); }
+.hpbar { position: relative; background: #10131a; border-radius: 4px; width: 96px; height: 18px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5); }
 .hpfill { height: 100%; transition: width 0.25s ease; }
 .hp-high { background: linear-gradient(180deg, #6bd6a0, var(--accent)); }
 .hp-mid { background: linear-gradient(180deg, #f0c168, var(--warn)); }
 .hp-low { background: linear-gradient(180deg, #e5726d, var(--accent-2)); }
-.hpbar span { position: absolute; inset: 0; font-size: 10px; display: flex; align-items: center; justify-content: center; color: #fff; text-shadow: 0 0 2px #000; }
+/* The numbers on a bar: bold white with a dark outline, readable over any fill. */
+.hpbar span {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: 0.2px;
+  text-shadow: -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000, 0 1px 3px rgba(0, 0, 0, 0.8);
+}
 
-.staminabar { width: 78px; height: 13px; display: inline-block; vertical-align: middle; border-radius: 3px; overflow: hidden; transition: width 0.25s ease; box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5); }
+.staminabar { display: block; }
 .stamina-ok { background: linear-gradient(180deg, #63bde0, #3fa7d6); }
 .stamina-low { background: linear-gradient(180deg, #f0c168, var(--warn)); }
 .stamina-empty { background: linear-gradient(180deg, #e5726d, var(--accent-2)); }
