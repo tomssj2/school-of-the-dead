@@ -400,18 +400,16 @@ export const CLASSROOM_CAPACITY = 8;
 export const CLASSROOM_SEATS_PER_LEVEL = 2;
 export const CLASSROOM_MAX_TEACHERS = 1; // at level 1; an assistant joins at room level 5, teaching the same subject
 
-// Two training rooms: the Gymnasium (PE) builds max HP and Acrobatics (Gymnastics) max stamina.
-// Each has its own capacity and upgrades. A session adds 1 + the combined rank of that room's
-// teachers in its subject (F=0, D=1, C=2, B=3, A=4, S=5) to every student there, up to
-// GYM_MAX_BONUS in total. Students train in c.gymToday = "PE" | "Gymnastics"; teachers are posted
-// to "gym:PE" / "gym:Gymnastics".
+// Two training rooms, taught like the classrooms: the Gymnasium raises STR (PE) and Acrobatics
+// DEX (Gymnastics) by the room's level bonus + each teacher's bonus a session, up to the best
+// teacher's own grade (see gymLesson). STR and DEX in turn raise max HP and max stamina.
+// Students train in c.gymToday = "PE" | "Gymnastics"; teachers are posted to "gym:PE" / "gym:Gymnastics".
 export const GYM_CAPACITY = 4; // student slots per room at level 1
-export const GYM_MAX_TEACHERS = 1; // teacher slots at level 1 (training works fine with none)
-export const GYM_MAX_BONUS = 100; // most max HP / max stamina a student can gain from training
+export const GYM_MAX_TEACHERS = 1; // teacher slots at level 1 (no teacher, no training)
 export const GYM_SIDES = {
   // `ref` is how a sentence names the room ("training in the Gymnasium", "training in Acrobatics").
-  PE: { label: "PE", icon: "💪", gains: "max HP", room: "Gymnasium", ref: "the Gymnasium", roomKey: "gym" },
-  Gymnastics: { label: "Gymnastics", icon: "🤸", gains: "max stamina", room: "Acrobatics", ref: "Acrobatics", roomKey: "acrobatics" },
+  PE: { label: "PE", icon: "💪", gains: "STR", also: "max HP", room: "Gymnasium", ref: "the Gymnasium", roomKey: "gym" },
+  Gymnastics: { label: "Gymnastics", icon: "🤸", gains: "DEX", also: "max stamina", room: "Acrobatics", ref: "Acrobatics", roomKey: "acrobatics" },
 };
 
 export const CAFETERIA_MAX_TEACHERS = 1; // cook slots at level 1 — each cook makes one dish a day

@@ -1,6 +1,6 @@
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS,
-  GYM_CAPACITY, GYM_MAX_TEACHERS, GYM_MAX_BONUS, CAFETERIA_MAX_TEACHERS,
+  GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS,
   RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME,
   FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, FORTIFICATION_CAP,
@@ -484,18 +484,17 @@ export function gymTeachers(state, side) {
 // A teacher's rank in a subject: F=0, D=1, C=2, B=3, A=4, S=5.
 export const teacherRank = (t, subject) => GRADE_TIERS.indexOf(gradeLetter(t.grades[subject]));
 
-// Max HP (Gymnasium) or max stamina (Acrobatics) each student gains from one session there.
-// A session's gain: the room's level bonus, plus each teacher's rank in the subject.
-export function gymGain(state, side) {
-  return gymLevelBonus(state, side) + gymTeachers(state, side).reduce((sum, t) => sum + teacherRank(t, side), 0);
+// A Gymnasium (STR) / Acrobatics (DEX) session, taught exactly like a class (see lessonFrom).
+export function gymLesson(state, side) {
+  return lessonFrom(side, gymTeachers(state, side), roomLevel(state, GYM_SIDES[side].roomKey), 0);
 }
-export const gymLevelBonus = (state, side) => ROOM_STAT_BONUS_BY_LEVEL[roomLevel(state, GYM_SIDES[side].roomKey) - 1];
 
-// What one session adds to a student's max HP (PE) or max stamina (Gymnastics): the room's gain,
-// capped by how much they can still train (GYM_MAX_BONUS in total).
+// What one session adds to a student's STR (PE) or DEX (Gymnastics): 0 once they've caught up
+// with the teacher.
 export function trainingGain(state, c, side) {
-  const trained = side === "PE" ? c.trainedHp || 0 : c.trainedStamina || 0;
-  return Math.max(0, Math.min(gymGain(state, side), GYM_MAX_BONUS - trained));
+  const lesson = gymLesson(state, side);
+  if (!c || !lesson.subject) return 0;
+  return Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[side], 100 - c.grades[side]));
 }
 
 // What one outside worker brings in today: the facility's base yield, plus 1 for every
@@ -924,12 +923,17 @@ export function classroomLesson(state, roomId) {
   const room = state.rooms.classrooms[roomId];
   const subject = room?.subject;
   const teachers = subject ? state.characters.filter((t) => t.role === "teacher" && t.alive && t.post === `classroom:${roomId}`) : [];
-  if (!teachers.length) return { subject: null, gain: 0, ceiling: 0, levelBonus: 0, teachers };
-  const levelBonus = ROOM_STAT_BONUS_BY_LEVEL[(room.level || 1) - 1];
+  return lessonFrom(subject, teachers, room?.level || 1, techPerk(state, "classXp"));
+}
+// A day's teaching in `subject` from these teachers in a room of this level: its gain in grade
+// points (the level bonus + each teacher's, times 1 + `boost`) and the ceiling nobody learns past.
+function lessonFrom(subject, teachers, level, boost) {
+  if (!subject || !teachers.length) return { subject: null, gain: 0, ceiling: 0, levelBonus: 0, teachers };
+  const levelBonus = ROOM_STAT_BONUS_BY_LEVEL[level - 1];
   const base = levelBonus + teachers.reduce((sum, t) => sum + teachingBonus(t.grades[subject]), 0);
   return {
     subject,
-    gain: Math.round(base * (1 + techPerk(state, "classXp"))),
+    gain: Math.round(base * (1 + boost)),
     ceiling: Math.max(...teachers.map((t) => t.grades[subject])),
     levelBonus,
     teachers,
@@ -964,28 +968,26 @@ export function resolveTraining(state) {
 
   }
 
-  // training — the Gymnasium (PE) builds max HP and Acrobatics (Gymnastics) max stamina,
-  // by 1 + the combined rank of that room's teachers; students also earn that subject's grade XP
-  // (faster with a good teacher). No teacher is required.
+  // training — the Gymnasium raises STR and Acrobatics DEX, taught like a class (gymLesson): the
+  // room's level bonus + each teacher's, up to the teacher's own grade. A higher STR / DEX raises
+  // max HP / max stamina too (refreshMaxStats). No teacher, no training.
   for (const side of ["PE", "Gymnastics"]) {
     const students = state.characters.filter((c) => c.gymToday === side && c.alive);
     if (!students.length) continue;
-    const xpBonus = gymTeachers(state, side).reduce((sum, t) => sum + teachingBonus(t.grades[side]), 0);
-    const gain = gymGain(state, side);
+    const lesson = gymLesson(state, side);
     for (const c of students) {
-      grantXp(state, c.id, side, 3 + xpBonus + randInt(0, 2));
       const add = trainingGain(state, c, side);
-      if (side === "PE") {
-        c.trainedHp = (c.trainedHp || 0) + add;
+      if (add) {
+        const before = c.maxHp;
+        c.grades[side] += add;
         refreshMaxStats(c);
-        c.hp = Math.min(c.maxHp, c.hp + add);
-      } else {
-        c.trainedStamina = (c.trainedStamina || 0) + add;
-        refreshMaxStats(c);
+        c.hp = Math.min(c.maxHp, c.hp + Math.max(0, c.maxHp - before));
       }
       c.stamina = Math.max(0, c.stamina - STAMINA_COST_GYM);
     }
-    addLog(state, `${GYM_SIDES[side].room}: ${students.length} student(s) trained ${side}, +${gain} ${GYM_SIDES[side].gains} each.`);
+    addLog(state, lesson.subject
+      ? `${GYM_SIDES[side].room}: ${students.length} student(s) trained, up to +${lesson.gain} ${GYM_SIDES[side].gains} each.`
+      : `${GYM_SIDES[side].room}: no teacher, so ${students.length} student(s) only worked up a sweat.`);
     teamBondBumps(state, students.map((c) => c.id));
   }
 
