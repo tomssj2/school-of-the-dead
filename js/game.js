@@ -11,7 +11,7 @@ import {
   STAMINA_COST_GYM, STAMINA_COST_EXPLORE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
-  FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE,
+  FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
   EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
   ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
@@ -1666,7 +1666,7 @@ export function resolveFacilityRaid(state) {
 // manage gear from, so a legendary teacher's item goes to the shared armory instead of sitting
 // on their sheet, unusable.
 function addLegendaryRecruit(state) {
-  const role = rollRecruitRole(state);
+  const role = teacherCount(state) < MAX_TEACHERS && Math.random() < LEGENDARY_TEACHER_CHANCE ? "teacher" : "student";
   const recruit = makeLegendaryCharacter(role, pick(["M", "F"]));
   if (role === "teacher") {
     const { meleeWeapon, rangedWeapon, armor, accessories } = recruit.equipment;

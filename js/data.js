@@ -94,8 +94,9 @@ export const GRADE_RANGES = {
 export const STUDENT_TIER_WEIGHTS = [40, 28, 18, 9, 4, 1];
 
 // Teachers are generated completely differently from students: they roll ONE specialty subject
-// at S rank, and their other five subjects are randomized among these tiers only (never below C).
-export const TEACHER_SECONDARY_TIERS = ["C", "B", "A"];
+// at A rank (only legendary teachers reach S), and their other five subjects are randomized among
+// these tiers only (never below D) — always at least one rank under the specialty.
+export const TEACHER_SECONDARY_TIERS = ["D", "C", "B"];
 export const TEACHER_SECONDARY_WEIGHTS = [50, 33, 17];
 
 // How much a teacher's grade in a subject boosts that subject for every student in the room
@@ -646,6 +647,7 @@ export const FACILITY_RAID_CHANCE = 0.1;
 export const ASSAULT_CHANCE = 0.2;
 export const RAIDABLE_FACILITIES = ["farm", "scrapyard", "ranch"];
 export const LEGENDARY_CHANCE = 0.15; // chance a won Assault turns up a legendary survivor
+export const LEGENDARY_TEACHER_CHANCE = 0.1; // chance a legendary survivor is a teacher (if there's room for one)
 
 // ===== Random events =====
 // Rolled once per day (at the Turn 3 -> Turn 1 rollover). `effect` is interpreted generically

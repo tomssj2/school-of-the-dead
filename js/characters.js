@@ -173,15 +173,15 @@ export function randomGrades() {
   return grades;
 }
 
-// Teachers are built completely differently: one randomly chosen specialty subject always
-// rolls S rank, and every other subject rolls C/B/A only — never below C, and never S (S is
-// reserved for the specialty, so a teacher is always the undisputed best at one specific thing).
+// Teachers are built completely differently: one randomly chosen specialty subject rolls A rank
+// (legendary teachers get bumped to S), and every other subject rolls D/C/B only, so a teacher is
+// always the undisputed best at one specific thing (see capTeacherGrades).
 export function randomTeacherGrades() {
   const specialty = pick(SUBJECTS);
   const grades = {};
   for (const s of SUBJECTS) {
     if (s === specialty) {
-      const [lo, hi] = GRADE_RANGES.S;
+      const [lo, hi] = GRADE_RANGES.A;
       grades[s] = randInt(lo, hi);
     } else {
       const tier = TEACHER_SECONDARY_TIERS[weightedTierIndex(TEACHER_SECONDARY_WEIGHTS)];
@@ -194,9 +194,10 @@ export function randomTeacherGrades() {
 
 // A teacher's specialty is always their best grade: every other grade sits at least one rank
 // below it (an A in Biology means nothing above B elsewhere). Grades over that are lowered to the
-// top of the rank below.
+// top of the rank below. Only legendary teachers can be S rank — anyone else tops out at A.
 export function capTeacherGrades(c) {
   if (c.role !== "teacher" || !c.teachSubject) return;
+  if (!c.legendary) c.grades[c.teachSubject] = Math.min(c.grades[c.teachSubject], GRADE_RANGES.A[1]);
   const top = c.grades[c.teachSubject];
   const rank = GRADE_TIERS.indexOf(gradeLetter(top));
   const cap = rank > 0 ? GRADE_RANGES[GRADE_TIERS[rank - 1]][1] : top;
@@ -304,12 +305,12 @@ export function makeLegendaryItem(template = pick(LEGENDARY_ITEM_TEMPLATES)) {
 export function makeLegendaryCharacter(role, gender) {
   const c = makeCharacter(role, gender);
   for (const s of SUBJECTS) c.grades[s] = bumpTier(c.grades[s]);
-  capTeacherGrades(c);
+  c.legendary = true;
+  capTeacherGrades(c); // a legendary teacher's specialty is S, the rest A at most
   c.maxHp = maxHpFor(c.grades);
   c.hp = c.maxHp;
   c.maxStamina = maxStaminaFor(c);
   c.stamina = c.maxStamina;
-  c.legendary = true;
 
   const title = pick(LEGENDARY_TITLES);
   const baseName = role === "teacher" ? stripHonorific(c.name) : c.name;
