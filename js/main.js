@@ -581,17 +581,97 @@ function fitCityMap() {
   layout.style.height = `${height}px`;
   const over = content.scrollHeight - content.clientHeight; // the card's own padding below it
   if (over > 0 && height > 360) layout.style.height = `${(height = Math.max(360, height - over))}px`;
+  placeCamera(map);
+}
+window.addEventListener("resize", fitCityMap);
+
+// The player's own zoom on top of the fit: mapCam.z times the fitted scale (1 = the whole view),
+// looking at world point (x, y) — kept across re-renders until reset.
+let mapCam = { z: 1, x: null, y: null };
+const MAP_MAX_SCALE = 5;
+
+function mapFit(map) {
   const [vx, vy, vw, vh] = map.dataset.view.split(",").map(Number);
   const cw = map.clientWidth;
   const ch = map.clientHeight;
-  const s = Math.min(cw / vw, ch / vh, 3.5);
+  return { vx, vy, vw, vh, cw, ch, s: Math.min(cw / vw, ch / vh, 3.5) };
+}
+
+function placeCamera(map) {
+  const f = mapFit(map);
+  const zMax = Math.max(1, MAP_MAX_SCALE / f.s);
+  mapCam.z = Math.min(Math.max(1, mapCam.z), zMax);
+  const s = f.s * mapCam.z;
+  // Zoomed in, the centre can move anywhere that keeps the view box's edge on screen.
+  const halfW = f.cw / 2 / s;
+  const halfH = f.ch / 2 / s;
+  const clampTo = (v, lo, hi) => (lo > hi ? (lo + hi) / 2 : Math.min(Math.max(v, lo), hi));
+  if (mapCam.z <= 1 || mapCam.x === null) {
+    mapCam.x = f.vx + f.vw / 2;
+    mapCam.y = f.vy + f.vh / 2;
+  }
+  mapCam.x = clampTo(mapCam.x, f.vx + halfW, f.vx + f.vw - halfW);
+  mapCam.y = clampTo(mapCam.y, f.vy + halfH, f.vy + f.vh - halfH);
   // Zoomed far out (a small screen, the whole town explored), names shrink to their icon.
   map.classList.toggle("cm-compact", s < 1.35);
+  map.classList.toggle("cm-zoomed", mapCam.z > 1.001);
   map.style.setProperty("--s", s.toFixed(4));
-  map.style.setProperty("--ox", `${(cw / 2 - (vx + vw / 2) * s).toFixed(1)}px`);
-  map.style.setProperty("--oy", `${(ch / 2 - (vy + vh / 2) * s).toFixed(1)}px`);
+  map.style.setProperty("--ox", `${(f.cw / 2 - mapCam.x * s).toFixed(1)}px`);
+  map.style.setProperty("--oy", `${(f.ch / 2 - mapCam.y * s).toFixed(1)}px`);
 }
-window.addEventListener("resize", fitCityMap);
+
+// Mouse wheel: zoom towards the cursor.
+document.addEventListener("wheel", (e) => {
+  const map = e.target.closest?.(".citymap");
+  if (!map) return;
+  e.preventDefault();
+  const f = mapFit(map);
+  const rect = map.getBoundingClientRect();
+  const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+  const mx = (e.clientX - rect.left) / zoom;
+  const my = (e.clientY - rect.top) / zoom;
+  const s = f.s * mapCam.z;
+  const ox = f.cw / 2 - mapCam.x * s;
+  const oy = f.ch / 2 - mapCam.y * s;
+  const wx = (mx - ox) / s; // the world point under the cursor stays put
+  const wy = (my - oy) / s;
+  mapCam.z = Math.min(Math.max(1, mapCam.z * Math.exp(-e.deltaY * 0.0015)), Math.max(1, MAP_MAX_SCALE / f.s));
+  const s2 = f.s * mapCam.z;
+  mapCam.x = wx - (mx - f.cw / 2) / s2;
+  mapCam.y = wy - (my - f.ch / 2) / s2;
+  placeCamera(map);
+}, { passive: false });
+
+// Drag to pan while zoomed in. A drag doesn't count as a click on whatever it started over.
+let mapDrag = null;
+document.addEventListener("pointerdown", (e) => {
+  const map = e.target.closest?.(".citymap");
+  if (!map || e.button !== 0 || mapCam.z <= 1.001) return;
+  mapDrag = { map, x: e.clientX, y: e.clientY, cx: mapCam.x, cy: mapCam.y, moved: false };
+});
+document.addEventListener("pointermove", (e) => {
+  if (!mapDrag) return;
+  const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+  const dx = (e.clientX - mapDrag.x) / zoom;
+  const dy = (e.clientY - mapDrag.y) / zoom;
+  if (!mapDrag.moved && Math.hypot(dx, dy) < 4) return;
+  mapDrag.moved = true;
+  mapDrag.map.classList.add("cm-dragging");
+  const s = mapFit(mapDrag.map).s * mapCam.z;
+  mapCam.x = mapDrag.cx - dx / s;
+  mapCam.y = mapDrag.cy - dy / s;
+  placeCamera(mapDrag.map);
+});
+document.addEventListener("pointerup", () => {
+  if (!mapDrag) return;
+  mapDrag.map.classList.remove("cm-dragging");
+  if (mapDrag.moved) {
+    const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+    document.addEventListener("click", swallow, { capture: true, once: true });
+    setTimeout(() => document.removeEventListener("click", swallow, { capture: true }), 0);
+  }
+  mapDrag = null;
+});
 
 function loadGame() {
   try {
@@ -1039,6 +1119,12 @@ root.addEventListener("click", (e) => {
       openPicker = null;
       openScoutHex = { q, r };
       render();
+      break;
+    }
+    case "map-reset": {
+      mapCam = { z: 1, x: null, y: null };
+      const map = root.querySelector(".citymap");
+      if (map) placeCamera(map);
       break;
     }
     case "open-drop": {

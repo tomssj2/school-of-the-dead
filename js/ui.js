@@ -988,7 +988,7 @@ function renderTurn2Overview(state) {
     <div class="explore-layout">
       ${renderExplorationMap(state)}
       <aside class="explore-side">
-        <h2>Exploration ${infoDot({ title: "🗺 Turn 2 — Exploration", notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Landmarks at the edge hold raid bosses and legendary gear", "Teachers stay at the school"] })}</h2>
+        <h2>Exploration ${infoDot({ title: "🗺 Turn 2 — Exploration", notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Scroll to zoom, drag to look around","Landmarks at the edge hold raid bosses and legendary gear", "Teachers stay at the school"] })}</h2>
         <div class="mini-label">Teams</div>
         ${teamRows}${raidRow}
         <div class="ex-legend">
@@ -1122,6 +1122,7 @@ function renderExplorationMap(state) {
       <img class="cm-layer" src="${fogUrl(clear, reachable)}" alt="" draggable="false">
       <svg class="cm-routes" width="${WORLD_W}" height="${WORLD_H}" viewBox="0 0 ${WORLD_W} ${WORLD_H}">${routes}</svg>
     </div>
+    <button class="cm-reset" data-action="map-reset" title="Zoom back out">⤢ Whole map</button>
     <div class="cm-cell cm-school" style="--x:${school.x};--y:${school.y + 34};"><span class="cm-label cm-label-school">🏫<span class="cm-name"> School</span></span></div>
     ${cells}
   </div>`;

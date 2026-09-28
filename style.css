@@ -1225,6 +1225,27 @@ html[data-gfx="low"] .staff-add { animation: none; }
    pair to fill the space under the header, and scales the town to fit with --s / --ox / --oy. */
 .explore-layout { display: flex; gap: 12px; min-height: 360px; }
 .explore-side h2 { margin: 0 0 6px; }
+/* Scrolled in (main.js: wheel to zoom, drag to pan): a grab cursor and a way back out. */
+.citymap.cm-zoomed { cursor: grab; }
+.citymap.cm-dragging, .citymap.cm-dragging .cm-cell { cursor: grabbing; }
+.cm-dragging .cm-cell:hover::before { background: none; }
+.cm-reset {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 8;
+  display: none;
+  padding: 4px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(12, 15, 21, 0.9);
+  color: var(--text, #fff);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.cm-reset:hover { border-color: #8fa3c4; }
+.cm-zoomed .cm-reset { display: block; }
 /* Zoomed far out: place names shrink to their icon (the tooltip still has the name). */
 .cm-compact .cm-name { display: none; }
 .cm-compact .cm-label { padding: 0 3px; font-size: 11px; }
