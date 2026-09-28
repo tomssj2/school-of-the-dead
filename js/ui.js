@@ -882,33 +882,100 @@ function renderObjectiveBanner(state) {
   </div>`;
 }
 
+// One room at a glance on the Turn 1 dashboard: a strip of its pixel art with its name, the one
+// number that matters today, how full it is, and a short line — or what's wrong, in orange.
+// Clicking it goes to the room's floor.
+function overviewCard({ tab, scene, name, level = "", big, unit = "", used = null, cap = null, meta = "", warn = "", locked = false }) {
+  const pct = cap ? Math.round((Math.min(used, cap) / cap) * 100) : 0;
+  return `<button class="ov-card ${locked ? "ov-locked" : ""}" data-action="set-tab" data-tab="${tab}">
+    <span class="ov-banner" style="background-image:${sceneBackground(scene)}"><span class="ov-plaque">${locked ? "🔒 " : ""}${name}${level}</span></span>
+    <span class="ov-big">${big}${unit ? ` <small>${unit}</small>` : ""}</span>
+    ${cap ? `<span class="ov-bar ${used >= cap ? "ov-bar-full" : used ? "" : "ov-bar-empty"}"><i style="width:${pct}%"></i></span>` : ""}
+    ${meta ? `<span class="ov-meta">${meta}</span>` : ""}
+    ${warn ? `<span class="ov-warn">${warn}</span>` : ""}
+  </button>`;
+}
+
 function renderTurn1Overview(state) {
-  const classroomSummaries = CLASSROOM_IDS.map((roomId) => {
-    const room = state.rooms.classrooms[roomId];
-    if (isBoarded(state, `classroom:${roomId}`)) return `<li><b>Classroom ${roomId}</b>: <span class="muted">boarded up</span></li>`;
-    const n = room.seats.filter(Boolean).length;
-    const teachers = state.characters.filter((c) => c.role === "teacher" && c.post === `classroom:${roomId}`);
-    return `<li><b>${roomDisplayName(state, roomId)}</b>: ${n}/${room.seats.length} students, ${teachers.length} teacher(s)</li>`;
+  const count = (flag, value = true) => state.characters.filter((c) => c.alive && (value === true ? c[flag] : c[flag] === value)).length;
+  const posted = (post) => state.characters.filter((c) => c.role === "teacher" && c.alive && c.post === post).length;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const locked = (key, scene, tab) => overviewCard({ tab, scene, name: BOARDED_ROOMS[key].name, big: "Boarded up", locked: true, meta: `${BOARDED_ROOMS[key].cost} scrap to clear` });
+
+  const classrooms = CLASSROOM_IDS.map((id) => {
+    const key = `classroom:${id}`;
+    if (isBoarded(state, key)) return locked(key, "classroom_empty", "floor2");
+    const room = state.rooms.classrooms[id];
+    const lesson = classroomLesson(state, id);
+    const seated = room.seats.filter(Boolean).length;
+    return overviewCard({
+      tab: "floor2", scene: room.subject ? `classroom_${room.subject}` : "classroom_empty", name: roomDisplayName(state, id), level: levelBadge(state, key),
+      big: lesson.subject ? `+${lesson.gain}` : "—", unit: lesson.subject ? `${STAT_OF_SUBJECT[room.subject]} a day` : "",
+      used: seated, cap: room.seats.length, meta: `${seated}/${room.seats.length} students · ${plural(posted(key), "teacher")}`,
+      warn: lesson.subject ? "" : "No teacher — no class",
+    });
   }).join("");
-  const gymCount = (side) => state.characters.filter((c) => c.gymToday === side).length;
-  const cooks = cooksOnDuty(state);
-  const patientCount = state.characters.filter((c) => c.infirmaryToday).length;
-  const nurse = state.characters.find((c) => c.role === "teacher" && c.post === "infirmary" && c.alive);
-  const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
+
+  const training = ["PE", "Gymnastics"].map((side) => {
+    const info = GYM_SIDES[side];
+    const lesson = gymLesson(state, side);
+    const n = count("gymToday", side);
+    const cap = gymRoom(state, side).studentCapacity;
+    return overviewCard({ tab: "floor1", scene: info.roomKey, name: info.room, level: levelBadge(state, info.roomKey), big: `+${lesson.gain}`, unit: `${info.gains} a session`,
+      used: n, cap, meta: `${n}/${cap} training · up to ${lesson.ceiling}` });
+  }).join("");
+  const cooks = cooksOnDuty(state).length;
+  const resting = count("restToday");
+  const cafeCap = state.rooms.cafeteria.studentCapacity;
+  const cafeteria = overviewCard({ tab: "floor1", scene: "cafeteria", name: "Cafeteria", level: levelBadge(state, "cafeteria"), big: `+${cafeteriaRest(state)}`, unit: "stamina rest",
+    used: resting, cap: cafeCap, meta: `${resting}/${cafeCap} resting · 🍲 ${state.dishesToday.length}/${dishCapacity(state)} dishes`,
+    warn: !cooks ? "No cook" : state.dishesToday.length < dishCapacity(state) ? "A dish is ready to cook" : "" });
+  const patients = count("infirmaryToday");
+  const infected = infectedChars(state).length;
+  const bedCap = state.rooms.infirmary.studentCapacity;
+  const nurse = overviewCard({ tab: "floor1", scene: "infirmary", name: "Nurse's Office", level: levelBadge(state, "infirmary"), big: `+${healHealAmount(state)}`, unit: "HP a treatment",
+    used: patients, cap: bedCap, meta: `${patients}/${bedCap} healing`, warn: infected ? `🦠 ${infected} in quarantine` : "" });
+
+  const ready = state.characters.filter((c) => c.role === "student" && c.alive && overallLevel(c) >= PROMOTE_LEVEL_THRESHOLD).length;
+  const office = overviewCard({ tab: "floor3", scene: "headmaster", name: "Headmaster's Office", big: `${state.recruitPool.length}`, unit: "recruits waiting",
+    used: state.recruitPool.length, cap: recruitSlots(state), meta: `${ready} ready to promote · ${teacherCount(state)}/${MAX_TEACHERS} teachers` });
+  const radio = isBoarded(state, "radio") ? locked("radio", "radio", "floor3") : overviewCard({ tab: "floor3", scene: "radio", name: "Radio Station", level: levelBadge(state, "radio"),
+    big: `${Math.round(radioRecruitChance(state) * 100)}%`, unit: "recruit chance a day", used: count("radioToday"), cap: state.rooms.radio.studentCapacity,
+    meta: state.rescue && !state.rescue.evacuated ? `🚁 Helicopter on day ${state.rescue.day}` : `${count("radioToday")}/${state.rooms.radio.studentCapacity} on the air · ${plural(posted("radio"), "teacher")}` });
+  const research = isBoarded(state, "research") ? locked("research", "research", "floor3") : overviewCard({ tab: "floor3", scene: "research", name: "Research Room", level: levelBadge(state, "research"),
+    big: `+${researchRoomYield(state)}`, unit: "research a day", used: posted("research"), cap: state.rooms.research.teacherCapacity, meta: plural(posted("research"), "teacher"),
+    warn: posted("research") ? "" : "No teacher" });
+  const crafting = isBoarded(state, "crafting") ? locked("crafting", "crafting", "floor3") : overviewCard({ tab: "floor3", scene: "crafting", name: "Crafting Room", level: levelBadge(state, "crafting"),
+    big: `+${craftingToday(state)}`, unit: "fortification a day", used: posted("crafting"), cap: state.rooms.crafting.teacherCapacity, meta: plural(posted("crafting"), "teacher"),
+    warn: posted("crafting") ? "" : "No teacher" });
+
   return `
   <div class="card">
-    <h2>Turn 1 — Classes ${infoDot({ title: "📚 Turn 1 — Classes", notes: ["Classrooms raise their subject every day, up to the teacher's grade", "The Gymnasium raises STR, Acrobatics DEX", "Resting and healing happen now too"] })}</h2>
-    <p class="room-tagline">Classes and training build stats · exploring costs ${exploreStaminaCost(state)} · resting in the Cafeteria restores ${cafeteriaRest(state)}</p>
-    <ul class="summary-list">
-      ${classroomSummaries}
-      <li><b>Gymnasium</b>: ${gymCount("PE")}/${state.rooms.gym.studentCapacity} training PE today</li>
-      <li><b>Acrobatics</b>: ${gymCount("Gymnastics")}/${state.rooms.acrobatics.studentCapacity} training Gymnastics today</li>
-      <li><b>Cafeteria</b>: ${cooks.length ? cooks.map((c) => esc(c.name)).join(", ") : "no cooks assigned"} · ${state.characters.filter((c) => c.restToday && c.alive).length}/${state.rooms.cafeteria.studentCapacity} resting</li>
-      <li><b>Today's meals</b>: ${served.length ? served.map((d) => `${d.icon} ${esc(d.name)}`).join(", ") : `none yet${cooks.length ? " — cook something in the Cafeteria" : ""}`}</li>
-      <li><b>Nurse's Office</b>: ${nurse ? esc(nurse.name) : "no nurse"}, ${patientCount}/${state.rooms.infirmary.studentCapacity} patients today</li>
-    </ul>
+    <h2>Turn 1 — Classes ${infoDot({ title: "📚 Turn 1 — Classes", notes: ["Classrooms raise their subject every day, up to the teacher's grade", "The Gymnasium raises STR, Acrobatics DEX", "Resting and healing happen now too", "Click a room to go to it"] })}</h2>
+    <div class="ov-chips">
+      <span class="ov-chip">🥾 Exploring costs <b>${exploreStaminaCost(state)}</b> stamina</span>
+      <span class="ov-chip">😴 Resting restores <b>${cafeteriaRest(state)}</b></span>
+    </div>
+    <div class="mini-label ov-section">Classrooms</div>
+    <div class="ov-grid">${classrooms}</div>
+    <div class="mini-label ov-section">Lobby</div>
+    <div class="ov-grid">${training}${cafeteria}${nurse}</div>
+    <div class="mini-label ov-section">Facilities</div>
+    <div class="ov-grid">${office}${radio}${research}${crafting}</div>
     <button class="btn btn-primary btn-big" data-action="resolve-turn">📚 Hold Classes &amp; Advance to Afternoon</button>
   </div>`;
+}
+
+// What the Nurse's Office heals per treatment today (the room's level + its nurses).
+const healHealAmount = (state) => infirmaryHeal(state) + infirmaryNurseBonus(state);
+// The Crafting Room's fortification today: each crafter in turn uses up to 4 of the scrap left.
+function craftingToday(state) {
+  let scrap = state.resources.materials;
+  return state.characters.filter((c) => c.role === "teacher" && c.post === "crafting" && c.alive).reduce((sum, t) => {
+    const use = Math.min(Math.max(scrap, 0), 4);
+    scrap -= use;
+    return sum + (use > 0 ? crafterGain(state, t, use) : 0);
+  }, 0);
 }
 
 function renderTurn2Overview(state) {
