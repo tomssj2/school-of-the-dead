@@ -1,7 +1,7 @@
 // Test shortcuts for developing the game (main.js exposes them as window.schoolDev on localhost;
 // the /max and /min project commands run them). Nothing here saves — the player's Save does.
 import * as G from "./game.js";
-import { makeCharacter } from "./characters.js";
+import { makeCharacter, makeLegendaryCharacter } from "./characters.js";
 import { CLASSROOM_IDS, PRODUCERS, STUDENT_MAX_LEVEL, xpToNextLevel } from "./data.js";
 
 // Every room and facility to the top level, and every slot filled: teachers in every post,
@@ -104,6 +104,17 @@ export function infectStudents(state, n = 3) {
     c.infection.dueDay = state.day + (i % 5);
   });
   return `${picked.length} student${picked.length === 1 ? "" : "s"} quarantined · ${G.infectedChars(state).length} in quarantine`;
+}
+
+// Adds `n` survivors to the Headmaster's Office waiting list (every 4th a teacher, the 3rd legendary).
+export function addRecruits(state, n = 4) {
+  let added = 0;
+  for (let i = 0; i < n; i++) {
+    const role = i % 4 === 3 ? "teacher" : "student";
+    const gender = Math.random() < 0.5 ? "M" : "F";
+    if (G.addRecruit(state, i === 2 ? makeLegendaryCharacter(role, gender) : makeCharacter(role, gender))) added++;
+  }
+  return `${added} recruit${added === 1 ? "" : "s"} added · ${state.recruitPool.length} waiting`;
 }
 
 // Clears the Radio Station's boards and builds its first `stage` upgrades for free (5 = satellite

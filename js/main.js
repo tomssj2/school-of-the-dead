@@ -6,7 +6,7 @@ import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
-import { maxOutSchool, infectStudents, buildRadio } from "./dev.js";
+import { maxOutSchool, infectStudents, buildRadio, addRecruits } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
@@ -35,7 +35,7 @@ migrateState(state);
 repairIds(state);
 let activeTab = "overview";
 let openCardId = null;
-let promoteAsk = false; // the open card is asking to confirm a promotion
+let cardAsk = ""; // the open card is asking to confirm a "promote" or a "recruit"
 let cardTab = "stats";
 let rosterFilter = "student"; // the Roster shows students or teachers
 let rosterSortKey = "name";
@@ -473,7 +473,7 @@ function computeFloaties() {
 
 function render() {
   hideHoverTip(); // whatever it pointed at is about to be replaced
-  if (!openCardId) promoteAsk = false; // a closed card takes its promotion question with it
+  if (!openCardId) cardAsk = ""; // a closed card takes its question with it
   const card = openCardId ? G.getCharAnywhere(state, openCardId) : null;
   if (openCardId && !card) openCardId = null; // e.g. expelled while card was open
   if (openMissionLocationId && !state.teamLocations.includes(openMissionLocationId)) openMissionLocationId = null;
@@ -527,7 +527,7 @@ function render() {
     : state.rescue?.landed && !state.gameOver
     ? renderEvacuationModal(state)
     : card
-    ? renderCharacterCard(state, card, cardTab, promoteAsk ? "promote" : "")
+    ? renderCharacterCard(state, card, cardTab, cardAsk)
     : clearRoom
     ? renderClearRoomModal(state, clearRoom)
     : scoutReport
@@ -943,11 +943,21 @@ root.addEventListener("click", (e) => {
       render();
       break;
     case "ask-promote":
+    case "ask-recruit":
       openCardId = el.dataset.id;
       cardTab = "stats";
-      promoteAsk = true;
+      cardAsk = action === "ask-promote" ? "promote" : "recruit";
       render();
       break;
+    case "confirm-recruit":
+    case "never-recruit": {
+      const index = state.recruitPool.findIndex((r) => r.id === el.dataset.id);
+      if (action === "confirm-recruit") G.acceptRecruit(state, index);
+      else G.rejectRecruit(state, index);
+      openCardId = null;
+      render();
+      break;
+    }
     case "confirm-promote":
       G.promoteToTeacher(state, el.dataset.id);
       openCardId = null;
@@ -971,14 +981,6 @@ root.addEventListener("click", (e) => {
           render();
         }
       }
-      break;
-    case "accept-recruit":
-      G.acceptRecruit(state, Number(el.dataset.index));
-      render();
-      break;
-    case "reject-recruit":
-      G.rejectRecruit(state, Number(el.dataset.index));
-      render();
       break;
     case "open-card":
       e.preventDefault(); // stop a click inside a <label> from also toggling its checkbox
@@ -1445,6 +1447,13 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
     radio(stage = 5) {
       if (!beforeMax) beforeMax = JSON.stringify(state);
       const summary = buildRadio(state, stage);
+      render();
+      return summary;
+    },
+    // schoolDev.recruits(n): n survivors waiting to join in the Headmaster's Office.
+    recruits(n = 4) {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      const summary = addRecruits(state, n);
       render();
       return summary;
     },

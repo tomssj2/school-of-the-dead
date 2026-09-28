@@ -497,8 +497,8 @@ function roomScene(kind, people, title, info = "", actions = "") {
 
 // A room's headline number and info dot on the left, its section label (e.g. "Students (12/16)")
 // on the right, in one full-width pill under the teacher row, so the banner's art stays clear.
-function statRow(label, pill) {
-  return `<div class="stat-row">${pill ? `<span class="stat-pill">${pill}</span>` : ""}<span class="mini-label">${label}</span></div>`;
+function statRow(label, pill, cls = "") {
+  return `<div class="stat-row ${cls}">${pill ? `<span class="stat-pill">${pill}</span>` : ""}<span class="mini-label">${label}</span></div>`;
 }
 
 // A room still overrun from the first night: its scene boarded over, and the cost to clear it.
@@ -2353,13 +2353,11 @@ export function renderFloor3(state) {
   }));
   const pool = state.recruitPool;
   const recSlots = recruitSlots(state);
-  const recruitTiles = pool.map((r, i) => {
+  const recruitTiles = pool.map((r) => {
     return personTile(r, {
       cls: r.legendary ? "pt-legendary" : "",
       title: `${r.legendary ? "✨ Legendary — " : ""}${r.name} — ${r.role === "teacher" ? `teacher (${SUBJECT_LABEL[r.teachSubject]})` : `student, level ${overallLevel(r)}`} wants to join`,
-      extra: `<span class="pt-gain">${r.role === "teacher" ? "Teacher" : `Lv ${overallLevel(r)}`}</span>
-        <button class="pt-corner pt-accept" data-action="accept-recruit" data-index="${i}" title="Accept">✓</button>
-        <button class="pt-corner pt-reject" data-action="reject-recruit" data-index="${i}" title="Turn away">✕</button>`,
+      extra: `<button class="pt-promote-btn" data-action="ask-recruit" data-id="${r.id}" title="Let ${esc(r.name)} join the school">Recruit</button>`,
     });
   });
   const placeholders = (n) => Array.from({ length: Math.max(0, n) }, () => `<div class="person-tile pt-slot"></div>`).join("");
@@ -2372,11 +2370,11 @@ export function renderFloor3(state) {
     ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office", officeHow)}
     <div class="office-split">
       <div>
-        ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, "")}
+        ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, "", "stat-row-left")}
         <div class="person-tiles">${readyTiles.join("")}${placeholders(promoSlots - shownReady.length)}</div>
       </div>
       <div>
-        ${statRow(`Recruits (${pool.length}/${recSlots})`, "")}
+        ${statRow(`Recruits (${pool.length}/${recSlots})`, "", "stat-row-left")}
         <div class="person-tiles">${recruitTiles.join("")}${placeholders(recSlots - pool.length)}</div>
       </div>
     </div>
@@ -3202,6 +3200,22 @@ function promoteConfirm(c) {
   </div>`;
 }
 
+// Under a waiting recruit's card: let them join, leave them waiting, or turn them away for good.
+function recruitConfirm(c) {
+  const who = c.role === "teacher"
+    ? `A teacher of ${SUBJECT_LABEL[c.teachSubject]} (${gradeLetter(c.grades[c.teachSubject])})`
+    : `A level ${overallLevel(c)} student`;
+  return `<div class="cc-confirm">
+    <div class="cc-confirm-text"><b>🚪 Let ${esc(c.name)} join the school?</b>
+      <span class="muted">${c.legendary ? "✨ Legendary · " : ""}${who}. "No" leaves them waiting.</span></div>
+    <div class="cc-confirm-actions">
+      <button class="btn btn-primary" data-action="confirm-recruit" data-id="${c.id}">✓ Yes</button>
+      <button class="btn" data-action="close-card">No</button>
+      <button class="btn btn-danger" data-action="never-recruit" data-id="${c.id}" title="Turn them away — you won't see them again">🚫 Never show again</button>
+    </div>
+  </div>`;
+}
+
 export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
   const sprite = characterSprite(c, 150);
   const isTeacher = c.role === "teacher";
@@ -3265,7 +3279,7 @@ export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
         ${tabBar}
         ${body}
       </div>
-      ${confirm === "promote" ? promoteConfirm(c) : ""}
+      ${confirm === "promote" ? promoteConfirm(c) : confirm === "recruit" ? recruitConfirm(c) : ""}
     </div>
   </div>`;
 }
