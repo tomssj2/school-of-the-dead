@@ -912,10 +912,11 @@ Object.assign(HI_SCENES, {
     if (lv >= 5) tractor(r, 60, 42);
   },
 
-  // The Scrapyard: junk heaps, a burnt-out car and loose tyres under smoke; then a chain fence, a
-  // workbench, oil drums and a tyre stack; a shipping container and wrecks stacked three high; a
-  // crane lifting a car and a shed full of welding sparks; and at the top a crusher with a stack
-  // of cubes, colour-sorted bins, floodlights and a forklift.
+  // The Scrapyard, laid out like its page: salvage on the left, the shed in the middle, workbenches
+  // on the right. Level 1 is junk heaps, a burnt-out car and loose tyres under smoke; then a chain
+  // fence, a tyre stack, a workbench and oil drums; wrecks stacked three high, a weapon rack and an
+  // armor stand; a crane lifting a car, a trap table and welding sparks in the shed; and at the top
+  // a crusher with a stack of cubes, colour-sorted bins, floodlights and a forklift.
   scrapyard(r, lv) {
     wideOutdoor(r, lv, lv <= 1 ? "#5e554a" : "#6b5d4d", 150);
     // oil stains and gravel across the yard
@@ -925,42 +926,50 @@ Object.assign(HI_SCENES, {
       r(x, y, x + 4 + (i % 4), y + 1, "#4a4038");
     }
     if (lv >= 2) chainFence(r);
-    junkPile(r, 10, 30, 11, "#7a7f88");
-    junkPile(r, 130, 40, 15, "#8a6a4a");
-    if (lv <= 4) junkPile(r, 262, 32, 12, "#6b6f78");
-    if (lv <= 2) {
-      wreck(r, 222, 31, "#3a3230", true);
-      for (const [x, y] of [[70, 38], [96, 42], [310, 40], [352, 36]]) tyre(r, x, y);
-      if (lv <= 1) {
-        for (const x of [230, 150]) for (let k = 0; k < 8; k++) r(x + k - 2 + Math.round(Math.sin(k) * 2), 20 - k * 2, x + k + 1 + Math.round(Math.sin(k) * 2), 21 - k * 2, "#3a3a3e99");
-        sign(r, 330, true);
-        return;
-      }
-    }
-    // tyre stack, workbench, oil drums
-    for (let i = 0; i < 4; i++) tyre(r, 48, 30 - i * 3);
-    workbench(r, 300);
-    for (const x of [326, 334]) drum(r, x, 31, x === 326 ? "#3f6fb5" : "#b03030");
+
+    // the salvage side
+    if (lv >= 5) crusher(r, 8);
+    else junkPile(r, 8, 30, 11, "#7a7f88");
+    junkPile(r, 66, 40, 15, "#8a6a4a");
     if (lv >= 3) {
-      container(r, 176);
-      wreck(r, 222, 31, "#3a3230", true);
-      wreck(r, 224, 25, "#3f6fb5");
-      wreck(r, 221, 19, "#c9a236");
+      wreck(r, 120, 31, "#3a3230", true);
+      wreck(r, 122, 25, "#3f6fb5");
+      wreck(r, 119, 19, "#c9a236");
+      junkPile(r, 150, 30, 12, "#6b6f78");
+    } else wreck(r, 120, 31, "#3a3230", true);
+    if (lv >= 2) for (let i = 0; i < 4; i++) tyre(r, 56, 30 - i * 3);
+    if (lv >= 4) crane(r, 4);
+
+    // the shed in the middle (a welder at work from level 4)
+    shed(r, 197, lv <= 1, lv >= 4);
+
+    // the workbench side
+    if (lv <= 2) junkPile(r, 300, 32, 9, "#6b6f78");
+    if (lv <= 1) {
+      for (const [x, y] of [[40, 40], [100, 44], [240, 38], [352, 42]]) tyre(r, x, y);
+      box(r, 250, 27, 262, 31, "#3f6fb5", "#2a4a80"); // a drum on its side
+      for (const x of [110, 300]) for (let k = 0; k < 8; k++) r(x + k - 2 + Math.round(Math.sin(k) * 2), 20 - k * 2, x + k + 1 + Math.round(Math.sin(k) * 2), 21 - k * 2, "#3a3a3e99");
+      sign(r, 176, true);
+      return;
+    }
+    workbench(r, 232);
+    for (const x of [258, 266]) drum(r, x, 31, x === 258 ? "#3f6fb5" : "#b03030");
+    if (lv >= 3) {
+      weaponRack(r, 280);
+      armorStand(r, 305);
     }
     if (lv >= 4) {
-      crane(r);
-      shed(r, 368, false, true);
+      trapTable(r, 322);
       for (const [x, y] of [[356, 44], [364, 42]]) { r(x, y, x + 9, y + 1, "#a8753f"); r(x, y + 2, x + 9, y + 2, "#6b4a2f"); }
     }
     if (lv >= 5) {
-      crusher(r, 74);
-      for (const [x, c] of [[260, "#3f6fb5"], [274, "#4caf7d"], [288, "#d64545"]]) {
+      for (const [x, c] of [[352, "#3f6fb5"], [366, "#4caf7d"], [380, "#d64545"]]) {
         box(r, x, 22, x + 11, 31, c, shadowOf(c));
         r(x + 3, 25, x + 8, 25, "#f4f6f8");
         r(x + 1, 22, x + 10, 22, lightOf(c));
       }
-      for (const x of [64, 395]) floodlight(r, x);
-      forklift(r, 186, 42);
+      for (const x of [112, 404]) floodlight(r, x);
+      forklift(r, 290, 42);
     }
   },
 });
@@ -1344,24 +1353,50 @@ function workbench(r, x) {
   r(x + 2, 14, x + 20, 14, "#5a3b24");
   for (const [dx, h, c] of [[3, 3, "#9aa0a8"], [8, 4, "#6b6f78"], [13, 2, "#e0a536"], [17, 3, "#9aa0a8"]]) r(x + dx, 14 - h, x + dx, 13, c);
 }
-function container(r, x) {
-  box(r, x, 16, x + 40, 31, "#3f6f8f", "#2a4a60");
-  for (let xx = x + 3; xx < x + 40; xx += 3) r(xx, 17, xx, 30, "#35607c");
-  r(x, 16, x + 40, 16, "#5a8aaa");
-  for (const [dx, dy] of [[6, 20], [22, 26], [33, 18]]) r(x + dx, dy, x + dx + 3, dy + 1, "#8a5a3a");
-  r(x + 36, 19, x + 36, 28, "#1d2630");
+// A crane: its tower at x, the arm reaching right, a magnet lifting a car at the far end.
+function crane(r, x) {
+  r(x, 3, x + 2, 31, "#e0a536");
+  for (let y = 6; y < 31; y += 4) r(x - 2, y, x + 4, y, "#c98a2a");
+  r(x - 4, 3, x + 70, 4, "#e0a536");
+  for (let xx = x + 6; xx < x + 68; xx += 6) r(xx, 5, xx + 2, 5, "#c98a2a");
+  box(r, x + 4, 6, x + 10, 11, "#3a3f48", "#1d2026");
+  r(x + 58, 5, x + 58, 9, "#3a3f48");
+  box(r, x + 53, 10, x + 63, 12, "#3a3f48", "#1d2026");
+  box(r, x + 47, 13, x + 69, 17, "#b03030", "#7a2020");
+  box(r, x + 52, 11, x + 64, 13, "#8a2a2a");
+  for (const dx of [49, 64]) box(r, x + dx, 16, x + dx + 3, 18, "#1d2026");
 }
-function crane(r) {
-  r(404, 3, 406, 31, "#e0a536");
-  for (let y = 6; y < 31; y += 4) r(402, y, 408, y, "#c98a2a");
-  r(338, 3, 410, 4, "#e0a536");
-  for (let x = 340; x < 404; x += 6) r(x, 5, x + 2, 5, "#c98a2a");
-  box(r, 396, 6, 402, 11, "#3a3f48", "#1d2026");
-  r(350, 5, 350, 9, "#3a3f48");
-  box(r, 345, 10, 355, 12, "#3a3f48", "#1d2026");
-  box(r, 339, 13, 361, 17, "#b03030", "#7a2020");
-  box(r, 344, 11, 356, 13, "#8a2a2a");
-  for (const dx of [2, 17]) box(r, 339 + dx, 16, 339 + dx + 3, 18, "#1d2026");
+// Workbench pieces: a rack of weapons being made, a stand with armor, a table of traps.
+function weaponRack(r, x) {
+  for (const dx of [0, 18]) r(x + dx, 15, x + dx + 1, 31, "#6b4a2f");
+  r(x, 15, x + 19, 16, "#8a5f33");
+  r(x + 3, 18, x + 4, 30, "#a8753f"); // a bat
+  r(x + 3, 17, x + 4, 18, "#c49a64");
+  r(x + 8, 19, x + 8, 30, "#8a5f33"); // an axe
+  r(x + 6, 19, x + 10, 21, "#9aa0a8");
+  r(x + 12, 18, x + 12, 30, "#6b6f78"); // a pipe
+  r(x + 15, 20, x + 15, 30, "#8a5f33"); // a spear
+  r(x + 14, 18, x + 16, 19, "#d0d4da");
+}
+function armorStand(r, x) {
+  r(x + 5, 18, x + 5, 31, "#5a3b24");
+  r(x + 2, 31, x + 8, 31, "#5a3b24");
+  box(r, x + 1, 17, x + 9, 25, "#4a5a3a", "#2e3a24");
+  r(x + 3, 18, x + 3, 24, "#6b7a45");
+  r(x + 7, 18, x + 7, 24, "#6b7a45");
+  r(x + 2, 21, x + 8, 21, "#8a8e96");
+  box(r, x + 3, 12, x + 7, 16, "#d64545", "#8a2a2a");
+  r(x + 3, 15, x + 7, 15, "#1d2026");
+}
+function trapTable(r, x) {
+  r(x, 24, x + 24, 25, "#8a5f33");
+  r(x, 24, x + 24, 24, "#a8753f");
+  for (const dx of [1, 22]) r(x + dx, 26, x + dx + 1, 31, "#5a3b24");
+  for (let i = 0; i < 3; i++) { r(x + 2 + i * 3, 21, x + 2 + i * 3, 23, "#d64545"); r(x + 1 + i * 3, 23, x + 3 + i * 3, 23, "#a83232"); } // spikes
+  for (const [dx, dy] of [[13, 20], [15, 19], [17, 19], [19, 20], [20, 22], [19, 23], [17, 23], [15, 23], [13, 23], [12, 22]]) r(x + dx, dy, x + dx, dy, "#b6bbc3"); // a coil of wire
+  r(x + 15, 21, x + 17, 21, "#8a909a");
+  box(r, x + 5, 28, x + 12, 30, "#6b6f78", "#3a3f48"); // a bear trap under the table
+  r(x + 6, 27, x + 11, 27, "#9aa0a8");
 }
 function sign(r, x, broken) {
   r(x + 2, 18, x + 3, 31, "#6b6f78");

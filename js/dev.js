@@ -3,7 +3,7 @@
 import * as G from "./game.js";
 import { makeCharacter, makeLegendaryCharacter } from "./characters.js";
 import { MAP_RADIUS } from "./map.js";
-import { CLASSROOM_IDS, PRODUCERS, STUDENT_MAX_LEVEL, xpToNextLevel } from "./data.js";
+import { CLASSROOM_IDS, PRODUCERS, YARD_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel } from "./data.js";
 
 // Every room and facility to the top level, and every slot filled: teachers in every post,
 // every classroom seat, training, resting, beds, outside workers, plots and pens. Hires whoever is
@@ -68,7 +68,6 @@ export function maxOutSchool(state) {
     c.hp = Math.round(c.maxHp * 0.5);
     return G.setInfirmaryToday(state, c.id, "heal");
   });
-  fill(state.rooms.scrapyard.studentCapacity - count("scrapyardToday"), (c) => G.setScrapyardToday(state, c.id, true));
 
   // student levels spread from 1 to the top, with some experience toward the next, so every level
   // (and promotion at the top) can be tried out
@@ -88,7 +87,10 @@ export function maxOutSchool(state) {
     });
     state.stock[kind] = Math.max(state.stock[kind] || 0, 2);
   }
+  // the Scrapyard's piles and benches: every other one ready
+  for (const kind of Object.keys(YARD_JOBS)) state.yard[kind].forEach((slot, i) => { slot.growth = i % 2 === 0 ? YARD_JOBS[kind].growDays : i % YARD_JOBS[kind].growDays; });
   G.autoAssignFarm(state); // as many workers as the ready slots need
+  G.autoAssignSite(state, "scrapyard");
 
   return {
     levels: "all rooms at level 5",

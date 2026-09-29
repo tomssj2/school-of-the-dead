@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
-  DISHES, INGREDIENTS, PRODUCERS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, FARM_STAMINA_COST, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
+  DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
@@ -16,7 +16,7 @@ import {
 import {
   getChar, aliveChars, roomMaxLevel, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, isReady, readySlots, harvestPlan, workersNeeded, farmCrew, farmWorkerSlots, canWorkFarm, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -1921,17 +1921,12 @@ function resolvePickerCandidates(state, picker) {
       };
     }
     case "farm":
-      return {
-        role: "student", title: postKey === "animals" ? "Tend the Animals" : "Work the Fields",
-        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.farmToday)
-          .map((c) => studentRow(c, "farmToday", (x) => (x.stamina < FARM_STAMINA_COST ? `Too tired (needs ${FARM_STAMINA_COST} stamina)` : null))),
-      };
     case "scrapyard": {
-      const flagKey = `${kind}Today`;
-      const label = kind.charAt(0).toUpperCase() + kind.slice(1);
+      const { flag, stamina } = WORK_SITES[kind];
       return {
-        role: "student", title: `Assign to the ${label}`,
-        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c[flagKey]).map((c) => studentRow(c, flagKey)),
+        role: "student", title: SIDE_WORDS[postKey]?.title || `Assign to the ${WORK_SITES[kind].name}`,
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c[flag])
+          .map((c) => studentRow(c, flag, (x) => (x.stamina < stamina ? `Too tired (needs ${stamina} stamina)` : null))),
       };
     }
     default:
@@ -1984,8 +1979,11 @@ export function renderPickerModal(state, picker, sortKey, sortDir) {
 
 export function renderDefenseBuildModal(state, cellKey) {
   const options = DEFENSE_STRUCTURES.map((d) => {
-    const affordable = Object.keys(d.cost).every((res) => (state.resources[res] || 0) >= d.cost[res]);
-    const costLabel = Object.keys(d.cost).map((res) => `${TECH_EFFECT_ICON[res] || ""} ${d.cost[res]}`).join("  ");
+    const kits = state.defenseKits?.[d.id] || 0; // from the Scrapyard's trap bench: a free build each
+    const affordable = kits > 0 || Object.keys(d.cost).every((res) => (state.resources[res] || 0) >= d.cost[res]);
+    const costLabel = kits
+      ? `<span class="kit-free">🧰 ${kits} kit${kits === 1 ? "" : "s"} · free</span>`
+      : Object.keys(d.cost).map((res) => `${TECH_EFFECT_ICON[res] || ""} ${d.cost[res]}`).join("  ");
     return `<button class="defense-build-option" data-action="build-defense" data-cell="${cellKey}" data-structure="${d.id}" ${affordable ? "" : "disabled"}>
       <div class="defense-build-option-main"><span class="tech-icon">${d.icon}</span> <b>${esc(d.name)}</b> <span class="muted">${costLabel}</span></div>
       <p class="muted">${esc(d.desc)}</p>
@@ -2539,13 +2537,15 @@ function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "",
   </div>`;
 }
 
-// The Farm's two halves: a field for each crop on the left, a pen for each animal on the right,
-// each with its own crew.
-const PLOT_WORDS = {
-  fields: { side: "🌱 Fields", icon: "🌾", verb: "Plant", none: "No seeds", store: "in the seed shed", ready: "ready to harvest", collect: "Harvest" },
-  animals: { side: "🐄 Animals", icon: "🥚", verb: "Add", none: "None in the barn", store: "in the barn", ready: "ready to tend", collect: "Tend" },
+// The Farm and the Scrapyard (WORK_SITES), each split down the middle into two sides with their
+// own crew: fields | animals, salvage | benches.
+const SIDE_WORDS = {
+  fields: { side: "🌱 Fields", icon: "🌾", verb: "Plant", none: "No seeds", store: "in the seed shed", ready: "ready to harvest", collect: "Harvest", title: "Work the Fields" },
+  animals: { side: "🐄 Animals", icon: "🥚", verb: "Add", none: "None in the barn", store: "in the barn", ready: "ready to tend", collect: "Tend", title: "Tend the Animals" },
+  salvage: { side: "🔩 Salvage", icon: "🔩", ready: "ready to strip", collect: "Strip", title: "Strip the Salvage" },
+  benches: { side: "🛠️ Benches", icon: "🛠️", ready: "ready to finish", collect: "Finish", title: "Work the Benches" },
 };
-const farmSideOf = (kind) => (FARM_GROUPS.fields.includes(kind) ? "fields" : "animals");
+const sideOfKind = (kind) => Object.entries(SIDE_WORDS).find(([side]) => WORK_SITES[siteOfSide(side)].sides[side].includes(kind))[0];
 
 // What a crop/animal makes, e.g. "4 🥔 after 3 days" or "1 🥚 every day".
 function producerYieldText(p) {
@@ -2553,17 +2553,19 @@ function producerYieldText(p) {
   const days = p.growDays === 1 ? "day" : `${p.growDays} days`;
   return p.perennial ? `${p.yield} ${product.icon} ${product.name.toLowerCase()} every ${days}` : `${p.yield} ${product.icon} ${product.name.toLowerCase()} after ${days}`;
 }
+// What a group gives: a crop or animal's produce, or a pile or bench's haul.
+const slotYieldText = (kind) => (PRODUCERS[kind] ? producerYieldText(PRODUCERS[kind]) : `${YARD_JOBS[kind].what} every ${YARD_JOBS[kind].growDays} days`);
 
-// The Farm level a group's slot `index` opens at.
-const slotLevel = (index) => FARM_SLOTS_BY_LEVEL.findIndex((n) => n > index) + 1;
+// The level a site's slot `index` opens at.
+const slotLevel = (site, index) => WORK_SITES[site].slotsByLevel.findIndex((n) => n > index) + 1;
 
-// One slot of a group: growing (its bar fills a day at a time), ready (full — collected at the
-// end of the turn if a worker covers it), empty (click to plant or add one from stock) or still
-// locked (opens at a higher Farm level). Click a planted one for details.
-function renderFarmSlot(state, kind, plot, index, covered) {
-  const p = PRODUCERS[kind];
-  const words = PLOT_WORDS[farmSideOf(kind)];
-  if (!plot) return `<div class="fslot fslot-locked" title="Opens at Farm level ${slotLevel(index)}">🔒<span>Lv ${slotLevel(index)}</span></div>`;
+// One slot of a group: filling (its bar fills a day at a time), ready (full — collected at the end
+// of the turn if a worker covers it), empty (a Farm slot: click to plant or add one from stock) or
+// still locked (opens at a higher level). Click a Farm crop or animal for details.
+function renderSiteSlot(state, site, kind, plot, index, covered) {
+  const def = slotDef(kind);
+  const words = SIDE_WORDS[sideOfKind(kind)];
+  if (!plot) return `<div class="fslot fslot-locked" title="Opens at ${WORK_SITES[site].name} level ${slotLevel(site, index)}">🔒<span>Lv ${slotLevel(site, index)}</span></div>`;
   if (!plot.id) {
     const have = state.stock[kind] || 0;
     return `<button class="fslot fslot-empty ${have ? "" : "fslot-none"}" data-action="plant-plot" data-kind="${kind}" data-index="${index}" title="${have ? `${words.verb}: ${have} ${words.store}` : `${words.none} — find more on expeditions`}">
@@ -2571,19 +2573,20 @@ function renderFarmSlot(state, kind, plot, index, covered) {
     </button>`;
   }
   const ready = isReady(plot);
-  const pct = Math.round((plot.growth / p.growDays) * 100);
-  const status = ready ? (covered ? `✓ ${words.collect}` : "Ready!") : `day ${plot.growth}/${p.growDays}`;
+  const pct = Math.round((plot.growth / def.growDays) * 100);
+  const status = ready ? (covered ? `✓ ${words.collect}` : "Ready!") : `day ${plot.growth}/${def.growDays}`;
   const tip = ready
-    ? covered ? `${p.name} — ready, a worker collects it this turn` : `${p.name} — ready: assign a worker to collect it`
-    : `${p.name} — ready in ${p.growDays - plot.growth} day${p.growDays - plot.growth === 1 ? "" : "s"}`;
-  return `<button class="fslot ${ready ? `fslot-ready ${covered ? "fslot-covered" : ""}` : ""}" data-action="open-plot" data-kind="${kind}" data-index="${index}" title="${tip}">
-    <span class="fslot-icon">${p.icon}</span>
+    ? covered ? `${def.name} — ready, a worker collects it this turn` : `${def.name} — ready: assign a worker to collect it`
+    : `${def.name} — ready in ${def.growDays - plot.growth} day${def.growDays - plot.growth === 1 ? "" : "s"}`;
+  const tag = site === "farm" ? "button" : "div"; // only Farm slots open a pop-up
+  return `<${tag} class="fslot ${ready ? `fslot-ready ${covered ? "fslot-covered" : ""}` : ""} ${tag === "div" ? "fslot-static" : ""}" ${tag === "button" ? `data-action="open-plot" data-kind="${kind}" data-index="${index}"` : ""} title="${tip}">
+    <span class="fslot-icon">${def.icon}</span>
     <span class="plot-bar"><i style="width:${pct}%"></i></span>
     <span class="fslot-status">${status}</span>
-  </button>`;
+  </${tag}>`;
 }
 
-const PLOT_INFO = {
+const SIDE_INFO = {
   fields: {
     title: "🌱 Fields",
     notes: ["Crops grow a day at a time on their own — a full bar is ready to harvest", `Each fields worker harvests ${PLOTS_PER_WORKER} ready crops at the end of the turn`, "Click an empty slot to plant a seed from the seed shed — a harvest replants itself while seeds last", "Seeds come from expeditions (Farmstead, Suburbs, Hardware Store) and events"],
@@ -2592,53 +2595,73 @@ const PLOT_INFO = {
     title: "🐄 Animals",
     notes: ["Animals come round a day at a time on their own — a full bar is ready to tend", `Each animals worker tends ${PLOTS_PER_WORKER} ready animals at the end of the turn`, "Chickens lay eggs and cows give milk for as long as you keep them", "Sheep are butchered for mutton (50% chance of a lamb)", "Animals come from expeditions (Farmstead, Suburbs) and events"],
   },
+  salvage: {
+    title: "🔩 Salvage",
+    notes: ["Piles build back up a day at a time on their own — a full bar is ready to strip", `Each salvage worker strips ${PLOTS_PER_WORKER} ready piles at the end of the turn`, "Appliances sometimes have circuit boards (research); machinery sometimes hides gear"],
+  },
+  benches: {
+    title: "🛠️ Benches",
+    notes: ["Each bench works on a piece a day at a time — a full bar is ready to finish", `Each bench worker finishes ${PLOTS_PER_WORKER} ready pieces at the end of the turn`, `A finished piece uses up ${YARD_JOBS.weapons.cost} scrap — it waits if there isn't enough`, "Weapons and armor go to the armory; a trap kit builds a barricade or trap for free at the Night Watch"],
+  },
 };
 
-// Under a Farm worker: their stamina bar, with the part today's work will use up marked in red,
-// and "120 → 70".
-function farmStaminaLine(c) {
-  const after = Math.max(0, c.stamina - FARM_STAMINA_COST);
+// Under a worker: their stamina bar, with the part today's work will use up marked in red, and
+// "120 → 70".
+function workerStaminaLine(c, cost) {
+  const after = Math.max(0, c.stamina - cost);
   const pct = (v) => ((v / Math.max(1, c.maxStamina)) * 100).toFixed(1);
-  return `<span class="pt-stam" title="Stamina ${c.stamina}/${c.maxStamina} — ${after} after today's work (−${FARM_STAMINA_COST})">
+  return `<span class="pt-stam" title="Stamina ${c.stamina}/${c.maxStamina} — ${after} after today's work (−${cost})">
     <span class="pt-stam-bar"><i class="pt-stam-keep" style="width:${pct(after)}%"></i><i class="pt-stam-lose" style="width:${pct(c.stamina - after)}%"></i></span>
     <span class="pt-stam-num">${c.stamina} → <b>${after}</b></span>
   </span>`;
 }
 
-// One half of the Farm: its crew (centred over it), a pill saying what's ready and how many
-// workers that takes, then its three groups top to bottom, each a row of slots.
-function renderFarmSide(state, side) {
-  const words = PLOT_WORDS[side];
-  const crew = farmCrew(state, side);
-  const slots = farmWorkerSlots(state);
+// A group's right-hand pill: seeds or animals in stock at the Farm, a bench's scrap per piece.
+function groupPill(state, kind) {
+  if (PRODUCERS[kind]) {
+    const p = PRODUCERS[kind];
+    const have = state.stock[kind] || 0;
+    return `<span class="farm-group-stock ${have ? "" : "pantry-empty"}" title="${have === 1 ? p.stockName : p.stockPlural} ${SIDE_WORDS[sideOfKind(kind)].store}">${p.stockIcon} ${have}</span>`;
+  }
+  const job = YARD_JOBS[kind];
+  return job.cost ? `<span class="farm-group-stock farm-group-cost" title="Each finished piece uses up ${job.cost} scrap">−${job.cost} 🔩</span>` : "";
+}
+
+// One half of a site: its crew (centred over it), a pill saying what's ready and how many workers
+// that takes, then its three groups top to bottom, each a row of slots.
+function renderSiteSide(state, side) {
+  const site = siteOfSide(side);
+  const def = WORK_SITES[site];
+  const words = SIDE_WORDS[side];
+  const crew = siteCrew(state, side);
+  const slots = siteWorkerSlots(state, site);
   const ready = readySlots(state, side).length;
   const needed = workersNeeded(state, side);
-  // only as many open slots as the ready crops/animals still need; the rest are greyed out
+  // only as many open slots as the ready ones still need; the rest are greyed out
   const open = Math.max(0, Math.min(slots, needed) - crew.length);
   const covered = new Set(harvestPlan(state, side).map(([kind, i]) => `${kind}:${i}`));
+  const lists = siteSlots(state, site);
   const readyText = !ready
     ? `<span class="farm-ready farm-ready-none">Nothing ${words.ready}</span>`
     : `<span class="farm-ready ${crew.length >= needed ? "farm-ready-ok" : "farm-ready-short"}">${words.icon} <b>${ready}</b> ${words.ready} · ${crew.length >= needed ? "✓ covered" : `needs ${needed} worker${needed === 1 ? "" : "s"}`}</span>`;
-  const groups = FARM_GROUPS[side].map((kind) => {
-    const p = PRODUCERS[kind];
-    const list = state.plots[kind];
-    const have = state.stock[kind] || 0;
-    const row = Array.from({ length: FARM_SLOTS_BY_LEVEL[FARM_SLOTS_BY_LEVEL.length - 1] }, (_, i) => renderFarmSlot(state, kind, list[i], i, covered.has(`${kind}:${i}`))).join("");
+  const groups = def.sides[side].map((kind) => {
+    const item = slotDef(kind);
+    const row = Array.from({ length: def.slotsByLevel[def.slotsByLevel.length - 1] }, (_, i) => renderSiteSlot(state, site, kind, lists[kind][i], i, covered.has(`${kind}:${i}`))).join("");
     return `<div class="farm-group">
       <div class="farm-group-head">
-        <span class="farm-group-icon">${p.icon}</span><b>${p.name}</b>
-        <span class="muted">${producerYieldText(p)}</span>
-        <span class="farm-group-stock ${have ? "" : "pantry-empty"}" title="${have === 1 ? p.stockName : p.stockPlural} ${words.store}">${p.stockIcon} ${have}</span>
+        <span class="farm-group-icon">${item.icon}</span><b>${item.name}</b>
+        <span class="muted">${slotYieldText(kind)}</span>
+        ${groupPill(state, kind)}
       </div>
       <div class="farm-slots">${row}</div>
     </div>`;
   }).join("");
   return `<section class="farm-side">
-    <div class="farm-crew"><div class="person-tiles">${crew.map((s) => personTile(s, { remove: "remove-farm", cls: "pt-farm", extra: farmStaminaLine(s) })).join("")}${
-      `<button class="person-tile pt-farm pt-empty" data-action="open-picker" data-kind="farm" data-post="${side}" title="Assign someone">+</button>`.repeat(open)
+    <div class="farm-crew"><div class="person-tiles">${crew.map((s) => personTile(s, { remove: `remove-${site}`, cls: "pt-farm", extra: workerStaminaLine(s, def.stamina) })).join("")}${
+      `<button class="person-tile pt-farm pt-empty" data-action="open-picker" data-kind="${site}" data-post="${side}" title="Assign someone">+</button>`.repeat(open)
     }${`<div class="person-tile pt-farm pt-empty pt-off" title="Not needed — nothing more ${words.ready}">+</div>`.repeat(Math.max(0, slots - crew.length - open))}</div></div>
     <div class="stat-row farm-pill">
-      <span class="stat-pill"><b class="farm-side-title">${words.side}</b> ${infoDot(PLOT_INFO[side])}</span>
+      <span class="stat-pill"><b class="farm-side-title">${words.side}</b> ${infoDot(SIDE_INFO[side])}</span>
       ${readyText}
       <span class="mini-label">Workers (${crew.length}/${slots})</span>
     </div>
@@ -2652,7 +2675,7 @@ export function renderPlotModal(state, kind, index) {
   const p = PRODUCERS[kind];
   const plot = state.plots[kind]?.[index];
   if (!plot?.id) return "";
-  const side = farmSideOf(kind);
+  const side = sideOfKind(kind);
   const ready = isReady(plot);
   const covered = harvestPlan(state, side).some(([k, i]) => k === kind && i === index);
   const left = p.growDays - plot.growth;
@@ -2670,47 +2693,49 @@ export function renderPlotModal(state, kind, index) {
   </div>`;
 }
 
-// The Farm: the page split down the middle — crops on the left, animals on the right (like its
-// banner: fields, the barn in the middle, pens), each with its own crew.
-export function renderFarm(state) {
-  // The top pill: how many students it takes to collect everything that's ready, and a button
-  // that assigns them.
-  const slots = farmWorkerSlots(state);
-  const sides = Object.keys(FARM_GROUPS).map((side) => ({
+// A work site's page: the banner, a top pill (what the workers bring in, auto-assign with how many
+// students everything ready needs, the stamina a day costs), then the two sides.
+function renderWorkSite(state, site) {
+  const def = WORK_SITES[site];
+  const slots = siteWorkerSlots(state, site);
+  const sides = Object.keys(def.sides).map((side) => ({
     side,
     ready: readySlots(state, side).length,
     needed: Math.min(slots, workersNeeded(state, side)),
-    crew: farmCrew(state, side).length,
+    crew: siteCrew(state, side).length,
   }));
   const needed = sides.reduce((sum, s) => sum + s.needed, 0);
   const missing = sides.reduce((sum, s) => sum + Math.max(0, s.needed - s.crew), 0);
-  const free = state.characters.filter((c) => !c.farmToday && canWorkFarm(c)).length;
+  const free = state.characters.filter((c) => !c[def.flag] && canWorkSite(c, site)).length;
   const how = {
     title: "⚡ Auto-assign",
-    rows: [["Crops ready to harvest", `${sides[0].ready}`], ["Animals ready to tend", `${sides[1].ready}`], ["Each student works", `${PLOTS_PER_WORKER}`]],
+    rows: [
+      ...sides.map((s) => [`${SIDE_WORDS[s.side].side.split(" ").slice(1).join(" ")} ${SIDE_WORDS[s.side].ready}`, `${s.ready}`]),
+      ["Each student works", `${PLOTS_PER_WORKER}`],
+    ],
     total: ["Students needed", `${needed}`],
-    notes: [`Uses free students with at least ${FARM_STAMINA_COST} stamina, lowest level first`, `A day on the Farm costs ${FARM_STAMINA_COST} stamina`, `${free} student${free === 1 ? "" : "s"} free with enough stamina`],
+    notes: [`Uses free students with at least ${def.stamina} stamina, lowest level first`, `A day at the ${def.name} costs ${def.stamina} stamina`, `${free} student${free === 1 ? "" : "s"} free with enough stamina`],
   };
   const middle = `<span class="farm-auto">
-    <button class="btn btn-sm farm-auto-btn" data-action="farm-auto" ${missing && free ? "" : "disabled"}>⚡ Auto-assign</button>
+    <button class="btn btn-sm farm-auto-btn" data-action="site-auto" data-site="${site}" ${missing && free ? "" : "disabled"}>⚡ Auto-assign</button>
     <span class="${missing ? "farm-ready-short" : needed ? "farm-ready-ok" : "farm-ready-none"}">${needed ? `${needed} student${needed === 1 ? "" : "s"} needed${missing ? "" : " ✓"}` : "Nobody needed"}</span>
     ${infoDot(how)}
   </span>`;
+  const [left, right] = Object.keys(def.sides);
   return renderOutsideFacility(
-    state, "farm", "farmToday", "Farm",
+    state, site, def.flag, def.name,
     "",
-    `<div class="farm-split">${renderFarmSide(state, "fields")}${renderFarmSide(state, "animals")}</div>`,
-    { crew: false, middle, label: `<span class="farm-cost"><b>−${FARM_STAMINA_COST}</b> stamina per day</span>` }
+    `<div class="farm-split">${renderSiteSide(state, left)}${renderSiteSide(state, right)}</div>`,
+    { crew: false, middle, label: `<span class="farm-cost"><b>−${def.stamina}</b> stamina per day</span>` }
   );
 }
 
-export function renderScrapyard(state) {
-  return renderOutsideFacility(
-    state, "scrapyard", "scrapyardToday", "Scrapyard",
-    "",
-  );
-}
+// The Farm: crops on the left, animals on the right (like its banner: fields, the barn in the
+// middle, pens).
+export const renderFarm = (state) => renderWorkSite(state, "farm");
 
+// The Scrapyard: salvage piles on the left, workbenches on the right.
+export const renderScrapyard = (state) => renderWorkSite(state, "scrapyard");
 
 // ---------- Turn 3 side screens ----------
 

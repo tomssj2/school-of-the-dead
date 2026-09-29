@@ -11,7 +11,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, OBJECTIVES, ROOM_FIGHT_SQUAD, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, OBJECTIVES, ROOM_FIGHT_SQUAD, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -367,17 +367,21 @@ function migrateState(s) {
     delete s.rooms.farm.plots;
     delete s.rooms.farm.pens;
   }
-  for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
-  // The Farm has a fields crew and an animals crew: anyone on the Farm from before joins the fields
-  // (the animals once that's full), and whoever doesn't fit goes back to being free.
-  const crewSlots = G.farmWorkerSlots(s);
-  const crews = { fields: 0, animals: 0 };
-  for (const c of s.characters) {
-    if (!c.farmToday) continue;
-    let side = c.farmToday === true ? (crews.fields < crewSlots ? "fields" : "animals") : c.farmToday;
-    if (!(side in crews) || crews[side] >= crewSlots) side = false;
-    c.farmToday = side;
-    if (side) crews[side]++;
+  if (!s.defenseKits) s.defenseKits = {};
+  for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key); // (also sets up the Scrapyard's piles and benches)
+  // The Farm and the Scrapyard each have two crews: anyone working one from before joins its first
+  // crew (the second once that's full), and whoever doesn't fit goes back to being free.
+  for (const [site, def] of Object.entries(WORK_SITES)) {
+    const crewSlots = G.siteWorkerSlots(s, site);
+    const [first, second] = Object.keys(def.sides);
+    const crews = { [first]: 0, [second]: 0 };
+    for (const c of s.characters) {
+      if (!c[def.flag]) continue;
+      let side = c[def.flag] === true ? (crews[first] < crewSlots ? first : second) : c[def.flag];
+      if (!(side in crews) || crews[side] >= crewSlots) side = false;
+      c[def.flag] = side;
+      if (side) crews[side]++;
+    }
   }
   // A room holds only as many teachers as its level allows (1, then 2 at level 3, 3 at level 5):
   // any beyond that — from an older save with bigger rooms — go back to unassigned.
@@ -1000,9 +1004,11 @@ root.addEventListener("click", (e) => {
       G.resolveAssault(state, false);
       render();
       break;
-    case "farm-auto": {
-      const n = G.autoAssignFarm(state);
-      flash(n ? `Assigned ${n} student${n === 1 ? "" : "s"} to the Farm.` : "Nobody free has the stamina for a day on the Farm.");
+    case "site-auto": {
+      const site = el.dataset.site;
+      const n = G.autoAssignSite(state, site);
+      const name = WORK_SITES[site].name;
+      flash(n ? `Assigned ${n} student${n === 1 ? "" : "s"} to the ${name}.` : `Nobody free has the stamina for a day at the ${name}.`);
       render();
       break;
     }
@@ -1394,7 +1400,7 @@ root.addEventListener("click", (e) => {
         case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
         case "utility": G.setTeacherPost(state, id, postKey); break;
         case "farm": G.setFarmToday(state, id, postKey); break;
-        case "scrapyard": G.setScrapyardToday(state, id, true); break;
+        case "scrapyard": G.setScrapyardToday(state, id, postKey); break;
         case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
         default: break;
       }

@@ -525,6 +525,29 @@ export const PLOTS_PER_WORKER = 2; // ready slots one Farm worker harvests a day
 // its slots: 2, 3, 5, 6 workers by level.
 export const FARM_WORKERS_BY_LEVEL = FARM_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
 export const FARM_STAMINA_COST = 50; // a day's work on the Farm (paid at the end of Turn 2) — to be balanced
+
+// The Scrapyard works like the Farm: salvage piles on the left refill themselves a day at a time,
+// workbenches on the right finish a piece of work; a full slot waits for a worker (2 each). Benches
+// use up YARD_BENCH_COST scrap when they're collected. Nothing needs planting.
+export const YARD_JOBS = {
+  cars: { name: "Car Wrecks", icon: "🚗", growDays: 3, scrap: 8, what: "8 🔩 scrap" },
+  appliances: { name: "Appliances", icon: "🔌", growDays: 2, scrap: 4, research: [1, 2], researchChance: 0.5, what: "4 🔩 scrap, maybe 🧠 research" },
+  machinery: { name: "Machinery", icon: "⚙️", growDays: 4, scrap: 10, gearChance: 0.2, what: "10 🔩 scrap, maybe gear" },
+  weapons: { name: "Weapon Bench", icon: "🗡️", growDays: 4, cost: 5, makes: "weapon", what: "a weapon for the armory" },
+  armor: { name: "Armor Bench", icon: "🛡️", growDays: 4, cost: 5, makes: "armor", what: "armor for the armory" },
+  traps: { name: "Trap Bench", icon: "🪤", growDays: 3, cost: 5, makes: "defense", what: "a free barricade or trap kit" },
+};
+export const YARD_GROUPS = { salvage: ["cars", "appliances", "machinery"], benches: ["weapons", "armor", "traps"] };
+export const YARD_SLOTS_BY_LEVEL = [1, 2, 3, 4];
+export const YARD_WORKERS_BY_LEVEL = YARD_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
+export const YARD_STAMINA_COST = 50; // to be balanced
+
+// The two work sites built this way: each side (fields/animals, salvage/benches) has its own crew,
+// whose flag (c.farmToday / c.scrapyardToday) holds the side's name.
+export const WORK_SITES = {
+  farm: { name: "Farm", flag: "farmToday", sides: FARM_GROUPS, slotsByLevel: FARM_SLOTS_BY_LEVEL, workersByLevel: FARM_WORKERS_BY_LEVEL, stamina: FARM_STAMINA_COST },
+  scrapyard: { name: "Scrapyard", flag: "scrapyardToday", sides: YARD_GROUPS, slotsByLevel: YARD_SLOTS_BY_LEVEL, workersByLevel: YARD_WORKERS_BY_LEVEL, stamina: YARD_STAMINA_COST },
+};
 export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, chicken: 1, cow: 0, sheep: 1 };
 // Expedition finds for the Farm (seeds, animals): a base chance on a success (lower on a failure) + a
 // location's seedBonus. Locations with `animals` turn up one of them instead `animalChance` of
@@ -667,7 +690,13 @@ export const ROOM_LEVELS = {
       { label: "Slots per crop & animal", by: FARM_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
     ],
   },
-  scrapyard: { name: "Scrapyard", students: roomSlots("Workers", SCRAPYARD_CAPACITY, 2) },
+  scrapyard: {
+    name: "Scrapyard", maxLevel: YARD_SLOTS_BY_LEVEL.length,
+    perks: [
+      { label: "Workers", by: YARD_WORKERS_BY_LEVEL, fmt: (v) => `${v} salvage + ${v} benches` },
+      { label: "Slots per pile & bench", by: YARD_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
+    ],
+  },
 };
 
 

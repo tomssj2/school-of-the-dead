@@ -937,6 +937,10 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 .pt-stam-lose { background: repeating-linear-gradient(135deg, #d64545 0 3px, #a83232 3px 6px); }
 .pt-stam-num { font-size: 10px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pt-stam-num b { color: #ff9a9a; }
+/* Scrapyard slots aren't clickable; a bench's scrap per piece is shown in red. */
+.fslot-static { cursor: default; }
+.farm-group-cost { color: #ff9a9a; cursor: help; }
+.kit-free { color: #7fe0a8; font-weight: 700; }
 /* A crew slot nobody's needed for (nothing more is ready). */
 .person-tile.pt-off { cursor: not-allowed; opacity: 0.3; }
 .farm-ready-none { color: var(--muted); }

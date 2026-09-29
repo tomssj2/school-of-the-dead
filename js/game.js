@@ -21,6 +21,7 @@ import {
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
   INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, FARM_WORKERS_BY_LEVEL, FARM_STAMINA_COST, PLOTS_PER_WORKER, STARTING_STOCK,
+  YARD_JOBS, YARD_GROUPS, YARD_SLOTS_BY_LEVEL, YARD_STAMINA_COST, WORK_SITES,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
@@ -144,6 +145,8 @@ export function createInitialState() {
     nests: [], // "q,r" keys of zombie nests found while scouting
     horde: null, // { q, r } of the wandering horde, from day 2
     mapDrops: [], // { q, r, kind, expires } — crates, wrecks and survivors waiting on scouted blocks
+    yard: Object.fromEntries(Object.keys(YARD_JOBS).map((kind) => [kind, [{ id: kind, growth: 0 }]])), // the Scrapyard's piles and benches
+    defenseKits: {}, // DEFENSE_STRUCTURES id -> kits from the Scrapyard's trap bench (a free build each)
     raidTarget: null, // LANDMARKS id today's raid squad is going after
     raidCooldowns: {}, // landmark id -> day its boss is back after being killed
     raidKills: {}, // landmark id -> times its boss has been killed (each makes it tougher)
@@ -600,60 +603,70 @@ export function cafeteriaRest(state) {
   return CAFETERIA_REST_BY_LEVEL[roomLevel(state, "cafeteria") - 1] + techPerk(state, "restRecovery");
 }
 
-// Outside facilities worked during Turn 2 as an alternative to exploring — a student can do one
-// or the other on a given day, never both, so each setter blocks while the other is active.
-function makeOutsideFacilitySetter(flagKey, roomKey) {
-  return function (state, studentId, value) {
-    const c = getChar(state, studentId);
-    if (!c || c.role !== "student") return false;
-    if (value) {
-      if (c.exploreTeam !== null || c.infection) return false;
-      const count = state.characters.filter((x) => x[flagKey]).length;
-      if (count >= state.rooms[roomKey].studentCapacity) return false;
-    }
-    c[flagKey] = value;
-    return true;
-  };
+// ---------- work sites: the Farm and the Scrapyard ----------
+// Worked in Turn 2 instead of exploring (see WORK_SITES in data.js). Each site has two sides, each
+// with its own crew: a student's c.farmToday / c.scrapyardToday holds the side they work, or false.
+// Side names are unique across sites, so a side is enough to find its site.
+
+const SIDE_SITE = Object.fromEntries(Object.entries(WORK_SITES).flatMap(([site, s]) => Object.keys(s.sides).map((side) => [side, site])));
+export const siteOfSide = (side) => SIDE_SITE[side];
+// What's in a slot: a crop or animal (PRODUCERS) or a Scrapyard pile or bench (YARD_JOBS).
+export const slotDef = (kind) => PRODUCERS[kind] || YARD_JOBS[kind];
+export const siteSlots = (state, site) => (site === "farm" ? state.plots : state.yard);
+export const siteWorkerSlots = (state, site) => WORK_SITES[site].workersByLevel[roomLevel(state, site) - 1];
+export const siteCrew = (state, side) => {
+  const flag = WORK_SITES[SIDE_SITE[side]].flag;
+  return state.characters.filter((c) => c[flag] === side && c.alive);
+};
+
+// Free for a day at a site: a student not off exploring or working the other site, with the
+// stamina the work takes.
+export function canWorkSite(c, site) {
+  if (c.role !== "student" || !c.alive || c.infection || c.exploreTeam !== null) return false;
+  if (Object.entries(WORK_SITES).some(([other, s]) => other !== site && c[s.flag])) return false;
+  return c.stamina >= WORK_SITES[site].stamina;
 }
 
-// The Farm has two crews: `side` is "fields" or "animals" (false takes the student off the Farm).
-// A crew only takes as many as its ready slots need, and a worker needs FARM_STAMINA_COST stamina.
-export function setFarmToday(state, studentId, side) {
+// Puts a student on a side's crew (false takes them off the site). A crew only takes as many as
+// its ready slots need.
+export function setSiteToday(state, site, studentId, side) {
   const c = getChar(state, studentId);
+  const flag = WORK_SITES[site].flag;
   if (!c || c.role !== "student") return false;
   if (side) {
-    if (!FARM_GROUPS[side] || !canWorkFarm(c)) return false;
-    const crew = farmCrew(state, side).filter((x) => x !== c).length;
-    if (crew >= Math.min(farmWorkerSlots(state), workersNeeded(state, side))) return false;
-    if (state.characters.filter((x) => x.farmToday && x !== c).length >= state.rooms.farm.studentCapacity) return false;
+    if (SIDE_SITE[side] !== site || !canWorkSite(c, site)) return false;
+    const crew = siteCrew(state, side).filter((x) => x !== c).length;
+    if (crew >= Math.min(siteWorkerSlots(state, site), workersNeeded(state, side))) return false;
+    if (state.characters.filter((x) => x[flag] && x !== c).length >= state.rooms[site].studentCapacity) return false;
   }
-  c.farmToday = side || false;
+  c[flag] = side || false;
   return true;
 }
 
-// Free for a day on the Farm: not off exploring or at the Scrapyard, and not too tired.
-export const canWorkFarm = (c) =>
-  c.role === "student" && c.alive && !c.infection && c.exploreTeam === null && !c.scrapyardToday && c.stamina >= FARM_STAMINA_COST;
-
 // Fills both crews up to what their ready slots need, lowest-level free students first.
 // Returns how many were assigned.
-export function autoAssignFarm(state) {
+export function autoAssignSite(state, site) {
+  const flag = WORK_SITES[site].flag;
   let assigned = 0;
-  for (const side of Object.keys(FARM_GROUPS)) {
+  for (const side of Object.keys(WORK_SITES[site].sides)) {
     const free = state.characters
-      .filter((c) => !c.farmToday && canWorkFarm(c))
+      .filter((c) => !c[flag] && canWorkSite(c, site))
       .sort((a, b) => overallLevel(a) - overallLevel(b) || b.stamina - a.stamina);
     for (const c of free) {
-      if (!setFarmToday(state, c.id, side)) break;
+      if (!setSiteToday(state, site, c.id, side)) break;
       assigned++;
     }
   }
   return assigned;
 }
-export const farmWorkerSlots = (state) => FARM_WORKERS_BY_LEVEL[roomLevel(state, "farm") - 1];
-export const farmCrew = (state, side) => state.characters.filter((c) => c.farmToday === side && c.alive);
-export const setScrapyardToday = makeOutsideFacilitySetter("scrapyardToday", "scrapyard");
 
+// The Farm's own names for these.
+export const setFarmToday = (state, studentId, side) => setSiteToday(state, "farm", studentId, side);
+export const setScrapyardToday = (state, studentId, side) => setSiteToday(state, "scrapyard", studentId, side);
+export const canWorkFarm = (c) => canWorkSite(c, "farm");
+export const autoAssignFarm = (state) => autoAssignSite(state, "farm");
+export const farmWorkerSlots = (state) => siteWorkerSlots(state, "farm");
+export const farmCrew = siteCrew;
 // ---------- room levels ----------
 // Every room and facility has a level from 1 to ROOM_MAX_LEVEL (see ROOM_LEVELS). Its slots are
 // worked out from the level and stored on the room (studentCapacity / teacherCapacity / plots, a
@@ -736,10 +749,11 @@ export function applyRoomLevel(state, key) {
     return;
   }
   if (stats.students !== undefined) room.studentCapacity = Math.max(1, stats.students - (room.damage || 0));
-  if (key === "farm") {
+  if (WORK_SITES[key]) {
     // both crews' slots, less any a raid broke
-    room.studentCapacity = Math.max(1, 2 * farmWorkerSlots(state) - (room.damage || 0));
-    syncPlots(state);
+    room.studentCapacity = Math.max(1, 2 * siteWorkerSlots(state, key) - (room.damage || 0));
+    if (key === "farm") syncPlots(state);
+    else syncYard(state);
   }
 }
 
@@ -843,16 +857,18 @@ export function facilityWorkers(state, facility) {
   return state.characters.filter((c) => c[`${facility}Today`] && c.alive).length;
 }
 
-// A slot whose crop or animal has had its days and is waiting for a worker.
-export const isReady = (plot) => !!plot?.id && plot.growth >= PRODUCERS[plot.id].growDays;
+// A slot whose crop, animal, pile or bench has had its days and is waiting for a worker.
+export const isReady = (plot) => !!plot?.id && plot.growth >= slotDef(plot.id).growDays;
 
-// A side's ready slots as [kind, index], top group first.
+// A side's ready slots as [kind, index], top group first (at the Farm or the Scrapyard).
 export function readySlots(state, side) {
-  return FARM_GROUPS[side].flatMap((kind) => state.plots[kind].map((plot, i) => (isReady(plot) ? [kind, i] : null)).filter(Boolean));
+  const site = SIDE_SITE[side];
+  const slots = siteSlots(state, site);
+  return WORK_SITES[site].sides[side].flatMap((kind) => slots[kind].map((plot, i) => (isReady(plot) ? [kind, i] : null)).filter(Boolean));
 }
 
 // The ready slots that side's crew collects today — PLOTS_PER_WORKER each, top group first.
-export function harvestPlan(state, side, crew = farmCrew(state, side).length) {
+export function harvestPlan(state, side, crew = siteCrew(state, side).length) {
   return readySlots(state, side).slice(0, crew * PLOTS_PER_WORKER);
 }
 
@@ -883,6 +899,66 @@ function resolveFarm(state) {
   for (const side of Object.keys(FARM_GROUPS)) for (const [kind, i] of harvestPlan(state, side)) harvestSlot(state, kind, i, out);
   for (const kind of Object.keys(PRODUCERS)) {
     for (const plot of state.plots[kind]) if (plot.id) plot.growth = Math.min(PRODUCERS[kind].growDays, plot.growth + 1);
+  }
+  return out;
+}
+
+// ---------- the Scrapyard's piles & benches ----------
+// state.yard has a slot list per pile/bench (YARD_JOBS), each slot { id, growth } — always in use:
+// a pile builds back up and a bench starts its next piece as soon as it's collected.
+
+export const yardSlots = (state) => YARD_SLOTS_BY_LEVEL[roomLevel(state, "scrapyard") - 1];
+
+export function syncYard(state) {
+  state.yard = state.yard || {};
+  for (const kind of Object.keys(YARD_JOBS)) {
+    const list = (state.yard[kind] = state.yard[kind] || []);
+    while (list.length < yardSlots(state)) list.push({ id: kind, growth: 0 });
+  }
+}
+
+// A random tier 1-2 item, of a slot type if given ("weapon", "armor").
+function yardItem(slot) {
+  const pool = ITEM_TEMPLATES.filter((t) => itemTier(t) <= 2 && (!slot || t.slot === slot));
+  return makeItem(pick(pool).id);
+}
+
+// Turn 2 at the Scrapyard: each crew collects what's ready (a bench only while there's the scrap
+// for it), then every pile and bench comes along a day.
+function resolveYard(state) {
+  const out = { scrap: 0, research: 0, items: [], kits: [], short: 0 };
+  for (const side of Object.keys(YARD_GROUPS)) {
+    for (const [kind, i] of harvestPlan(state, side)) {
+      const job = YARD_JOBS[kind];
+      if (job.cost) {
+        if (state.resources.materials < job.cost) {
+          out.short++;
+          continue;
+        }
+        state.resources.materials -= job.cost;
+      }
+      if (job.scrap) {
+        state.resources.materials += job.scrap;
+        out.scrap += job.scrap;
+      }
+      if (job.research && Math.random() < job.researchChance) {
+        const n = randInt(job.research[0], job.research[1]);
+        state.resources.research += n;
+        out.research += n;
+      }
+      if (job.gearChance && Math.random() < job.gearChance) out.items.push(yardItem(null));
+      if (job.makes === "weapon" || job.makes === "armor") out.items.push(yardItem(job.makes));
+      if (job.makes === "defense") {
+        const kit = pick(DEFENSE_STRUCTURES);
+        state.defenseKits[kit.id] = (state.defenseKits[kit.id] || 0) + 1;
+        out.kits.push(kit);
+      }
+      state.yard[kind][i].growth = 0;
+    }
+  }
+  for (const item of out.items) state.armory.push(item);
+  for (const kind of Object.keys(YARD_JOBS)) {
+    for (const slot of state.yard[kind]) slot.growth = Math.min(YARD_JOBS[kind].growDays, slot.growth + 1);
   }
   return out;
 }
@@ -1312,11 +1388,20 @@ export function resolveExploration(state) {
   const { produced, kept } = resolveFarm(state);
   const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
   if (farmWorkers) addLog(state, `The Farm brings in ${gain} food${goods ? ` and ${goods}` : ""} from ${farmWorkers} student(s)${kept.length ? ` — ${kept.join(", ")}` : ""}.`);
+  // the Scrapyard: each worker's own haul, then whatever the crews collect from piles and benches
   const scrapyardWorkers = state.characters.filter((c) => c.scrapyardToday && c.alive);
+  const haul = scrapyardWorkers.reduce((sum, c) => sum + workerYield("scrapyard", c), 0);
+  state.resources.materials += haul;
+  for (const c of scrapyardWorkers) c.stamina = Math.max(0, c.stamina - YARD_STAMINA_COST);
+  const yard = resolveYard(state);
   if (scrapyardWorkers.length) {
-    const gain = scrapyardWorkers.reduce((sum, c) => sum + workerYield("scrapyard", c), 0);
-    state.resources.materials += gain;
-    addLog(state, `The Scrapyard salvages ${gain} scrap from ${scrapyardWorkers.length} student(s).`);
+    const made = [
+      `${haul + yard.scrap} scrap`,
+      ...(yard.research ? [`${yard.research} research`] : []),
+      ...yard.items.map((it) => `${it.icon} ${it.name}`),
+      ...yard.kits.map((k) => `${k.icon} a ${k.name.toLowerCase()} kit`),
+    ];
+    addLog(state, `The Scrapyard brings in ${made.join(", ")} from ${scrapyardWorkers.length} student(s)${yard.short ? ` — ${yard.short} bench job(s) waited for scrap` : ""}.`);
   }
 
   state.expeditionsSent = (state.expeditionsSent || 0) + teamsSent;
@@ -2748,6 +2833,13 @@ export function buildDefense(state, cellKey, structureId) {
   if (state.entranceGrid.defenses[cellKey]) return false;
   const def = DEFENSE_STRUCTURES.find((d) => d.id === structureId);
   if (!def) return false;
+  // a kit from the Scrapyard's trap bench builds one for free
+  if (state.defenseKits?.[structureId] > 0) {
+    state.defenseKits[structureId] -= 1;
+    state.entranceGrid.defenses[cellKey] = structureId;
+    addLog(state, `Built a ${def.name} at the entrance from a Scrapyard kit.`);
+    return true;
+  }
   for (const res of Object.keys(def.cost)) {
     if ((state.resources[res] || 0) < def.cost[res]) return false;
   }
