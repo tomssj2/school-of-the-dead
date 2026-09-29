@@ -480,9 +480,9 @@ export const STARTING_PANTRY = {
 // ===== Farm fields & pens =====
 // The Farm has a field for each crop and a pen for each animal (the Ranch was folded into it —
 // `facility: "ranch"` means the pens), each with a few slots. Each slot holds one crop or animal
-// from the stock of seeds and livestock,
-// and only grows/produces on days a worker there tends it. After `growDays` tended days it
-// yields `yield` of its `product` into the pantry. Crops and sheep are used up by that (a crop is
+// from the stock of seeds and livestock, and grows a day at a time on its own. After `growDays`
+// days it's ready, and waits for a Farm worker to collect `yield` of its `product` into the
+// pantry. Crops and sheep are used up by that (a crop is
 // harvested, a sheep butchered) with a `keepChance` of getting one back — a saved seed, a lamb —
 // and the plot replants itself while stock lasts. Chickens and cows are `perennial`: they keep
 // producing for as long as you keep them.
@@ -516,10 +516,14 @@ export const FARM_CROPS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].fa
 export const RANCH_ANIMALS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "ranch");
 // The Farm's six groups, top to bottom on each side of its page: a field for each crop on the
 // left, a pen for each animal on the right. Every group has the same number of slots, by level.
-export const FARM_GROUPS = { farm: ["wheat", "potatoes", "tomatoes"], ranch: ["chicken", "sheep", "cow"] };
+export const FARM_GROUPS = { fields: ["wheat", "potatoes", "tomatoes"], animals: ["chicken", "sheep", "cow"] };
 export const FARM_SLOTS_BY_LEVEL = [1, 2, 2, 3, 4];
 export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // fields and pens at level 1 in older saves
-export const PLOTS_PER_WORKER = 2; // plots/pens one worker can tend a day
+export const PLOTS_PER_WORKER = 2; // ready slots one Farm worker harvests a day
+// Crops grow and animals come round by themselves, a day at a time; once a slot is ready it waits
+// for a worker. Each side of the Farm (fields, animals) has its own crew, big enough to cover all
+// its slots: 2, 3, 3, 5, 6 workers by level.
+export const FARM_WORKERS_BY_LEVEL = FARM_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
 export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, chicken: 1, cow: 0, sheep: 1 };
 // Expedition finds for the Farm (seeds, animals): a base chance on a success (lower on a failure) + a
 // location's seedBonus. Locations with `animals` turn up one of them instead `animalChance` of
@@ -656,8 +660,11 @@ export const ROOM_LEVELS = {
     perks: [{ label: "Bonus fortification", by: CRAFTING_BONUS_BY_LEVEL, fmt: (v) => `+${v} per crafter` }],
   },
   farm: {
-    name: "Farm", students: roomSlots("Workers", FARM_CAPACITY, 3),
-    perks: [{ label: "Slots per crop & animal", by: FARM_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` }],
+    name: "Farm",
+    perks: [
+      { label: "Workers", by: FARM_WORKERS_BY_LEVEL, fmt: (v) => `${v} fields + ${v} animals` },
+      { label: "Slots per crop & animal", by: FARM_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
+    ],
   },
   scrapyard: { name: "Scrapyard", students: roomSlots("Workers", SCRAPYARD_CAPACITY, 2) },
 };

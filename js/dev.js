@@ -55,6 +55,7 @@ export function maxOutSchool(state) {
     }
   };
   const count = (flag, value = true) => state.characters.filter((c) => c.alive && (value === true ? c[flag] : c[flag] === value)).length;
+  for (const side of ["fields", "animals"]) fill(G.farmWorkerSlots(state) - count("farmToday", side), (c) => G.setFarmToday(state, c.id, side));
   fill(state.rooms.gym.studentCapacity - count("gymToday", "PE"), (c) => G.setGymToday(state, c.id, "PE"));
   fill(state.rooms.acrobatics.studentCapacity - count("gymToday", "Gymnastics"), (c) => G.setGymToday(state, c.id, "Gymnastics"));
   fill(state.rooms.radio.studentCapacity - count("radioToday"), (c) => G.setRadioToday(state, c.id, true));
@@ -68,7 +69,6 @@ export function maxOutSchool(state) {
     c.hp = Math.round(c.maxHp * 0.5);
     return G.setInfirmaryToday(state, c.id, "heal");
   });
-  fill(state.rooms.farm.studentCapacity - count("farmToday"), (c) => G.setFarmToday(state, c.id, true));
   fill(state.rooms.scrapyard.studentCapacity - count("scrapyardToday"), (c) => G.setScrapyardToday(state, c.id, true));
 
   // student levels spread from 1 to the top, with some experience toward the next, so every level
@@ -78,12 +78,14 @@ export function maxOutSchool(state) {
     c.exp = c.level >= STUDENT_MAX_LEVEL ? 0 : Math.floor(Math.random() * xpToNextLevel(c.level));
   });
 
-  // the Farm's fields and pens: something in every slot, part-grown (but one of each of the last
-  // two groups left empty, to see how that looks), and a few seeds and animals in stock
+  // the Farm's fields and pens: something in every slot, every other one ready to collect and the
+  // rest part-grown (but one of each of the last two groups left empty, to see how that looks),
+  // and a few seeds and animals in stock
   for (const kind of Object.keys(PRODUCERS)) {
+    const days = PRODUCERS[kind].growDays;
     state.plots[kind].forEach((plot, i) => {
       if (plot.id || ((kind === "tomatoes" || kind === "cow") && i === state.plots[kind].length - 1)) return;
-      Object.assign(plot, { id: kind, growth: i % PRODUCERS[kind].growDays });
+      Object.assign(plot, { id: kind, growth: i % 2 === 0 ? days : i % days });
     });
     state.stock[kind] = Math.max(state.stock[kind] || 0, 2);
   }

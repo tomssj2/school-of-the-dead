@@ -20,7 +20,7 @@ import {
   RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
-  INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, PLOTS_PER_WORKER, STARTING_STOCK,
+  INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, FARM_WORKERS_BY_LEVEL, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
@@ -616,7 +616,20 @@ function makeOutsideFacilitySetter(flagKey, roomKey) {
   };
 }
 
-export const setFarmToday = makeOutsideFacilitySetter("farmToday", "farm");
+// The Farm has two crews: `side` is "fields" or "animals" (false takes the student off the Farm).
+export function setFarmToday(state, studentId, side) {
+  const c = getChar(state, studentId);
+  if (!c || c.role !== "student") return false;
+  if (side) {
+    if (!FARM_GROUPS[side] || c.exploreTeam !== null || c.infection) return false;
+    if (farmCrew(state, side).length >= farmWorkerSlots(state)) return false;
+    if (state.characters.filter((x) => x.farmToday && x !== c).length >= state.rooms.farm.studentCapacity) return false;
+  }
+  c.farmToday = side || false;
+  return true;
+}
+export const farmWorkerSlots = (state) => FARM_WORKERS_BY_LEVEL[roomLevel(state, "farm") - 1];
+export const farmCrew = (state, side) => state.characters.filter((c) => c.farmToday === side && c.alive);
 export const setScrapyardToday = makeOutsideFacilitySetter("scrapyardToday", "scrapyard");
 
 // ---------- room levels ----------
@@ -698,7 +711,11 @@ export function applyRoomLevel(state, key) {
     return;
   }
   if (stats.students !== undefined) room.studentCapacity = Math.max(1, stats.students - (room.damage || 0));
-  if (key === "farm") syncPlots(state);
+  if (key === "farm") {
+    // both crews' slots, less any a raid broke
+    room.studentCapacity = Math.max(1, 2 * farmWorkerSlots(state) - (room.damage || 0));
+    syncPlots(state);
+  }
 }
 
 export function roomUpgradeCostFor(state, key) {
@@ -801,40 +818,48 @@ export function facilityWorkers(state, facility) {
   return state.characters.filter((c) => c[`${facility}Today`] && c.alive).length;
 }
 
-// The order the Farm's workers go round: the first slot of every group (a field, then a pen, in
-// turn — wheat, chickens, potatoes, sheep, tomatoes, cows), then every group's second slot...
-const TEND_ORDER = FARM_GROUPS.farm.flatMap((crop, i) => [crop, FARM_GROUPS.ranch[i]]);
+// A slot whose crop or animal has had its days and is waiting for a worker.
+export const isReady = (plot) => !!plot?.id && plot.growth >= PRODUCERS[plot.id].growDays;
 
-// Indexes of the occupied slots of `kind` today's Farm workers tend (PLOTS_PER_WORKER each).
-export function tendedPlots(state, kind, workerCount = facilityWorkers(state, "farm")) {
-  const order = [];
-  const most = Math.max(...TEND_ORDER.map((k) => state.plots[k].length));
-  for (let i = 0; i < most; i++) for (const k of TEND_ORDER) if (state.plots[k][i]?.id) order.push([k, i]);
-  return order.slice(0, workerCount * PLOTS_PER_WORKER).filter(([k]) => k === kind).map(([, i]) => i);
+// A side's ready slots as [kind, index], top group first.
+export function readySlots(state, side) {
+  return FARM_GROUPS[side].flatMap((kind) => state.plots[kind].map((plot, i) => (isReady(plot) ? [kind, i] : null)).filter(Boolean));
 }
 
-// Grows the given slots of a group a day (see tendedPlots), harvesting whatever is ready.
-function tendPlots(state, kind, indexes) {
-  const produced = {};
-  const kept = [];
-  for (const i of indexes) {
-    const plot = state.plots[kind][i];
-    const p = PRODUCERS[plot.id];
-    plot.growth += 1;
-    if (plot.growth < p.growDays) continue;
-    produced[p.product] = (produced[p.product] || 0) + p.yield;
-    state.pantry[p.product] = (state.pantry[p.product] || 0) + p.yield;
-    plot.growth = 0;
-    if (p.perennial) continue;
-    const id = plot.id;
-    plot.id = null;
-    if (Math.random() < p.keepChance) {
-      addStock(state, id, 1);
-      kept.push(p.keepNote);
-    }
-    plantPlot(state, kind, i); // replant the same thing while stock lasts
+// The ready slots that side's crew collects today — PLOTS_PER_WORKER each, top group first.
+export function harvestPlan(state, side, crew = farmCrew(state, side).length) {
+  return readySlots(state, side).slice(0, crew * PLOTS_PER_WORKER);
+}
+
+// Workers a side needs to collect everything that's ready.
+export const workersNeeded = (state, side) => Math.ceil(readySlots(state, side).length / PLOTS_PER_WORKER);
+
+// Collects a ready slot into the pantry: a crop is harvested (and replanted while there's seed),
+// a sheep butchered (maybe leaving a lamb), a hen's eggs or a cow's milk taken.
+function harvestSlot(state, kind, i, out) {
+  const plot = state.plots[kind][i];
+  const p = PRODUCERS[kind];
+  out.produced[p.product] = (out.produced[p.product] || 0) + p.yield;
+  state.pantry[p.product] = (state.pantry[p.product] || 0) + p.yield;
+  plot.growth = 0;
+  if (p.perennial) return;
+  plot.id = null;
+  if (Math.random() < p.keepChance) {
+    addStock(state, kind, 1);
+    out.kept.push(p.keepNote);
   }
-  return { produced, kept };
+  plantPlot(state, kind, i); // replant the same thing while stock lasts
+}
+
+// Turn 2 on the Farm: each crew collects what's ready (up to 2 slots a worker), then every crop
+// and animal grows a day — a ready one that wasn't collected just waits.
+function resolveFarm(state) {
+  const out = { produced: {}, kept: [] };
+  for (const side of Object.keys(FARM_GROUPS)) for (const [kind, i] of harvestPlan(state, side)) harvestSlot(state, kind, i, out);
+  for (const kind of Object.keys(PRODUCERS)) {
+    for (const plot of state.plots[kind]) if (plot.id) plot.growth = Math.min(PRODUCERS[kind].growDays, plot.growth + 1);
+  }
+  return out;
 }
 
 // ---------- cooking ----------
@@ -1254,23 +1279,13 @@ export function resolveExploration(state) {
   gainExpAll(state, state.characters.filter((c) => c.alive && (c.farmToday || c.scrapyardToday)), LEVEL_XP.work);
 
   // outside facilities — passive daily yield for students working the Farm/Scrapyard instead of
-  // exploring. Farm workers also tend the fields and the pens.
+  // exploring. Farm workers also collect whatever's ready in the fields and the pens.
   const farmWorkers = facilityWorkers(state, "farm");
-  if (farmWorkers) {
-    const gain = state.characters.filter((c) => c.farmToday && c.alive).reduce((sum, c) => sum + workerYield("farm", c), 0);
-    state.resources.food += gain;
-    // which slots get tended is settled before anything is harvested (and maybe left empty)
-    const tended = TEND_ORDER.map((kind) => [kind, tendedPlots(state, kind, farmWorkers)]);
-    const produced = {};
-    const kept = [];
-    for (const [kind, indexes] of tended) {
-      const out = tendPlots(state, kind, indexes);
-      for (const [id, n] of Object.entries(out.produced)) produced[id] = (produced[id] || 0) + n;
-      kept.push(...out.kept);
-    }
-    const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
-    addLog(state, `The Farm brings in ${gain} food${goods ? ` and ${goods}` : ""} from ${farmWorkers} student(s)${kept.length ? ` — ${kept.join(", ")}` : ""}.`);
-  }
+  const gain = state.characters.filter((c) => c.farmToday && c.alive).reduce((sum, c) => sum + workerYield("farm", c), 0);
+  state.resources.food += gain;
+  const { produced, kept } = resolveFarm(state);
+  const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
+  if (farmWorkers) addLog(state, `The Farm brings in ${gain} food${goods ? ` and ${goods}` : ""} from ${farmWorkers} student(s)${kept.length ? ` — ${kept.join(", ")}` : ""}.`);
   const scrapyardWorkers = state.characters.filter((c) => c.scrapyardToday && c.alive);
   if (scrapyardWorkers.length) {
     const gain = scrapyardWorkers.reduce((sum, c) => sum + workerYield("scrapyard", c), 0);
@@ -1966,7 +1981,7 @@ function applyEffect(state, e) {
   }
   if (e.stock) for (const [id, n] of Object.entries(e.stock)) addStock(state, id, n);
   if (e.blight) {
-    const growing = FARM_GROUPS.farm.flatMap((crop) => state.plots[crop]).filter((p) => p.id);
+    const growing = FARM_GROUPS.fields.flatMap((crop) => state.plots[crop]).filter((p) => p.id);
     if (growing.length) {
       const plot = pick(growing);
       addLog(state, `A plot of ${PRODUCERS[plot.id].name.toLowerCase()} is lost to the blight.`);

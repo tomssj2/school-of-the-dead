@@ -907,9 +907,24 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 .fslot-icon { font-size: 22px; line-height: 1; }
 .fslot .plot-bar { width: 100%; }
 .fslot-status { color: #c3c8d4; white-space: nowrap; }
-.fslot-tended { border-color: rgba(76, 175, 125, 0.6); }
-.fslot-idle { opacity: 0.7; }
-.fslot-idle .fslot-status { color: var(--warn); }
+/* A full bar: ready — gold until a worker covers it, then green. */
+.fslot-ready { border-color: #f4d35e; box-shadow: 0 0 8px rgba(244, 211, 94, 0.35); animation: fslot-ready 1.8s ease-in-out infinite; }
+.fslot-ready .fslot-status { color: #f4d35e; font-weight: 700; }
+.fslot-ready .plot-bar i { background: linear-gradient(90deg, #e0b84a, #f4d35e); }
+.fslot-covered { border-color: rgba(76, 175, 125, 0.8); box-shadow: 0 0 8px rgba(76, 175, 125, 0.35); animation: none; }
+.fslot-covered .fslot-status { color: #7fe0a8; }
+@keyframes fslot-ready {
+  0%, 100% { box-shadow: 0 0 4px rgba(244, 211, 94, 0.25); }
+  50% { box-shadow: 0 0 12px rgba(244, 211, 94, 0.6); }
+}
+/* Each side's crew sits centred over its pill; the pill says what's ready in the middle. */
+.farm-crew .person-tiles { display: flex; flex-wrap: wrap; justify-content: center; }
+.farm-pill { display: grid; grid-template-columns: 1fr auto 1fr; }
+.farm-pill > .mini-label { justify-self: end; }
+.farm-ready { font-size: 12px; white-space: nowrap; }
+.farm-ready-none { color: var(--muted); }
+.farm-ready-ok { color: #7fe0a8; }
+.farm-ready-short { color: #f4d35e; }
 .fslot-empty { border-style: dashed; background: rgba(255, 255, 255, 0.02); color: var(--turn-accent); }
 .fslot-empty b { font-size: 18px; line-height: 1; }
 .fslot-none { color: var(--muted); opacity: 0.6; }
@@ -2036,7 +2051,7 @@ button.ex-team:hover { border-color: var(--team); }
   .raid-intro { flex-direction: column; text-align: center; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .cm-q, .cm-routes path, .cm-cell::before, .cm-drop-icon, .hex-nest .hex-tile::after, .exp-walker, .exp-walker svg { animation: none; }
+  .cm-q, .cm-routes path, .cm-cell::before, .cm-drop-icon, .fslot-ready, .hex-nest .hex-tile::after, .exp-walker, .exp-walker svg { animation: none; }
 }
 
 
@@ -2141,6 +2156,7 @@ html[data-gfx="medium"] .cm-q,
 html[data-gfx="medium"] .cm-routes path,
 html[data-gfx="medium"] .cm-cell::before,
 html[data-gfx="medium"] .cm-drop-icon,
+html[data-gfx="medium"] .fslot-ready,
 html[data-gfx="medium"] .hex-nest .hex-tile::after,
 html[data-gfx="medium"] .exp-walker svg,
 html[data-gfx="medium"] .upg-pip-next,

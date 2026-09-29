@@ -198,7 +198,7 @@ function migrateState(s) {
     if (c.craftingToday === undefined) c.craftingToday = false;
     delete c.coupleId;
     // The Ranch was folded into the Farm: whoever worked it today works the Farm.
-    if (c.ranchToday) c.farmToday = true;
+    if (c.ranchToday) c.farmToday = "animals";
     delete c.ranchToday;
     if (c.role === "teacher") {
       if (!/^(mr|mrs)\.\s/i.test(c.name)) c.name = withTeacherHonorific(c.name, c.gender);
@@ -368,8 +368,17 @@ function migrateState(s) {
     delete s.rooms.farm.pens;
   }
   for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
-  // More workers than the Farm has room for (the Ranch's came over) go back to being free.
-  s.characters.filter((c) => c.farmToday).slice(s.rooms.farm.studentCapacity).forEach((c) => { c.farmToday = false; });
+  // The Farm has a fields crew and an animals crew: anyone on the Farm from before joins the fields
+  // (the animals once that's full), and whoever doesn't fit goes back to being free.
+  const crewSlots = G.farmWorkerSlots(s);
+  const crews = { fields: 0, animals: 0 };
+  for (const c of s.characters) {
+    if (!c.farmToday) continue;
+    let side = c.farmToday === true ? (crews.fields < crewSlots ? "fields" : "animals") : c.farmToday;
+    if (!(side in crews) || crews[side] >= crewSlots) side = false;
+    c.farmToday = side;
+    if (side) crews[side]++;
+  }
   // A room holds only as many teachers as its level allows (1, then 2 at level 3, 3 at level 5):
   // any beyond that — from an older save with bigger rooms — go back to unassigned.
   const posted = {};
@@ -1378,7 +1387,7 @@ root.addEventListener("click", (e) => {
         case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;
         case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
         case "utility": G.setTeacherPost(state, id, postKey); break;
-        case "farm": G.setFarmToday(state, id, true); break;
+        case "farm": G.setFarmToday(state, id, postKey); break;
         case "scrapyard": G.setScrapyardToday(state, id, true); break;
         case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
         default: break;
