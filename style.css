@@ -874,57 +874,51 @@ html[data-gfx="low"] .staff-add { animation: none; }
 .pantry-item { font-size: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
 .pantry-empty { opacity: 0.45; }
 
-/* The Farm, split down the middle: fields on the left, animals on the right. */
+/* The Farm, split down the middle: a field for each crop on the left, a pen for each animal on
+   the right, each a row of slots (4 at the top level; the ones not open yet are greyed). */
 .farm-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
 .farm-side { min-width: 0; }
 .farm-side-title { color: var(--text, #fff); font-weight: 700; }
-.farm-stock { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 6px 0 2px; }
-.farm-stock .mini-label { margin: 0 4px 0 0; }
-.plot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin: 6px 0 8px; }
-.plot {
-  width: 100%;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.12s, transform 0.12s;
+.farm-group { margin-top: 8px; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: rgba(107, 74, 47, 0.1); }
+.farm-group-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; white-space: nowrap; }
+.farm-group-head b { font-size: 13px; }
+.farm-group-head .muted { overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; }
+.farm-group-icon { font-size: 16px; }
+.farm-group-stock { margin-left: auto; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.05); font-size: 12px; cursor: help; }
+.farm-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.fslot {
+  height: 62px;
   display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(107, 74, 47, 0.28), rgba(107, 74, 47, 0.12));
-}
-.plot:hover { border-color: var(--turn-accent); transform: translateY(-1px); }
-.plot-empty { background: rgba(255, 255, 255, 0.02); border-style: dashed; }
-.plot-empty .plot-body b { color: var(--turn-accent); }
-.plot-tended { border-color: rgba(76, 175, 125, 0.55); }
-.plot-idle { opacity: 0.8; }
-.plot-icon {
-  flex: none;
-  width: 38px;
-  height: 38px;
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  border-radius: 8px;
-  background: #5a3b24;
-  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.3);
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(107, 74, 47, 0.45), rgba(90, 59, 36, 0.3));
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.12s;
 }
-.plot-empty .plot-icon { background: rgba(90, 59, 36, 0.4); font-size: 20px; color: rgba(255, 255, 255, 0.6); }
-.plot-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: #c3c8d4; }
-.plot-body b { font-size: 13px; color: var(--text); }
+button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1px); }
+.fslot-icon { font-size: 22px; line-height: 1; }
+.fslot .plot-bar { width: 100%; }
+.fslot-status { color: #c3c8d4; white-space: nowrap; }
+.fslot-tended { border-color: rgba(76, 175, 125, 0.6); }
+.fslot-idle { opacity: 0.7; }
+.fslot-idle .fslot-status { color: var(--warn); }
+.fslot-empty { border-style: dashed; background: rgba(255, 255, 255, 0.02); color: var(--turn-accent); }
+.fslot-empty b { font-size: 18px; line-height: 1; }
+.fslot-none { color: var(--muted); opacity: 0.6; }
+.fslot-locked { cursor: help; border-style: dashed; background: transparent; color: var(--muted); opacity: 0.45; font-size: 12px; }
+.fslot-locked span { font-size: 10.5px; }
 .plot-modal { max-width: 440px; }
-.plot-choices { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-.plot-choice { display: flex; align-items: center; gap: 10px; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: rgba(255, 255, 255, 0.03); }
-.plot-choice-off { opacity: 0.5; }
-.plot-choice-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
-.plot-stock { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
 .plot-warn { color: var(--warn); }
 .plot-bar { height: 6px; border-radius: 3px; background: #10131a; overflow: hidden; }
-.plot-bar div { height: 100%; background: linear-gradient(90deg, #6fae6a, #a5d86a); }
+.plot-bar i { display: block; height: 100%; background: linear-gradient(90deg, #6fae6a, #a5d86a); }
 .dish-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .dish-row { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; }
 .dish-row .muted { font-size: 11.5px; margin-top: 2px; }

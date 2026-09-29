@@ -20,7 +20,7 @@ import {
   RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
-  INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FACILITY_PLOTS, PLOTS_PER_WORKER, STARTING_STOCK,
+  INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
@@ -131,7 +131,7 @@ export function createInitialState() {
     bossesSlain: [], // boss names, for the epilogue
     pantry: { ...STARTING_PANTRY }, // ingredient id -> count
     stock: { ...STARTING_STOCK }, // PRODUCERS id -> seeds / livestock waiting to be planted or penned
-    plots: { farm: [emptyPlot()], ranch: [emptyPlot()] }, // the Farm's crop fields and animal pens
+    plots: Object.fromEntries(Object.keys(PRODUCERS).map((kind) => [kind, [emptyPlot()]])), // the Farm's slots for each crop and animal
     dishesToday: [], // DISHES ids served today; their buffs last until the day rolls over
     gymSplit: true, // PE / Gymnastics train separately (see migrateState)
     roomLevels: true, // rooms have levels 1-5 (see migrateState)
@@ -698,14 +698,7 @@ export function applyRoomLevel(state, key) {
     return;
   }
   if (stats.students !== undefined) room.studentCapacity = Math.max(1, stats.students - (room.damage || 0));
-  if (stats.plots !== undefined) {
-    room.plots = stats.plots;
-    syncPlots(state, key);
-  }
-  if (stats.pens !== undefined) {
-    room.pens = stats.pens;
-    syncPlots(state, "ranch");
-  }
+  if (key === "farm") syncPlots(state);
 }
 
 export function roomUpgradeCostFor(state, key) {
@@ -758,19 +751,22 @@ function traitGrowthMultiplier(c, subject) {
 }
 
 // ---------- the Farm's fields & pens ----------
-// See PRODUCERS in data.js. state.plots.farm (crop fields) and state.plots.ranch (animal pens,
-// named for the old Ranch) hold { id, growth } — id is the crop or animal in it, or null when
-// empty. state.stock holds the seeds and livestock not yet placed. The Farm's level sets how many
-// of each there are.
+// See PRODUCERS and FARM_GROUPS in data.js. state.plots has a list of slots for each crop and
+// animal (state.plots.wheat, state.plots.chicken...), each slot { id, growth } — id is that crop or
+// animal while something's in it, null when empty. state.stock holds the seeds and livestock not
+// yet placed. The Farm's level sets how many slots every group has (FARM_SLOTS_BY_LEVEL).
 
 export function emptyPlot() {
   return { id: null, growth: 0 };
 }
 
-export function syncPlots(state, facility) {
-  const list = state.plots[facility];
-  const count = facility === "ranch" ? state.rooms.farm.pens : state.rooms.farm.plots;
-  while (list.length < count) list.push(emptyPlot());
+export const farmSlots = (state) => FARM_SLOTS_BY_LEVEL[roomLevel(state, "farm") - 1];
+
+export function syncPlots(state) {
+  for (const kind of Object.keys(PRODUCERS)) {
+    const list = (state.plots[kind] = state.plots[kind] || []);
+    while (list.length < farmSlots(state)) list.push(emptyPlot());
+  }
 }
 
 export function addStock(state, id, qty) {
@@ -782,22 +778,21 @@ export function stockLabel(id, qty) {
   return `${p.stockIcon} ${qty === 1 ? p.stockName : p.stockPlural} ×${qty}`;
 }
 
-// Plants a seed / pens an animal in an empty plot — only possible with one in stock.
-export function plantPlot(state, facility, index, id) {
-  const plot = state.plots[facility]?.[index];
-  const p = PRODUCERS[id];
-  if (!plot || plot.id || !p || p.facility !== facility || !(state.stock[id] > 0)) return false;
-  state.stock[id] -= 1;
-  plot.id = id;
+// Plants a seed / pens an animal in an empty slot of its group — only with one in stock.
+export function plantPlot(state, kind, index) {
+  const plot = state.plots[kind]?.[index];
+  if (!plot || plot.id || !PRODUCERS[kind] || !(state.stock[kind] > 0)) return false;
+  state.stock[kind] -= 1;
+  plot.id = kind;
   plot.growth = 0;
   return true;
 }
 
-// Empties a plot. A growing crop is lost along with its seed; an animal goes back into stock.
-export function clearPlot(state, facility, index) {
-  const plot = state.plots[facility]?.[index];
+// Empties a slot. A growing crop is lost along with its seed; an animal goes back into stock.
+export function clearPlot(state, kind, index) {
+  const plot = state.plots[kind]?.[index];
   if (!plot || !plot.id) return false;
-  if (facility === "ranch") state.stock[plot.id] += 1;
+  if (PRODUCERS[kind].facility === "ranch") state.stock[kind] += 1;
   Object.assign(plot, emptyPlot());
   return true;
 }
@@ -806,27 +801,24 @@ export function facilityWorkers(state, facility) {
   return state.characters.filter((c) => c[`${facility}Today`] && c.alive).length;
 }
 
-// Indexes of the occupied fields (facility "farm") or pens ("ranch") today's Farm workers can
-// tend. Each worker tends PLOTS_PER_WORKER, taking fields and pens in turn so neither side is
-// left out: field 1, pen 1, field 2, pen 2...
-export function tendedPlots(state, facility, workerCount = facilityWorkers(state, "farm")) {
-  const occupied = (f) => state.plots[f].map((p, i) => (p.id ? i : -1)).filter((i) => i >= 0);
-  const fields = occupied("farm");
-  const pens = occupied("ranch");
+// The order the Farm's workers go round: the first slot of every group (a field, then a pen, in
+// turn — wheat, chickens, potatoes, sheep, tomatoes, cows), then every group's second slot...
+const TEND_ORDER = FARM_GROUPS.farm.flatMap((crop, i) => [crop, FARM_GROUPS.ranch[i]]);
+
+// Indexes of the occupied slots of `kind` today's Farm workers tend (PLOTS_PER_WORKER each).
+export function tendedPlots(state, kind, workerCount = facilityWorkers(state, "farm")) {
   const order = [];
-  for (let i = 0; i < Math.max(fields.length, pens.length); i++) {
-    if (i < fields.length) order.push(["farm", fields[i]]);
-    if (i < pens.length) order.push(["ranch", pens[i]]);
-  }
-  return order.slice(0, workerCount * PLOTS_PER_WORKER).filter(([f]) => f === facility).map(([, i]) => i);
+  const most = Math.max(...TEND_ORDER.map((k) => state.plots[k].length));
+  for (let i = 0; i < most; i++) for (const k of TEND_ORDER) if (state.plots[k][i]?.id) order.push([k, i]);
+  return order.slice(0, workerCount * PLOTS_PER_WORKER).filter(([k]) => k === kind).map(([, i]) => i);
 }
 
-// Grows the given fields/pens a day (see tendedPlots), harvesting whatever is ready.
-function tendPlots(state, facility, indexes) {
+// Grows the given slots of a group a day (see tendedPlots), harvesting whatever is ready.
+function tendPlots(state, kind, indexes) {
   const produced = {};
   const kept = [];
   for (const i of indexes) {
-    const plot = state.plots[facility][i];
+    const plot = state.plots[kind][i];
     const p = PRODUCERS[plot.id];
     plot.growth += 1;
     if (plot.growth < p.growDays) continue;
@@ -840,7 +832,7 @@ function tendPlots(state, facility, indexes) {
       addStock(state, id, 1);
       kept.push(p.keepNote);
     }
-    plantPlot(state, facility, i, id); // replant the same thing while stock lasts
+    plantPlot(state, kind, i); // replant the same thing while stock lasts
   }
   return { produced, kept };
 }
@@ -1267,13 +1259,15 @@ export function resolveExploration(state) {
   if (farmWorkers) {
     const gain = state.characters.filter((c) => c.farmToday && c.alive).reduce((sum, c) => sum + workerYield("farm", c), 0);
     state.resources.food += gain;
-    const fieldIndexes = tendedPlots(state, "farm", farmWorkers);
-    const penIndexes = tendedPlots(state, "ranch", farmWorkers); // both picked before anything is harvested
-    const fields = tendPlots(state, "farm", fieldIndexes);
-    const pens = tendPlots(state, "ranch", penIndexes);
-    const produced = { ...fields.produced };
-    for (const [id, n] of Object.entries(pens.produced)) produced[id] = (produced[id] || 0) + n;
-    const kept = [...fields.kept, ...pens.kept];
+    // which slots get tended is settled before anything is harvested (and maybe left empty)
+    const tended = TEND_ORDER.map((kind) => [kind, tendedPlots(state, kind, farmWorkers)]);
+    const produced = {};
+    const kept = [];
+    for (const [kind, indexes] of tended) {
+      const out = tendPlots(state, kind, indexes);
+      for (const [id, n] of Object.entries(out.produced)) produced[id] = (produced[id] || 0) + n;
+      kept.push(...out.kept);
+    }
     const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
     addLog(state, `The Farm brings in ${gain} food${goods ? ` and ${goods}` : ""} from ${farmWorkers} student(s)${kept.length ? ` — ${kept.join(", ")}` : ""}.`);
   }
@@ -1721,7 +1715,7 @@ export function resolveFacilityRaid(state) {
     }
     addLog(state, `The raid on the ${raid.facility} got through — a worker slot is broken until it's repaired (see its Upgrade button).`);
     if (raid.facility === "farm") {
-      for (const plot of [...state.plots.farm, ...state.plots.ranch]) plot.growth = 0;
+      for (const plot of Object.values(state.plots).flat()) plot.growth = 0;
       addLog(state, "The horde trampled the crops and scattered the animals — every field and pen starts over.");
     }
     for (const c of defenders) {
@@ -1972,7 +1966,7 @@ function applyEffect(state, e) {
   }
   if (e.stock) for (const [id, n] of Object.entries(e.stock)) addStock(state, id, n);
   if (e.blight) {
-    const growing = state.plots.farm.filter((p) => p.id);
+    const growing = FARM_GROUPS.farm.flatMap((crop) => state.plots[crop]).filter((p) => p.id);
     if (growing.length) {
       const plot = pick(growing);
       addLog(state, `A plot of ${PRODUCERS[plot.id].name.toLowerCase()} is lost to the blight.`);

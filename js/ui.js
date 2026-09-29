@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
-  DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
+  DISHES, INGREDIENTS, PRODUCERS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
@@ -2525,10 +2525,10 @@ function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "")
   </div>`;
 }
 
-// The Farm's two halves: crop fields ("farm") on the left, animal pens ("ranch") on the right.
+// The Farm's two halves: a field for each crop on the left, a pen for each animal on the right.
 const PLOT_WORDS = {
-  farm: { side: "🌱 Fields", plot: "field", plots: "Fields", stock: "Seed shed", choose: "Plant a crop", verb: "Plant", have: "seeds", done: "at harvest" },
-  ranch: { side: "🐄 Animals", plot: "pen", plots: "Pens", stock: "Barn", choose: "Bring in an animal", verb: "Bring in", have: "in the barn", done: "at butchering" },
+  farm: { side: "🌱 Fields", verb: "Plant", none: "No seeds", store: "in the seed shed" },
+  ranch: { side: "🐄 Animals", verb: "Add", none: "None in the barn", store: "in the barn" },
 };
 
 // What a crop/animal makes, e.g. "4 🥔 after 3 days" or "1 🥚 every day".
@@ -2538,102 +2538,89 @@ function producerYieldText(p) {
   return p.perennial ? `${p.yield} ${product.icon} ${product.name.toLowerCase()} every ${days}` : `${p.yield} ${product.icon} ${product.name.toLowerCase()} after ${days}`;
 }
 
-function renderPlotTile(state, facility, plot, index, tended) {
-  const words = PLOT_WORDS[facility];
-  const open = `data-action="open-plot" data-facility="${facility}" data-index="${index}"`;
+// The Farm level a group's slot `index` opens at.
+const slotLevel = (index) => FARM_SLOTS_BY_LEVEL.findIndex((n) => n > index) + 1;
+
+// One slot of a group: growing / producing (click for details), empty (click to plant or pen one
+// from stock) or still locked (opens at a higher Farm level).
+function renderFarmSlot(state, kind, plot, index, tended) {
+  const p = PRODUCERS[kind];
+  const words = PLOT_WORDS[p.facility];
+  if (!plot) return `<div class="fslot fslot-locked" title="Opens at Farm level ${slotLevel(index)}">🔒<span>Lv ${slotLevel(index)}</span></div>`;
   if (!plot.id) {
-    return `<button class="plot plot-empty" ${open}>
-      <div class="plot-icon">+</div>
-      <div class="plot-body"><b>${words.choose}</b><span class="muted">Empty ${words.plot}</span></div>
+    const have = state.stock[kind] || 0;
+    return `<button class="fslot fslot-empty ${have ? "" : "fslot-none"}" data-action="plant-plot" data-kind="${kind}" data-index="${index}" title="${have ? `${words.verb}: ${have} ${words.store}` : `${words.none} — find more on expeditions`}">
+      <b>+</b><span>${have ? words.verb : words.none}</span>
     </button>`;
   }
-  const p = PRODUCERS[plot.id];
-  const product = INGREDIENTS[p.product];
   const pct = Math.round((plot.growth / p.growDays) * 100);
-  const line = p.perennial
-    ? `${p.yield} ${product.icon} every ${p.growDays === 1 ? "day" : `${p.growDays} days`}`
-    : `Day ${plot.growth}/${p.growDays} · ${p.yield} ${product.icon} ${words.done}`;
-  return `<button class="plot ${tended ? "plot-tended" : "plot-idle"}" ${open}>
-    <div class="plot-icon">${p.icon}</div>
-    <div class="plot-body">
-      <b>${p.name}</b>
-      ${p.growDays > 1 ? `<div class="plot-bar"><div style="width:${pct}%"></div></div>` : ""}
-      <span>${line}</span>
-      ${tended ? "" : `<span class="plot-warn">Not tended today</span>`}
-    </div>
+  const status = p.perennial
+    ? `every ${p.growDays === 1 ? "day" : `${p.growDays} days`}`
+    : `day ${plot.growth}/${p.growDays}`;
+  return `<button class="fslot ${tended ? "fslot-tended" : "fslot-idle"}" data-action="open-plot" data-kind="${kind}" data-index="${index}" title="${p.name} — ${tended ? "tended today" : "not tended today"}">
+    <span class="fslot-icon">${p.icon}</span>
+    ${p.growDays > 1 ? `<span class="plot-bar"><i style="width:${pct}%"></i></span>` : ""}
+    <span class="fslot-status">${tended ? status : "not tended"}</span>
   </button>`;
 }
 
 const PLOT_INFO = {
   farm: {
     title: "🌱 Fields",
-    notes: [`Each worker tends ${PLOTS_PER_WORKER} fields or pens a day, taking turns between the two — only tended fields grow`, "Click an empty field to plant a seed", "A harvest goes to the pantry, with a 50% chance to save a seed", "Seeds come from expeditions (Farmstead, Suburbs, Hardware Store) and events"],
+    notes: [`Each worker tends ${PLOTS_PER_WORKER} slots a day, going round every field and pen in turn — only tended crops grow`, "Click an empty slot to plant a seed from the seed shed", "A harvest goes to the pantry, with a 50% chance to save a seed", "Seeds come from expeditions (Farmstead, Suburbs, Hardware Store) and events"],
   },
   ranch: {
     title: "🐄 Animals",
-    notes: [`Each worker tends ${PLOTS_PER_WORKER} fields or pens a day, taking turns between the two — animals only produce on tended days`, "Chickens lay eggs and cows give milk for as long as you keep them", "Sheep are butchered for mutton after 4 tended days (50% chance of a lamb)", "Animals come from expeditions (Farmstead, Suburbs) and events"],
+    notes: [`Each worker tends ${PLOTS_PER_WORKER} slots a day, going round every field and pen in turn — animals only produce on tended days`, "Chickens lay eggs and cows give milk for as long as you keep them", "Sheep are butchered for mutton after 4 tended days (50% chance of a lamb)", "Animals come from expeditions (Farmstead, Suburbs) and events"],
   },
 };
 
-// One half of the Farm: its stock (seed shed or barn), then its fields or pens.
-function renderPlots(state, facility) {
+// One half of the Farm: its three groups top to bottom, each a row of slots.
+function renderFarmSide(state, facility) {
   const words = PLOT_WORDS[facility];
-  const tended = new Set(tendedPlots(state, facility));
-  const list = state.plots[facility];
-  const occupied = list.filter((plot) => plot.id).length;
-  const stock = Object.entries(PRODUCERS)
-    .filter(([, p]) => p.facility === facility)
-    .map(([id, p]) => {
-      const n = state.stock[id] || 0;
-      return `<span class="pantry-item ${n ? "" : "pantry-empty"}" title="${n === 1 ? p.stockName : p.stockPlural}">${p.stockIcon}${facility === "farm" ? p.icon : ""} ${n}</span>`;
-    })
-    .join("");
+  const kinds = FARM_GROUPS[facility];
+  let tendedCount = 0;
+  let occupied = 0;
+  const groups = kinds.map((kind) => {
+    const p = PRODUCERS[kind];
+    const list = state.plots[kind];
+    const tended = new Set(tendedPlots(state, kind));
+    tendedCount += tended.size;
+    occupied += list.filter((plot) => plot.id).length;
+    const have = state.stock[kind] || 0;
+    const slots = Array.from({ length: FARM_SLOTS_BY_LEVEL[ROOM_MAX_LEVEL - 1] }, (_, i) => renderFarmSlot(state, kind, list[i], i, tended.has(i))).join("");
+    return `<div class="farm-group">
+      <div class="farm-group-head">
+        <span class="farm-group-icon">${p.icon}</span><b>${p.name}</b>
+        <span class="muted">${producerYieldText(p)}</span>
+        <span class="farm-group-stock ${have ? "" : "pantry-empty"}" title="${have === 1 ? p.stockName : p.stockPlural} ${words.store}">${p.stockIcon} ${have}</span>
+      </div>
+      <div class="farm-slots">${slots}</div>
+    </div>`;
+  }).join("");
   return `<section class="farm-side">
-    ${statRow(`${list.length} ${list.length === 1 ? words.plot : words.plots.toLowerCase()} · tending ${tended.size} of ${occupied}`, `<b class="farm-side-title">${words.side}</b> ${infoDot(PLOT_INFO[facility])}`)}
-    <div class="farm-stock"><span class="mini-label">${words.stock}</span>${stock}</div>
-    <div class="plot-grid">${list.map((plot, i) => renderPlotTile(state, facility, plot, i, tended.has(i))).join("")}</div>
+    ${statRow(`tending ${tendedCount} of ${occupied}`, `<b class="farm-side-title">${words.side}</b> ${infoDot(PLOT_INFO[facility])}`)}
+    ${groups}
   </section>`;
 }
 
-// Clicking a plot: an empty one asks what to plant (only what's in stock can be chosen); an
-// occupied one shows how it's doing, with the option to dig it up / move the animal out.
-export function renderPlotModal(state, facility, index) {
-  const words = PLOT_WORDS[facility];
-  const plot = state.plots[facility][index];
-  let body;
-  if (!plot.id) {
-    const rows = Object.entries(PRODUCERS)
-      .filter(([, p]) => p.facility === facility)
-      .map(([id, p]) => {
-        const n = state.stock[id] || 0;
-        return `<div class="plot-choice ${n ? "" : "plot-choice-off"}">
-          <div class="plot-icon">${p.icon}</div>
-          <div class="plot-body"><b>${p.name}</b><span class="muted">${producerYieldText(p)}</span></div>
-          <div class="plot-choice-side">
-            <span class="plot-stock">${p.stockIcon} ${n} ${words.have}</span>
-            <button class="btn btn-sm btn-primary" data-action="plant-plot" data-id="${id}" ${n ? "" : "disabled"}>${words.verb}</button>
-          </div>
-        </div>`;
-      })
-      .join("");
-    body = `<h3>${words.choose}</h3>
-      <p class="muted">${facility === "farm" ? "Planting uses one of your seeds." : "Pick an animal from the barn."} Find more on expeditions.</p>
-      <div class="plot-choices">${rows}</div>`;
-  } else {
-    const p = PRODUCERS[plot.id];
-    const tended = tendedPlots(state, facility).includes(index);
-    const progress = p.perennial
-      ? `Produces ${producerYieldText(p)}.`
-      : `Day ${plot.growth} of ${p.growDays} — then ${producerYieldText(p).replace(/ after .*/, "")} ${words.done}.`;
-    body = `<h3>${p.icon} ${p.name}</h3>
-      <p>${progress}</p>
-      <p class="${tended ? "muted" : "plot-warn"}">${tended ? "Being tended today." : `Not tended today — assign more Farm workers (each tends ${PLOTS_PER_WORKER}).`}</p>
-      <button class="btn btn-sm btn-danger" data-action="clear-plot">${facility === "farm" ? "Dig up (the seed is lost)" : "Move back to the barn"}</button>`;
-  }
+// Clicking a growing crop or a penned animal: how it's doing, and the option to dig it up / move
+// the animal back to the barn.
+export function renderPlotModal(state, kind, index) {
+  const p = PRODUCERS[kind];
+  const plot = state.plots[kind]?.[index];
+  if (!plot?.id) return "";
+  const tended = tendedPlots(state, kind).includes(index);
+  const progress = p.perennial
+    ? `Produces ${producerYieldText(p)}.`
+    : `Day ${plot.growth} of ${p.growDays} — then ${producerYieldText(p).replace(/ after .*/, "")} ${p.facility === "farm" ? "at harvest" : "at butchering"}.`;
   return `<div class="modal-overlay" data-action="close-plot">
     <div class="char-card mission-card plot-modal" data-action="noop">
       <button class="cc-close" data-action="close-plot" title="Close">✕</button>
-      ${body}
+      <h3>${p.icon} ${p.name}</h3>
+      <p>${progress}</p>
+      <p class="${tended ? "muted" : "plot-warn"}">${tended ? "Being tended today." : `Not tended today — assign more Farm workers (each tends ${PLOTS_PER_WORKER}).`}</p>
+      <button class="btn btn-sm btn-danger" data-action="clear-plot">${p.facility === "farm" ? "Dig up (the seed is lost)" : "Move back to the barn"}</button>
     </div>
   </div>`;
 }
@@ -2644,7 +2631,7 @@ export function renderFarm(state) {
   return renderOutsideFacility(
     state, "farm", "farmToday", "Farm",
     "",
-    `<div class="farm-split">${renderPlots(state, "farm")}${renderPlots(state, "ranch")}</div>`
+    `<div class="farm-split">${renderFarmSide(state, "farm")}${renderFarmSide(state, "ranch")}</div>`
   );
 }
 

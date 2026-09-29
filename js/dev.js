@@ -78,12 +78,14 @@ export function maxOutSchool(state) {
     c.exp = c.level >= STUDENT_MAX_LEVEL ? 0 : Math.floor(Math.random() * xpToNextLevel(c.level));
   });
 
-  // the Farm's fields and pens: plant or pen something in every empty one
-  for (const facility of ["farm", "ranch"]) {
-    const kinds = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === facility);
-    state.plots[facility].forEach((plot, i) => {
-      if (!plot.id) Object.assign(plot, { id: kinds[i % kinds.length], growth: 0 });
+  // the Farm's fields and pens: something in every slot, part-grown (but one of each of the last
+  // two groups left empty, to see how that looks), and a few seeds and animals in stock
+  for (const kind of Object.keys(PRODUCERS)) {
+    state.plots[kind].forEach((plot, i) => {
+      if (plot.id || ((kind === "tomatoes" || kind === "cow") && i === state.plots[kind].length - 1)) return;
+      Object.assign(plot, { id: kind, growth: i % PRODUCERS[kind].growDays });
     });
+    state.stock[kind] = Math.max(state.stock[kind] || 0, 2);
   }
 
   return {

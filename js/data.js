@@ -478,8 +478,9 @@ export const STARTING_PANTRY = {
 };
 
 // ===== Farm fields & pens =====
-// The Farm has crop fields and animal pens (the Ranch was folded into it — `facility: "ranch"`
-// and state.plots.ranch still mean the pens). Each holds one crop or animal from the stock of seeds and livestock,
+// The Farm has a field for each crop and a pen for each animal (the Ranch was folded into it —
+// `facility: "ranch"` means the pens), each with a few slots. Each slot holds one crop or animal
+// from the stock of seeds and livestock,
 // and only grows/produces on days a worker there tends it. After `growDays` tended days it
 // yields `yield` of its `product` into the pantry. Crops and sheep are used up by that (a crop is
 // harvested, a sheep butchered) with a `keepChance` of getting one back — a saved seed, a lamb —
@@ -513,7 +514,11 @@ export const PRODUCERS = {
 };
 export const FARM_CROPS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "farm");
 export const RANCH_ANIMALS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "ranch");
-export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // fields and pens at level 1
+// The Farm's six groups, top to bottom on each side of its page: a field for each crop on the
+// left, a pen for each animal on the right. Every group has the same number of slots, by level.
+export const FARM_GROUPS = { farm: ["wheat", "potatoes", "tomatoes"], ranch: ["chicken", "sheep", "cow"] };
+export const FARM_SLOTS_BY_LEVEL = [1, 2, 2, 3, 4];
+export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // fields and pens at level 1 in older saves
 export const PLOTS_PER_WORKER = 2; // plots/pens one worker can tend a day
 export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, chicken: 1, cow: 0, sheep: 1 };
 // Expedition finds for the Farm (seeds, animals): a base chance on a success (lower on a failure) + a
@@ -652,7 +657,7 @@ export const ROOM_LEVELS = {
   },
   farm: {
     name: "Farm", students: roomSlots("Workers", FARM_CAPACITY, 3),
-    plots: roomSlots("Fields", FACILITY_PLOTS.farm, 2), pens: roomSlots("Pens", FACILITY_PLOTS.ranch, 1),
+    perks: [{ label: "Slots per crop & animal", by: FARM_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` }],
   },
   scrapyard: { name: "Scrapyard", students: roomSlots("Workers", SCRAPYARD_CAPACITY, 2) },
 };

@@ -11,7 +11,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, OBJECTIVES, ROOM_FIGHT_SQUAD, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, OBJECTIVES, ROOM_FIGHT_SQUAD, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -55,7 +55,7 @@ let expeditionReport = null; // { summary, phase: "travel" | "report" } at the e
 let openUpgrade = null; // room key whose Upgrade popup is open
 let openMenu = false; // the Cafeteria's menu pop-up
 let openQuarantine = false; // the Nurse's Office quarantine pop-up
-let openPlot = null; // { facility: "farm" (a field) | "ranch" (a pen), index } while choosing what to plant/pen
+let openPlot = null; // { kind: a crop or animal (PRODUCERS id), index } of the Farm slot being looked at
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
 let pickerSortDir = "desc";
@@ -297,9 +297,7 @@ function migrateState(s) {
     }
     delete s.farmPlots;
   }
-  if (s.rooms.farm.plots === undefined) s.rooms.farm.plots = FACILITY_PLOTS.farm;
-  G.syncPlots(s, "farm");
-  G.syncPlots(s, "ranch");
+  if (!s.roomLevels && s.rooms.farm.plots === undefined) s.rooms.farm.plots = FACILITY_PLOTS.farm;
   // The Gym was split into PE / Gymnastics sides with per-side capacities: keep the upgrade
   // levels already bought, move gym teachers to the PE side, and send today's trainees there too.
   if (!s.gymSplit) {
@@ -353,6 +351,21 @@ function migrateState(s) {
   if (s.rooms.ranch) {
     s.rooms.farm.level = Math.min(ROOM_MAX_LEVEL, Math.max(s.rooms.farm.level || 1, s.rooms.ranch.level || 1));
     delete s.rooms.ranch;
+  }
+  // The Farm's slots were grouped by crop and animal: whatever was growing or penned moves into its
+  // own group while there's a free slot (the rest goes back to the seed shed or the barn).
+  if (Array.isArray(s.plots.farm) || Array.isArray(s.plots.ranch)) {
+    const old = [...(s.plots.farm || []), ...(s.plots.ranch || [])];
+    s.plots = {};
+    G.syncPlots(s);
+    for (const p of old) {
+      if (!p.id || !s.plots[p.id]) continue;
+      const slot = s.plots[p.id].find((x) => !x.id);
+      if (slot) Object.assign(slot, { id: p.id, growth: p.growth });
+      else G.addStock(s, p.id, 1);
+    }
+    delete s.rooms.farm.plots;
+    delete s.rooms.farm.pens;
   }
   for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
   // More workers than the Farm has room for (the Ranch's came over) go back to being free.
@@ -563,7 +576,7 @@ function render() {
     : openUpgrade
     ? renderRoomUpgradeModal(state, openUpgrade)
     : openPlot
-    ? renderPlotModal(state, openPlot.facility, openPlot.index)
+    ? renderPlotModal(state, openPlot.kind, openPlot.index)
     : state.pendingAssault
     ? renderAssaultModal()
     : "";
@@ -983,23 +996,25 @@ root.addEventListener("click", (e) => {
       render();
       break;
     case "open-plot":
-      openPlot = { facility: el.dataset.facility, index: Number(el.dataset.index) };
+      openPlot = { kind: el.dataset.kind, index: Number(el.dataset.index) };
       render();
       break;
     case "close-plot":
       openPlot = null;
       render();
       break;
-    case "plant-plot":
-      if (openPlot && !G.plantPlot(state, openPlot.facility, openPlot.index, el.dataset.id)) flash("You don't have any of those.");
-      openPlot = null;
+    case "plant-plot": {
+      // an empty slot plants its own crop / pens its own animal straight from stock
+      const kind = el.dataset.kind;
+      if (!G.plantPlot(state, kind, Number(el.dataset.index))) flash(`No ${PRODUCERS[kind].stockPlural.toLowerCase()} left — find more on expeditions.`);
       render();
       break;
+    }
     case "clear-plot": {
       if (!openPlot) break;
-      const plot = state.plots[openPlot.facility][openPlot.index];
-      if (openPlot.facility === "ranch" || confirm(`Dig up the ${plot.id}? The seed will be lost.`)) {
-        G.clearPlot(state, openPlot.facility, openPlot.index);
+      const { kind, index } = openPlot;
+      if (PRODUCERS[kind].facility === "ranch" || confirm(`Dig up the ${PRODUCERS[kind].name.toLowerCase()}? The seed will be lost.`)) {
+        G.clearPlot(state, kind, index);
         openPlot = null;
       }
       render();
