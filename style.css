@@ -874,6 +874,12 @@ html[data-gfx="low"] .staff-add { animation: none; }
 .pantry-item { font-size: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
 .pantry-empty { opacity: 0.45; }
 
+/* The Farm, split down the middle: fields on the left, animals on the right. */
+.farm-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.farm-side { min-width: 0; }
+.farm-side-title { color: var(--text, #fff); font-weight: 700; }
+.farm-stock { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 6px 0 2px; }
+.farm-stock .mini-label { margin: 0 4px 0 0; }
 .plot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin: 6px 0 8px; }
 .plot {
   width: 100%;

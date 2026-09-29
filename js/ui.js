@@ -2,7 +2,7 @@ import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
   CLASSROOM_CAPACITY, LOCATIONS,
   GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, CRAFT_HELP_DEX_PER_POINT, roomUpgradeCost,
-  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, RANCH_YIELD_FOOD, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
+  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
   DISHES, INGREDIENTS, PRODUCERS, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
@@ -332,7 +332,6 @@ function occupationLabel(state, c) {
   if (c.gymToday) return GYM_SIDES[c.gymToday].room;
   if (c.farmToday) return "Farm";
   if (c.scrapyardToday) return "Scrapyard";
-  if (c.ranchToday) return "Ranch";
   if (c.seat) return roomDisplayName(state, c.seat.room);
   return "Unassigned";
 }
@@ -596,7 +595,7 @@ function hudTips(state) {
     population: { title: "👥 People", rows: [["Students", `${pop - teachers}`], ["Teachers", `${teachers}`]], total: ["Everyone alive", `${pop}`] },
     teachers: { title: "🎓 Teachers", rows: [["At the school", `${teachers}`]], notes: ["Found on expeditions or through the Radio Station", `Or promoted from students who reach level ${PROMOTE_LEVEL_THRESHOLD} (max)`] },
     happiness: { title: "😊 Morale", rows: [["Now", `${state.happiness}`]], notes: ["Rises with won battles and new recruits", "Falls with failed missions and deaths", "Tilts random events toward good or bad"] },
-    food: { title: "🍞 Food", rows: [["On hand", `${r.food}`], ["Eaten tonight", `−${pop}`]], total: ["Left after tonight", `${r.food - pop}`], notes: ["Grown at the Farm and Ranch, found on expeditions"] },
+    food: { title: "🍞 Food", rows: [["On hand", `${r.food}`], ["Eaten tonight", `−${pop}`]], total: ["Left after tonight", `${r.food - pop}`], notes: ["Grown at the Farm, found on expeditions"] },
     materials: { title: "⚙ Scrap", rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
     medicine: { title: "💊 Medicine", rows: [["On hand", `${r.medicine}`]], notes: [`Treating a patient costs ${INFIRMARY_MEDICINE_PER_PATIENT}`, "Saving a defender who goes down costs 5 (automatic)", "Found on expeditions"] },
     research: { title: "🧠 Research", rows: [["On hand", `${r.research}`], ["Made a day", `+${researchRoomYield(state)}`]], notes: ["Made by teachers in the Research Room", "Spent on the tech tree and the Radio Station"] },
@@ -693,7 +692,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
 // Each tab is [id, label, pixel icon].
 const LEFT_TABS_BY_TURN = {
   1: [["floor1", "Lobby", "lobby"], ["floor2", "Classrooms", "classrooms"], ["floor3", "Facilities", "facilities"]],
-  2: [["farm", "Farm", "farm"], ["ranch", "Ranch", "ranch"], ["scrapyard", "Scrapyard", "scrap"]],
+  2: [["farm", "Farm", "farm"], ["scrapyard", "Scrapyard", "scrap"]],
   3: [["defense", "Defense", "defense"], ["assault", "Assault", "assault"], ["event", "Event", "event"]],
 };
 const RIGHT_TABS = [["roster", "Roster", "roster"], ["armory", "Armory", "armory"], ["research", "Research", "research"]];
@@ -1239,7 +1238,7 @@ export function renderRaidModal(state, landmarkId) {
           ? `needs Lv${lm.minLevel}`
           : c.exploreTeam !== null
           ? `on Team ${c.exploreTeam + 1}`
-          : c.farmToday || c.scrapyardToday || c.ranchToday
+          : c.farmToday || c.scrapyardToday
           ? "working outside"
           : c.stamina <= 0
           ? "exhausted"
@@ -1628,7 +1627,7 @@ export function renderMissionModal(state, locationId) {
       c.alive &&
       !c.infection &&
       (c.exploreTeam === null || c.exploreTeam === teamIndex) &&
-      !c.farmToday && !c.scrapyardToday && !c.ranchToday
+      !c.farmToday && !c.scrapyardToday
   );
   const studentRows = availableStudents
     .map((s) => {
@@ -1676,8 +1675,8 @@ export function renderMissionModal(state, locationId) {
   </div>`;
 }
 
-const FACILITY_LABEL = { farm: "Farm", scrapyard: "Scrapyard", ranch: "Ranch" };
-const FACILITY_ICON = { farm: "🌾", scrapyard: "🔩", ranch: "🐄" };
+const FACILITY_LABEL = { farm: "Farm", scrapyard: "Scrapyard" };
+const FACILITY_ICON = { farm: "🌾", scrapyard: "🔩" };
 
 function renderTurn3Overview(state) {
   if (state.pendingRaid) return renderFacilityRaidPanel(state);
@@ -1774,8 +1773,8 @@ export function renderAssaultModal() {
 
 // ---------- assignment picker ----------
 // A single generic "who should fill this slot" modal, replacing what used to be 8 separate
-// plain <select> dropdowns (Gym/Cafeteria/Classroom/Research/Crafting/Farm/Scrapyard/
-// Ranch). Characters already busy elsewhere still show up (greyed out, sorted to the bottom, no
+// plain <select> dropdowns (Gym/Cafeteria/Classroom/Research/Crafting/Farm/Scrapyard).
+// Characters already busy elsewhere still show up (greyed out, sorted to the bottom, no
 // Assign button) instead of silently disappearing, so the player can see where everyone is.
 
 const STUDENT_SORT_FIELDS = [
@@ -1824,7 +1823,6 @@ function studentBusyLabel(c, exceptFlag) {
   if (exceptFlag !== "craftingToday" && c.craftingToday) return "Helping in the Crafting Room";
   if (exceptFlag !== "farmToday" && c.farmToday) return "Working the Farm";
   if (exceptFlag !== "scrapyardToday" && c.scrapyardToday) return "Working the Scrapyard";
-  if (exceptFlag !== "ranchToday" && c.ranchToday) return "Working the Ranch";
   if (c.exploreTeam !== null) return c.exploreTeam === RAID_TEAM ? "On the raid squad" : `Exploring (Team ${c.exploreTeam + 1})`;
   if (exceptFlag !== "defending" && c.defending) return "Defending the Entrance";
   return null;
@@ -1918,8 +1916,7 @@ function resolvePickerCandidates(state, picker) {
       };
     }
     case "farm":
-    case "scrapyard":
-    case "ranch": {
+    case "scrapyard": {
       const flagKey = `${kind}Today`;
       const label = kind.charAt(0).toUpperCase() + kind.slice(1);
       return {
@@ -2233,8 +2230,8 @@ export function renderMenuModal(state) {
     return `<div class="pantry-group" title="${tip}"><span class="pantry-label">${label}</span>${items}</div>`;
   };
   const pantry =
-    pantryGroup("farm", "Farm", "Staple crops — grown in the Farm's plots in Turn 2.") +
-    pantryGroup("ranch", "Ranch", "Eggs, milk and mutton — from the animals in the Ranch's pens in Turn 2.") +
+    pantryGroup("farm", "Fields", "Staple crops — grown in the Farm's fields in Turn 2.") +
+    pantryGroup("ranch", "Animals", "Eggs, milk and mutton — from the animals in the Farm's pens in Turn 2.") +
     pantryGroup("scavenged", "Scavenged", "Extras that only turn up on expeditions.");
   const menu = DISHES.map((d) => {
     const served = state.dishesToday.includes(d.id);
@@ -2496,7 +2493,6 @@ export function renderFloor3(state) {
 // Each facility's banner line: today's total from its workers, with a per-worker breakdown.
 const FACILITY_YIELD = {
   farm: { icon: "🌾", unit: "food", base: FARM_YIELD_FOOD, str: true },
-  ranch: { icon: "🐄", unit: "food", base: RANCH_YIELD_FOOD, str: false },
   scrapyard: { icon: "🔩", unit: "scrap", base: SCRAPYARD_YIELD_MATERIALS, str: true },
 };
 
@@ -2513,7 +2509,7 @@ function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "")
       ? [...shownWorkers.map((c) => [esc(shortName(c)), `+${workerYield(roomKey, c)}`]), ...(workers.length > 8 ? [[`${workers.length - 8} more`, `+${restYield}`]] : [])]
       : [tipNone("Nobody working today", "+0")],
     total: ["Total", `+${total}`],
-    notes: [`Each worker brings in ${y.base} ${y.unit}${y.str ? ", +1 per 25 STR" : ""}`, ...(roomKey === "scrapyard" ? [] : [`Each worker also tends ${PLOTS_PER_WORKER} ${roomKey === "farm" ? "plots" : "pens"}`]), "Workers stay home instead of exploring"],
+    notes: [`Each worker brings in ${y.base} ${y.unit}${y.str ? ", +1 per 25 STR" : ""}`, ...(roomKey === "farm" ? [`Each worker also tends ${PLOTS_PER_WORKER} fields or pens`] : []), "Workers stay home instead of exploring"],
   };
 
   return `
@@ -2529,9 +2525,10 @@ function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "")
   </div>`;
 }
 
+// The Farm's two halves: crop fields ("farm") on the left, animal pens ("ranch") on the right.
 const PLOT_WORDS = {
-  farm: { plot: "plot", plots: "Plots", stock: "Seed shed", choose: "Plant a crop", verb: "Plant", have: "seeds", done: "at harvest" },
-  ranch: { plot: "pen", plots: "Pens", stock: "Barn", choose: "Bring in an animal", verb: "Bring in", have: "in the barn", done: "at butchering" },
+  farm: { side: "🌱 Fields", plot: "field", plots: "Fields", stock: "Seed shed", choose: "Plant a crop", verb: "Plant", have: "seeds", done: "at harvest" },
+  ranch: { side: "🐄 Animals", plot: "pen", plots: "Pens", stock: "Barn", choose: "Bring in an animal", verb: "Bring in", have: "in the barn", done: "at butchering" },
 };
 
 // What a crop/animal makes, e.g. "4 🥔 after 3 days" or "1 🥚 every day".
@@ -2569,19 +2566,19 @@ function renderPlotTile(state, facility, plot, index, tended) {
 
 const PLOT_INFO = {
   farm: {
-    title: "🌱 Plots",
-    notes: [`Each farm worker tends ${PLOTS_PER_WORKER} plots a day — only tended plots grow`, "Click an empty plot to plant a seed", "A harvest goes to the pantry, with a 50% chance to save a seed", "Seeds come from expeditions (Farmstead, Suburbs, Hardware Store) and events"],
+    title: "🌱 Fields",
+    notes: [`Each worker tends ${PLOTS_PER_WORKER} fields or pens a day, taking turns between the two — only tended fields grow`, "Click an empty field to plant a seed", "A harvest goes to the pantry, with a 50% chance to save a seed", "Seeds come from expeditions (Farmstead, Suburbs, Hardware Store) and events"],
   },
   ranch: {
-    title: "🐄 Pens",
-    notes: [`Each ranch worker tends ${PLOTS_PER_WORKER} pens a day — animals only produce on tended days`, "Chickens lay eggs and cows give milk for as long as you keep them", "Sheep are butchered for mutton after 4 tended days (50% chance of a lamb)", "Animals come from expeditions (Farmstead, Suburbs) and events"],
+    title: "🐄 Animals",
+    notes: [`Each worker tends ${PLOTS_PER_WORKER} fields or pens a day, taking turns between the two — animals only produce on tended days`, "Chickens lay eggs and cows give milk for as long as you keep them", "Sheep are butchered for mutton after 4 tended days (50% chance of a lamb)", "Animals come from expeditions (Farmstead, Suburbs) and events"],
   },
 };
 
+// One half of the Farm: its stock (seed shed or barn), then its fields or pens.
 function renderPlots(state, facility) {
   const words = PLOT_WORDS[facility];
-  const workers = facilityWorkers(state, facility);
-  const tended = new Set(tendedPlots(state, facility, workers));
+  const tended = new Set(tendedPlots(state, facility));
   const list = state.plots[facility];
   const occupied = list.filter((plot) => plot.id).length;
   const stock = Object.entries(PRODUCERS)
@@ -2591,11 +2588,11 @@ function renderPlots(state, facility) {
       return `<span class="pantry-item ${n ? "" : "pantry-empty"}" title="${n === 1 ? p.stockName : p.stockPlural}">${p.stockIcon}${facility === "farm" ? p.icon : ""} ${n}</span>`;
     })
     .join("");
-  return `
-    <div class="mini-label">${words.stock}</div>
-    <div class="pantry"><div class="pantry-group">${stock}</div></div>
-    <div class="mini-label">${words.plots} (${list.length}) · tending ${Math.min(occupied, workers * PLOTS_PER_WORKER)} of ${occupied} ${infoDot(PLOT_INFO[facility])}</div>
-    <div class="plot-grid">${list.map((plot, i) => renderPlotTile(state, facility, plot, i, tended.has(i))).join("")}</div>`;
+  return `<section class="farm-side">
+    ${statRow(`${list.length} ${list.length === 1 ? words.plot : words.plots.toLowerCase()} · tending ${tended.size} of ${occupied}`, `<b class="farm-side-title">${words.side}</b> ${infoDot(PLOT_INFO[facility])}`)}
+    <div class="farm-stock"><span class="mini-label">${words.stock}</span>${stock}</div>
+    <div class="plot-grid">${list.map((plot, i) => renderPlotTile(state, facility, plot, i, tended.has(i))).join("")}</div>
+  </section>`;
 }
 
 // Clicking a plot: an empty one asks what to plant (only what's in stock can be chosen); an
@@ -2630,7 +2627,7 @@ export function renderPlotModal(state, facility, index) {
       : `Day ${plot.growth} of ${p.growDays} — then ${producerYieldText(p).replace(/ after .*/, "")} ${words.done}.`;
     body = `<h3>${p.icon} ${p.name}</h3>
       <p>${progress}</p>
-      <p class="${tended ? "muted" : "plot-warn"}">${tended ? "Being tended today." : `Not tended today — assign more ${facility} workers (each tends ${PLOTS_PER_WORKER}).`}</p>
+      <p class="${tended ? "muted" : "plot-warn"}">${tended ? "Being tended today." : `Not tended today — assign more Farm workers (each tends ${PLOTS_PER_WORKER}).`}</p>
       <button class="btn btn-sm btn-danger" data-action="clear-plot">${facility === "farm" ? "Dig up (the seed is lost)" : "Move back to the barn"}</button>`;
   }
   return `<div class="modal-overlay" data-action="close-plot">
@@ -2641,19 +2638,13 @@ export function renderPlotModal(state, facility, index) {
   </div>`;
 }
 
+// The Farm: one crew of workers, then the page split down the middle — crops on the left, animals
+// on the right (like its banner: fields, the barn in the middle, pens).
 export function renderFarm(state) {
   return renderOutsideFacility(
     state, "farm", "farmToday", "Farm",
     "",
-    renderPlots(state, "farm")
-  );
-}
-
-export function renderRanch(state) {
-  return renderOutsideFacility(
-    state, "ranch", "ranchToday", "Ranch",
-    "",
-    renderPlots(state, "ranch")
+    `<div class="farm-split">${renderPlots(state, "farm")}${renderPlots(state, "ranch")}</div>`
   );
 }
 
@@ -3283,7 +3274,6 @@ export function renderApp(state, activeTab, rosterFilter = "student", floaties =
   else if (activeTab === "floor3") content = renderFloor3(state);
   else if (activeTab === "farm") content = renderFarm(state);
   else if (activeTab === "scrapyard") content = renderScrapyard(state);
-  else if (activeTab === "ranch") content = renderRanch(state);
   else if (activeTab === "defense") content = renderDefenseTab(state);
   else if (activeTab === "assault") content = renderAssaultTab(state);
   else if (activeTab === "event") content = renderEventTab(state);

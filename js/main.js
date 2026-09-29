@@ -9,7 +9,7 @@ import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.
 import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
-  CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY, RANCH_CAPACITY,
+  CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, OBJECTIVES, ROOM_FIGHT_SQUAD, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
 } from "./data.js";
@@ -55,7 +55,7 @@ let expeditionReport = null; // { summary, phase: "travel" | "report" } at the e
 let openUpgrade = null; // room key whose Upgrade popup is open
 let openMenu = false; // the Cafeteria's menu pop-up
 let openQuarantine = false; // the Nurse's Office quarantine pop-up
-let openPlot = null; // { facility: "farm" | "ranch", index } while choosing what to plant/pen
+let openPlot = null; // { facility: "farm" (a field) | "ranch" (a pen), index } while choosing what to plant/pen
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
 let pickerSortDir = "desc";
@@ -197,7 +197,9 @@ function migrateState(s) {
     if (c.researchToday === undefined) c.researchToday = false;
     if (c.craftingToday === undefined) c.craftingToday = false;
     delete c.coupleId;
-    if (c.ranchToday === undefined) c.ranchToday = false;
+    // The Ranch was folded into the Farm: whoever worked it today works the Farm.
+    if (c.ranchToday) c.farmToday = true;
+    delete c.ranchToday;
     if (c.role === "teacher") {
       if (!/^(mr|mrs)\.\s/i.test(c.name)) c.name = withTeacherHonorific(c.name, c.gender);
       if (!c.teachSubject) {
@@ -236,8 +238,7 @@ function migrateState(s) {
   if (!s.rooms.farm) s.rooms.farm = { studentCapacity: FARM_CAPACITY };
   if (!s.rooms.scrapyard) s.rooms.scrapyard = { studentCapacity: SCRAPYARD_CAPACITY };
   delete s.rooms.lab;
-  if (!s.rooms.ranch) s.rooms.ranch = { studentCapacity: RANCH_CAPACITY, plots: FACILITY_PLOTS.ranch };
-  if (s.pendingRaid?.facility === "lab") s.pendingRaid.facility = "ranch";
+  if (s.pendingRaid?.facility === "lab" || s.pendingRaid?.facility === "ranch") s.pendingRaid.facility = "farm";
   if (s.resources.research === undefined) s.resources.research = 0;
   if (s.resources.serum === undefined) s.resources.serum = 0;
   for (const c of s.characters) if (c.role === "teacher") c.injured = false; // teachers have no HP
@@ -333,7 +334,7 @@ function migrateState(s) {
       research: bought(r.research.teacherCapacity, RESEARCH_ROOM_TEACHERS, 1),
       infirmary: bought(r.infirmary.studentCapacity, INFIRMARY_CAPACITY, 2) + (r.infirmary.care || 0),
       farm: bought(r.farm.studentCapacity, LEGACY_SIZE.farm, 5) + bought(r.farm.plots, FACILITY_PLOTS.farm, 2),
-      ranch: bought(r.ranch.studentCapacity, LEGACY_SIZE.ranch, 5) + bought(r.ranch.plots, FACILITY_PLOTS.ranch, 1),
+      ranch: r.ranch ? bought(r.ranch.studentCapacity, LEGACY_SIZE.ranch, 5) + bought(r.ranch.plots, FACILITY_PLOTS.ranch, 1) : 0,
       scrapyard: bought(r.scrapyard.studentCapacity, LEGACY_SIZE.scrapyard, 5),
     };
     for (const id of CLASSROOM_IDS) upgrades[`classroom:${id}`] = bought(r.classrooms[id].seats.length, LEGACY_SIZE.classroom, 6);
@@ -343,10 +344,19 @@ function migrateState(s) {
       const room = G.roomState(s, key);
       if (!room.level) room.level = Math.min(ROOM_MAX_LEVEL, 1 + (upgrades[key] || 0));
     }
+    if (r.ranch && !r.ranch.level) r.ranch.level = Math.min(ROOM_MAX_LEVEL, 1 + upgrades.ranch);
     for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
     s.roomLevels = true;
   }
+  // The Ranch was folded into the Farm, its pens now the Farm's: the Farm keeps the higher of the
+  // two levels.
+  if (s.rooms.ranch) {
+    s.rooms.farm.level = Math.min(ROOM_MAX_LEVEL, Math.max(s.rooms.farm.level || 1, s.rooms.ranch.level || 1));
+    delete s.rooms.ranch;
+  }
   for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key);
+  // More workers than the Farm has room for (the Ranch's came over) go back to being free.
+  s.characters.filter((c) => c.farmToday).slice(s.rooms.farm.studentCapacity).forEach((c) => { c.farmToday = false; });
   // A room holds only as many teachers as its level allows (1, then 2 at level 3, 3 at level 5):
   // any beyond that — from an older save with bigger rooms — go back to unassigned.
   const posted = {};
@@ -972,10 +982,6 @@ root.addEventListener("click", (e) => {
       G.setScrapyardToday(state, el.dataset.id, false);
       render();
       break;
-    case "remove-ranch":
-      G.setRanchToday(state, el.dataset.id, false);
-      render();
-      break;
     case "open-plot":
       openPlot = { facility: el.dataset.facility, index: Number(el.dataset.index) };
       render();
@@ -1359,7 +1365,6 @@ root.addEventListener("click", (e) => {
         case "utility": G.setTeacherPost(state, id, postKey); break;
         case "farm": G.setFarmToday(state, id, true); break;
         case "scrapyard": G.setScrapyardToday(state, id, true); break;
-        case "ranch": G.setRanchToday(state, id, true); break;
         case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
         default: break;
       }

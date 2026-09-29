@@ -47,7 +47,7 @@ export function maxOutSchool(state) {
   }
 
   // daily jobs: fill each room's student slots from whoever is free
-  const busy = (c) => c.gymToday || c.radioToday || c.researchToday || c.craftingToday || c.infirmaryToday || c.restToday || c.farmToday || c.ranchToday || c.scrapyardToday || c.exploreTeam !== null || c.defending;
+  const busy = (c) => c.gymToday || c.radioToday || c.researchToday || c.craftingToday || c.infirmaryToday || c.restToday || c.farmToday || c.scrapyardToday || c.exploreTeam !== null || c.defending;
   const fill = (count, assign) => {
     for (let i = 0; i < count; i++) {
       const c = alive("student").find((x) => !busy(x));
@@ -69,7 +69,6 @@ export function maxOutSchool(state) {
     return G.setInfirmaryToday(state, c.id, "heal");
   });
   fill(state.rooms.farm.studentCapacity - count("farmToday"), (c) => G.setFarmToday(state, c.id, true));
-  fill(state.rooms.ranch.studentCapacity - count("ranchToday"), (c) => G.setRanchToday(state, c.id, true));
   fill(state.rooms.scrapyard.studentCapacity - count("scrapyardToday"), (c) => G.setScrapyardToday(state, c.id, true));
 
   // student levels spread from 1 to the top, with some experience toward the next, so every level
@@ -79,7 +78,7 @@ export function maxOutSchool(state) {
     c.exp = c.level >= STUDENT_MAX_LEVEL ? 0 : Math.floor(Math.random() * xpToNextLevel(c.level));
   });
 
-  // plots and pens: plant or pen something in every empty one
+  // the Farm's fields and pens: plant or pen something in every empty one
   for (const facility of ["farm", "ranch"]) {
     const kinds = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === facility);
     state.plots[facility].forEach((plot, i) => {

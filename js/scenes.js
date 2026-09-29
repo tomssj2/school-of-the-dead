@@ -831,104 +831,85 @@ Object.assign(HI_SCENES, {
     }
   },
 
-  // The Farm, the Ranch and the Scrapyard span the whole page, so they're drawn as one wide
+  // The Farm and the Scrapyard span the whole page, so they're drawn as one wide
   // landscape each (see wideOutdoor below) rather than a 192-wide scene tiled sideways.
 
-  // The Farm: dry weeds, a dead tree and a caved-in shed; then tilled plots with sprouts behind a
-  // mended fence; cabbages, corn and a scarecrow; a barn, tomatoes, pumpkins and an apple tree;
-  // and at the top golden wheat, sunflowers, a silo, a greenhouse, a windmill and a tractor.
+  // The Farm, laid out like its page: crop fields on the left, the barn in the middle, animal pens
+  // on the right. Level 1 is weeds, a caved-in shed, a knocked-over trough and a dead tree; then
+  // tilled fields with sprouts, a shed, a trough, a coop and chickens; cabbages, corn and a
+  // scarecrow, hay and a cow; a barn, tomatoes and pumpkins, sheep and a pig in the mud; and at
+  // the top golden wheat and sunflowers, a windmill, a silo with a vane, a horse and a tractor.
   farm(r, lv) {
     wideOutdoor(r, lv, lv <= 1 ? "#8a8457" : "#6f9a4f");
     track(r, lv);
-    const PLOTS = [72, 126, 180, 234]; // each 50 wide
+    const FIELDS = [36, 80, 124]; // each 40 wide
     const kinds = [
       null,
       null,
-      ["sprout", "sprout", null, null],
-      ["cabbage", "corn", "carrot", "sprout"],
-      ["cabbage", "corn", "tomato", "pumpkin"],
-      ["wheat", "corn", "tomato", "pumpkin"],
+      ["sprout", "sprout", null],
+      ["cabbage", "corn", "carrot"],
+      ["cabbage", "corn", "tomato"],
+      ["wheat", "corn", "pumpkin"],
     ][lv];
     if (lv <= 1) {
-      // weeds where the plots used to be, a dead tree, a caved-in shed, a tipped wheelbarrow
-      for (let i = 0; i < 70; i++) weed(r, 60 + ((i * 53) % 330), 24 + ((i * 7) % 9), i % 3 ? "#9a9a55" : "#7a7a45");
-      deadTree(r, 348, 31);
-      shed(r, 296, true);
-      wheelbarrow(r, 200, 41, "tipped");
-      rail(r, 40, 290, 33, true);
-      for (const x of [70, 130, 250]) crow(r, x, 26);
-      for (const [x, y] of [[90, 36], [170, 44], [260, 37], [380, 43]]) crack(r, x, y, "#6e6440");
+      for (let i = 0; i < 90; i++) weed(r, 30 + ((i * 53) % 380), 24 + ((i * 7) % 9), i % 3 ? "#9a9a55" : "#7a7a45");
+      shed(r, 186, true);
+      rail(r, 30, 170, 33, true);
+      trough(r, 314, 31, "tipped");
+      deadTree(r, 288, 31);
+      coop(r, 386, true);
+      rail(r, 250, 414, 33, true);
+      wheelbarrow(r, 120, 41, "tipped");
+      for (const x of [60, 140, 300, 370]) crow(r, x, 26);
+      for (const [x, y] of [[80, 36], [170, 44], [260, 37], [380, 43]]) crack(r, x, y, "#6e6440");
       return;
     }
-    PLOTS.forEach((x0, i) => {
-      if (!kinds[i]) return;
-      furrows(r, x0, x0 + 49, 23, 31);
-      for (const y of [25, 28, 31]) for (let x = x0 + 3; x < x0 + 48; x += 5) crop(r, x, y, kinds[i]);
-    });
-    if (lv >= 5) for (const x of [62, 67, 124, 232, 289]) crop(r, x, 31, "sunflower");
-    rail(r, 40, 292, 33, false);
-    if (lv <= 3) {
-      shed(r, 300, false);
-      toolRack(r, 324);
-    } else barn(r, 296);
-    barrel(r, 288, 31);
-    if (lv >= 3) scarecrow(r, 178);
-    if (lv >= 4) {
-      appleTree(r, 18, 31);
-      wheelbarrow(r, 336, 41, "full");
-      for (let i = 0; i < 24; i++) r(12 + ((i * 67) % 390), 44 + (i % 3), 12 + ((i * 67) % 390), 44 + (i % 3), ["#f4d35e", "#e98fb0", "#f4f6f8"][i % 3]);
-    }
-    if (lv >= 5) {
-      windmill(r, 50);
-      silo(r, 334);
-      greenhouse(r, 350);
-      appleTree(r, 402, 31);
-      tractor(r, 232, 42);
-    }
-  },
 
-  // The Ranch: an empty pen behind a broken fence, a knocked-over trough and a dead tree; then a
-  // mended fence, a full trough, a coop and chickens; a barn, hay and a cow; sheep, a pig in the
-  // mud and another cow; and at the top a horse, ducks on a pond, a silo, a windmill and a vane.
-  ranch(r, lv) {
-    wideOutdoor(r, lv, lv <= 1 ? "#8a8457" : "#6f9a4f");
-    track(r, lv);
-    if (lv <= 1) {
-      for (let i = 0; i < 60; i++) weed(r, 50 + ((i * 59) % 340), 24 + ((i * 5) % 9), i % 3 ? "#9a9a55" : "#7a7a45");
-      trough(r, 150, 31, "tipped");
-      deadTree(r, 330, 31);
-      coop(r, 262, true);
-      rail(r, 40, 300, 33, true);
-      for (const x of [90, 210]) crow(r, x, 26);
-      for (const [x, y] of [[80, 38], [190, 45], [300, 36]]) crack(r, x, y, "#6e6440");
-      return;
-    }
-    if (lv >= 5) windmill(r, 50);
-    trough(r, 150, 31, "full");
-    coop(r, 262, false);
-    for (const x of [232, 242, 252]) chicken(r, x, 31);
-    if (lv >= 3) {
-      barn(r, 304);
-      cow(r, 100, 31, "#f4f6f8");
-      hay(r, 356);
-    }
-    if (lv >= 4) {
-      for (const x of [62, 74]) sheep(r, x, 31);
-      cow(r, 124, 31, "#b07a4a");
-      r(174, 29, 194, 31, "#6b4a2f");
-      r(176, 28, 192, 28, "#6b4a2f");
-      pig(r, 178, 31);
-      chicken(r, 222, 31);
-    }
-    rail(r, 40, 300, 33, false);
+    // the fields
+    FIELDS.forEach((x0, i) => {
+      if (!kinds[i]) return;
+      furrows(r, x0, x0 + 39, 23, 31);
+      for (const y of [25, 28, 31]) for (let x = x0 + 3; x < x0 + 38; x += 5) crop(r, x, y, kinds[i]);
+    });
+    if (lv >= 3) scarecrow(r, 121);
     if (lv >= 5) {
-      sheep(r, 86, 31);
-      horse(r, 196, 31);
-      silo(r, 342);
-      vane(r, 321, 1);
-      pond(r, 384);
-      for (let i = 0; i < 24; i++) r(12 + ((i * 67) % 390), 44 + (i % 3), 12 + ((i * 67) % 390), 44 + (i % 3), ["#f4d35e", "#e98fb0", "#f4f6f8"][i % 3]);
+      for (const x of [31, 77]) crop(r, x, 31, "sunflower");
+      windmill(r, 168);
     }
+    rail(r, 30, 172, 33, false);
+
+    // the building in the middle
+    if (lv <= 3) {
+      shed(r, 186, false);
+      toolRack(r, 212);
+    } else barn(r, 180);
+    if (lv >= 5) {
+      silo(r, 216);
+      vane(r, 197, 1);
+    }
+    if (lv >= 3) hay(r, 229);
+
+    // the pens
+    trough(r, 314, 31, "full");
+    coop(r, 386, false);
+    for (const x of [362, 370]) chicken(r, x, 31);
+    if (lv >= 3) cow(r, 276, 31, "#f4f6f8");
+    if (lv >= 4) {
+      r(295, 29, 312, 31, "#6b4a2f");
+      r(297, 28, 310, 28, "#6b4a2f");
+      pig(r, 297, 31);
+      for (const x of [337, 349]) sheep(r, x, 31);
+      chicken(r, 378, 31);
+    }
+    if (lv >= 5) horse(r, 254, 31);
+    rail(r, 250, 414, 33, false);
+
+    // the front: flowers, a full wheelbarrow, a tractor on the track
+    if (lv >= 4) {
+      for (let i = 0; i < 24; i++) r(12 + ((i * 67) % 390), 44 + (i % 3), 12 + ((i * 67) % 390), 44 + (i % 3), ["#f4d35e", "#e98fb0", "#f4f6f8"][i % 3]);
+      wheelbarrow(r, 150, 41, "full");
+    }
+    if (lv >= 5) tractor(r, 60, 42);
   },
 
   // The Scrapyard: junk heaps, a burnt-out car and loose tyres under smoke; then a chain fence, a
@@ -985,13 +966,13 @@ Object.assign(HI_SCENES, {
 });
 
 // ---------- wide outdoor scenes ----------
-// 416 x 48: about the width of a full-page banner at its 130px height, so the Farm, the Ranch and
-// the Scrapyard show one continuous landscape. The sky, the ruined city and the ground clear up
+// 416 x 48: about the width of a full-page banner at its 130px height, so the Farm and the
+// Scrapyard show one continuous landscape. The sky, the ruined city and the ground clear up
 // level by level; the ground starts at row 22, props stand on row 31, and the crowd covers the
 // bottom rows (the plaque hides the top-left corner, the Upgrade button the bottom-left one).
 
 const WW = 416;
-export const SCENE_WIDTH = { farm: WW, ranch: WW, scrapyard: WW };
+export const SCENE_WIDTH = { farm: WW, scrapyard: WW };
 
 function hash01(i, s) {
   let x = Math.imul(i + 11, 2654435761) ^ Math.imul(s + 7, 40503);
@@ -1215,14 +1196,6 @@ function wheelbarrow(r, x, base, how) {
   r(x + 10, base - 3, x + 15, base - 1, "#8a5f33");
   for (const dx of [1, 4, 7]) box(r, x + dx, base - 9, x + dx + 2, base - 7, "#e0782a", "#a8501a");
 }
-function greenhouse(r, x) {
-  box(r, x, 19, x + 38, 31, "#bfe6e0", "#7fa8a0");
-  for (let i = 0; i < 5; i++) r(x + 4 + i, 18 - i, x + 34 - i, 18 - i, i ? "#cfeee8" : "#7fa8a0");
-  r(x + 9, 13, x + 29, 13, "#7fa8a0");
-  for (let xx = x + 6; xx < x + 38; xx += 6) r(xx, 14, xx, 31, "#8fb8b0");
-  for (let xx = x + 2; xx < x + 37; xx += 3) r(xx, 27 - (xx % 2), xx, 30, "#4caf7d");
-  r(x + 2, 20, x + 5, 20, "#ffffff");
-}
 function tractor(r, x, base) {
   box(r, x + 4, base - 9, x + 22, base - 4, "#c0392b", "#8a2a1e");
   r(x + 5, base - 9, x + 21, base - 9, "#e0564a");
@@ -1236,7 +1209,7 @@ function tractor(r, x, base) {
   r(x + 3, base - 2, x + 5, base - 2, "#f4d35e");
 }
 
-// Ranch pieces.
+// Pen pieces.
 function trough(r, x, base, how) {
   if (how === "tipped") {
     box(r, x + 2, base - 7, x + 18, base - 3, "#8a5f33", "#5a3b24");
@@ -1265,17 +1238,6 @@ function hay(r, x) {
     r(x + dx + 1, 27 + dy, x + dx + 9, 27 + dy, "#c49a3a");
     r(x + dx + 1, 29 + dy, x + dx + 9, 29 + dy, "#f0cf6a");
   }
-}
-function pond(r, x) {
-  const rows = [[6, 24], [2, 28], [0, 30], [2, 28]];
-  rows.forEach(([a, b], i) => r(x + a, 27 + i, x + b, 27 + i, "#5fa8d8"));
-  r(x + 8, 28, x + 14, 28, "#9fd0f0");
-  for (const dx of [6, 18]) {
-    r(x + dx, 27, x + dx + 3, 28, "#f4f6f8");
-    r(x + dx + 3, 26, x + dx + 4, 26, "#f4f6f8");
-    r(x + dx + 5, 26, x + dx + 5, 26, "#f4a030");
-  }
-  for (const dx of [-2, 31]) r(x + dx, 25, x + dx, 30, "#4f8a3a");
 }
 function vane(r, x, y) {
   r(x, y, x, y + 5, "#3a3f48");
@@ -1655,20 +1617,6 @@ const ICONS = {
     "....g.g.g...",
     "............",
   ], { y: "#e8c14a", Y: "#f7e08a", g: "#b8a24a", r: "#c0583a" }),
-  ranch: () => ascii([
-    "............",
-    ".hh......hh.",
-    "..h......h..",
-    "..wwwwwwww..",
-    ".wwkkwwwwww.",
-    ".wwkewwwewk.",
-    "..wwwwwwkk..",
-    "..wwwwwwww..",
-    "..pppppppp..",
-    "..pNppppNp..",
-    "...pppppp...",
-    "............",
-  ], { h: "#d9c9a0", w: "#f4f4f4", k: "#3a3a3a", e: "#111111", p: "#f0a0a8", N: "#b0606a" }),
   defense: () => ascii([
     "............",
     "..ssssssss..",

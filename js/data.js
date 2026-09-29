@@ -315,7 +315,7 @@ export const xpToNextLevel = (level) => 20 + 20 * level;
 export const LEVEL_XP = {
   class: 10, // studying in a classroom that's teaching
   training: 10, // a Gymnasium / Acrobatics session
-  work: 8, // the Farm, Ranch, Scrapyard, Radio Station, Research Room or Crafting Room
+  work: 8, // the Farm, Scrapyard, Radio Station, Research Room or Crafting Room
   scout: 10, // scouting a hex
   expedition: 15, // going on an expedition
   expeditionWin: 10, // … and coming back successful
@@ -457,7 +457,7 @@ export const INFIRMARY_NURSE_HP_PER_RANK = 5; // per nurse: F +0 · D +5 · C +1
 export const INFIRMARY_BED_REST = 10; // HP, when there's no medicine to spare
 
 // ===== Cooking =====
-// Staple crops come from the Farm, animal products from the Ranch, and three extras only turn up
+// Staple crops come from the Farm's fields, animal products from its pens, and three extras only turn up
 // on expeditions. Cooks turn them (plus some food to feed everyone) into a dish whose buff covers
 // the whole school until the day ends. `effect` multipliers are read through dishMultiplier() in
 // game.js.
@@ -477,8 +477,9 @@ export const STARTING_PANTRY = {
   potatoes: 2, tomatoes: 2, wheat: 2, eggs: 2, milk: 1, mutton: 1, canned_meat: 1, spices: 1, coffee: 1,
 };
 
-// ===== Farm plots & Ranch pens =====
-// Each plot (Farm) or pen (Ranch) holds one crop or animal from the stock of seeds and livestock,
+// ===== Farm fields & pens =====
+// The Farm has crop fields and animal pens (the Ranch was folded into it — `facility: "ranch"`
+// and state.plots.ranch still mean the pens). Each holds one crop or animal from the stock of seeds and livestock,
 // and only grows/produces on days a worker there tends it. After `growDays` tended days it
 // yields `yield` of its `product` into the pantry. Crops and sheep are used up by that (a crop is
 // harvested, a sheep butchered) with a `keepChance` of getting one back — a saved seed, a lamb —
@@ -512,10 +513,10 @@ export const PRODUCERS = {
 };
 export const FARM_CROPS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "farm");
 export const RANCH_ANIMALS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "ranch");
-export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // at level 1
+export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // fields and pens at level 1
 export const PLOTS_PER_WORKER = 2; // plots/pens one worker can tend a day
 export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, chicken: 1, cow: 0, sheep: 1 };
-// Expedition finds for the Farm/Ranch: a base chance on a success (lower on a failure) + a
+// Expedition finds for the Farm (seeds, animals): a base chance on a success (lower on a failure) + a
 // location's seedBonus. Locations with `animals` turn up one of them instead `animalChance` of
 // the time.
 export const EXPEDITION_SEED_CHANCE = 0.25;
@@ -552,11 +553,9 @@ export const EXPEDITION_INGREDIENT_CHANCE_FAILED = 0.15;
 
 // Outside facilities, worked during Turn 2 instead of exploring. No teacher slots — just passive
 // per-student daily yield, split out so each facility can scale/upgrade independently.
-export const FARM_CAPACITY = 3; // workers at level 1
+export const FARM_CAPACITY = 4; // workers at level 1 (+3 a level: 16 at the top)
 export const SCRAPYARD_CAPACITY = 3;
-export const RANCH_CAPACITY = 3;
 export const FARM_YIELD_FOOD = 3; // food per assigned student/day
-export const RANCH_YIELD_FOOD = 2; // food per assigned student/day
 export const SCRAPYARD_YIELD_MATERIALS = 3; // scrap per assigned student/day
 
 // The scrap resource is stored under the `materials` key (older saves use it); this is the name
@@ -591,7 +590,7 @@ export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout 
 // Rooms start small (10 students at the start) and grow 2 slots a level, since a school that
 // recruits well reaches ~30 students by day 30.
 // Every room and facility starts at level 1 and is upgraded one level at a time, up to
-// ROOM_MAX_LEVEL, for scrap. Each level adds student slots (and Farm plots / Ranch pens), the
+// ROOM_MAX_LEVEL, for scrap. Each level adds student slots (and the Farm's fields and pens), the
 // levels in ROOM_TEACHER_LEVELS add a teacher slot (every room starts with its teacher and gets a
 // assistant at level 5, so 2 at most), and
 // rooms without students grow a perk
@@ -651,8 +650,10 @@ export const ROOM_LEVELS = {
     name: "Crafting Room", students: roomSlots("Helpers", 1, 1), teachers: roomSlots("Crafters", 1),
     perks: [{ label: "Bonus fortification", by: CRAFTING_BONUS_BY_LEVEL, fmt: (v) => `+${v} per crafter` }],
   },
-  farm: { name: "Farm", students: roomSlots("Workers", FARM_CAPACITY, 2), plots: roomSlots("Plots", FACILITY_PLOTS.farm, 2) },
-  ranch: { name: "Ranch", students: roomSlots("Workers", RANCH_CAPACITY, 2), plots: roomSlots("Pens", FACILITY_PLOTS.ranch, 1) },
+  farm: {
+    name: "Farm", students: roomSlots("Workers", FARM_CAPACITY, 3),
+    plots: roomSlots("Fields", FACILITY_PLOTS.farm, 2), pens: roomSlots("Pens", FACILITY_PLOTS.ranch, 1),
+  },
   scrapyard: { name: "Scrapyard", students: roomSlots("Workers", SCRAPYARD_CAPACITY, 2) },
 };
 
@@ -678,7 +679,7 @@ export const HAPPINESS_LOSS_DEATH = 8; // a character died
 // at most one of the two can happen on a given night.
 export const FACILITY_RAID_CHANCE = 0.1;
 export const ASSAULT_CHANCE = 0.2;
-export const RAIDABLE_FACILITIES = ["farm", "scrapyard", "ranch"];
+export const RAIDABLE_FACILITIES = ["farm", "scrapyard"];
 export const LEGENDARY_CHANCE = 0.15; // chance a won Assault turns up a legendary survivor
 export const LEGENDARY_TEACHER_CHANCE = 0.1; // chance a legendary survivor is a teacher (if there's room for one)
 
@@ -694,7 +695,7 @@ export const EVENTS = [
   { id: "research_breakthrough", kind: "good", title: "A Breakthrough", desc: "Notes left behind by a university team advance your research.", effect: { research: 10 } },
   { id: "gardener", kind: "good", title: "A Gardener's Gift", desc: "An old gardener trades a pouch of saved seeds for news from the city.", effect: { seeds: 4 } },
   { id: "stray_hen", kind: "good", title: "A Stray Hen", desc: "A hen wanders up to the gate, clucking. Someone builds her a coop.", effect: { stock: { chicken: 1 } } },
-  { id: "lost_cow", kind: "good", title: "A Lost Cow", desc: "A dairy cow wanders out of the fog, lowing. The students lead her into the ranch.", effect: { stock: { cow: 1 } } },
+  { id: "lost_cow", kind: "good", title: "A Lost Cow", desc: "A dairy cow wanders out of the fog, lowing. The students lead her into a pen at the farm.", effect: { stock: { cow: 1 } } },
   { id: "blight", kind: "bad", title: "Crop Blight", desc: "Pests get into the farm overnight.", effect: { blight: true } },
   { id: "theft", kind: "bad", title: "Supplies Go Missing", desc: "Someone was careless — or someone stole from the stores overnight.", effect: { materials: -15 } },
   { id: "spoiled_food", kind: "bad", title: "Spoiled Rations", desc: "A batch of food spoils before anyone notices.", effect: { food: -15 } },
