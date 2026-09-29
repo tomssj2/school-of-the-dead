@@ -621,6 +621,67 @@ function fitCityMap() {
 }
 window.addEventListener("resize", fitCityMap);
 
+// ---------- the Night Watch board: drag defenders about, see what they reach ----------
+// Drag a student from the roster (or the board) onto a square of the steps — onto someone else
+// swaps them — or back onto the roster to take them off watch.
+let dragStudentId = null;
+const clearDropHighlights = () => document.querySelectorAll(".nw-drop-over").forEach((x) => x.classList.remove("nw-drop-over"));
+document.addEventListener("dragstart", (e) => {
+  const el = e.target.closest?.("[data-drag-student]");
+  if (!el) return;
+  dragStudentId = el.dataset.dragStudent;
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", dragStudentId);
+  hideHoverTip();
+  requestAnimationFrame(() => document.body.classList.add("nw-dragging"));
+});
+document.addEventListener("dragend", () => {
+  dragStudentId = null;
+  document.body.classList.remove("nw-dragging");
+  clearDropHighlights();
+});
+document.addEventListener("dragover", (e) => {
+  if (!dragStudentId) return;
+  const target = e.target.closest?.("[data-drop-cell], [data-drop-roster]");
+  document.querySelectorAll(".nw-drop-over").forEach((x) => x !== target && x.classList.remove("nw-drop-over"));
+  if (!target) return;
+  e.preventDefault();
+  target.classList.add("nw-drop-over");
+});
+document.addEventListener("drop", (e) => {
+  if (!dragStudentId) return;
+  const cell = e.target.closest?.("[data-drop-cell]");
+  const roster = e.target.closest?.("[data-drop-roster]");
+  if (!cell && !roster) return;
+  e.preventDefault();
+  const id = dragStudentId;
+  dragStudentId = null;
+  document.body.classList.remove("nw-dragging");
+  if (cell) {
+    if (!G.moveEntranceStudent(state, cell.dataset.dropCell, id)) flash("They can't stand watch tonight.");
+  } else {
+    const key = Object.keys(state.entranceGrid.students).find((k) => state.entranceGrid.students[k] === id);
+    if (key) G.clearEntranceStudentCell(state, key);
+  }
+  render();
+});
+
+// Hovering a defender lights up the squares they reach: melee close in, ranged further out.
+let reachEl = null;
+document.addEventListener("pointerover", (e) => {
+  const el = e.target.closest?.("[data-reach]") || null;
+  if (el === reachEl) return;
+  reachEl = el;
+  document.querySelectorAll(".nw-reach-melee, .nw-reach-ranged, .nw-reach-self").forEach((x) => x.classList.remove("nw-reach-melee", "nw-reach-ranged", "nw-reach-self"));
+  if (!el || document.body.classList.contains("nw-dragging")) return;
+  const [row, col, melee, ranged] = el.dataset.reach.split(",").map(Number);
+  el.closest(".nw-board")?.querySelectorAll(".nw-cell").forEach((cell) => {
+    const d = Math.max(Math.abs(cell.dataset.row - row), Math.abs(cell.dataset.col - col));
+    const cls = d === 0 ? "nw-reach-self" : d <= melee ? "nw-reach-melee" : d <= ranged ? "nw-reach-ranged" : null;
+    if (cls) cell.classList.add(cls);
+  });
+});
+
 // The player's own zoom on top of the fit: mapCam.z times the fitted scale (1 = the whole view),
 // looking at world point (x, y) — kept across re-renders until reset.
 let mapCam = { z: 1, x: null, y: null };
@@ -836,7 +897,7 @@ function playSkirmish(studentId, lost, done) {
 // Replays the night battle's recorded frames on the grid, one tick at a time. The battle itself
 // is already fully resolved in `state`; "Skip" just jumps to the result, and "Continue" on the
 // result screen runs `afterResult` to finish the turn.
-const BATTLE_TICK_MS = 450;
+const BATTLE_TICK_MS = 600;
 let battleTimer = null;
 function playGridBattle(summary, afterResult) {
   const anim = { kind: "grid", summary, frameIndex: 0, phase: "battle" };
@@ -1343,6 +1404,19 @@ root.addEventListener("click", (e) => {
       G.clearEntranceStudentCell(state, el.dataset.cell);
       render();
       break;
+    case "nw-quick": {
+      // a roster chip: post them to the first free square of the steps, or take them off watch
+      const id = el.dataset.id;
+      const key = Object.keys(state.entranceGrid.students).find((k) => state.entranceGrid.students[k] === id);
+      if (key) G.clearEntranceStudentCell(state, key);
+      else {
+        const free = G.firstFreeEntranceCell(state);
+        if (!free) flash("The steps are full — drag someone off first.");
+        else if (!G.moveEntranceStudent(state, free, id)) flash("They can't stand watch tonight.");
+      }
+      render();
+      break;
+    }
     case "close-day-recap":
       dayRecap = null;
       render();

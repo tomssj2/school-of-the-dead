@@ -12,6 +12,23 @@ const LOOKS = {
   soldier: { shirt: "#5a6a3a", pants: "#4a5a30", hair: null, eyes: "#ff3b3b", skin: "#8fae7a", helmet: "#465533" },
   jersey: { shirt: "#b03030", pants: "#c9ccd2", hair: "#2a2020", eyes: "#f4d35e", skin: "#87a672", pads: true },
   labcoat: { shirt: "#6b8fb0", pants: "#3a3f48", hair: null, eyes: "#c07fff", skin: "#a9b89a", coat: "#e4eaec" },
+  // the Night Watch's horde: a runner in a tracksuit, a bloated spitter, and the boss in a suit
+  runner: { shirt: "#3f6fb5", pants: "#2a3a6a", hair: "#6b4a2f", eyes: "#ff5a3a", skin: "#93b27e", stripe: "#f4f4f4" },
+  spitter: { shirt: "#6a8a3a", pants: "#4a5a30", hair: null, eyes: "#d0ff40", skin: "#b0bf5a", drool: "#c8f050" },
+  boss: { shirt: "#2e3140", pants: "#23252f", hair: "#1a1a1a", eyes: "#ff2a2a", skin: "#7f9e6c", tie: "#b02030" },
+};
+
+// Which look each kind of zombie in the night horde wears, and how big it's drawn.
+export const HORDE_LOOK = {
+  walker: { look: "walker", scale: 1 },
+  runner: { look: "runner", scale: 0.9 },
+  brute: { look: "jersey", scale: 1.25 },
+  spitter: { look: "spitter", scale: 1 },
+  boss: { look: "boss", scale: 1.4 },
+};
+export const hordeSprite = (type, sizePx) => {
+  const h = HORDE_LOOK[type] || HORDE_LOOK.walker;
+  return zombieSprite(h.look, Math.round(sizePx * h.scale));
 };
 
 function build(look) {
@@ -96,6 +113,26 @@ function build(look) {
   if (look === "labcoat") {
     for (const [x, y] of [[18, 6], [19, 7], [18, 11], [12, 6]]) g[y][x] = "#9a6ad0";
     r(12, 4, 13, 4, "#6b6b6b");
+  }
+  if (L.stripe) {
+    // tracksuit stripes down the side and the legs
+    r(12, 17, 12, 28, L.stripe);
+    r(13, 29, 13, 36, L.stripe);
+  }
+  if (L.drool) {
+    // swollen and dripping: a bulging belly and acid at the mouth
+    r(10, 21, 22, 27, L.shirt);
+    r(21, 22, 22, 26, shadowOf(L.shirt));
+    r(13, 13, 15, 16, L.drool);
+    g[17][14] = L.drool;
+    g[19][13] = L.drool;
+  }
+  if (L.tie) {
+    // a suit and tie, a principal's badge
+    r(15, 17, 16, 26, L.tie);
+    r(13, 17, 14, 19, "#e8e2d0");
+    r(17, 17, 18, 19, "#e8e2d0");
+    g[20][19] = "#f4d35e";
   }
   // bite wound on the neck
   g[15][16] = "#7a1f1f";

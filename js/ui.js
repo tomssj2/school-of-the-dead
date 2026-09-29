@@ -4,7 +4,7 @@ import {
   GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, CRAFT_HELP_DEX_PER_POINT, roomUpgradeCost,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
-  ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
+  ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
@@ -23,7 +23,8 @@ import {
   hexTileKey, tileBackground, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
 } from "./map.js";
 import { hexToWorld, viewBox, cityBaseUrl, fogUrl, WORLD_W, WORLD_H } from "./citymap.js";
-import { zombieSprite } from "./zombies.js";
+import { zombieSprite, hordeSprite } from "./zombies.js";
+import { courtyardBackground, structureSprite } from "./nightwatch.js";
 import { characterSprite } from "./sprite.js";
 import { getBest, isBestRun } from "./score.js";
 import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZES } from "./graphics.js";
@@ -1451,78 +1452,82 @@ export function renderFightAnimation(state, anim) {
   </div>`;
 }
 
-// Replays one recorded frame of the night battle (see simulateEntranceBattle in game.js): who's
-// standing where, everyone's HP, and flashes/pop-up numbers for whatever happened that tick.
+// The night battle, replayed a turn at a time on the Night Watch board: zombies walk up from
+// where they were last turn, shots fly, hits and misses pop up, the fallen drop, and the doors
+// shake when they're hit. The battle is already decided (game.js simulateEntranceBattle).
 function renderGridBattle(state, anim) {
   const { summary } = anim;
   const frame = summary.frames[anim.frameIndex];
+  const prev = anim.frameIndex > 0 ? summary.frames[anim.frameIndex - 1] : null;
   const size = summary.size;
-  const third = Math.floor(size / 3);
-  const key = (row, col) => `${row},${col}`;
+  const at = (row, col, extra = "") => `style="--r:${row};--c:${col};${extra}"`;
+  const bar = (hp, max, cls) => `<span class="nw-hp ${cls}"><i style="width:${Math.max(0, Math.round((hp / max) * 100))}%"></i></span>`;
+  const prevZombies = new Map((prev?.zombies || []).map((z) => [z.id, z]));
+  const zombieAtPrev = (row, col) => (prev?.zombies || []).find((z) => z.row === row && z.col === col);
 
-  const byCell = {};
-  const cell = (k) => byCell[k] || (byCell[k] = {});
-  for (const st of frame.structures) if (!st.destroyed) cell(st.key).structure = st;
-  for (const s of frame.students) cell(key(s.row, s.col)).student = s;
-  for (const z of frame.zombies) cell(key(z.row, z.col)).zombie = z;
-
-  const fx = {};
-  const mark = (at, cls, pop) => {
-    const k = key(at[0], at[1]);
-    const f = fx[k] || (fx[k] = { cls: new Set(), pops: [] });
-    f.cls.add(cls);
-    if (pop) f.pops.push(pop);
-  };
+  // who did what this turn
+  const struck = new Set(); // defenders who swung or shot
+  const hurt = new Set(); // squares something got hit on
+  let fx = "";
   for (const e of frame.events) {
+    const [r0, c0] = e.from || e.at || [];
     if (e.type === "attack") {
-      const z = frame.zombies.find((zz) => zz.id === e.zid);
-      mark(e.from, e.kind === "melee" ? "fx-swing" : "fx-shoot");
-      mark(z ? [z.row, z.col] : e.to, e.hit ? "fx-hit" : "fx-miss", e.hit ? `-${e.dmg}` : "miss");
-    } else if (e.type === "bite") mark(e.to, e.hit ? "fx-bitten" : "fx-miss", e.hit ? `-${e.dmg}` : "miss");
-    else if (e.type === "spit") {
-      mark(e.from, "fx-spit");
-      mark(e.to, e.hit ? "fx-bitten" : "fx-miss", e.hit ? `🤮-${e.dmg}` : "miss");
-    } else if (e.type === "kill") mark(e.at, "fx-kill", e.boss ? "👑💥" : "💥");
-    else if (e.type === "destroyed") mark(e.at, "fx-kill", "💥");
-    else if (e.type === "trap") mark(e.at, "fx-hit", `-${e.dmg}`);
-    else if (e.type === "smash") mark(e.at, "fx-smash", `-${e.dmg}`);
-    else if (e.type === "downed") mark(e.at, "fx-downed");
-    else if (e.type === "breach") mark(e.at, "fx-breach", "🚨");
-    else if (e.type === "gate") mark(e.at, "fx-smash", "🚪");
-  }
-
-  const bar = (hp, max, cls) => `<span class="gb-hp ${cls}"><span style="width:${Math.max(0, Math.round((hp / max) * 100))}%"></span></span>`;
-  const cells = [];
-  for (let row = 0; row < size; row++) {
-    for (let col = 0; col < size; col++) {
-      const k = key(row, col);
-      const x = byCell[k] || {};
-      const f = fx[k];
-      const zone = row < third ? "top" : row < third * 2 ? "mid" : "bottom";
-      let inner = "";
-      if (x.structure) {
-        const def = DEFENSE_STRUCTURES.find((d) => d.id === x.structure.id);
-        inner += `<span class="gb-structure">${def ? def.icon : "?"}</span>`;
-        if (x.structure.maxHp) inner += bar(x.structure.hp, x.structure.maxHp, "gb-hp-wall");
-      }
-      if (x.student) {
-        const c = getChar(state, x.student.id);
-        inner += `<span class="gb-unit ${x.student.downed ? "gb-downed" : ""}">${c ? characterSprite(c, 30) : "🧍"}</span>`;
-        inner += bar(x.student.hp, x.student.maxHp, "gb-hp-student");
-      }
-      if (x.zombie) {
-        const T = ZOMBIE_TYPES[x.zombie.type] || ZOMBIE_TYPES.walker;
-        const badge = T.badge ? `<span class="gb-zbadge">${T.badge}</span>` : "";
-        inner += `<span class="gb-unit gb-zombie gb-z-${x.zombie.type}" title="${T.name}">🧟${badge}</span>${bar(x.zombie.hp, x.zombie.maxHp, "gb-hp-zombie")}`;
-      }
-      if (f) inner += f.pops.map((p) => `<span class="gb-pop">${p}</span>`).join("");
-      cells.push(`<div class="gb-cell gb-${zone} ${f ? [...f.cls].join(" ") : ""}">${inner}</div>`);
+      struck.add(`${e.from[0]},${e.from[1]}`);
+      const z = frame.zombies.find((zz) => zz.id === e.zid) || prevZombies.get(e.zid);
+      const [tr, tc] = z ? [z.row, z.col] : e.to;
+      if (e.kind === "ranged") fx += `<span class="nw-shot" style="--r0:${e.from[0]};--c0:${e.from[1]};--r1:${tr};--c1:${tc}"></span>`;
+      if (e.hit) hurt.add(`${tr},${tc}`);
+      fx += `<span class="nw-pop ${e.hit ? "" : "nw-pop-miss"}" ${at(tr, tc)}>${e.hit ? `-${e.dmg}` : "miss"}</span>`;
+    } else if (e.type === "bite" || e.type === "spit") {
+      if (e.type === "spit") fx += `<span class="nw-shot nw-spit" style="--r0:${r0};--c0:${c0};--r1:${e.to[0]};--c1:${e.to[1]}"></span>`;
+      if (e.hit) hurt.add(`${e.to[0]},${e.to[1]}`);
+      fx += `<span class="nw-pop nw-pop-bad ${e.hit ? "" : "nw-pop-miss"}" ${at(e.to[0], e.to[1])}>${e.hit ? `${e.type === "spit" ? "🤮" : ""}-${e.dmg}` : e.dodged ? "dodge" : "miss"}</span>`;
+    } else if (e.type === "kill") {
+      const z = zombieAtPrev(e.at[0], e.at[1]);
+      fx += `<div class="nw-unit nw-corpse" ${at(e.at[0], e.at[1])}>${hordeSprite(z?.type || (e.boss ? "boss" : "walker"), 36)}</div>`;
+      if (e.boss) fx += `<span class="nw-pop nw-pop-big" ${at(e.at[0], e.at[1])}>👑💥</span>`;
+    } else if (e.type === "trap") {
+      hurt.add(`${e.at[0]},${e.at[1]}`);
+      fx += `<span class="nw-pop" ${at(e.at[0], e.at[1])}>-${e.dmg}</span>`;
+    } else if (e.type === "smash") {
+      fx += `<span class="nw-pop nw-pop-bad" ${at(e.at[0], e.at[1])}>-${e.dmg}</span>`;
+    } else if (e.type === "destroyed") {
+      fx += `<span class="nw-pop nw-pop-big" ${at(e.at[0], e.at[1])}>💥</span>`;
+    } else if (e.type === "gate") {
+      fx += `<span class="nw-pop nw-pop-bad nw-pop-gate" ${at(0, e.at[1])}>🚪-${e.dmg}</span>`;
+    } else if (e.type === "breach") {
+      fx += `<span class="nw-pop nw-pop-bad nw-pop-big nw-pop-gate" ${at(0, e.at[1])}>🚨</span>`;
     }
+  }
+  const gateHit = frame.events.some((e) => e.type === "gate");
+  const breach = frame.events.some((e) => e.type === "breach");
+
+  let units = "";
+  for (const st of frame.structures) {
+    const [row, col] = st.key.split(",").map(Number);
+    units += `<div class="nw-cell nw-mid nw-filled" ${at(row, col)}>
+      <span class="nw-structure ${st.destroyed ? "nw-rubble" : ""} ${hurt.has(st.key) ? "nw-flash" : ""}">${structureSprite(st.destroyed ? "rubble" : st.id, 84)}</span>
+      ${st.maxHp && !st.destroyed ? bar(st.hp, st.maxHp, "nw-hp-wall") : ""}
+    </div>`;
+  }
+  for (const s of frame.students) {
+    const c = getChar(state, s.id);
+    const k = `${s.row},${s.col}`;
+    units += `<div class="nw-unit nw-defender ${s.downed ? "nw-downed" : ""} ${struck.has(k) ? "nw-strike" : ""} ${hurt.has(k) ? "nw-flash" : ""}" ${at(s.row, s.col)}>
+      ${c ? characterSprite(c, 40) : ""}${bar(s.hp, s.maxHp, "nw-hp-student")}
+    </div>`;
+  }
+  for (const z of frame.zombies) {
+    const p = prevZombies.get(z.id);
+    const T = ZOMBIE_TYPES[z.type] || ZOMBIE_TYPES.walker;
+    units += `<div class="nw-unit nw-zombie nw-z-${z.type} ${hurt.has(`${z.row},${z.col}`) ? "nw-flash" : ""}" ${at(z.row, z.col, `--pr:${p ? p.row : z.row + 1};--pc:${p ? p.col : z.col};`)} title="${T.name} · ${Math.max(0, z.hp)}/${z.maxHp} HP">
+      ${hordeSprite(z.type, 36)}${bar(z.hp, z.maxHp, "nw-hp-zombie")}
+    </div>`;
   }
 
   const gate = frame.gate.max
-    ? `<div class="gb-gate"><span>🚪 Gate</span>${bar(frame.gate.hp, frame.gate.max, "gb-hp-gate")}<span class="muted">${frame.gate.hp}/${frame.gate.max}</span></div>`
-    : `<div class="gb-gate gb-gate-none">🚪 No gate — anything that slips past the top row walks straight in</div>`;
+    ? `<div class="nw-gate ${gateHit ? "nw-gate-hit" : ""}">🚪 ${bar(frame.gate.hp, frame.gate.max, "nw-hp-gate")} <b>${frame.gate.hp}</b></div>`
+    : `<div class="nw-gate nw-gate-none ${gateHit || breach ? "nw-gate-hit" : ""}">🚪 No gate</div>`;
 
   let footer;
   if (anim.phase === "battle") {
@@ -1549,8 +1554,10 @@ function renderGridBattle(state, anim) {
       <div class="gb-title">🌙 Night ${state.day} — ${summary.bossName ? `☠ ${esc(summary.bossName)} leads the horde` : "the horde hits the entrance"}</div>
       <div class="gb-counters">🧟 ${frame.spawned}/${summary.spawned} arrived · 💀 ${frame.killed} down · 🚨 ${frame.breached} broke in</div>
     </div>
-    ${gate}
-    <div class="gb-grid" style="--gb-size: ${size};">${cells.join("")}</div>
+    <div class="nw-board nw-battle ${gateHit ? "nw-shake" : ""} ${breach ? "nw-breach" : ""}" style="--size:${size};background-image:${courtyardBackground(size)}">
+      ${gate}
+      <div class="nw-cells">${units}${fx}</div>
+    </div>
     ${footer}
   </div>`;
 }
@@ -1687,48 +1694,45 @@ function renderTurn3Overview(state) {
   if (state.pendingRaid) return renderFacilityRaidPanel(state);
 
   const defenders = state.characters.filter((c) => c.defending && c.alive);
-  const available = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
   const zombies = zombieCountForDay(state.day);
   const z = zombieStatsForDay(state.day);
   const unarmed = defenders.filter((c) => !c.equipment?.meleeWeapon && !c.equipment?.rangedWeapon).length;
   const stabilizeCost = MEDICINE_PER_STABILIZE - techPerk(state, "stabilizeDiscount");
   const saves = Math.floor(state.resources.medicine / stabilizeCost);
   const comp = hordeComposition(state.day);
-  const mix = ["walker", "runner", "brute", "spitter"]
+  const hordeRows = ["walker", "runner", "brute", "spitter", "boss"]
     .filter((t) => comp[t])
-    .map((t) => `${comp[t]} ${ZOMBIE_TYPES[t].name.toLowerCase()}${comp[t] === 1 ? "" : "s"}${ZOMBIE_TYPES[t].badge ? ` ${ZOMBIE_TYPES[t].badge}` : ""}`)
-    .join(", ");
-  const boss = isBossNight(state.day)
-    ? `<div class="boss-warning">☠ <b>Boss night:</b> ${esc(bossNameForDay(state.day))} brings up the rear —
-       ${Math.round(z.hp * ZOMBIE_TYPES.boss.hpMult)} HP, hits for about ${Math.round(z.damage * ZOMBIE_TYPES.boss.dmgMult)}, smashes walls three
-       times as hard. Bring it down for its hoard.</div>`
-    : "";
-
-  const rows = available
-    .map((c) => {
-      const checked = c.defending ? "checked" : "";
-      return `<label class="check-row">
-        <input type="checkbox" data-action="toggle-defend" data-id="${c.id}" ${checked}/>
-        ${nameTag(c)} — ${strDexLabel(c)} ${statusTag(c)}
-      </label>`;
+    .map((t) => {
+      const T = ZOMBIE_TYPES[t];
+      const hp = Math.round(z.hp * T.hpMult);
+      const dmg = Math.max(1, Math.round(z.damage * T.dmgMult));
+      const name = t === "boss" ? esc(bossNameForDay(state.day)) : `${T.name}${comp[t] === 1 ? "" : "s"}`;
+      return `<div class="nw-horde-row ${t === "boss" ? "nw-horde-boss" : ""}" ${tipAttr({ title: `${T.badge || "🧟"} ${T.name}`, rows: [["HP", `${hp}`], ["Hits for", `~${dmg}`]], notes: [esc(T.desc)] })}>
+        <span class="nw-horde-sprite">${hordeSprite(t, 22)}</span>
+        <span>${t === "boss" ? "☠ " : ""}${name}</span>
+        <b>×${comp[t]}</b>
+      </div>`;
     })
     .join("");
 
   return `
-  <div class="card">
-    <h2>Turn 3 — Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the grid from the bottom, one row a turn", "Melee hits 1–2 squares away, ranged 4–9, fists only point-blank", "Walls block a lane until smashed; traps hurt whatever walks over", "A zombie past the top row hits the gate, then the school"] })}</h2>
-    <p class="room-tagline">Post defenders on the top rows, build in the middle — the horde climbs up from the bottom</p>
-    ${boss}
-    <div class="summary-list">
-      <div>Tonight's horde: <b>${zombies} zombies</b> — ${mix}. A walker has ${z.hp} HP and hits for about ${z.damage}.</div>
-      <div>Gate: <b>${gateHp(state)} HP</b> ${state.fortification ? "(from fortification)" : "— no fortification yet, so anything that slips past gets straight in"}</div>
-      <div>Defenders on the grid: <b>${defenders.length}</b>${unarmed ? ` · ⚠️ ${unarmed} fighting bare-handed — hand out weapons from each student's Inventory tab` : ""}</div>
-      <div>Medicine: <b>${state.resources.medicine}</b> — enough to patch up <b>${saves}</b> defender${saves === 1 ? "" : "s"} who go down (${stabilizeCost} each; without it, they might not get back up)</div>
+  <div class="card nw-card">
+    <div class="nw-layout">
+      ${renderNightBoard(state)}
+      <aside class="nw-side">
+        <h2>Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the board from the street, one square a turn", "Post defenders on the steps — melee reaches 1–2 squares, ranged 4–9, fists only point-blank", "Build in the courtyard: walls block a lane until smashed, traps hurt whatever walks over", "A zombie past the top row batters the doors, then gets in", "Hover a defender to see what they can reach"] })}</h2>
+        <div class="mini-label">Tonight's horde · ${zombies}</div>
+        <div class="nw-horde">${hordeRows}</div>
+        <div class="nw-facts">
+          <span ${tipAttr({ title: "💊 Medicine", notes: [`${stabilizeCost} patches up a defender who goes down — without it, they might not get back up`] })}>💊 ${saves} save${saves === 1 ? "" : "s"}</span>
+          <span>🛡 ${defenders.length} on watch</span>
+          ${unarmed ? `<span class="plot-warn" title="Hand out weapons from each student's Inventory tab">👊 ${unarmed} unarmed</span>` : ""}
+        </div>
+        <div class="mini-label">Defenders — drag onto the steps</div>
+        <div class="nw-roster" data-drop-roster="1">${nightRoster(state) || '<p class="muted">Nobody available.</p>'}</div>
+        <button class="btn btn-primary btn-big" data-action="resolve-turn">🛡 Defend the Entrance</button>
+      </aside>
     </div>
-    ${renderEntranceGrid(state)}
-    <div class="mini-label">Quick assign — drops them on the front line</div>
-    <div class="check-list">${rows || '<p class="muted">Nobody available.</p>'}</div>
-    <button class="btn btn-primary btn-big" data-action="resolve-turn">🛡 Defend the Entrance &amp; Advance to Next Day</button>
   </div>`;
 }
 
@@ -2006,52 +2010,94 @@ function entranceCellKey(row, col) {
   return `${row},${col}`;
 }
 
-// Shown during the Night Watch (Turn 3's overview and Defense tab), where defenders take their
-// spots and defenses get built.
-function renderEntranceGrid(state) {
+// ---------- the Night Watch board ----------
+// The entrance grid drawn as the school's front at night (nightwatch.js): defenders stand on the
+// steps, defenses go in the courtyard, the horde comes up the street. Squares are placed with CSS
+// variables (--r, --c) over the art, scaled by --px.
+
+// How far a defender reaches: their melee weapon (fists: 1) and ranged weapon, in squares.
+function defenderReach(state, c) {
+  const eq = c.equipment || {};
+  return { melee: (eq.meleeWeapon || FIST_WEAPON).range, ranged: eq.rangedWeapon ? eq.rangedWeapon.range + techPerk(state, "rangedRange") : 0 };
+}
+
+// A defender on the board (planning), draggable, with their weapons and HP.
+function nightDefender(state, c, row, col) {
+  const eq = c.equipment || {};
+  const reach = defenderReach(state, c);
+  const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean);
+  return `<div class="nw-unit nw-defender" draggable="true" data-drag-student="${c.id}" data-reach="${row},${col},${reach.melee},${reach.ranged}" ${tipAttr({
+    title: esc(c.name),
+    rows: [["Melee", `${gear.find((w) => w.category === "melee")?.name || "Fists"} · reach ${reach.melee}`], ["Ranged", reach.ranged ? `${esc(eq.rangedWeapon.name)} · reach ${reach.ranged}` : "—"], ["HP", `${c.hp}/${c.maxHp}`]],
+    notes: ["Drag to move · drag back to the roster to take them off watch"],
+  })}>
+    ${characterSprite(c, 40)}
+    <span class="nw-gear">${gear.length ? gear.map((w) => w.icon).join("") : "👊"}</span>
+    <span class="nw-hp nw-hp-student"><i style="width:${Math.round((c.hp / c.maxHp) * 100)}%"></i></span>
+  </div>`;
+}
+
+function renderNightBoard(state) {
   const grid = state.entranceGrid;
   const size = grid.size;
   const third = Math.floor(size / 3);
-  const cells = [];
-
+  const comp = hordeComposition(state.day);
+  const horde = ["walker", "runner", "brute", "spitter"].flatMap((t) => Array(comp[t] || 0).fill(t));
+  if (comp.boss) horde.push("boss");
+  let cells = "";
+  let ghost = 0;
   for (let row = 0; row < size; row++) {
     for (let col = 0; col < size; col++) {
       const key = entranceCellKey(row, col);
+      const at = `style="--r:${row};--c:${col}" data-row="${row}" data-col="${col}"`;
       if (row < third) {
-        const studentId = grid.students[key];
-        const c = studentId ? getChar(state, studentId) : null;
-        const eq = c?.equipment || {};
-        const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean);
-        const gearTitle = gear.length ? gear.map((w) => `${w.name} (range ${w.range})`).join(", ") : "bare fists (range 1)";
-        cells.push(
-          c && c.alive
-            ? `<div class="entrance-cell entrance-cell-top entrance-cell-filled" title="${esc(c.name)} — ${esc(gearTitle)}">
-                <button class="cell-remove" data-action="clear-entrance-student" data-cell="${key}" title="Remove">✕</button>
-                <span class="entrance-cell-portrait">${characterSprite(c, 26)}</span>
-                <span class="entrance-cell-gear">${gear.length ? gear.map((w) => w.icon).join("") : "👊"}</span>
-              </div>`
-            : `<div class="entrance-cell entrance-cell-top entrance-cell-empty" data-action="open-picker" data-kind="entrance-student" data-room="${key}" title="Place a student here">+</div>`
-        );
+        const c = grid.students[key] ? getChar(state, grid.students[key]) : null;
+        cells += c && c.alive
+          ? `<div class="nw-cell nw-top nw-filled" ${at} data-drop-cell="${key}">
+              ${nightDefender(state, c, row, col)}
+              <button class="cell-remove" data-action="clear-entrance-student" data-cell="${key}" title="Take off watch">✕</button>
+            </div>`
+          : `<div class="nw-cell nw-top nw-empty" ${at} data-drop-cell="${key}" data-action="open-picker" data-kind="entrance-student" data-room="${key}" title="Post a defender here — or drag one in"><span class="nw-plus">+</span></div>`;
       } else if (row < third * 2) {
-        const structureId = grid.defenses[key];
-        const def = structureId ? DEFENSE_STRUCTURES.find((d) => d.id === structureId) : null;
-        cells.push(
-          def
-            ? `<div class="entrance-cell entrance-cell-mid entrance-cell-filled" title="${esc(def.name)}">
-                <button class="cell-remove" data-action="clear-defense" data-cell="${key}" title="Demolish">✕</button>
-                <span class="entrance-cell-icon">${def.icon}</span>
-              </div>`
-            : `<div class="entrance-cell entrance-cell-mid entrance-cell-empty" data-action="open-defense-build" data-cell="${key}" title="Build a defense here">+</div>`
-        );
+        const def = grid.defenses[key] ? DEFENSE_STRUCTURES.find((d) => d.id === grid.defenses[key]) : null;
+        cells += def
+          ? `<div class="nw-cell nw-mid nw-filled" ${at} ${tipAttr({ title: `${def.icon} ${esc(def.name)}`, notes: [esc(def.desc)] })}>
+              <span class="nw-structure">${structureSprite(def.id, 84)}</span>
+              <button class="cell-remove" data-action="clear-defense" data-cell="${key}" title="Demolish">✕</button>
+            </div>`
+          : `<div class="nw-cell nw-mid nw-empty" ${at} data-action="open-defense-build" data-cell="${key}" title="Build a defense here"><span class="nw-plus">+</span></div>`;
       } else {
-        cells.push(`<div class="entrance-cell entrance-cell-bottom"></div>`);
+        // tonight's horde, gathering in the mist
+        const t = (row * size + col + state.day) % 3 !== 0 && ghost < horde.length ? horde[ghost++] : null;
+        cells += `<div class="nw-cell nw-bottom" ${at}>${t ? `<span class="nw-ghost">${hordeSprite(t, 34)}</span>` : ""}</div>`;
       }
     }
   }
+  const gateMax = gateHp(state);
+  return `<div class="nw-board" style="--size:${size};background-image:${courtyardBackground(size)}">
+    <div class="nw-gate ${gateMax ? "" : "nw-gate-none"}" ${tipAttr({ title: "🚪 The gate", rows: [["Gate", `${gateMax} HP`]], notes: ["Zombies past the top row batter the doors — once they're down, they get in", "Fortification (the Crafting Room) makes the doors sturdier"] })}>🚪 ${gateMax ? `<b>${gateMax}</b> HP` : "No gate yet"}</div>
+    <div class="nw-cells">${cells}</div>
+  </div>`;
+}
 
-  return `
-    <div class="entrance-grid" style="grid-template-columns: repeat(${size}, 1fr);">${cells.join("")}</div>
-    <p class="muted entrance-legend">🔵 Top — defenders &nbsp;·&nbsp; 🟡 Middle — build defenses &nbsp;·&nbsp; 🔴 Bottom — the horde spawns here</p>`;
+// The side panel's roster: every student who could stand watch tonight, draggable onto the steps
+// (a click posts them to the first free square, or takes them off).
+function nightRoster(state) {
+  const available = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
+  return available
+    .sort((a, b) => (b.defending - a.defending) || overallLevel(b) - overallLevel(a))
+    .map((c) => {
+      const eq = c.equipment || {};
+      const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean).map((w) => w.icon).join("") || "👊";
+      return `<div class="nw-chip ${c.defending ? "nw-chip-on" : ""} ${c.injured ? "nw-chip-hurt" : ""}" draggable="true" data-drag-student="${c.id}" data-action="nw-quick" data-id="${c.id}"
+        title="${esc(c.name)} — ${c.defending ? "on watch: click to take them off" : "click to post them, or drag onto the steps"}">
+        <span class="nw-chip-sprite">${characterSprite(c, 22)}</span>
+        <span class="nw-chip-name">${esc(shortName(c))}</span>
+        <span class="nw-chip-stats">💪${effectiveGrade(state, c, "PE")} 🤸${effectiveGrade(state, c, "Gymnastics")}</span>
+        <span class="nw-chip-gear">${gear}</span>
+      </div>`;
+    })
+    .join("");
 }
 
 // The Gymnasium (PE → STR) and Acrobatics (Gymnastics → DEX) work the same way, taught like a class.
@@ -2749,7 +2795,7 @@ export function renderDefenseTab(state) {
   }
   const structures = DEFENSE_STRUCTURES.map(
     (d) => `<div class="armory-item">
-      <span class="armory-icon">${d.icon}</span>
+      <span class="armory-icon nw-enemy-icon">${structureSprite(d.id, 40)}</span>
       <span class="armory-name">${esc(d.name)}</span>
       <span class="armory-bonus">${esc(d.desc)}</span>
       <span class="weapon-stats">🔧 ${d.cost.materials}</span>
@@ -2759,14 +2805,14 @@ export function renderDefenseTab(state) {
   <div class="card">
     <h2>🛡 Entrance Defenses ${infoDot({ notes: ["Click an empty middle-row cell to build, a top-row cell to post a defender", "Smashed walls are gone; damaged ones are patched by morning", "Fortification makes the gate sturdier"] })}</h2>
     <p class="room-tagline">Fortification ${state.fortification} · gate <b>${gateHp(state)} HP</b></p>
-    ${renderEntranceGrid(state)}
+    ${renderNightBoard(state)}
     <div class="mini-label">What you can build</div>
     <div class="armory-list">${structures}</div>
     <div class="mini-label">Know your enemy</div>
-    <div class="armory-list">${Object.values(ZOMBIE_TYPES)
+    <div class="armory-list">${Object.entries(ZOMBIE_TYPES)
       .map(
-        (t) => `<div class="armory-item">
-          <span class="armory-icon">🧟${t.badge}</span>
+        ([id, t]) => `<div class="armory-item">
+          <span class="armory-icon nw-enemy-icon">${hordeSprite(id, 26)}</span>
           <span class="armory-name">${esc(t.name)}</span>
           <span class="armory-bonus">${esc(t.desc)}</span>
           <span class="weapon-stats">${t === ZOMBIE_TYPES.boss ? "every 5th night" : t.from > 1 ? `from day ${t.from}` : "always"}</span>

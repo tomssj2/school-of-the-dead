@@ -2820,6 +2820,30 @@ export function placeEntranceStudent(state, cellKey, studentId) {
   return true;
 }
 
+// Drag and drop on the Night Watch board: puts a student on a square of the defenders' rows. If
+// someone's already there, they swap places (or step off, if the newcomer wasn't on the board).
+export function moveEntranceStudent(state, cellKey, studentId) {
+  const c = getChar(state, studentId);
+  if (!c || c.role !== "student" || !c.alive || c.infection || c.exploreTeam !== null) return false;
+  const [row] = cellKey.split(",").map(Number);
+  if (row >= Math.floor(state.entranceGrid.size / 3)) return false; // only the defenders' rows
+  const grid = state.entranceGrid.students;
+  const from = Object.keys(grid).find((k) => grid[k] === studentId) || null;
+  const other = grid[cellKey];
+  if (other === studentId) return true;
+  if (from) delete grid[from];
+  grid[cellKey] = studentId;
+  c.defending = true;
+  if (other) {
+    if (from) grid[from] = other;
+    else {
+      const o = getChar(state, other);
+      if (o) o.defending = false;
+    }
+  }
+  return true;
+}
+
 export function clearEntranceStudentCell(state, cellKey) {
   const studentId = state.entranceGrid.students[cellKey];
   if (!studentId) return false;
