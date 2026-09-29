@@ -20,7 +20,7 @@ import {
   RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
-  INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, FARM_WORKERS_BY_LEVEL, PLOTS_PER_WORKER, STARTING_STOCK,
+  INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, FARM_WORKERS_BY_LEVEL, FARM_STAMINA_COST, PLOTS_PER_WORKER, STARTING_STOCK,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
@@ -617,16 +617,38 @@ function makeOutsideFacilitySetter(flagKey, roomKey) {
 }
 
 // The Farm has two crews: `side` is "fields" or "animals" (false takes the student off the Farm).
+// A crew only takes as many as its ready slots need, and a worker needs FARM_STAMINA_COST stamina.
 export function setFarmToday(state, studentId, side) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
   if (side) {
-    if (!FARM_GROUPS[side] || c.exploreTeam !== null || c.infection) return false;
-    if (farmCrew(state, side).length >= farmWorkerSlots(state)) return false;
+    if (!FARM_GROUPS[side] || !canWorkFarm(c)) return false;
+    const crew = farmCrew(state, side).filter((x) => x !== c).length;
+    if (crew >= Math.min(farmWorkerSlots(state), workersNeeded(state, side))) return false;
     if (state.characters.filter((x) => x.farmToday && x !== c).length >= state.rooms.farm.studentCapacity) return false;
   }
   c.farmToday = side || false;
   return true;
+}
+
+// Free for a day on the Farm: not off exploring or at the Scrapyard, and not too tired.
+export const canWorkFarm = (c) =>
+  c.role === "student" && c.alive && !c.infection && c.exploreTeam === null && !c.scrapyardToday && c.stamina >= FARM_STAMINA_COST;
+
+// Fills both crews up to what their ready slots need, lowest-level free students first.
+// Returns how many were assigned.
+export function autoAssignFarm(state) {
+  let assigned = 0;
+  for (const side of Object.keys(FARM_GROUPS)) {
+    const free = state.characters
+      .filter((c) => !c.farmToday && canWorkFarm(c))
+      .sort((a, b) => overallLevel(a) - overallLevel(b) || b.stamina - a.stamina);
+    for (const c of free) {
+      if (!setFarmToday(state, c.id, side)) break;
+      assigned++;
+    }
+  }
+  return assigned;
 }
 export const farmWorkerSlots = (state) => FARM_WORKERS_BY_LEVEL[roomLevel(state, "farm") - 1];
 export const farmCrew = (state, side) => state.characters.filter((c) => c.farmToday === side && c.alive);
@@ -1283,6 +1305,7 @@ export function resolveExploration(state) {
   const farmWorkers = facilityWorkers(state, "farm");
   const gain = state.characters.filter((c) => c.farmToday && c.alive).reduce((sum, c) => sum + workerYield("farm", c), 0);
   state.resources.food += gain;
+  for (const c of state.characters) if (c.farmToday && c.alive) c.stamina = Math.max(0, c.stamina - FARM_STAMINA_COST);
   const { produced, kept } = resolveFarm(state);
   const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
   if (farmWorkers) addLog(state, `The Farm brings in ${gain} food${goods ? ` and ${goods}` : ""} from ${farmWorkers} student(s)${kept.length ? ` — ${kept.join(", ")}` : ""}.`);

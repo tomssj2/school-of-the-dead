@@ -1000,6 +1000,12 @@ root.addEventListener("click", (e) => {
       G.resolveAssault(state, false);
       render();
       break;
+    case "farm-auto": {
+      const n = G.autoAssignFarm(state);
+      flash(n ? `Assigned ${n} student${n === 1 ? "" : "s"} to the Farm.` : "Nobody free has the stamina for a day on the Farm.");
+      render();
+      break;
+    }
     case "remove-scrapyard":
       G.setScrapyardToday(state, el.dataset.id, false);
       render();

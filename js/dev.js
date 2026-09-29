@@ -55,7 +55,6 @@ export function maxOutSchool(state) {
     }
   };
   const count = (flag, value = true) => state.characters.filter((c) => c.alive && (value === true ? c[flag] : c[flag] === value)).length;
-  for (const side of ["fields", "animals"]) fill(G.farmWorkerSlots(state) - count("farmToday", side), (c) => G.setFarmToday(state, c.id, side));
   fill(state.rooms.gym.studentCapacity - count("gymToday", "PE"), (c) => G.setGymToday(state, c.id, "PE"));
   fill(state.rooms.acrobatics.studentCapacity - count("gymToday", "Gymnastics"), (c) => G.setGymToday(state, c.id, "Gymnastics"));
   fill(state.rooms.radio.studentCapacity - count("radioToday"), (c) => G.setRadioToday(state, c.id, true));
@@ -89,6 +88,7 @@ export function maxOutSchool(state) {
     });
     state.stock[kind] = Math.max(state.stock[kind] || 0, 2);
   }
+  G.autoAssignFarm(state); // as many workers as the ready slots need
 
   return {
     levels: "all rooms at level 5",

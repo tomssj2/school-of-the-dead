@@ -922,6 +922,11 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 .farm-pill { display: grid; grid-template-columns: 1fr auto 1fr; }
 .farm-pill > .mini-label { justify-self: end; }
 .farm-ready { font-size: 12px; white-space: nowrap; }
+/* The top pill's middle: auto-assign, and how many students everything ready takes. */
+.farm-auto { display: flex; align-items: center; gap: 8px; font-size: 12px; white-space: nowrap; }
+.farm-auto-btn { padding: 2px 10px; font-size: 12px; }
+/* A crew slot nobody's needed for (nothing more is ready). */
+.person-tile.pt-off { cursor: not-allowed; opacity: 0.3; }
 .farm-ready-none { color: var(--muted); }
 .farm-ready-ok { color: #7fe0a8; }
 .farm-ready-short { color: #f4d35e; }

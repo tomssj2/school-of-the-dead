@@ -524,6 +524,7 @@ export const PLOTS_PER_WORKER = 2; // ready slots one Farm worker harvests a day
 // for a worker. Each side of the Farm (fields, animals) has its own crew, big enough to cover all
 // its slots: 2, 3, 3, 5, 6 workers by level.
 export const FARM_WORKERS_BY_LEVEL = FARM_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
+export const FARM_STAMINA_COST = 50; // a day's work on the Farm (paid at the end of Turn 2) — to be balanced
 export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, chicken: 1, cow: 0, sheep: 1 };
 // Expedition finds for the Farm (seeds, animals): a base chance on a success (lower on a failure) + a
 // location's seedBonus. Locations with `animals` turn up one of them instead `animalChance` of

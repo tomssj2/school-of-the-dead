@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
-  DISHES, INGREDIENTS, PRODUCERS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
+  DISHES, INGREDIENTS, PRODUCERS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, FARM_STAMINA_COST, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
 } from "./data.js";
@@ -16,7 +16,7 @@ import {
 import {
   getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, isReady, readySlots, harvestPlan, workersNeeded, farmCrew, farmWorkerSlots, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, isReady, readySlots, harvestPlan, workersNeeded, farmCrew, farmWorkerSlots, canWorkFarm, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -1918,7 +1918,8 @@ function resolvePickerCandidates(state, picker) {
     case "farm":
       return {
         role: "student", title: postKey === "animals" ? "Tend the Animals" : "Work the Fields",
-        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.farmToday).map((c) => studentRow(c, "farmToday")),
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.farmToday)
+          .map((c) => studentRow(c, "farmToday", (x) => (x.stamina < FARM_STAMINA_COST ? `Too tired (needs ${FARM_STAMINA_COST} stamina)` : null))),
       };
     case "scrapyard": {
       const flagKey = `${kind}Today`;
@@ -2500,8 +2501,9 @@ const FACILITY_YIELD = {
   scrapyard: { icon: "🔩", unit: "scrap", base: SCRAPYARD_YIELD_MATERIALS, str: true },
 };
 
-// `crew`: false when the page lays out its own worker slots (the Farm's two crews).
-function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "", crew = true) {
+// `crew`: false when the page lays out its own worker slots (the Farm's two crews); `middle` puts
+// something in the middle of the pill (the Farm's auto-assign), `label` replaces its right end.
+function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "", { crew = true, middle = "", label = "" } = {}) {
   const room = state.rooms[roomKey];
   const workers = state.characters.filter((c) => c[flagKey] && c.alive);
   const y = FACILITY_YIELD[roomKey];
@@ -2520,7 +2522,9 @@ function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "",
   return `
   <div class="card room-outside">
     ${roomScene(`${roomKey}@${roomLevel(state, roomKey)}`, workers, `${title}${levelBadge(state, roomKey)}`, desc, roomUpgradeButton(state, roomKey))}
-    ${statRow(`Working today (${workers.length}/${room.studentCapacity})`, `${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}`)}
+    ${middle
+      ? `<div class="stat-row farm-pill"><span class="stat-pill">${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}</span>${middle}<span class="mini-label">${label}</span></div>`
+      : statRow(label || `Working today (${workers.length}/${room.studentCapacity})`, `${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}`)}
     ${crew ? tileGrid(
       workers.map((s) => personTile(s, { remove: `remove-${roomKey}` })),
       room.studentCapacity - workers.length,
@@ -2593,6 +2597,8 @@ function renderFarmSide(state, side) {
   const slots = farmWorkerSlots(state);
   const ready = readySlots(state, side).length;
   const needed = workersNeeded(state, side);
+  // only as many open slots as the ready crops/animals still need; the rest are greyed out
+  const open = Math.max(0, Math.min(slots, needed) - crew.length);
   const covered = new Set(harvestPlan(state, side).map(([kind, i]) => `${kind}:${i}`));
   const readyText = !ready
     ? `<span class="farm-ready farm-ready-none">Nothing ${words.ready}</span>`
@@ -2612,11 +2618,9 @@ function renderFarmSide(state, side) {
     </div>`;
   }).join("");
   return `<section class="farm-side">
-    <div class="farm-crew">${tileGrid(
-      crew.map((s) => personTile(s, { remove: "remove-farm" })),
-      slots - crew.length,
-      `data-action="open-picker" data-kind="farm" data-post="${side}"`
-    )}</div>
+    <div class="farm-crew"><div class="person-tiles">${crew.map((s) => personTile(s, { remove: "remove-farm" })).join("")}${
+      `<button class="person-tile pt-empty" data-action="open-picker" data-kind="farm" data-post="${side}" title="Assign someone">+</button>`.repeat(open)
+    }${`<div class="person-tile pt-empty pt-off" title="Not needed — nothing more ${words.ready}">+</div>`.repeat(Math.max(0, slots - crew.length - open))}</div></div>
     <div class="stat-row farm-pill">
       <span class="stat-pill"><b class="farm-side-title">${words.side}</b> ${infoDot(PLOT_INFO[side])}</span>
       ${readyText}
@@ -2653,11 +2657,35 @@ export function renderPlotModal(state, kind, index) {
 // The Farm: the page split down the middle — crops on the left, animals on the right (like its
 // banner: fields, the barn in the middle, pens), each with its own crew.
 export function renderFarm(state) {
+  // The top pill: how many students it takes to collect everything that's ready, and a button
+  // that assigns them.
+  const slots = farmWorkerSlots(state);
+  const sides = Object.keys(FARM_GROUPS).map((side) => ({
+    side,
+    ready: readySlots(state, side).length,
+    needed: Math.min(slots, workersNeeded(state, side)),
+    crew: farmCrew(state, side).length,
+  }));
+  const needed = sides.reduce((sum, s) => sum + s.needed, 0);
+  const working = sides.reduce((sum, s) => sum + s.crew, 0);
+  const missing = sides.reduce((sum, s) => sum + Math.max(0, s.needed - s.crew), 0);
+  const free = state.characters.filter((c) => !c.farmToday && canWorkFarm(c)).length;
+  const how = {
+    title: "⚡ Auto-assign",
+    rows: [["Crops ready to harvest", `${sides[0].ready}`], ["Animals ready to tend", `${sides[1].ready}`], ["Each student works", `${PLOTS_PER_WORKER}`]],
+    total: ["Students needed", `${needed}`],
+    notes: [`Uses free students with at least ${FARM_STAMINA_COST} stamina, lowest level first`, `A day on the Farm costs ${FARM_STAMINA_COST} stamina`, `${free} student${free === 1 ? "" : "s"} free with enough stamina`],
+  };
+  const middle = `<span class="farm-auto">
+    <button class="btn btn-sm farm-auto-btn" data-action="farm-auto" ${missing && free ? "" : "disabled"}>⚡ Auto-assign</button>
+    <span class="${missing ? "farm-ready-short" : needed ? "farm-ready-ok" : "farm-ready-none"}">${needed ? `${needed} student${needed === 1 ? "" : "s"} needed${missing ? "" : " ✓"}` : "Nobody needed"}</span>
+    ${infoDot(how)}
+  </span>`;
   return renderOutsideFacility(
     state, "farm", "farmToday", "Farm",
     "",
     `<div class="farm-split">${renderFarmSide(state, "fields")}${renderFarmSide(state, "animals")}</div>`,
-    false
+    { crew: false, middle, label: `Working today (${working}/${needed})` }
   );
 }
 
