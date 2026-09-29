@@ -925,6 +925,15 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 /* The top pill's middle: auto-assign, and how many students everything ready takes. */
 .farm-auto { display: flex; align-items: center; gap: 8px; font-size: 12px; white-space: nowrap; }
 .farm-auto-btn { padding: 2px 10px; font-size: 12px; }
+/* Farm crew tiles are a little bigger, to fit each worker's stamina: the bar shows what's left
+   after today's work, the red part what it will use up. */
+.person-tile.pt-farm { width: 72px; height: 98px; }
+.pt-stam { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; margin-top: auto; }
+.pt-stam-bar { display: flex; width: 100%; height: 7px; border-radius: 3px; overflow: hidden; background: #10131a; }
+.pt-stam-keep { background: linear-gradient(180deg, #63bde0, #3fa7d6); }
+.pt-stam-lose { background: repeating-linear-gradient(135deg, #d64545 0 3px, #a83232 3px 6px); }
+.pt-stam-num { font-size: 10px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pt-stam-num b { color: #ff9a9a; }
 /* A crew slot nobody's needed for (nothing more is ready). */
 .person-tile.pt-off { cursor: not-allowed; opacity: 0.3; }
 .farm-ready-none { color: var(--muted); }

@@ -2589,6 +2589,17 @@ const PLOT_INFO = {
   },
 };
 
+// Under a Farm worker: their stamina bar, with the part today's work will use up marked in red,
+// and "120 → 70".
+function farmStaminaLine(c) {
+  const after = Math.max(0, c.stamina - FARM_STAMINA_COST);
+  const pct = (v) => ((v / Math.max(1, c.maxStamina)) * 100).toFixed(1);
+  return `<span class="pt-stam" title="Stamina ${c.stamina}/${c.maxStamina} — ${after} after today's work (−${FARM_STAMINA_COST})">
+    <span class="pt-stam-bar"><i class="pt-stam-keep" style="width:${pct(after)}%"></i><i class="pt-stam-lose" style="width:${pct(c.stamina - after)}%"></i></span>
+    <span class="pt-stam-num">${c.stamina} → <b>${after}</b></span>
+  </span>`;
+}
+
 // One half of the Farm: its crew (centred over it), a pill saying what's ready and how many
 // workers that takes, then its three groups top to bottom, each a row of slots.
 function renderFarmSide(state, side) {
@@ -2618,9 +2629,9 @@ function renderFarmSide(state, side) {
     </div>`;
   }).join("");
   return `<section class="farm-side">
-    <div class="farm-crew"><div class="person-tiles">${crew.map((s) => personTile(s, { remove: "remove-farm" })).join("")}${
-      `<button class="person-tile pt-empty" data-action="open-picker" data-kind="farm" data-post="${side}" title="Assign someone">+</button>`.repeat(open)
-    }${`<div class="person-tile pt-empty pt-off" title="Not needed — nothing more ${words.ready}">+</div>`.repeat(Math.max(0, slots - crew.length - open))}</div></div>
+    <div class="farm-crew"><div class="person-tiles">${crew.map((s) => personTile(s, { remove: "remove-farm", cls: "pt-farm", extra: farmStaminaLine(s) })).join("")}${
+      `<button class="person-tile pt-farm pt-empty" data-action="open-picker" data-kind="farm" data-post="${side}" title="Assign someone">+</button>`.repeat(open)
+    }${`<div class="person-tile pt-farm pt-empty pt-off" title="Not needed — nothing more ${words.ready}">+</div>`.repeat(Math.max(0, slots - crew.length - open))}</div></div>
     <div class="stat-row farm-pill">
       <span class="stat-pill"><b class="farm-side-title">${words.side}</b> ${infoDot(PLOT_INFO[side])}</span>
       ${readyText}
