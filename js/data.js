@@ -272,6 +272,35 @@ export const ZOMBIE_TYPES = {
   boss: { name: "Boss", badge: "👑", hpMult: 5, dmgMult: 2, wallMult: 3, unsnaggable: true, from: 5, desc: "Leads the horde every 5th night. Brings a hoard worth taking." },
 };
 
+// ===== The Night Watch, fought live =====
+// The horde comes in waves (1 up to 6 zombies, 2 up to 14, 3 beyond), with a break between them
+// to move defenders. Night actions can be used any time during the fight, a few times a night.
+export const NIGHT_ACTIONS = {
+  molotov: { name: "Molotov", icon: "🔥", uses: 2, cost: { materials: 5 }, target: "square", desc: "Sets a 3x3 patch alight — every zombie on it burns" },
+  focus: { name: "Focus Fire", icon: "🎯", uses: 3, target: "zombie", desc: "Everyone who can reach it goes for one zombie, this turn and next" },
+  patch: { name: "Patch Up", icon: "🩹", uses: 2, cost: { medicine: 3 }, target: "defender", desc: "Heals a defender by half their HP" },
+  rally: { name: "Rally", icon: "🔔", uses: 1, target: null, desc: "Everyone hits 50% harder for 3 turns" },
+};
+export const MOLOTOV_DAMAGE = 0.8; // of a walker's HP tonight
+// A defender's role is their best stat (the subject behind it).
+export const DEFENDER_ROLES = {
+  PE: { id: "brawler", name: "Brawler", icon: "💪", desc: "+25% melee damage" },
+  Gymnastics: { id: "marksman", name: "Marksman", icon: "🏹", desc: "+1 ranged reach" },
+  Biology: { id: "tank", name: "Tank", icon: "🛡️", desc: "Takes 25% less damage" },
+  Physics: { id: "engineer", name: "Engineer", icon: "🔧", desc: "Traps hit 20% harder and walls hold 20% more (two engineers at most)" },
+  History: { id: "spotter", name: "Spotter", icon: "👁️", desc: "The whole watch hits 5% more often (two spotters at most)" },
+  SocialStudies: { id: "rallier", name: "Rallier", icon: "📣", desc: "One more Rally tonight (two ralliers at most)" },
+};
+// Tonight's weather: rolled for each night (always clear on the first).
+export const NIGHT_CONDITIONS = {
+  clear: { id: "clear", name: "Clear night", icon: "🌙", weight: 60, desc: "Nothing out of the ordinary" },
+  fog: { id: "fog", name: "Fog", icon: "🌫️", weight: 15, from: 3, desc: "Ranged weapons reach 2 squares less, and the street can't be seen" },
+  rain: { id: "rain", name: "Rain", icon: "🌧️", weight: 15, from: 2, desc: "Ranged attacks deal 30% less" },
+  blackout: { id: "blackout", name: "Blackout", icon: "🌑", weight: 10, from: 5, desc: "Everyone hits 15% less often — except in the two lamp-lit lanes" },
+};
+// Three stars for a perfect night: nobody got in, nobody went down, every zombie put down.
+export const NIGHT_STAR_REWARD = { materials: 10, happiness: 3 };
+
 export const BOSS_EVERY = 5;
 const BOSS_NAMES = ["The Janitor", "Coach Carrion", "The Lunch Lady", "Principal Rot", "The Superintendent"];
 export function isBossNight(day) {

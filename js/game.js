@@ -15,6 +15,7 @@ import {
   EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
   ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
+  NIGHT_ACTIONS, MOLOTOV_DAMAGE, DEFENDER_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
   RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
@@ -1456,24 +1457,103 @@ function battleStats(state, c) {
   };
 }
 
-export function simulateEntranceBattle(state) {
+// ---------- the night battle, fought live ----------
+// startNightBattle sets the night up; battleTick plays one turn (the UI calls it on a timer, and
+// the player can step in between turns with night actions); between waves the battle pauses
+// ("break") so defenders can be moved; finishNightBattle applies the outcome to the school.
+// resolveDefense runs a whole night at once.
+
+// A defender's role: their best stat (see DEFENDER_ROLES).
+export function defenderRole(state, c) {
+  const best = Object.keys(DEFENDER_ROLES).reduce((b, s) => (effectiveGrade(state, c, s) > effectiveGrade(state, c, b) ? s : b), "PE");
+  return DEFENDER_ROLES[best];
+}
+
+// Tonight's weather — fixed for each night of a run, so it can be shown while planning.
+export function nightCondition(state) {
+  if (state.day <= 1) return NIGHT_CONDITIONS.clear;
+  let h = [...String(state.runId || "run")].reduce((acc, ch) => Math.imul(acc ^ ch.charCodeAt(0), 16777619), 2166136261);
+  h = Math.imul(h ^ Math.imul(state.day, 374761393), 668265263);
+  h ^= h >>> 13;
+  h = Math.imul(h, 1274126177);
+  h ^= h >>> 16;
+  const roll01 = (h >>> 0) / 4294967296;
+  const pool = Object.values(NIGHT_CONDITIONS).filter((c) => state.day >= (c.from || 1));
+  let roll = roll01 * pool.reduce((sum, c) => sum + c.weight, 0);
+  for (const c of pool) {
+    if (roll < c.weight) return c;
+    roll -= c.weight;
+  }
+  return NIGHT_CONDITIONS.clear;
+}
+
+// The horde comes in 1 wave up to 6 zombies, 2 up to 14, 3 beyond.
+export const nightWaveCount = (zombies) => (zombies <= 6 ? 1 : zombies <= 14 ? 2 : 3);
+
+// The two lamp-lit lanes (a blackout doesn't reach them).
+export const lampLanes = (size) => [Math.round(size * 0.2), size - 1 - Math.round(size * 0.2)];
+
+// How many night actions tonight: the base, plus a Rally for each rallier on watch (up to two).
+export function nightActionUses(state) {
+  const ralliers = state.characters.filter((c) => c.defending && c.alive && defenderRole(state, c).id === "rallier").length;
+  return Object.fromEntries(Object.entries(NIGHT_ACTIONS).map(([id, a]) => [id, a.uses + (id === "rally" ? Math.min(2, ralliers) : 0)]));
+}
+
+function battleSnapshot(b, events) {
+  return {
+    tick: b.tick,
+    events,
+    zombies: b.zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp })),
+    students: b.students.map((s) => ({ id: s.id, row: s.row, col: s.col, hp: Math.max(0, s.hp), maxHp: s.maxHp, downed: s.downed, role: s.role })),
+    structures: Object.values(b.structures).map((st) => ({ key: st.key, id: st.def.id, hp: st.hp, maxHp: st.maxHp, destroyed: st.destroyed })),
+    gate: { ...b.gate },
+    killed: b.killed,
+    breached: b.breached,
+    spawned: b.spawned,
+    wave: b.wave,
+  };
+}
+
+export function startNightBattle(state) {
+  // Anyone flagged as defending without a spot on the grid (e.g. an older save) takes the next one.
+  for (const c of state.characters.filter((c) => c.defending && c.alive)) {
+    if (Object.values(state.entranceGrid.students).includes(c.id)) continue;
+    const cell = firstFreeEntranceCell(state);
+    if (cell) state.entranceGrid.students[cell] = c.id;
+    else c.defending = false;
+  }
   const grid = state.entranceGrid;
   const size = grid.size;
-  const zStats = zombieStatsForDay(state.day);
   const comp = hordeComposition(state.day);
   const queue = shuffled(["walker", "runner", "brute", "spitter"].flatMap((t) => Array(comp[t]).fill(t)));
   if (comp.boss) queue.push("boss"); // the boss brings up the rear
-  const toSpawn = queue.length;
-  const spawnRows = [size - 1, size - 2];
+  const waveCount = nightWaveCount(queue.length);
+  const perWave = Math.ceil(queue.length / waveCount);
+  const condition = nightCondition(state);
+  const lamps = lampLanes(size);
 
+  const roleCount = {};
   const students = Object.entries(grid.students)
     .map(([key, id]) => ({ key, c: getChar(state, id) }))
     .filter(({ c }) => c && c.alive)
     .map(({ key, c }) => {
       const [row, col] = key.split(",").map(Number);
-      return { id: c.id, row, col, hp: c.hp, maxHp: c.maxHp, downed: false, kills: 0, usedMelee: false, usedRanged: false, ...battleStats(state, c) };
+      const role = defenderRole(state, c);
+      roleCount[role.id] = (roleCount[role.id] || 0) + 1;
+      const s = { id: c.id, row, col, hp: c.hp, maxHp: c.maxHp, downed: false, kills: 0, usedMelee: false, usedRanged: false, role: role.id, ...battleStats(state, c) };
+      if (role.id === "brawler") s.meleeMult *= 1.25;
+      if (role.id === "marksman" && s.ranged) s.ranged = { ...s.ranged, range: s.ranged.range + 1 };
+      if (role.id === "tank") s.armorMult *= 0.75;
+      if (condition.id === "fog" && s.ranged) s.ranged = { ...s.ranged, range: Math.max(1, s.ranged.range - 2) };
+      if (condition.id === "rain") s.rangedMult *= 0.7;
+      return s;
     });
+  const spotters = Math.min(2, roleCount.spotter || 0);
+  for (const s of students) s.hitChance = Math.min(0.95, s.hitChance + 0.05 * spotters);
   const squad = squadModifiers(state, students.map((s) => getChar(state, s.id)));
+  const engineers = Math.min(2, roleCount.engineer || 0);
+  squad.trapMult *= 1 + 0.2 * engineers;
+  squad.wallMult *= 1 + 0.2 * engineers;
 
   const structures = {};
   for (const [key, structureId] of Object.entries(grid.defenses)) {
@@ -1484,218 +1564,271 @@ export function simulateEntranceBattle(state) {
     structures[key] = { key, row, col, def, hp: maxHp, maxHp, destroyed: false };
   }
   const gateMax = gateHp(state);
-  const gate = { hp: gateMax, max: gateMax };
-  const lastStand = techPerk(state, "lastStand") > 0;
 
-  const zombies = [];
-  let spawned = 0;
-  let killed = 0;
-  let breached = 0;
-  const frames = [];
-
-  const zombieAt = (row, col) => zombies.find((z) => z.alive && z.row === row && z.col === col);
-  const studentAt = (row, col) => students.find((s) => !s.downed && s.row === row && s.col === col);
-  const wallAt = (row, col) => {
-    const st = structures[`${row},${col}`];
-    return st && st.def.blocks && !st.destroyed ? st : null;
+  const b = {
+    size, condition, lamps,
+    zStats: zombieStatsForDay(state.day),
+    waves: Array.from({ length: waveCount }, (_, i) => queue.slice(i * perWave, (i + 1) * perWave)),
+    wave: 0, waveSpawned: 0, waveTick: 0,
+    toSpawn: queue.length, spawned: 0, killed: 0, breached: 0,
+    zombies: [], students, structures, squad,
+    gate: { hp: gateMax, max: gateMax },
+    lastStand: techPerk(state, "lastStand") > 0,
+    bossName: isBossNight(state.day) ? bossNameForDay(state.day) : null,
+    uses: nightActionUses(state),
+    rally: 0, focus: null,
+    tick: 0, frames: [], phase: "fight",
   };
-  const killZombie = (z, events) => {
-    z.alive = false;
-    z.killed = true;
-    killed++;
-    events.push({ type: "kill", at: [z.row, z.col], boss: z.type === "boss" });
-  };
-  const snapshot = (tick, events) => ({
-    tick,
-    events,
-    zombies: zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp })),
-    students: students.map((s) => ({ id: s.id, row: s.row, col: s.col, hp: Math.max(0, s.hp), maxHp: s.maxHp, downed: s.downed })),
-    structures: Object.values(structures).map((st) => ({ key: st.key, id: st.def.id, hp: st.hp, maxHp: st.maxHp, destroyed: st.destroyed })),
-    gate: { ...gate },
-    killed,
-    breached,
-    spawned,
-  });
-
-  frames.push(snapshot(0, []));
-
-  for (let tick = 1; tick <= BATTLE_MAX_TICKS; tick++) {
-    const events = [];
-
-    // 1. the next few zombies shamble in, back row first
-    for (let n = 0; n < Math.ceil(size / 2) && spawned < toSpawn; n++) {
-      const free = [];
-      for (const row of spawnRows) for (let col = 0; col < size; col++) if (!zombieAt(row, col)) free.push({ row, col });
-      if (!free.length) break;
-      const back = free.filter((p) => p.row === size - 1);
-      const spot = pick(back.length ? back : free);
-      const type = queue[spawned];
-      const T = ZOMBIE_TYPES[type];
-      const hp = Math.round(zStats.hp * T.hpMult);
-      const dmg = Math.max(1, Math.round(zStats.damage * T.dmgMult));
-      zombies.push({ id: spawned + 1, type, row: spot.row, col: spot.col, hp, maxHp: hp, dmg, alive: true, snagged: false });
-      spawned++;
-    }
-
-    // 2. defenders strike
-    for (const s of students) {
-      if (s.downed) continue;
-      const live = zombies.filter((z) => z.alive);
-      if (!live.length) break;
-      const inMelee = live.filter((z) => chebyshev(s, z) <= s.melee.range);
-      const inRanged = s.ranged ? live.filter((z) => chebyshev(s, z) <= s.ranged.range) : [];
-      const pool = inMelee.length ? inMelee : inRanged;
-      if (!pool.length) continue;
-      const target = [...pool].sort((a, b) => a.row - b.row || a.hp - b.hp)[0];
-      const useMelee = inMelee.length > 0;
-      const weapon = useMelee ? s.melee : s.ranged;
-      if (useMelee) s.usedMelee = true;
-      else s.usedRanged = true;
-      const hit = Math.random() < s.hitChance;
-      const desperate = lastStand && s.hp < s.maxHp * 0.25 ? 2 : 1;
-      const dmg = hit
-        ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * desperate * squad.damageDealt * (0.85 + Math.random() * 0.3)))
-        : 0;
-      target.hp -= dmg;
-      events.push({ type: "attack", from: [s.row, s.col], to: [target.row, target.col], zid: target.id, dmg, hit, kind: useMelee ? "melee" : "ranged", icon: weapon.icon });
-      if (target.hp <= 0) {
-        s.kills++;
-        killZombie(target, events);
-      }
-    }
-
-    // 3. the horde advances, front-most first so the ones behind can step up
-    const hurtStudent = (z, s, dmgBase, type, events) => {
-      const connects = Math.random() < ZOMBIE_HIT_CHANCE;
-      const dodged = connects && Math.random() < s.dodge; // a nimble (high-DEX) defender slips it
-      const hit = connects && !dodged;
-      const dmg = hit ? Math.max(1, Math.round(dmgBase * s.armorMult * squad.damageTaken * (0.85 + Math.random() * 0.3))) : 0;
-      s.hp -= dmg;
-      events.push({ type, from: [z.row, z.col], to: [s.row, s.col], dmg, hit, dodged });
-      if (s.hp <= 0) {
-        s.downed = true;
-        events.push({ type: "downed", at: [s.row, s.col], id: s.id });
-      }
-    };
-
-    // One row forward (or its outcome if something's in the way). Returns true only on a move.
-    const advance = (z, T, events) => {
-      const ahead = z.row - 1;
-      if (ahead < 0) {
-        if (gate.hp > 0) {
-          gate.hp = Math.max(0, gate.hp - z.dmg);
-          events.push({ type: "gate", at: [z.row, z.col], dmg: z.dmg });
-        } else {
-          z.alive = false;
-          breached++;
-          events.push({ type: "breach", at: [z.row, z.col] });
-        }
-        return false;
-      }
-
-      const wall = wallAt(ahead, z.col);
-      if (wall) {
-        const dmg = z.dmg * (T.wallMult || 1);
-        wall.hp -= dmg;
-        events.push({ type: "smash", at: [ahead, z.col], dmg });
-        if (wall.hp <= 0) {
-          wall.hp = 0;
-          wall.destroyed = true;
-          events.push({ type: "destroyed", at: [ahead, z.col] });
-        }
-        return false;
-      }
-
-      // straight ahead if it's clear, otherwise try to shuffle diagonally around whoever's in the way
-      const sides = Math.random() < 0.5 ? [z.col - 1, z.col + 1] : [z.col + 1, z.col - 1];
-      const destCol = [z.col, ...sides].find(
-        (col) => col >= 0 && col < size && !zombieAt(ahead, col) && !studentAt(ahead, col) && !wallAt(ahead, col)
-      );
-      if (destCol === undefined) return false;
-      z.row = ahead;
-      z.col = destCol;
-
-      const trap = structures[`${ahead},${destCol}`];
-      if (trap && !trap.def.blocks && trap.def.enterDamage) {
-        const trapDmg = Math.round(trap.def.enterDamage * squad.trapMult);
-        z.hp -= trapDmg;
-        events.push({ type: "trap", at: [ahead, destCol], dmg: trapDmg });
-        if (trap.def.slows && !T.unsnaggable) z.snagged = true;
-        if (z.hp <= 0) {
-          killZombie(z, events);
-          return false;
-        }
-        if (z.snagged) return false;
-      }
-      return true;
-    };
-
-    for (const z of zombies.filter((z) => z.alive).sort((a, b) => a.row - b.row)) {
-      const T = ZOMBIE_TYPES[z.type];
-      if (z.snagged) {
-        z.snagged = false;
-        continue;
-      }
-
-      const adjacentTo = () =>
-        students
-          .filter((s) => !s.downed && chebyshev(s, z) <= 1)
-          .sort((a, b) => (a.col === z.col ? 0 : 1) - (b.col === z.col ? 0 : 1));
-      const adjacent = adjacentTo();
-      if (adjacent.length) {
-        hurtStudent(z, adjacent[0], z.dmg, "bite", events);
-        continue;
-      }
-
-      if (T.spitRange) {
-        const inRange = students.filter((s) => !s.downed && chebyshev(s, z) <= T.spitRange);
-        if (inRange.length) {
-          const target = inRange.sort((a, b) => chebyshev(a, z) - chebyshev(b, z))[0];
-          hurtStudent(z, target, z.dmg, "spit", events);
-          continue;
-        }
-      }
-
-      for (let step = 0; step < (T.speed || 1); step++) {
-        if (step > 0 && adjacentTo().length) break; // closed the distance — it'll bite next turn
-        if (!advance(z, T, events)) break;
-      }
-    }
-
-    frames.push(snapshot(tick, events));
-    if (spawned >= toSpawn && !zombies.some((z) => z.alive)) break;
-  }
-
-  return {
-    size,
-    frames,
-    spawned,
-    killed,
-    breached,
-    held: zombies.filter((z) => z.alive).length, // still on the field at dawn — they drift off
-    bossKilled: zombies.some((z) => z.type === "boss" && z.killed),
-    students,
-    destroyedKeys: Object.values(structures).filter((st) => st.destroyed).map((st) => st.key),
-  };
+  b.frames.push(battleSnapshot(b, []));
+  return b;
 }
 
-export function resolveDefense(state) {
-  // Anyone flagged as defending without a spot on the grid (e.g. an older save) takes the next one.
-  for (const c of state.characters.filter((c) => c.defending && c.alive)) {
-    if (Object.values(state.entranceGrid.students).includes(c.id)) continue;
-    const cell = firstFreeEntranceCell(state);
-    if (cell) state.entranceGrid.students[cell] = c.id;
-    else c.defending = false;
-  }
-  const defenders = state.characters.filter((c) => c.defending && c.alive);
+const zombieAt = (b, row, col) => b.zombies.find((z) => z.alive && z.row === row && z.col === col);
+const studentAt = (b, row, col) => b.students.find((s) => !s.downed && s.row === row && s.col === col);
+const wallAt = (b, row, col) => {
+  const st = b.structures[`${row},${col}`];
+  return st && st.def.blocks && !st.destroyed ? st : null;
+};
+function killZombie(b, z, events) {
+  z.alive = false;
+  z.killed = true;
+  b.killed++;
+  events.push({ type: "kill", at: [z.row, z.col], boss: z.type === "boss", ztype: z.type });
+}
 
-  const battle = simulateEntranceBattle(state);
-  const { spawned, killed, breached } = battle;
-  const bossName = isBossNight(state.day) ? bossNameForDay(state.day) : null;
+// One turn of the night: the next zombies of this wave shamble in, the defenders strike, the
+// horde moves. Then: a break before the next wave once this one's all spawned and gone, or the
+// end of the night after the last.
+export function battleTick(state, b) {
+  if (b.phase !== "fight") return null;
+  const events = [];
+  const size = b.size;
+  b.tick++;
+  b.waveTick++;
+  const wave = b.waves[b.wave];
+
+  // 1. the next few zombies shamble in, back row first
+  for (let n = 0; n < Math.ceil(size / 2) && b.waveSpawned < wave.length; n++) {
+    const free = [];
+    for (const row of [size - 1, size - 2]) for (let col = 0; col < size; col++) if (!zombieAt(b, row, col)) free.push({ row, col });
+    if (!free.length) break;
+    const back = free.filter((p) => p.row === size - 1);
+    const spot = pick(back.length ? back : free);
+    const type = wave[b.waveSpawned];
+    const T = ZOMBIE_TYPES[type];
+    const hp = Math.round(b.zStats.hp * T.hpMult);
+    const dmg = Math.max(1, Math.round(b.zStats.damage * T.dmgMult));
+    b.zombies.push({ id: b.spawned + 1, type, row: spot.row, col: spot.col, hp, maxHp: hp, dmg, alive: true, snagged: false });
+    b.spawned++;
+    b.waveSpawned++;
+  }
+
+  // 2. defenders strike (at the focused zombie if they can reach it)
+  const rallied = b.rally > 0 ? 1.5 : 1;
+  for (const s of b.students) {
+    if (s.downed) continue;
+    const live = b.zombies.filter((z) => z.alive);
+    if (!live.length) break;
+    const inMelee = live.filter((z) => chebyshev(s, z) <= s.melee.range);
+    const inRanged = s.ranged ? live.filter((z) => chebyshev(s, z) <= s.ranged.range) : [];
+    const pool = inMelee.length ? inMelee : inRanged;
+    if (!pool.length) continue;
+    const focused = b.focus && pool.find((z) => z.id === b.focus.id);
+    const target = focused || [...pool].sort((a, c) => a.row - c.row || a.hp - c.hp)[0];
+    const useMelee = inMelee.includes(target);
+    const weapon = useMelee ? s.melee : s.ranged;
+    if (useMelee) s.usedMelee = true;
+    else s.usedRanged = true;
+    const dark = b.condition.id === "blackout" && !b.lamps.includes(s.col) ? 0.15 : 0;
+    const hit = Math.random() < s.hitChance - dark;
+    const desperate = b.lastStand && s.hp < s.maxHp * 0.25 ? 2 : 1;
+    const dmg = hit
+      ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * desperate * rallied * b.squad.damageDealt * (0.85 + Math.random() * 0.3)))
+      : 0;
+    target.hp -= dmg;
+    events.push({ type: "attack", from: [s.row, s.col], to: [target.row, target.col], zid: target.id, dmg, hit, kind: useMelee ? "melee" : "ranged", icon: weapon.icon });
+    if (target.hp <= 0) {
+      s.kills++;
+      killZombie(b, target, events);
+    }
+  }
+
+  // 3. the horde advances, front-most first so the ones behind can step up
+  const hurtStudent = (z, s, dmgBase, type) => {
+    const connects = Math.random() < ZOMBIE_HIT_CHANCE;
+    const dodged = connects && Math.random() < s.dodge; // a nimble (high-DEX) defender slips it
+    const hit = connects && !dodged;
+    const dmg = hit ? Math.max(1, Math.round(dmgBase * s.armorMult * b.squad.damageTaken * (0.85 + Math.random() * 0.3))) : 0;
+    s.hp -= dmg;
+    events.push({ type, from: [z.row, z.col], to: [s.row, s.col], dmg, hit, dodged });
+    if (s.hp <= 0) {
+      s.downed = true;
+      events.push({ type: "downed", at: [s.row, s.col], id: s.id });
+    }
+  };
+  // One row forward (or its outcome if something's in the way). Returns true only on a move.
+  const advance = (z, T) => {
+    const ahead = z.row - 1;
+    if (ahead < 0) {
+      if (b.gate.hp > 0) {
+        b.gate.hp = Math.max(0, b.gate.hp - z.dmg);
+        events.push({ type: "gate", at: [z.row, z.col], dmg: z.dmg });
+      } else {
+        z.alive = false;
+        b.breached++;
+        events.push({ type: "breach", at: [z.row, z.col] });
+      }
+      return false;
+    }
+    const wall = wallAt(b, ahead, z.col);
+    if (wall) {
+      const dmg = z.dmg * (T.wallMult || 1);
+      wall.hp -= dmg;
+      events.push({ type: "smash", at: [ahead, z.col], dmg });
+      if (wall.hp <= 0) {
+        wall.hp = 0;
+        wall.destroyed = true;
+        events.push({ type: "destroyed", at: [ahead, z.col] });
+      }
+      return false;
+    }
+    // straight ahead if it's clear, otherwise try to shuffle diagonally around whoever's in the way
+    const sides = Math.random() < 0.5 ? [z.col - 1, z.col + 1] : [z.col + 1, z.col - 1];
+    const destCol = [z.col, ...sides].find((col) => col >= 0 && col < size && !zombieAt(b, ahead, col) && !studentAt(b, ahead, col) && !wallAt(b, ahead, col));
+    if (destCol === undefined) return false;
+    z.row = ahead;
+    z.col = destCol;
+    const trap = b.structures[`${ahead},${destCol}`];
+    if (trap && !trap.def.blocks && trap.def.enterDamage) {
+      const trapDmg = Math.round(trap.def.enterDamage * b.squad.trapMult);
+      z.hp -= trapDmg;
+      events.push({ type: "trap", at: [ahead, destCol], dmg: trapDmg });
+      if (trap.def.slows && !T.unsnaggable) z.snagged = true;
+      if (z.hp <= 0) {
+        killZombie(b, z, events);
+        return false;
+      }
+      if (z.snagged) return false;
+    }
+    return true;
+  };
+  for (const z of b.zombies.filter((z) => z.alive).sort((a, c) => a.row - c.row)) {
+    const T = ZOMBIE_TYPES[z.type];
+    if (z.snagged) {
+      z.snagged = false;
+      continue;
+    }
+    const adjacentTo = () => b.students.filter((s) => !s.downed && chebyshev(s, z) <= 1).sort((a, c) => (a.col === z.col ? 0 : 1) - (c.col === z.col ? 0 : 1));
+    const adjacent = adjacentTo();
+    if (adjacent.length) {
+      hurtStudent(z, adjacent[0], z.dmg, "bite");
+      continue;
+    }
+    if (T.spitRange) {
+      const inRange = b.students.filter((s) => !s.downed && chebyshev(s, z) <= T.spitRange);
+      if (inRange.length) {
+        hurtStudent(z, inRange.sort((a, c) => chebyshev(a, z) - chebyshev(c, z))[0], z.dmg, "spit");
+        continue;
+      }
+    }
+    for (let step = 0; step < (T.speed || 1); step++) {
+      if (step > 0 && adjacentTo().length) break; // closed the distance — it'll bite next turn
+      if (!advance(z, T)) break;
+    }
+  }
+
+  if (b.rally > 0) b.rally--;
+  if (b.focus && --b.focus.turns <= 0) b.focus = null;
+  if (b.focus && !b.zombies.find((z) => z.id === b.focus.id && z.alive)) b.focus = null;
+
+  // 4. is this wave over? (all of it spawned and gone — or it's dragged on too long)
+  const waveOver = (b.waveSpawned >= wave.length && !b.zombies.some((z) => z.alive)) || b.waveTick >= BATTLE_MAX_TICKS;
+  const everyoneDown = !b.students.some((s) => !s.downed) && b.gate.hp <= 0 && b.spawned >= b.toSpawn;
+  if (waveOver || everyoneDown) {
+    if (b.wave < b.waves.length - 1 && !everyoneDown) {
+      b.wave++;
+      b.waveSpawned = 0;
+      b.waveTick = 0;
+      b.phase = b.zombies.some((z) => z.alive) ? "fight" : "break";
+      if (b.phase === "break") events.push({ type: "wave", wave: b.wave });
+    } else b.phase = "done";
+  }
+  const frame = battleSnapshot(b, events);
+  b.frames.push(frame);
+  return frame;
+}
+
+// The break's over: send in the next wave.
+export function startNextWave(b) {
+  if (b.phase === "break") b.phase = "fight";
+}
+
+// Between waves: move a defender to another square of the steps (swapping with whoever's there).
+export function battleMoveDefender(state, b, studentId, row, col) {
+  if (b.phase !== "break" || row >= Math.floor(b.size / 3)) return false;
+  const s = b.students.find((x) => x.id === studentId && !x.downed);
+  if (!s) return false;
+  const other = b.students.find((x) => x !== s && x.row === row && x.col === col);
+  if (other) [other.row, other.col] = [s.row, s.col];
+  [s.row, s.col] = [row, col];
+  moveEntranceStudent(state, `${row},${col}`, studentId); // keep them there for tomorrow too
+  b.frames.push(battleSnapshot(b, []));
+  return true;
+}
+
+// A night action (NIGHT_ACTIONS), aimed at a square: a Molotov burns the 3x3 around it, Focus
+// Fire marks the zombie on it, Patch Up heals the defender on it; Rally needs no aim.
+export function battleAction(state, b, actionId, row, col) {
+  const a = NIGHT_ACTIONS[actionId];
+  if (!a || b.phase === "done" || !(b.uses[actionId] > 0)) return false;
+  for (const [res, amt] of Object.entries(a.cost || {})) if ((state.resources[res] || 0) < amt) return false;
+  const events = [];
+  if (actionId === "molotov") {
+    const dmg = Math.round(b.zStats.hp * MOLOTOV_DAMAGE);
+    for (let r = row - 1; r <= row + 1; r++) for (let c = col - 1; c <= col + 1; c++) if (r >= 0 && c >= 0 && r < b.size && c < b.size) events.push({ type: "fire", at: [r, c] });
+    for (const z of b.zombies.filter((z) => z.alive && chebyshev(z, { row, col }) <= 1)) {
+      z.hp -= dmg;
+      events.push({ type: "burn", at: [z.row, z.col], dmg });
+      if (z.hp <= 0) killZombie(b, z, events);
+    }
+  } else if (actionId === "focus") {
+    const z = zombieAt(b, row, col);
+    if (!z) return false;
+    b.focus = { id: z.id, turns: 2 };
+    events.push({ type: "focus", at: [row, col] });
+  } else if (actionId === "patch") {
+    const s = studentAt(b, row, col);
+    if (!s || s.hp >= s.maxHp) return false;
+    const heal = Math.min(s.maxHp - s.hp, Math.round(s.maxHp / 2));
+    s.hp += heal;
+    events.push({ type: "heal", at: [row, col], amount: heal });
+  } else if (actionId === "rally") {
+    b.rally = 3;
+    events.push({ type: "rally" });
+  }
+  for (const [res, amt] of Object.entries(a.cost || {})) state.resources[res] -= amt;
+  b.uses[actionId]--;
+  b.frames.push(battleSnapshot(b, events));
+  return true;
+}
+
+// Plays the rest of the night straight through (waves start on their own).
+export function runNightBattle(state, b) {
+  while (b.phase !== "done") {
+    if (b.phase === "break") startNextWave(b);
+    battleTick(state, b);
+  }
+}
+
+// The night's over: what it did to the defenders, the defenses and the school.
+export function finishNightBattle(state, b) {
+  const defenders = state.characters.filter((c) => c.defending && c.alive);
+  const { spawned, killed, breached, bossName } = b;
+  const bossKilled = b.zombies.some((z) => z.type === "boss" && z.killed);
   addLog(state, `The horde attacks the entrance — ${spawned} zombies shamble out of the dark${bossName ? `, led by ${bossName}` : ""}.`);
   if (!defenders.length) addLog(state, `No one was defending the entrance!`);
 
-  if (bossName && battle.bossKilled) {
+  if (bossName && bossKilled) {
     state.bossesSlain.push(bossName);
     state.resources.materials += 25;
     state.resources.food += 15;
@@ -1709,7 +1842,7 @@ export function resolveDefense(state) {
 
   let downedCount = 0;
   const stabilizeCost = MEDICINE_PER_STABILIZE - techPerk(state, "stabilizeDiscount");
-  for (const s of battle.students) {
+  for (const s of b.students) {
     const c = getChar(state, s.id);
     if (!c) continue;
     if (s.downed) {
@@ -1736,7 +1869,7 @@ export function resolveDefense(state) {
       }
       continue;
     }
-    c.hp = Math.max(1, s.hp);
+    c.hp = Math.max(1, Math.min(c.maxHp, s.hp));
     c.injured = c.hp < c.maxHp * 0.5;
     gainExp(state, c, LEVEL_XP.defend);
     const killBonus = Math.min(3, s.kills);
@@ -1745,10 +1878,9 @@ export function resolveDefense(state) {
     if (s.kills >= 3) addLog(state, `${c.name} cut down ${s.kills} zombies at the entrance.`);
   }
 
-  for (const key of battle.destroyedKeys) {
-    const def = DEFENSE_STRUCTURES.find((d) => d.id === state.entranceGrid.defenses[key]);
-    delete state.entranceGrid.defenses[key];
-    if (def) addLog(state, `The horde smashed a ${def.name} at the entrance to pieces.`);
+  for (const st of Object.values(b.structures).filter((x) => x.destroyed)) {
+    delete state.entranceGrid.defenses[st.key];
+    addLog(state, `The horde smashed a ${st.def.name} at the entrance to pieces.`);
   }
 
   if (breached > 0) {
@@ -1782,6 +1914,18 @@ export function resolveDefense(state) {
   if (routed) addLog(state, `The defense was overwhelming. The horde was routed with ease.`);
   else if (won) addLog(state, `The entrance held — ${killed} of ${spawned} zombies were put down.`);
 
+  // three stars for a perfect night
+  const stars = [
+    { label: "Nobody got in", got: breached === 0 },
+    { label: "Nobody went down", got: downedCount === 0 },
+    { label: "Every zombie put down", got: killed >= spawned && spawned > 0 },
+  ];
+  const perfect = stars.every((s) => s.got);
+  if (perfect) {
+    state.resources.materials += NIGHT_STAR_REWARD.materials;
+    adjustHappiness(state, NIGHT_STAR_REWARD.happiness);
+    addLog(state, `★★★ A perfect night! +${NIGHT_STAR_REWARD.materials} scrap and the whole school is buzzing.`);
+  }
 
   // A won battle can lead into one (never both) follow-up: a facility raid demanding an
   // immediate response, or a chance to chase the horde down for a bigger prize.
@@ -1800,8 +1944,15 @@ export function resolveDefense(state) {
   addLog(state, `Turn 3 (Defense) resolved.`);
   return {
     won, routed, spawned, killed, breached, downedCount, defenderCount: defenders.length,
-    bossName, bossKilled: battle.bossKilled, size: battle.size, frames: battle.frames,
+    bossName, bossKilled, stars, perfect, size: b.size, frames: b.frames,
   };
+}
+
+// A whole night at once (no one steps in).
+export function resolveDefense(state) {
+  const b = startNightBattle(state);
+  runNightBattle(state, b);
+  return finishNightBattle(state, b);
 }
 
 // ---------- facility raid ----------

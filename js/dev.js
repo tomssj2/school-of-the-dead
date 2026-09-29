@@ -144,6 +144,26 @@ export function mapEvents(state) {
   return `horde at ${state.horde.q},${state.horde.r} · ${state.mapDrops.length} drops on the map`;
 }
 
+// Jumps to the Night Watch of `day` (a bigger horde, maybe a boss, its weather) with the best
+// fighters posted on the steps, front row first, and some scrap and medicine for night actions.
+export function setNight(state, day = 8) {
+  state.day = day;
+  state.turn = 3;
+  state.pendingRaid = null;
+  state.pendingAssault = false;
+  for (const key of Object.keys(state.entranceGrid.students)) G.clearEntranceStudentCell(state, key);
+  const size = state.entranceGrid.size;
+  const third = Math.floor(size / 3);
+  const fighters = state.characters
+    .filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null)
+    .sort((a, b) => (b.grades.PE + b.grades.Gymnastics) - (a.grades.PE + a.grades.Gymnastics))
+    .slice(0, size * third);
+  fighters.forEach((c, i) => G.moveEntranceStudent(state, `${third - 1 - Math.floor(i / size)},${i % size}`, c.id));
+  state.resources.materials = Math.max(state.resources.materials, 30);
+  state.resources.medicine = Math.max(state.resources.medicine, 20);
+  return `Night ${day}: ${G.nightCondition(state).name}, ${fighters.length} on watch`;
+}
+
 // Clears the Radio Station's boards and builds its first `stage` upgrades for free (5 = satellite
 // communications, which sends for the helicopter).
 export function buildRadio(state, stage = 5) {

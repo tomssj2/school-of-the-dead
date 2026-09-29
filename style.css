@@ -1027,6 +1027,133 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
 }
 @keyframes nw-breach { to { opacity: 0; } }
 
+/* a defender's role (their best stat) */
+.nw-role { position: absolute; top: -2px; left: -12px; font-size: 12px; line-height: 1; filter: drop-shadow(0 1px 1px #000); }
+.nw-static { cursor: default; }
+
+/* tonight's weather over the board: fog swallows the street, rain streaks, a blackout darkens all
+   but the two lamp-lit lanes (--lamp-a, --lamp-b) */
+.nw-cells::before { content: ""; position: absolute; inset: 0; z-index: 12; pointer-events: none; }
+.nw-cond-fog .nw-cells::before {
+  background: linear-gradient(to top, rgba(170, 180, 195, 0.88) 0%, rgba(150, 160, 178, 0.55) 30%, rgba(140, 150, 168, 0.15) 62%, transparent 78%);
+  animation: nw-fog 6s ease-in-out infinite alternate;
+}
+@keyframes nw-fog { to { opacity: 0.8; transform: translateX(6px); } }
+.nw-cond-rain .nw-cells::before {
+  background: repeating-linear-gradient(105deg, rgba(170, 200, 255, 0.2) 0 1px, transparent 1px 10px);
+  animation: nw-rain 0.45s linear infinite;
+}
+@keyframes nw-rain { to { background-position: -10px 30px; } }
+.nw-cond-blackout .nw-cells::before {
+  --dark: rgba(0, 0, 8, 0.58);
+  background: linear-gradient(to right,
+    var(--dark) 0, var(--dark) calc(var(--lamp-a) * 100% / var(--size)),
+    transparent calc(var(--lamp-a) * 100% / var(--size)), transparent calc((var(--lamp-a) + 1) * 100% / var(--size)),
+    var(--dark) calc((var(--lamp-a) + 1) * 100% / var(--size)), var(--dark) calc(var(--lamp-b) * 100% / var(--size)),
+    transparent calc(var(--lamp-b) * 100% / var(--size)), transparent calc((var(--lamp-b) + 1) * 100% / var(--size)),
+    var(--dark) calc((var(--lamp-b) + 1) * 100% / var(--size)), var(--dark) 100%);
+}
+
+/* night actions: a bar under the battle, and aiming one at a square */
+.nw-actions { display: flex; gap: 8px; }
+.nw-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(20, 24, 34, 0.95);
+  color: var(--text, #fff);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.12s;
+}
+.nw-action:hover:not(:disabled) { border-color: #f4d35e; transform: translateY(-1px); }
+.nw-action:disabled { opacity: 0.4; cursor: not-allowed; }
+.nw-action-on { border-color: #f4d35e; background: rgba(244, 211, 94, 0.18); }
+.nw-action-icon { font-size: 18px; }
+.nw-action b { color: #f4d35e; }
+.nw-action small { color: var(--muted); font-size: 11px; }
+.nw-aim-hint { display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 8px; background: rgba(244, 211, 94, 0.15); border: 1px solid rgba(244, 211, 94, 0.6); font-size: 13px; }
+.nw-aiming .nw-unit { pointer-events: none; }
+.nw-pick { z-index: 25; cursor: crosshair; border: none; }
+.nw-pick-ok { background: rgba(244, 211, 94, 0.1); }
+.nw-pick:hover { background: rgba(244, 211, 94, 0.32); }
+.nw-pick-molotov:hover::after {
+  content: "";
+  position: absolute;
+  left: -100%;
+  top: -100%;
+  width: 300%;
+  height: 300%;
+  box-sizing: border-box;
+  border: 2px solid rgba(255, 150, 60, 0.85);
+  background: rgba(255, 110, 30, 0.25);
+  pointer-events: none;
+}
+.nw-fire {
+  position: absolute;
+  z-index: 18;
+  left: calc((var(--c) + 0.5) * 32px * var(--px));
+  top: calc((var(--r) + 0.5) * 20px * var(--px));
+  transform: translate(-50%, -50%);
+  font-size: 26px;
+  pointer-events: none;
+  animation: nw-fire 0.9s ease-out forwards;
+}
+@keyframes nw-fire {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.5); }
+  25% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+}
+.nw-pop-fire { color: #ffa040; }
+.nw-pop-heal { color: #7fe0a8; }
+.nw-focused::after { content: "🎯"; position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 14px; animation: cm-q-pulse 1s ease-in-out infinite; }
+.nw-rally { animation: nw-rally 0.6s ease-out; }
+@keyframes nw-rally { from { box-shadow: inset 0 0 50px 10px rgba(244, 211, 94, 0.6); } }
+.nw-rallied { color: #f4d35e; font-weight: 700; }
+.nw-wave { padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(79, 163, 255, 0.6); color: #cfe3ff; }
+
+/* the break between waves */
+.nw-break {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 22px;
+  border-radius: 12px;
+  border: 1px solid rgba(79, 163, 255, 0.6);
+  background: rgba(10, 14, 24, 0.9);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  text-align: center;
+  font-size: 13px;
+}
+.nw-break b { font-size: 16px; }
+
+/* the night's stars */
+.nw-stars { display: flex; gap: 6px; }
+.nw-star { font-size: 34px; line-height: 1; color: #3a3f48; }
+.nw-star-on { color: #f4d35e; text-shadow: 0 0 12px rgba(244, 211, 94, 0.7); animation: nw-star 0.5s ease-out backwards; }
+.nw-star-on:nth-child(2) { animation-delay: 0.15s; }
+.nw-star-on:nth-child(3) { animation-delay: 0.3s; }
+@keyframes nw-star { from { transform: scale(0.2) rotate(-40deg); opacity: 0; } }
+.nw-star-list { display: flex; gap: 12px; font-size: 12px; color: var(--muted); }
+.nw-star-got { color: #f4d35e; }
+.nw-star-reward { font-size: 13px; font-weight: 700; color: #7fe0a8; }
+
+/* the planning panel: tonight's weather and actions */
+.nw-tonight { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.nw-cond { padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(79, 163, 255, 0.5); background: rgba(79, 163, 255, 0.1); cursor: help; }
+.nw-action-preview { display: flex; gap: 6px; flex-wrap: wrap; }
+.nw-action-preview span { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.05); font-size: 13px; cursor: help; }
+
 /* the side panel: tonight's horde, the facts, and the roster to drag defenders from */
 .nw-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .nw-side h2 { margin: 0 0 4px; }
@@ -2328,6 +2455,7 @@ html[data-gfx="medium"] .cm-drop-icon,
 html[data-gfx="medium"] .fslot-ready,
 html[data-gfx="medium"] .nw-ghost,
 html[data-gfx="medium"] .nw-zombie svg,
+html[data-gfx="medium"] .nw-cells::before,
 html[data-gfx="medium"] .hex-nest .hex-tile::after,
 html[data-gfx="medium"] .exp-walker svg,
 html[data-gfx="medium"] .upg-pip-next,

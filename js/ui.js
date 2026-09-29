@@ -5,6 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
+  NIGHT_ACTIONS, NIGHT_CONDITIONS, DEFENDER_ROLES, NIGHT_STAR_REWARD,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
@@ -14,7 +15,7 @@ import {
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, roomMaxLevel, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  getChar, aliveChars, roomMaxLevel, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -1452,18 +1453,23 @@ export function renderFightAnimation(state, anim) {
   </div>`;
 }
 
-// The night battle, replayed a turn at a time on the Night Watch board: zombies walk up from
-// where they were last turn, shots fly, hits and misses pop up, the fallen drop, and the doors
-// shake when they're hit. The battle is already decided (game.js simulateEntranceBattle).
+// The night battle on the Night Watch board, played live (main.js playNightBattle): zombies walk
+// up from where they were last turn, shots fly, hits and misses pop up, the fallen drop, and the
+// doors shake when they're hit. Under the board, the night actions; between waves a break to
+// move defenders; at the end, the result and its stars.
 function renderGridBattle(state, anim) {
   const { summary } = anim;
+  const b = anim.live ? anim.b : null;
   const frame = summary.frames[anim.frameIndex];
   const prev = anim.frameIndex > 0 ? summary.frames[anim.frameIndex - 1] : null;
   const size = summary.size;
+  const third = Math.floor(size / 3);
   const at = (row, col, extra = "") => `style="--r:${row};--c:${col};${extra}"`;
   const bar = (hp, max, cls) => `<span class="nw-hp ${cls}"><i style="width:${Math.max(0, Math.round((hp / max) * 100))}%"></i></span>`;
   const prevZombies = new Map((prev?.zombies || []).map((z) => [z.id, z]));
   const zombieAtPrev = (row, col) => (prev?.zombies || []).find((z) => z.row === row && z.col === col);
+  const breakTime = anim.phase === "battle" && b?.phase === "break";
+  const condition = summary.condition || NIGHT_CONDITIONS.clear;
 
   // who did what this turn
   const struck = new Set(); // defenders who swung or shot
@@ -1483,12 +1489,18 @@ function renderGridBattle(state, anim) {
       if (e.hit) hurt.add(`${e.to[0]},${e.to[1]}`);
       fx += `<span class="nw-pop nw-pop-bad ${e.hit ? "" : "nw-pop-miss"}" ${at(e.to[0], e.to[1])}>${e.hit ? `${e.type === "spit" ? "🤮" : ""}-${e.dmg}` : e.dodged ? "dodge" : "miss"}</span>`;
     } else if (e.type === "kill") {
-      const z = zombieAtPrev(e.at[0], e.at[1]);
-      fx += `<div class="nw-unit nw-corpse" ${at(e.at[0], e.at[1])}>${hordeSprite(z?.type || (e.boss ? "boss" : "walker"), 36)}</div>`;
+      const type = e.ztype || zombieAtPrev(e.at[0], e.at[1])?.type || (e.boss ? "boss" : "walker");
+      fx += `<div class="nw-unit nw-corpse" ${at(e.at[0], e.at[1])}>${hordeSprite(type, 36)}</div>`;
       if (e.boss) fx += `<span class="nw-pop nw-pop-big" ${at(e.at[0], e.at[1])}>👑💥</span>`;
-    } else if (e.type === "trap") {
+    } else if (e.type === "trap" || e.type === "burn") {
       hurt.add(`${e.at[0]},${e.at[1]}`);
-      fx += `<span class="nw-pop" ${at(e.at[0], e.at[1])}>-${e.dmg}</span>`;
+      fx += `<span class="nw-pop ${e.type === "burn" ? "nw-pop-fire" : ""}" ${at(e.at[0], e.at[1])}>-${e.dmg}</span>`;
+    } else if (e.type === "fire") {
+      fx += `<span class="nw-fire" ${at(e.at[0], e.at[1])}>🔥</span>`;
+    } else if (e.type === "heal") {
+      fx += `<span class="nw-pop nw-pop-heal" ${at(e.at[0], e.at[1])}>+${e.amount}</span>`;
+    } else if (e.type === "focus") {
+      fx += `<span class="nw-pop nw-pop-big" ${at(e.at[0], e.at[1])}>🎯</span>`;
     } else if (e.type === "smash") {
       fx += `<span class="nw-pop nw-pop-bad" ${at(e.at[0], e.at[1])}>-${e.dmg}</span>`;
     } else if (e.type === "destroyed") {
@@ -1501,6 +1513,7 @@ function renderGridBattle(state, anim) {
   }
   const gateHit = frame.events.some((e) => e.type === "gate");
   const breach = frame.events.some((e) => e.type === "breach");
+  const rallyNow = frame.events.some((e) => e.type === "rally");
 
   let units = "";
   for (const st of frame.structures) {
@@ -1510,30 +1523,79 @@ function renderGridBattle(state, anim) {
       ${st.maxHp && !st.destroyed ? bar(st.hp, st.maxHp, "nw-hp-wall") : ""}
     </div>`;
   }
+  // between waves the steps take defenders dragged onto them
+  if (breakTime) {
+    const taken = new Set(frame.students.filter((s) => !s.downed).map((s) => `${s.row},${s.col}`));
+    for (let row = 0; row < third; row++) for (let col = 0; col < size; col++) {
+      if (!taken.has(`${row},${col}`)) units += `<div class="nw-cell nw-top nw-empty" ${at(row, col)} data-drop-cell="${row},${col}"></div>`;
+    }
+  }
   for (const s of frame.students) {
     const c = getChar(state, s.id);
     const k = `${s.row},${s.col}`;
-    units += `<div class="nw-unit nw-defender ${s.downed ? "nw-downed" : ""} ${struck.has(k) ? "nw-strike" : ""} ${hurt.has(k) ? "nw-flash" : ""}" ${at(s.row, s.col)}>
+    const role = Object.values(DEFENDER_ROLES).find((r) => r.id === s.role);
+    const drag = breakTime && !s.downed ? `draggable="true" data-drag-student="${s.id}"` : "";
+    units += `<div class="nw-unit nw-defender ${s.downed ? "nw-downed" : ""} ${struck.has(k) ? "nw-strike" : ""} ${hurt.has(k) ? "nw-flash" : ""} ${breakTime ? "" : "nw-static"}" ${at(s.row, s.col)} ${drag} ${breakTime ? `data-drop-cell="${k}"` : ""}>
+      ${role ? `<span class="nw-role" title="${role.name}: ${role.desc}">${role.icon}</span>` : ""}
       ${c ? characterSprite(c, 40) : ""}${bar(s.hp, s.maxHp, "nw-hp-student")}
     </div>`;
   }
+  const focusId = b?.focus?.id;
   for (const z of frame.zombies) {
     const p = prevZombies.get(z.id);
     const T = ZOMBIE_TYPES[z.type] || ZOMBIE_TYPES.walker;
-    units += `<div class="nw-unit nw-zombie nw-z-${z.type} ${hurt.has(`${z.row},${z.col}`) ? "nw-flash" : ""}" ${at(z.row, z.col, `--pr:${p ? p.row : z.row + 1};--pc:${p ? p.col : z.col};`)} title="${T.name} · ${Math.max(0, z.hp)}/${z.maxHp} HP">
+    units += `<div class="nw-unit nw-zombie nw-z-${z.type} ${hurt.has(`${z.row},${z.col}`) ? "nw-flash" : ""} ${z.id === focusId ? "nw-focused" : ""}" ${at(z.row, z.col, `--pr:${p ? p.row : z.row + 1};--pc:${p ? p.col : z.col};`)} title="${T.name} · ${Math.max(0, z.hp)}/${z.maxHp} HP">
       ${hordeSprite(z.type, 36)}${bar(z.hp, z.maxHp, "nw-hp-zombie")}
     </div>`;
+  }
+  // aiming a night action: every square is a button
+  let aim = "";
+  if (anim.target) {
+    for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
+      const hasZombie = frame.zombies.some((z) => z.row === row && z.col === col);
+      const hasHurt = frame.students.some((s) => !s.downed && s.row === row && s.col === col && s.hp < s.maxHp);
+      const ok = anim.target === "molotov" || (anim.target === "focus" && hasZombie) || (anim.target === "patch" && hasHurt);
+      aim += `<div class="nw-cell nw-pick ${ok ? "nw-pick-ok" : ""} nw-pick-${anim.target}" ${at(row, col)} data-action="night-target" data-row="${row}" data-col="${col}"></div>`;
+    }
   }
 
   const gate = frame.gate.max
     ? `<div class="nw-gate ${gateHit ? "nw-gate-hit" : ""}">🚪 ${bar(frame.gate.hp, frame.gate.max, "nw-hp-gate")} <b>${frame.gate.hp}</b></div>`
     : `<div class="nw-gate nw-gate-none ${gateHit || breach ? "nw-gate-hit" : ""}">🚪 No gate</div>`;
+  const waves = summary.waves?.length || 1;
+  const waveNow = Math.min(waves, (frame.wave ?? 0) + 1);
+
+  // the break between waves
+  const breakBanner = breakTime
+    ? `<div class="nw-break">
+        <b>🌙 Wave ${waveNow} of ${waves} is coming</b>
+        <span>Drag your defenders to new spots, then send them in.</span>
+        <button class="btn btn-primary" data-action="start-wave">▶ Wave ${waveNow}</button>
+      </div>`
+    : "";
 
   let footer;
   if (anim.phase === "battle") {
-    footer = `<button class="btn" data-action="skip-battle">⏩ Skip to the result</button>`;
+    const actions = Object.entries(NIGHT_ACTIONS).map(([id, a]) => {
+      const left = b ? b.uses[id] : 0;
+      const affordable = Object.entries(a.cost || {}).every(([res, amt]) => (state.resources[res] || 0) >= amt);
+      const cost = Object.entries(a.cost || {}).map(([res, amt]) => `${amt}${TECH_EFFECT_ICON[res] || ""}`).join(" ");
+      const off = !b || left <= 0 || !affordable || breakTime;
+      return `<button class="nw-action ${anim.target === id ? "nw-action-on" : ""}" data-action="night-action" data-id="${id}" ${off ? "disabled" : ""} ${tipAttr({
+        title: `${a.icon} ${a.name}`,
+        rows: [["Left tonight", `${left}`], ...(cost ? [["Costs", cost]] : [])],
+        notes: [a.desc, ...(a.target ? ["Click it, then pick a square — the fight waits while you aim"] : [])],
+      })}>
+        <span class="nw-action-icon">${a.icon}</span><span class="nw-action-name">${a.name}</span><b>×${left}</b>${cost ? `<small>${cost}</small>` : ""}
+      </button>`;
+    }).join("");
+    const aimHint = anim.target
+      ? `<div class="nw-aim-hint">${NIGHT_ACTIONS[anim.target].icon} ${{ molotov: "Pick a square to throw it at", focus: "Pick a zombie", patch: "Pick a hurt defender" }[anim.target]} · <button class="btn btn-sm" data-action="night-cancel">Cancel</button></div>`
+      : "";
+    footer = `${aimHint}<div class="nw-actions">${actions}</div>
+      <button class="btn" data-action="skip-battle">⏩ Skip to the result</button>`;
   } else {
-    const { won, routed, killed, spawned, breached, downedCount, bossName, bossKilled } = summary;
+    const { won, routed, killed, spawned, breached, downedCount, bossName, bossKilled, stars = [], perfect } = summary;
     const icon = routed ? "🛡️" : won ? "✅" : "⚠️";
     const text = routed ? "The horde was routed!" : won ? "The entrance held!" : `${breached} zombie${breached === 1 ? "" : "s"} broke through!`;
     const bossLine = bossName
@@ -1542,21 +1604,31 @@ function renderGridBattle(state, anim) {
     footer = `<div class="fight-result gb-result ${won ? "fight-win" : "fight-lose"}">
         <div class="fight-result-icon">${icon}</div>
         <div class="fight-result-text">${text}</div>
+        <div class="nw-stars">${stars.map((s) => `<span class="nw-star ${s.got ? "nw-star-on" : ""}" title="${s.label}">★</span>`).join("")}</div>
+        <div class="nw-star-list">${stars.map((s) => `<span class="${s.got ? "nw-star-got" : ""}">${s.got ? "★" : "☆"} ${s.label}</span>`).join("")}</div>
+        ${perfect ? `<div class="nw-star-reward">A perfect night: +${NIGHT_STAR_REWARD.materials} 🔩 and a morale boost</div>` : ""}
         ${bossLine}
         <div class="gb-result-stats">💀 ${killed}/${spawned} put down · 🚨 ${breached} broke in · 🩸 ${downedCount} defender${downedCount === 1 ? "" : "s"} went down</div>
         <button class="btn btn-primary" data-action="finish-battle">Continue</button>
       </div>`;
   }
 
+  const total = summary.toSpawn ?? summary.spawned;
   return `
   <div class="modal-overlay fight-overlay gb-overlay">
     <div class="gb-header">
       <div class="gb-title">🌙 Night ${state.day} — ${summary.bossName ? `☠ ${esc(summary.bossName)} leads the horde` : "the horde hits the entrance"}</div>
-      <div class="gb-counters">🧟 ${frame.spawned}/${summary.spawned} arrived · 💀 ${frame.killed} down · 🚨 ${frame.breached} broke in</div>
+      <div class="gb-counters">
+        ${waves > 1 ? `<span class="nw-wave">Wave ${waveNow}/${waves}</span>` : ""}
+        <span ${tipAttr({ title: `${condition.icon} ${condition.name}`, notes: [condition.desc] })}>${condition.icon} ${condition.name}</span>
+        · 🧟 ${frame.spawned}/${total} arrived · 💀 ${frame.killed} down · 🚨 ${frame.breached} broke in
+        ${b?.rally ? ` · <span class="nw-rallied">🔔 Rallied (${b.rally})</span>` : ""}
+      </div>
     </div>
-    <div class="nw-board nw-battle ${gateHit ? "nw-shake" : ""} ${breach ? "nw-breach" : ""}" style="--size:${size};background-image:${courtyardBackground(size)}">
+    <div class="nw-board nw-battle nw-cond-${condition.id} ${gateHit ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--lamp-a:${lampLanes(size)[0]};--lamp-b:${lampLanes(size)[1]};background-image:${courtyardBackground(size)}">
       ${gate}
-      <div class="nw-cells">${units}${fx}</div>
+      <div class="nw-cells">${units}${fx}${aim}</div>
+      ${breakBanner}
     </div>
     ${footer}
   </div>`;
@@ -1700,6 +1772,9 @@ function renderTurn3Overview(state) {
   const stabilizeCost = MEDICINE_PER_STABILIZE - techPerk(state, "stabilizeDiscount");
   const saves = Math.floor(state.resources.medicine / stabilizeCost);
   const comp = hordeComposition(state.day);
+  const condition = nightCondition(state);
+  const waves = nightWaveCount(zombies);
+  const uses = nightActionUses(state);
   const hordeRows = ["walker", "runner", "brute", "spitter", "boss"]
     .filter((t) => comp[t])
     .map((t) => {
@@ -1721,8 +1796,14 @@ function renderTurn3Overview(state) {
       ${renderNightBoard(state)}
       <aside class="nw-side">
         <h2>Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the board from the street, one square a turn", "Post defenders on the steps — melee reaches 1–2 squares, ranged 4–9, fists only point-blank", "Build in the courtyard: walls block a lane until smashed, traps hurt whatever walks over", "A zombie past the top row batters the doors, then gets in", "Hover a defender to see what they can reach"] })}</h2>
+        <div class="nw-tonight">
+          <span class="nw-cond" ${tipAttr({ title: `${condition.icon} ${condition.name}`, notes: [condition.desc] })}>${condition.icon} ${condition.name}</span>
+          <span class="muted">${waves} wave${waves === 1 ? "" : "s"}</span>
+        </div>
         <div class="mini-label">Tonight's horde · ${zombies}</div>
         <div class="nw-horde">${hordeRows}</div>
+        <div class="mini-label">Night actions — use them during the fight</div>
+        <div class="nw-action-preview">${Object.entries(NIGHT_ACTIONS).map(([id, a]) => `<span ${tipAttr({ title: `${a.icon} ${a.name}`, rows: [["Tonight", `×${uses[id]}`], ...(a.cost ? [["Costs", Object.entries(a.cost).map(([res, amt]) => `${amt} ${TECH_EFFECT_ICON[res] || res}`).join(" ")]] : [])], notes: [a.desc] })}>${a.icon}×${uses[id]}</span>`).join("")}</div>
         <div class="nw-facts">
           <span ${tipAttr({ title: "💊 Medicine", notes: [`${stabilizeCost} patches up a defender who goes down — without it, they might not get back up`] })}>💊 ${saves} save${saves === 1 ? "" : "s"}</span>
           <span>🛡 ${defenders.length} on watch</span>
@@ -2025,12 +2106,14 @@ function defenderReach(state, c) {
 function nightDefender(state, c, row, col) {
   const eq = c.equipment || {};
   const reach = defenderReach(state, c);
+  const role = defenderRole(state, c);
   const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean);
   return `<div class="nw-unit nw-defender" draggable="true" data-drag-student="${c.id}" data-reach="${row},${col},${reach.melee},${reach.ranged}" ${tipAttr({
-    title: esc(c.name),
+    title: `${esc(c.name)} · ${role.icon} ${role.name}`,
     rows: [["Melee", `${gear.find((w) => w.category === "melee")?.name || "Fists"} · reach ${reach.melee}`], ["Ranged", reach.ranged ? `${esc(eq.rangedWeapon.name)} · reach ${reach.ranged}` : "—"], ["HP", `${c.hp}/${c.maxHp}`]],
-    notes: ["Drag to move · drag back to the roster to take them off watch"],
+    notes: [`${role.name}: ${role.desc}`, "Drag to move · drag back to the roster to take them off watch"],
   })}>
+    <span class="nw-role">${role.icon}</span>
     ${characterSprite(c, 40)}
     <span class="nw-gear">${gear.length ? gear.map((w) => w.icon).join("") : "👊"}</span>
     <span class="nw-hp nw-hp-student"><i style="width:${Math.round((c.hp / c.maxHp) * 100)}%"></i></span>
@@ -2074,7 +2157,8 @@ function renderNightBoard(state) {
     }
   }
   const gateMax = gateHp(state);
-  return `<div class="nw-board" style="--size:${size};background-image:${courtyardBackground(size)}">
+  const lamps = lampLanes(size);
+  return `<div class="nw-board nw-cond-${nightCondition(state).id}" style="--size:${size};--lamp-a:${lamps[0]};--lamp-b:${lamps[1]};background-image:${courtyardBackground(size)}">
     <div class="nw-gate ${gateMax ? "" : "nw-gate-none"}" ${tipAttr({ title: "🚪 The gate", rows: [["Gate", `${gateMax} HP`]], notes: ["Zombies past the top row batter the doors — once they're down, they get in", "Fortification (the Crafting Room) makes the doors sturdier"] })}>🚪 ${gateMax ? `<b>${gateMax}</b> HP` : "No gate yet"}</div>
     <div class="nw-cells">${cells}</div>
   </div>`;
@@ -2089,10 +2173,11 @@ function nightRoster(state) {
     .map((c) => {
       const eq = c.equipment || {};
       const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean).map((w) => w.icon).join("") || "👊";
+      const role = defenderRole(state, c);
       return `<div class="nw-chip ${c.defending ? "nw-chip-on" : ""} ${c.injured ? "nw-chip-hurt" : ""}" draggable="true" data-drag-student="${c.id}" data-action="nw-quick" data-id="${c.id}"
-        title="${esc(c.name)} — ${c.defending ? "on watch: click to take them off" : "click to post them, or drag onto the steps"}">
+        title="${esc(c.name)}, ${role.name.toLowerCase()} (${role.desc}) — ${c.defending ? "on watch: click to take them off" : "click to post them, or drag onto the steps"}">
         <span class="nw-chip-sprite">${characterSprite(c, 22)}</span>
-        <span class="nw-chip-name">${esc(shortName(c))}</span>
+        <span class="nw-chip-name">${role.icon} ${esc(shortName(c))}</span>
         <span class="nw-chip-stats">💪${effectiveGrade(state, c, "PE")} 🤸${effectiveGrade(state, c, "Gymnastics")}</span>
         <span class="nw-chip-gear">${gear}</span>
       </div>`;

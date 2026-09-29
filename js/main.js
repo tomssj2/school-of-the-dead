@@ -6,12 +6,12 @@ import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
-import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents } from "./dev.js";
+import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, OBJECTIVES, ROOM_FIGHT_SQUAD, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -657,9 +657,14 @@ document.addEventListener("drop", (e) => {
   const id = dragStudentId;
   dragStudentId = null;
   document.body.classList.remove("nw-dragging");
-  if (cell) {
+  const live = battleAnimation?.live && battleAnimation.b.phase === "break" ? battleAnimation : null;
+  if (cell && live) {
+    // between waves: move a defender on the battle board
+    const [row, col] = cell.dataset.dropCell.split(",").map(Number);
+    if (G.battleMoveDefender(state, live.b, id, row, col)) live.frameIndex = live.b.frames.length - 1;
+  } else if (cell) {
     if (!G.moveEntranceStudent(state, cell.dataset.dropCell, id)) flash("They can't stand watch tonight.");
-  } else {
+  } else if (!battleAnimation) {
     const key = Object.keys(state.entranceGrid.students).find((k) => state.entranceGrid.students[k] === id);
     if (key) G.clearEntranceStudentCell(state, key);
   }
@@ -894,30 +899,54 @@ function playSkirmish(studentId, lost, done) {
   }, 1100);
 }
 
-// Replays the night battle's recorded frames on the grid, one tick at a time. The battle itself
-// is already fully resolved in `state`; "Skip" just jumps to the result, and "Continue" on the
-// result screen runs `afterResult` to finish the turn.
-const BATTLE_TICK_MS = 600;
+// The night battle, played live: a turn every BATTLE_TICK_MS. It waits at the break between
+// waves (for "Send them in") and while a night action is being aimed; "Skip" plays the rest out
+// at once, and "Continue" on the result screen runs `afterResult` to finish the turn.
+const BATTLE_TICK_MS = 650;
 let battleTimer = null;
-function playGridBattle(summary, afterResult) {
-  const anim = { kind: "grid", summary, frameIndex: 0, phase: "battle" };
+function playNightBattle(afterResult) {
+  const b = G.startNightBattle(state);
+  const anim = { kind: "grid", live: true, b, summary: b, frameIndex: 0, phase: "battle", target: null };
+  const sync = () => { anim.frameIndex = b.frames.length - 1; };
   const showResult = () => {
     if (anim.phase !== "battle") return;
     clearTimeout(battleTimer);
+    anim.target = null;
+    anim.summary = { ...b, ...G.finishNightBattle(state, b) };
     anim.phase = "result";
-    anim.frameIndex = summary.frames.length - 1;
-    (summary.won ? playSuccess : playFail)();
+    sync();
+    (anim.summary.won ? playSuccess : playFail)();
     render();
   };
   const step = () => {
-    if (anim.frameIndex >= summary.frames.length - 1) return showResult();
-    anim.frameIndex++;
-    const events = summary.frames[anim.frameIndex].events;
-    if (events.some((e) => (e.type === "bite" && e.hit) || e.type === "breach" || e.type === "downed")) playHit();
+    clearTimeout(battleTimer);
+    if (anim.phase !== "battle" || anim.target) return; // done, or paused while aiming
+    if (b.phase === "done") return showResult();
+    if (b.phase === "fight") {
+      const frame = G.battleTick(state, b);
+      if (frame.events.some((e) => (e.type === "bite" && e.hit) || e.type === "breach" || e.type === "downed")) playHit();
+    }
+    sync();
     render();
-    battleTimer = setTimeout(step, BATTLE_TICK_MS);
+    if (b.phase === "fight") battleTimer = setTimeout(step, BATTLE_TICK_MS);
+    else if (b.phase === "done") battleTimer = setTimeout(showResult, 900);
+    // a break waits for the player
   };
-  anim.skip = showResult;
+  anim.resume = step;
+  // after a night action: show what it did, then carry on a turn later
+  anim.resumeSoon = () => {
+    clearTimeout(battleTimer);
+    sync();
+    render();
+    if (b.phase === "fight") battleTimer = setTimeout(step, BATTLE_TICK_MS);
+  };
+  anim.skip = () => {
+    if (anim.phase !== "battle") return;
+    clearTimeout(battleTimer);
+    anim.target = null;
+    G.runNightBattle(state, b);
+    showResult();
+  };
   anim.finish = () => {
     clearTimeout(battleTimer);
     battleAnimation = null;
@@ -954,8 +983,7 @@ function resolveCurrentTurn() {
     if (summary.raid && !summary.raid.calledOff) playRaidFight(summary.raid, showReport);
     else showReport();
   } else {
-    const summary = G.resolveDefense(state);
-    playGridBattle(summary, () => {
+    playNightBattle(() => {
       // A won battle can roll a facility raid or an Assault opportunity that must be handled
       // (assigning raid defenders, or answering the Assault popup) before the day advances —
       // resolveFacilityRaid/resolveAssault call advanceTurn themselves once that happens.
@@ -1424,6 +1452,45 @@ root.addEventListener("click", (e) => {
     case "skip-battle":
       if (battleAnimation && battleAnimation.skip) battleAnimation.skip();
       break;
+    case "night-action": {
+      // a night action: Rally goes off at once, the rest wait for a square (the battle pauses)
+      const anim = battleAnimation;
+      if (!anim?.live || anim.phase !== "battle") break;
+      const id = el.dataset.id;
+      if (!NIGHT_ACTIONS[id].target) {
+        if (!G.battleAction(state, anim.b, id)) flash("Can't do that right now.");
+        anim.resumeSoon();
+        break;
+      }
+      clearTimeout(battleTimer);
+      anim.target = anim.target === id ? null : id;
+      render();
+      if (!anim.target) anim.resume();
+      break;
+    }
+    case "night-target": {
+      const anim = battleAnimation;
+      if (!anim?.target) break;
+      if (!G.battleAction(state, anim.b, anim.target, Number(el.dataset.row), Number(el.dataset.col))) {
+        flash(anim.target === "focus" ? "Pick a square with a zombie on it." : anim.target === "patch" ? "Pick a hurt defender." : "Can't do that right now.");
+        break;
+      }
+      anim.target = null;
+      anim.resumeSoon();
+      break;
+    }
+    case "night-cancel":
+      if (battleAnimation?.target) {
+        battleAnimation.target = null;
+        battleAnimation.resume();
+      }
+      break;
+    case "start-wave":
+      if (battleAnimation?.live) {
+        G.startNextWave(battleAnimation.b);
+        battleAnimation.resume();
+      }
+      break;
     case "finish-battle":
       if (battleAnimation && battleAnimation.finish) battleAnimation.finish();
       break;
@@ -1533,6 +1600,11 @@ root.addEventListener("click", (e) => {
 
 
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && battleAnimation?.target) {
+    battleAnimation.target = null; // stop aiming a night action
+    battleAnimation.resume();
+    return;
+  }
   if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openMenu || openQuarantine || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
     openUpgrade = null;
@@ -1686,6 +1758,14 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
     explore(rings) {
       if (!beforeMax) beforeMax = JSON.stringify(state);
       const summary = exploreMap(state, rings);
+      render();
+      return summary;
+    },
+    // schoolDev.night(day): the Night Watch of that day, best fighters on the steps.
+    night(day) {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      const summary = setNight(state, day);
+      activeTab = "overview";
       render();
       return summary;
     },
