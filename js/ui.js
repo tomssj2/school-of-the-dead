@@ -2678,7 +2678,6 @@ export function renderFarm(state) {
     crew: farmCrew(state, side).length,
   }));
   const needed = sides.reduce((sum, s) => sum + s.needed, 0);
-  const working = sides.reduce((sum, s) => sum + s.crew, 0);
   const missing = sides.reduce((sum, s) => sum + Math.max(0, s.needed - s.crew), 0);
   const free = state.characters.filter((c) => !c.farmToday && canWorkFarm(c)).length;
   const how = {
@@ -2696,7 +2695,7 @@ export function renderFarm(state) {
     state, "farm", "farmToday", "Farm",
     "",
     `<div class="farm-split">${renderFarmSide(state, "fields")}${renderFarmSide(state, "animals")}</div>`,
-    { crew: false, middle, label: `Working today (${working}/${needed})` }
+    { crew: false, middle, label: `<span class="farm-cost"><b>−${FARM_STAMINA_COST}</b> stamina per day</span>` }
   );
 }
 
