@@ -683,6 +683,8 @@ export function roomState(state, key) {
   return type === "classroom" ? state.rooms.classrooms[id] : state.rooms[type];
 }
 export const roomLevel = (state, key) => roomState(state, key)?.level || 1;
+// The top level a room can reach: ROOM_MAX_LEVEL, or less where its ROOM_LEVELS entry says so.
+export const roomMaxLevel = (key) => ROOM_LEVELS[roomType(key)]?.maxLevel || ROOM_MAX_LEVEL;
 
 // The room a teacher post belongs to: "gym:PE" → "gym", "gym:Gymnastics" → "acrobatics".
 export function postRoomKey(post) {
@@ -720,6 +722,7 @@ export function applyRoomLevel(state, key) {
   const room = roomState(state, key);
   if (!room) return;
   if (!room.level) room.level = 1;
+  room.level = Math.min(room.level, roomMaxLevel(key)); // a level-5 Farm from before it had 4 levels is a maxed one
   const stats = Object.fromEntries(roomLevelStats(key, room.level).map((r) => [r.id, r.value]));
   if (stats.teachers !== undefined) room.teacherCapacity = stats.teachers;
   if (roomType(key) === "classroom") {
@@ -742,7 +745,7 @@ export function applyRoomLevel(state, key) {
 
 export function roomUpgradeCostFor(state, key) {
   const level = roomLevel(state, key);
-  return level >= ROOM_MAX_LEVEL ? null : roomUpgradeCost(level);
+  return level >= roomMaxLevel(key) ? null : roomUpgradeCost(level);
 }
 
 export function upgradeRoom(state, key) {

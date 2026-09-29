@@ -14,7 +14,7 @@ import {
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  getChar, aliveChars, roomMaxLevel, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, isReady, readySlots, harvestPlan, workersNeeded, farmCrew, farmWorkerSlots, canWorkFarm, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -108,9 +108,14 @@ function roomUpgradeButton(state, key) {
   return `<button class="scene-upgrade ${repair ? "scene-upgrade-damaged" : ""}" data-action="open-upgrade" data-room="${key}">${repair ? "⚠ " : ""}${cost === null ? "Repair" : "Upgrade"}</button>`;
 }
 
+// Banners are drawn in 5 stages; a room with fewer levels spreads over them so its top level shows
+// the finished scene (the Farm's 1-4 show stages 1, 2, 4, 5).
+const sceneLevel = (state, key) =>
+  Math.round(1 + ((roomLevel(state, key) - 1) * (ROOM_MAX_LEVEL - 1)) / Math.max(1, roomMaxLevel(key) - 1));
+
 const levelBadge = (state, key) => {
   const level = roomLevel(state, key);
-  return level >= ROOM_MAX_LEVEL ? `<span class="plaque-level plaque-max">MAX</span>` : `<span class="plaque-level">Lv ${level}</span>`;
+  return level >= roomMaxLevel(key) ? `<span class="plaque-level plaque-max">MAX</span>` : `<span class="plaque-level">Lv ${level}</span>`;
 };
 
 // "Gymnasium", "Biology" / "Classroom 2" — how the popup titles a room.
@@ -124,14 +129,14 @@ function roomTitle(state, key) {
 export function renderRoomUpgradeModal(state, key) {
   if (key === "radio") return renderRadioUpgradeModal(state);
   const level = roomLevel(state, key);
-  const maxed = level >= ROOM_MAX_LEVEL;
+  const maxed = level >= roomMaxLevel(key);
   const now = roomLevelStats(key, level);
   const next = maxed ? null : roomLevelStats(key, level + 1);
   const cost = roomUpgradeCostFor(state, key);
   const scrap = state.resources.materials;
   const repair = roomRepairCost(state, key);
   const damage = roomState(state, key).damage || 0;
-  const pips = Array.from({ length: ROOM_MAX_LEVEL }, (_, i) =>
+  const pips = Array.from({ length: roomMaxLevel(key) }, (_, i) =>
     `<span class="upg-pip ${i < level ? "upg-pip-on" : i === level ? "upg-pip-next" : ""}"></span>`).join("");
   const rows = now.map((row, i) => {
     const up = next && next[i].value !== row.value;
@@ -2521,7 +2526,7 @@ function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "",
 
   return `
   <div class="card room-outside">
-    ${roomScene(`${roomKey}@${roomLevel(state, roomKey)}`, workers, `${title}${levelBadge(state, roomKey)}`, desc, roomUpgradeButton(state, roomKey))}
+    ${roomScene(`${roomKey}@${sceneLevel(state, roomKey)}`, workers, `${title}${levelBadge(state, roomKey)}`, desc, roomUpgradeButton(state, roomKey))}
     ${middle
       ? `<div class="stat-row farm-pill"><span class="stat-pill">${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}</span>${middle}<span class="mini-label">${label}</span></div>`
       : statRow(label || `Working today (${workers.length}/${room.studentCapacity})`, `${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}`)}
@@ -2618,7 +2623,7 @@ function renderFarmSide(state, side) {
     const p = PRODUCERS[kind];
     const list = state.plots[kind];
     const have = state.stock[kind] || 0;
-    const row = Array.from({ length: FARM_SLOTS_BY_LEVEL[ROOM_MAX_LEVEL - 1] }, (_, i) => renderFarmSlot(state, kind, list[i], i, covered.has(`${kind}:${i}`))).join("");
+    const row = Array.from({ length: FARM_SLOTS_BY_LEVEL[FARM_SLOTS_BY_LEVEL.length - 1] }, (_, i) => renderFarmSlot(state, kind, list[i], i, covered.has(`${kind}:${i}`))).join("");
     return `<div class="farm-group">
       <div class="farm-group-head">
         <span class="farm-group-icon">${p.icon}</span><b>${p.name}</b>

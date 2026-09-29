@@ -517,12 +517,12 @@ export const RANCH_ANIMALS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id]
 // The Farm's six groups, top to bottom on each side of its page: a field for each crop on the
 // left, a pen for each animal on the right. Every group has the same number of slots, by level.
 export const FARM_GROUPS = { fields: ["wheat", "potatoes", "tomatoes"], animals: ["chicken", "sheep", "cow"] };
-export const FARM_SLOTS_BY_LEVEL = [1, 2, 2, 3, 4];
+export const FARM_SLOTS_BY_LEVEL = [1, 2, 3, 4]; // the Farm has 4 levels: each opens a slot in every group
 export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // fields and pens at level 1 in older saves
 export const PLOTS_PER_WORKER = 2; // ready slots one Farm worker harvests a day
 // Crops grow and animals come round by themselves, a day at a time; once a slot is ready it waits
 // for a worker. Each side of the Farm (fields, animals) has its own crew, big enough to cover all
-// its slots: 2, 3, 3, 5, 6 workers by level.
+// its slots: 2, 3, 5, 6 workers by level.
 export const FARM_WORKERS_BY_LEVEL = FARM_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
 export const FARM_STAMINA_COST = 50; // a day's work on the Farm (paid at the end of Turn 2) — to be balanced
 export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, chicken: 1, cow: 0, sheep: 1 };
@@ -605,7 +605,7 @@ export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout 
 // assistant at level 5, so 2 at most), and
 // rooms without students grow a perk
 // instead. Rooms are keyed "classroom:<id>", "gym", "acrobatics", "cafeteria", and so on.
-export const ROOM_MAX_LEVEL = 5;
+export const ROOM_MAX_LEVEL = 5; // a room's ROOM_LEVELS entry can set a lower `maxLevel` (the Farm has 4)
 // The stat a room itself gives each student, by its level: the base of every Gymnasium /
 // Acrobatics session (teachers' ranks come on top) and a classroom's standing bonus to its subject.
 export const ROOM_STAT_BONUS_BY_LEVEL = [1, 3, 5, 7, 10];
@@ -661,7 +661,7 @@ export const ROOM_LEVELS = {
     perks: [{ label: "Bonus fortification", by: CRAFTING_BONUS_BY_LEVEL, fmt: (v) => `+${v} per crafter` }],
   },
   farm: {
-    name: "Farm",
+    name: "Farm", maxLevel: FARM_SLOTS_BY_LEVEL.length,
     perks: [
       { label: "Workers", by: FARM_WORKERS_BY_LEVEL, fmt: (v) => `${v} fields + ${v} animals` },
       { label: "Slots per crop & animal", by: FARM_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
