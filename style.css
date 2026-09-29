@@ -604,8 +604,9 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .room-acrobatics { --room-accent: #9b7fd6; }
 .room-utility { --room-accent: #a03d5c; }
 
-/* Pixel-art banner across the top of a room card (scenes.js), bleeding to the card edges. The
-   96x24 scene tiles sideways so wide cards get a longer room rather than a blurry stretch. */
+/* Pixel-art banner across the top of a room card (scenes.js), bleeding to the card edges. A room's
+   192x48 scene tiles sideways on wider cards; the full-page Farm, Ranch and Scrapyard are drawn
+   416 wide, so theirs is one landscape. */
 .room-scene {
   position: relative;
   height: 130px;

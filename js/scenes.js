@@ -831,131 +831,612 @@ Object.assign(HI_SCENES, {
     }
   },
 
-  // The Farm: cracked dirt, a dead tree and a broken fence, then sprouts, rows of crops and a
-  // scarecrow, a barn, and at the top a silo and a windmill.
+  // The Farm, the Ranch and the Scrapyard span the whole page, so they're drawn as one wide
+  // landscape each (see wideOutdoor below) rather than a 192-wide scene tiled sideways.
+
+  // The Farm: dry weeds, a dead tree and a caved-in shed; then tilled plots with sprouts behind a
+  // mended fence; cabbages, corn and a scarecrow; a barn, tomatoes, pumpkins and an apple tree;
+  // and at the top golden wheat, sunflowers, a silo, a greenhouse, a windmill and a tractor.
   farm(r, lv) {
-    hiOutdoor(r, lv, lv <= 1 ? "#7d6e4f" : "#6a5236");
+    wideOutdoor(r, lv, lv <= 1 ? "#8a8457" : "#6f9a4f");
+    track(r, lv);
+    const PLOTS = [72, 126, 180, 234]; // each 50 wide
+    const kinds = [
+      null,
+      null,
+      ["sprout", "sprout", null, null],
+      ["cabbage", "corn", "carrot", "sprout"],
+      ["cabbage", "corn", "tomato", "pumpkin"],
+      ["wheat", "corn", "tomato", "pumpkin"],
+    ][lv];
     if (lv <= 1) {
-      for (const [x, y] of [[30, 28], [70, 32], [120, 29], [160, 34]]) crack(r, x, y, "#5a4e38");
-      // a dead tree
-      r(150, 12, 151, 27, "#4a3a2c");
-      for (const [x, y] of [[148, 14], [147, 13], [153, 16], [154, 15], [155, 14]]) r(x, y, x, y, "#4a3a2c");
-      fence(r, 0, 60, 30, true);
+      // weeds where the plots used to be, a dead tree, a caved-in shed, a tipped wheelbarrow
+      for (let i = 0; i < 70; i++) weed(r, 60 + ((i * 53) % 330), 24 + ((i * 7) % 9), i % 3 ? "#9a9a55" : "#7a7a45");
+      deadTree(r, 348, 31);
+      shed(r, 296, true);
+      wheelbarrow(r, 200, 41, "tipped");
+      rail(r, 40, 290, 33, true);
+      for (const x of [70, 130, 250]) crow(r, x, 26);
+      for (const [x, y] of [[90, 36], [170, 44], [260, 37], [380, 43]]) crack(r, x, y, "#6e6440");
       return;
     }
-    fence(r, 0, HW - 1, 30, false);
-    // rows of crops, taller level by level
-    const rows = lv >= 3 ? 4 : 2;
-    for (let i = 0; i < rows; i++) {
-      const y = 25 + i * 2;
-      r(40, y + 1, 130, y + 1, "#5a4228");
-      for (let x = 42; x < 130; x += 4) {
-        if (lv <= 2) r(x, y, x, y, "#7fc86a");
-        else { r(x, y - 3, x, y, "#5a9a45"); r(x - 1, y - 2, x - 1, y - 2, "#7fc86a"); r(x + 1, y - 3, x + 1, y - 3, lv >= 4 ? "#f4d35e" : "#7fc86a"); }
-      }
+    PLOTS.forEach((x0, i) => {
+      if (!kinds[i]) return;
+      furrows(r, x0, x0 + 49, 23, 31);
+      for (const y of [25, 28, 31]) for (let x = x0 + 3; x < x0 + 48; x += 5) crop(r, x, y, kinds[i]);
+    });
+    if (lv >= 5) for (const x of [62, 67, 124, 232, 289]) crop(r, x, 31, "sunflower");
+    rail(r, 40, 292, 33, false);
+    if (lv <= 3) {
+      shed(r, 300, false);
+      toolRack(r, 324);
+    } else barn(r, 296);
+    barrel(r, 288, 31);
+    if (lv >= 3) scarecrow(r, 178);
+    if (lv >= 4) {
+      appleTree(r, 18, 31);
+      wheelbarrow(r, 336, 41, "full");
+      for (let i = 0; i < 24; i++) r(12 + ((i * 67) % 390), 44 + (i % 3), 12 + ((i * 67) % 390), 44 + (i % 3), ["#f4d35e", "#e98fb0", "#f4f6f8"][i % 3]);
     }
-    if (lv >= 3) {
-      // scarecrow
-      r(86, 12, 86, 28, "#8a5f33");
-      r(80, 16, 92, 16, "#8a5f33");
-      box(r, 83, 14, 89, 21, "#3f6fb5", "#2a4a80");
-      box(r, 84, 9, 88, 13, "#e0b884", "#a8844f");
-      r(82, 8, 90, 8, "#c9a236");
-    }
-    if (lv >= 4) barn(r, 146);
     if (lv >= 5) {
-      silo(r, 184);
-      windmill(r, 16);
-      for (const x of [134, 138]) { r(x, 20, x, 27, "#5a9a45"); box(r, x - 1, 18, x + 1, 20, "#f4d35e", "#e0a536"); }
+      windmill(r, 50);
+      silo(r, 334);
+      greenhouse(r, 350);
+      appleTree(r, 402, 31);
+      tractor(r, 232, 42);
     }
   },
 
-  // The Ranch: a broken fence around an empty pen, then a water trough, a barn with hay bales,
-  // chickens and a cow, and at the top sheep, a silo and a windmill.
+  // The Ranch: an empty pen behind a broken fence, a knocked-over trough and a dead tree; then a
+  // mended fence, a full trough, a coop and chickens; a barn, hay and a cow; sheep, a pig in the
+  // mud and another cow; and at the top a horse, ducks on a pond, a silo, a windmill and a vane.
   ranch(r, lv) {
-    hiOutdoor(r, lv, lv <= 1 ? "#7d7a50" : "#6f9a55");
+    wideOutdoor(r, lv, lv <= 1 ? "#8a8457" : "#6f9a4f");
+    track(r, lv);
     if (lv <= 1) {
-      fence(r, 20, 110, 30, true);
-      for (const [x, y] of [[60, 30], [130, 33]]) crack(r, x, y, "#5a5a38");
+      for (let i = 0; i < 60; i++) weed(r, 50 + ((i * 59) % 340), 24 + ((i * 5) % 9), i % 3 ? "#9a9a55" : "#7a7a45");
+      trough(r, 150, 31, "tipped");
+      deadTree(r, 330, 31);
+      coop(r, 262, true);
+      rail(r, 40, 300, 33, true);
+      for (const x of [90, 210]) crow(r, x, 26);
+      for (const [x, y] of [[80, 38], [190, 45], [300, 36]]) crack(r, x, y, "#6e6440");
       return;
     }
-    fence(r, 0, HW - 1, 30, false);
-    // water trough
-    box(r, 60, 24, 80, 28, "#8a5f33", "#5a3b24");
-    r(61, 24, 79, 24, "#5fa8d8");
+    if (lv >= 5) windmill(r, 50);
+    trough(r, 150, 31, "full");
+    coop(r, 262, false);
+    for (const x of [232, 242, 252]) chicken(r, x, 31);
     if (lv >= 3) {
-      barn(r, 140);
-      for (const x of [110, 122]) {
-        box(r, x, 22, x + 9, 28, "#e0b84a", "#a8843a");
-        r(x + 1, 25, x + 8, 25, "#c49a3a");
-      }
+      barn(r, 304);
+      cow(r, 100, 31, "#f4f6f8");
+      hay(r, 356);
     }
     if (lv >= 4) {
-      // chickens and a cow
-      for (const x of [30, 38, 46]) {
-        box(r, x, 24, x + 4, 27, "#f4f6f8", "#c9ccd2");
-        r(x + 4, 23, x + 5, 24, "#f4f6f8");
-        r(x + 5, 22, x + 5, 22, "#d64545");
-        r(x + 6, 24, x + 6, 24, "#f4a030");
-      }
-      box(r, 88, 18, 104, 25, "#f4f6f8", "#3a3f48");
-      for (const [x0, y0, x1, y1] of [[90, 19, 93, 21], [98, 21, 101, 23]]) r(x0, y0, x1, y1, "#2a2d33");
-      box(r, 104, 16, 108, 20, "#f4f6f8", "#3a3f48");
-      for (const x of [89, 92, 100, 103]) r(x, 26, x, 28, "#3a3f48");
+      for (const x of [62, 74]) sheep(r, x, 31);
+      cow(r, 124, 31, "#b07a4a");
+      r(174, 29, 194, 31, "#6b4a2f");
+      r(176, 28, 192, 28, "#6b4a2f");
+      pig(r, 178, 31);
+      chicken(r, 222, 31);
     }
+    rail(r, 40, 300, 33, false);
     if (lv >= 5) {
-      for (const x of [14, 22]) {
-        box(r, x, 20, x + 6, 25, "#f4f0e0", "#c9c2ad");
-        r(x + 6, 20, x + 7, 22, "#3a3f48");
-        r(x + 1, 26, x + 1, 27, "#3a3f48");
-        r(x + 5, 26, x + 5, 27, "#3a3f48");
-      }
-      silo(r, 180);
-      windmill(r, 128);
+      sheep(r, 86, 31);
+      horse(r, 196, 31);
+      silo(r, 342);
+      vane(r, 321, 1);
+      pond(r, 384);
+      for (let i = 0; i < 24; i++) r(12 + ((i * 67) % 390), 44 + (i % 3), 12 + ((i * 67) % 390), 44 + (i % 3), ["#f4d35e", "#e98fb0", "#f4f6f8"][i % 3]);
     }
   },
 
-  // The Scrapyard: a few piles of junk, then a chain fence and more piles, stacked car wrecks, a
-  // crane with a magnet, and at the top sorted bins under floodlights.
+  // The Scrapyard: junk heaps, a burnt-out car and loose tyres under smoke; then a chain fence, a
+  // workbench, oil drums and a tyre stack; a shipping container and wrecks stacked three high; a
+  // crane lifting a car and a shed full of welding sparks; and at the top a crusher with a stack
+  // of cubes, colour-sorted bins, floodlights and a forklift.
   scrapyard(r, lv) {
-    hiOutdoor(r, lv, lv <= 1 ? "#5e554a" : "#6b5d4d");
-    const pile = (x, w, h, c) => { for (let i = 0; i < h; i++) r(x + i, 30 - i, x + w - i, 30 - i, i % 2 ? c : shadowOf(c)); };
-    pile(20, 30, 8, "#7a7f88");
-    pile(100, 24, 6, "#8a6a4a");
-    if (lv <= 1) return;
-    // chain fence along the back
-    for (let x = 0; x < HW; x += 3) r(x, 14 + (x % 6 === 0 ? 0 : 1), x, 22, "#9aa0a8");
-    r(0, 14, HW - 1, 14, "#6b6f78");
-    pile(60, 26, 9, "#6b6f78");
-    if (lv >= 3) {
-      // stacked car wrecks
-      for (const [x, y, c] of [[130, 24, "#b03030"], [134, 18, "#3f6fb5"], [128, 12, "#c9a236"]]) {
-        box(r, x, y, x + 26, y + 5, c, shadowOf(c));
-        box(r, x + 6, y - 2, x + 18, y, mix(c, "#1d2026", 0.4));
-        r(x + 8, y - 1, x + 16, y - 1, "#8fb1c4");
+    wideOutdoor(r, lv, lv <= 1 ? "#5e554a" : "#6b5d4d", 150);
+    // oil stains and gravel across the yard
+    for (let i = 0; i < 26; i++) {
+      const x = (i * 71) % 400;
+      const y = 34 + ((i * 13) % 12);
+      r(x, y, x + 4 + (i % 4), y + 1, "#4a4038");
+    }
+    if (lv >= 2) chainFence(r);
+    junkPile(r, 10, 30, 11, "#7a7f88");
+    junkPile(r, 130, 40, 15, "#8a6a4a");
+    if (lv <= 4) junkPile(r, 262, 32, 12, "#6b6f78");
+    if (lv <= 2) {
+      wreck(r, 222, 31, "#3a3230", true);
+      for (const [x, y] of [[70, 38], [96, 42], [310, 40], [352, 36]]) tyre(r, x, y);
+      if (lv <= 1) {
+        for (const x of [230, 150]) for (let k = 0; k < 8; k++) r(x + k - 2 + Math.round(Math.sin(k) * 2), 20 - k * 2, x + k + 1 + Math.round(Math.sin(k) * 2), 21 - k * 2, "#3a3a3e99");
+        sign(r, 330, true);
+        return;
       }
+    }
+    // tyre stack, workbench, oil drums
+    for (let i = 0; i < 4; i++) tyre(r, 48, 30 - i * 3);
+    workbench(r, 300);
+    for (const x of [326, 334]) drum(r, x, 31, x === 326 ? "#3f6fb5" : "#b03030");
+    if (lv >= 3) {
+      container(r, 176);
+      wreck(r, 222, 31, "#3a3230", true);
+      wreck(r, 224, 25, "#3f6fb5");
+      wreck(r, 221, 19, "#c9a236");
     }
     if (lv >= 4) {
-      // a crane with a magnet
-      r(172, 4, 173, 30, "#e0a536");
-      for (let y = 6; y < 30; y += 4) r(170, y, 175, y, "#c98a2a");
-      r(150, 4, 176, 5, "#e0a536");
-      r(154, 6, 154, 11, "#3a3f48");
-      box(r, 150, 12, 158, 14, "#3a3f48", "#1d2026");
+      crane(r);
+      shed(r, 368, false, true);
+      for (const [x, y] of [[356, 44], [364, 42]]) { r(x, y, x + 9, y + 1, "#a8753f"); r(x, y + 2, x + 9, y + 2, "#6b4a2f"); }
     }
     if (lv >= 5) {
-      // sorted bins and floodlights
-      for (const [x, c] of [[64, "#3f6fb5"], [78, "#4caf7d"], [92, "#d64545"]]) {
-        box(r, x, 22, x + 11, 30, c, shadowOf(c));
+      crusher(r, 74);
+      for (const [x, c] of [[260, "#3f6fb5"], [274, "#4caf7d"], [288, "#d64545"]]) {
+        box(r, x, 22, x + 11, 31, c, shadowOf(c));
         r(x + 3, 25, x + 8, 25, "#f4f6f8");
+        r(x + 1, 22, x + 10, 22, lightOf(c));
       }
-      for (const x of [10, 186]) {
-        r(x, 6, x, 30, "#6b6f78");
-        box(r, x - 3, 4, x + 3, 7, "#f4d35e", "#c9a227");
-      }
+      for (const x of [64, 395]) floodlight(r, x);
+      forklift(r, 186, 42);
     }
   },
 });
+
+// ---------- wide outdoor scenes ----------
+// 416 x 48: about the width of a full-page banner at its 130px height, so the Farm, the Ranch and
+// the Scrapyard show one continuous landscape. The sky, the ruined city and the ground clear up
+// level by level; the ground starts at row 22, props stand on row 31, and the crowd covers the
+// bottom rows (the plaque hides the top-left corner, the Upgrade button the bottom-left one).
+
+const WW = 416;
+export const SCENE_WIDTH = { farm: WW, ranch: WW, scrapyard: WW };
+
+function hash01(i, s) {
+  let x = Math.imul(i + 11, 2654435761) ^ Math.imul(s + 7, 40503);
+  x ^= x >>> 15;
+  x = Math.imul(x, 2246822519);
+  x ^= x >>> 13;
+  return (x >>> 0) / 4294967296;
+}
+
+function wideOutdoor(r, lv, ground, sunX = 360) {
+  const top = ["#6f7780", "#7fa3c8", "#79afe0", "#74b3e8", "#78b9ee"][lv - 1];
+  const low = ["#a39c8f", "#c7d3d9", "#cfe3ee", "#d6ebf5", "#e2f1f8"][lv - 1];
+  const skyAt = (y) => mix(top, low, Math.min(1, y / 21));
+  for (let i = 0; i < 8; i++) r(0, i * 3, WW - 1, i * 3 + 2, skyAt(i * 3));
+  // the sun, from level 3
+  if (lv >= 3) {
+    r(sunX - 4, 4, sunX + 4, 8, "#fff3c4");
+    r(sunX - 3, 3, sunX + 3, 9, "#fff3c4");
+    r(sunX - 2, 2, sunX + 2, 10, "#fff3c4");
+    r(sunX - 1, 4, sunX + 1, 8, "#fffbe8");
+  }
+  // clouds, more of them as the smoke clears
+  if (lv >= 2) {
+    for (const [x, y, w] of [[96, 5, 26], [196, 3, 34], [290, 7, 22], [392, 4, 18], [150, 9, 14]].slice(0, lv)) {
+      r(x, y, x + w, y + 2, "#f4f8fc");
+      r(x + 4, y - 2, x + w - 8, y - 1, "#f4f8fc");
+      r(x + 2, y + 3, x + w - 2, y + 3, mix("#f4f8fc", low, 0.5));
+    }
+  }
+  // birds
+  if (lv >= 4) for (const [x, y] of [[250, 6], [258, 4], [265, 7], [120, 3]]) { r(x, y, x + 1, y, "#3a3f48"); r(x + 2, y - 1, x + 2, y - 1, "#3a3f48"); r(x + 3, y, x + 4, y, "#3a3f48"); }
+  // smoke rising over the city at levels 1-2
+  if (lv <= 2) {
+    for (const x of lv === 1 ? [80, 230, 330] : [230]) {
+      for (let k = 0; k < 7; k++) {
+        const w = 2 + k;
+        const cx = x + k + Math.round(Math.sin(k * 0.9) * 3);
+        r(cx - (w >> 1), 17 - k * 3, cx + (w >> 1), 19 - k * 3, lv === 1 ? "#4a4d52aa" : "#6a6d7277");
+      }
+    }
+  }
+  // the ruined city on the horizon
+  const city = mix(low, "#2c3340", 0.58);
+  const win = mix(city, "#10141c", 0.35);
+  for (let x = 0, i = 0; x < WW; i++) {
+    const w = 6 + Math.floor(hash01(i, 1) * 12);
+    const h = 4 + Math.floor(hash01(i, 2) * 11);
+    r(x, 22 - h, x + w - 1, 21, city);
+    if (hash01(i, 3) < 0.45) r(x + w - 3, 22 - h, x + w - 1, 23 - h + Math.floor(hash01(i, 4) * 2), skyAt(22 - h));
+    for (let wy = 24 - h; wy < 20; wy += 3) for (let wx = x + 2; wx < x + w - 2; wx += 3) r(wx, wy, wx, wy, lv >= 4 && hash01(wx, wy) < 0.08 ? "#f4d35e" : win);
+    x += w + (hash01(i, 5) < 0.3 ? 2 : 0);
+  }
+  // a hazy tree line in front of it
+  const trees = lv <= 1 ? mix("#5a5a44", low, 0.35) : mix("#3f6a3a", low, 0.3);
+  for (let x = 0; x < WW; x++) {
+    const h = 1 + Math.round(1.2 + Math.sin(x / 7) * 1.2 + Math.sin(x / 19 + 1) * 1.4 + hash01(x, 9));
+    r(x, 22 - h, x, 21, trees);
+  }
+  // the ground: lighter at the horizon, specks and tufts
+  r(0, 22, WW - 1, 47, ground);
+  r(0, 22, WW - 1, 22, mix(ground, "#f4f0e0", 0.25));
+  r(0, 23, WW - 1, 24, mix(ground, "#f4f0e0", 0.1));
+  r(0, 44, WW - 1, 47, shadowOf(ground));
+  for (let i = 0; i < 160; i++) {
+    const x = Math.floor(hash01(i, 21) * WW);
+    const y = 25 + Math.floor(hash01(i, 22) * 22);
+    r(x, y, x + 1, y, i % 3 ? shadowOf(ground) : lightOf(ground));
+  }
+}
+
+// A dirt track across the front of the yard.
+function track(r, lv) {
+  const dirt = lv <= 1 ? "#9a8a64" : "#a8906a";
+  r(0, 38, WW - 1, 41, dirt);
+  r(0, 38, WW - 1, 38, shadowOf(dirt));
+  for (let x = 4; x < WW; x += 9) r(x, 40, x + 2, 40, shadowOf(dirt));
+}
+
+// A post-and-rail fence, posts every 12; a broken one is missing posts and rails.
+function rail(r, x0, x1, y, broken) {
+  for (let x = x0, i = 0; x <= x1; x += 12, i++) {
+    if (broken && i % 3 === 1) continue;
+    r(x, y - 6, x + 1, y, "#7a5230");
+    r(x, y - 6, x + 1, y - 6, "#a8753f");
+  }
+  for (const dy of [4, 1]) {
+    for (let x = x0, i = 0; x < x1; x += 12, i++) {
+      if (broken && (i % 3 !== 0 || (dy === 1 && i % 2))) continue;
+      r(x, y - dy, Math.min(x + 12, x1), y - dy, "#c49a64");
+    }
+  }
+}
+
+function weed(r, x, y, c) {
+  r(x, y - 1, x, y, c);
+  r(x - 1, y - 2, x - 1, y - 1, c);
+  r(x + 1, y - 2, x + 1, y - 2, c);
+}
+function crow(r, x, y) {
+  r(x, y - 2, x + 2, y - 1, "#1d2026");
+  r(x + 3, y - 3, x + 3, y - 2, "#1d2026");
+  r(x + 4, y - 2, x + 4, y - 2, "#c9a236");
+}
+function deadTree(r, x, base) {
+  r(x, base - 18, x + 1, base, "#4a3a2c");
+  for (const [dx, dy] of [[-2, 14], [-3, 15], [-4, 16], [2, 12], [3, 13], [4, 14], [5, 15], [-1, 9], [-2, 8], [2, 7], [3, 6]]) r(x + dx, base - dy - 4, x + dx, base - dy - 4, "#4a3a2c");
+}
+function appleTree(r, x, base) {
+  r(x, base - 9, x + 2, base, "#6b4a2f");
+  const rows = [[4, 5], [6, 7], [7, 8], [8, 8], [8, 8], [7, 7], [6, 6], [4, 4]];
+  rows.forEach(([a, b], i) => r(x + 1 - a, base - 21 + i * 2, x + 1 + b, base - 20 + i * 2, i < 3 ? "#5aa84a" : "#3f8a3a"));
+  for (const [dx, dy] of [[-4, 17], [3, 15], [-2, 12], [5, 11], [0, 19]]) r(x + dx, base - dy, x + dx + 1, base - dy, "#d64545");
+}
+
+// Tilled soil, row by row.
+function furrows(r, x0, x1, y0, y1) {
+  for (let y = y0; y <= y1; y++) r(x0, y, x1, y, (y - y0) % 3 === 2 ? "#6e5234" : (y - y0) % 3 === 1 ? "#5a4228" : "#4e3a24");
+}
+
+function crop(r, x, y, kind) {
+  if (kind === "sprout") {
+    r(x, y - 1, x, y, "#7fc86a");
+    r(x - 1, y - 2, x - 1, y - 2, "#5a9a45");
+    r(x + 1, y - 2, x + 1, y - 2, "#7fc86a");
+  } else if (kind === "cabbage") {
+    box(r, x - 1, y - 2, x + 2, y, "#6fbf5a", "#3f7f3a");
+    r(x, y - 2, x + 1, y - 2, "#9fdc80");
+  } else if (kind === "carrot") {
+    r(x, y - 3, x, y - 1, "#5a9a45");
+    r(x - 1, y - 3, x - 1, y - 3, "#7fc86a");
+    r(x + 1, y - 4, x + 1, y - 4, "#7fc86a");
+    r(x, y, x, y, "#e0782a");
+  } else if (kind === "corn") {
+    r(x, y - 8, x, y, "#5a9a45");
+    r(x - 1, y - 4, x - 1, y - 3, "#7fc86a");
+    r(x + 1, y - 6, x + 1, y - 5, "#7fc86a");
+    r(x + 1, y - 4, x + 1, y - 2, "#f4d35e");
+    r(x, y - 9, x, y - 9, "#e0c070");
+  } else if (kind === "tomato") {
+    r(x, y - 6, x, y, "#8a5f33");
+    r(x - 1, y - 5, x + 1, y - 1, "#4f9a45");
+    r(x - 1, y - 4, x - 1, y - 4, "#e04040");
+    r(x + 1, y - 2, x + 1, y - 2, "#e04040");
+    r(x, y - 5, x, y - 5, "#e04040");
+  } else if (kind === "pumpkin") {
+    r(x - 2, y, x + 2, y, "#5a9a45");
+    box(r, x - 1, y - 2, x + 2, y, "#e0782a", "#a8501a");
+    r(x, y - 3, x, y - 3, "#5a7a35");
+  } else if (kind === "wheat") {
+    r(x, y - 5, x, y, "#c9a650");
+    r(x - 1, y - 3, x - 1, y, "#b8963f");
+    r(x + 1, y - 4, x + 1, y, "#b8963f");
+    r(x, y - 7, x, y - 6, "#f0cf6a");
+    r(x - 1, y - 5, x - 1, y - 4, "#f0cf6a");
+    r(x + 1, y - 6, x + 1, y - 5, "#f0cf6a");
+  } else if (kind === "sunflower") {
+    r(x, y - 12, x, y, "#4f8a3a");
+    r(x + 1, y - 6, x + 2, y - 6, "#5a9a45");
+    r(x - 2, y - 9, x - 1, y - 9, "#5a9a45");
+    r(x - 2, y - 15, x + 2, y - 13, "#f4c430");
+    r(x - 1, y - 16, x + 1, y - 12, "#f4c430");
+    r(x - 1, y - 15, x + 1, y - 13, "#6b4a2f");
+  }
+}
+
+function scarecrow(r, x) {
+  r(x, 10, x, 31, "#8a5f33");
+  r(x - 7, 15, x + 7, 15, "#8a5f33");
+  box(r, x - 3, 13, x + 3, 21, "#3f6fb5", "#2a4a80");
+  r(x - 1, 16, x + 1, 16, "#d64545");
+  for (const dx of [-7, 7]) r(x + dx, 16, x + dx, 17, "#e0c070");
+  box(r, x - 2, 8, x + 2, 12, "#e0b884", "#a8844f");
+  r(x - 1, 10, x - 1, 10, "#3a2a24");
+  r(x + 1, 10, x + 1, 10, "#3a2a24");
+  r(x - 4, 7, x + 4, 7, "#c9a236");
+  r(x - 2, 5, x + 2, 6, "#c9a236");
+}
+
+// A wooden shed; caved in at level 1. `sparks`: a welder at work inside.
+function shed(r, x, broken, sparks = false) {
+  box(r, x, 18, x + 22, 31, "#8a6a4a", "#5a4430");
+  for (let yy = 20; yy < 31; yy += 3) r(x + 1, yy, x + 21, yy, "#7a5c40");
+  r(x - 1, 16, x + 23, 17, "#5a5e66");
+  r(x - 2, 15, x + 24, 15, "#6b6f78");
+  box(r, x + 8, 23, x + 14, 31, broken ? "#2a2420" : "#4a3626", "#3a2a1e");
+  if (broken) {
+    r(x + 10, 15, x + 18, 18, "#2a2420");
+    r(x + 16, 19, x + 20, 21, "#2a2420");
+    r(x + 20, 24, x + 26, 25, "#8a6a4a");
+    return;
+  }
+  box(r, x + 2, 20, x + 6, 23, "#a9d4ef", "#5a4430");
+  if (sparks) {
+    r(x + 9, 24, x + 13, 31, "#1d2026");
+    for (const [dx, dy, c] of [[11, 27, "#fff4b0"], [10, 26, "#f4d35e"], [12, 25, "#f4d35e"], [13, 28, "#f08a3a"], [9, 28, "#f08a3a"], [14, 24, "#fff4b0"]]) r(x + dx, dy, x + dx, dy, c);
+  }
+}
+function toolRack(r, x) {
+  r(x, 22, x + 8, 22, "#8a5f33");
+  for (const [dx, head] of [[1, "#9aa0a8"], [4, "#6b6f78"], [7, "#9aa0a8"]]) {
+    r(x + dx, 20, x + dx, 31, "#a8753f");
+    r(x + dx - 1, 19, x + dx + 1, 19, head);
+  }
+}
+function barrel(r, x, base) {
+  box(r, x, base - 7, x + 5, base, "#6b4a2f", "#4a3020");
+  r(x, base - 5, x + 5, base - 5, "#9aa0a8");
+  r(x, base - 2, x + 5, base - 2, "#9aa0a8");
+  r(x + 1, base - 7, x + 4, base - 7, "#5fa8d8");
+}
+function wheelbarrow(r, x, base, how) {
+  if (how === "tipped") {
+    r(x, base - 5, x + 8, base - 1, "#8a5a3a");
+    r(x + 1, base - 4, x + 7, base - 2, "#6b4a2f");
+    box(r, x + 9, base - 3, x + 11, base, "#2a2d33");
+    r(x - 4, base - 1, x, base, "#6b4a2f");
+    return;
+  }
+  box(r, x, base - 6, x + 10, base - 2, "#3f6fb5", "#2a4a80");
+  box(r, x + 3, base - 2, x + 6, base + 1, "#2a2d33");
+  r(x + 10, base - 3, x + 15, base - 1, "#8a5f33");
+  for (const dx of [1, 4, 7]) box(r, x + dx, base - 9, x + dx + 2, base - 7, "#e0782a", "#a8501a");
+}
+function greenhouse(r, x) {
+  box(r, x, 19, x + 38, 31, "#bfe6e0", "#7fa8a0");
+  for (let i = 0; i < 5; i++) r(x + 4 + i, 18 - i, x + 34 - i, 18 - i, i ? "#cfeee8" : "#7fa8a0");
+  r(x + 9, 13, x + 29, 13, "#7fa8a0");
+  for (let xx = x + 6; xx < x + 38; xx += 6) r(xx, 14, xx, 31, "#8fb8b0");
+  for (let xx = x + 2; xx < x + 37; xx += 3) r(xx, 27 - (xx % 2), xx, 30, "#4caf7d");
+  r(x + 2, 20, x + 5, 20, "#ffffff");
+}
+function tractor(r, x, base) {
+  box(r, x + 4, base - 9, x + 22, base - 4, "#c0392b", "#8a2a1e");
+  r(x + 5, base - 9, x + 21, base - 9, "#e0564a");
+  box(r, x + 14, base - 16, x + 22, base - 9, "#c0392b", "#8a2a1e");
+  r(x + 16, base - 14, x + 20, base - 11, "#a9d4ef");
+  r(x + 7, base - 14, x + 7, base - 10, "#3a3f48");
+  r(x + 6, base - 15, x + 8, base - 15, "#3a3f48");
+  box(r, x + 14, base - 8, x + 23, base, "#1d2026", "#0e1014");
+  r(x + 17, base - 5, x + 20, base - 3, "#f4d35e");
+  box(r, x + 1, base - 4, x + 7, base, "#1d2026", "#0e1014");
+  r(x + 3, base - 2, x + 5, base - 2, "#f4d35e");
+}
+
+// Ranch pieces.
+function trough(r, x, base, how) {
+  if (how === "tipped") {
+    box(r, x + 2, base - 7, x + 18, base - 3, "#8a5f33", "#5a3b24");
+    r(x + 3, base - 2, x + 17, base, "#5a3b24");
+    return;
+  }
+  box(r, x, base - 5, x + 20, base, "#8a5f33", "#5a3b24");
+  r(x + 1, base - 5, x + 19, base - 5, "#5fa8d8");
+  r(x + 3, base - 5, x + 6, base - 5, "#9fd0f0");
+}
+function coop(r, x, broken) {
+  box(r, x, 20, x + 20, 28, "#c9a36a", "#8a6a3f");
+  for (let i = 0; i < 4; i++) r(x - 1 + i, 19 - i, x + 21 - i, 19 - i, i ? "#b04a3a" : "#7a2e22");
+  for (const dx of [2, 18]) r(x + dx, 28, x + dx, 31, "#6b4a2f");
+  if (broken) {
+    r(x + 6, 16, x + 13, 21, "#2a2420");
+    r(x + 16, 23, x + 22, 26, "#2a2420");
+    return;
+  }
+  box(r, x + 8, 22, x + 12, 27, "#3a2a1e");
+  for (let i = 0; i < 5; i++) r(x + 12 + i * 2, 27 + i, x + 13 + i * 2, 27 + i, "#a8753f");
+}
+function hay(r, x) {
+  for (const [dx, dy] of [[0, 0], [11, 0], [5, -6]]) {
+    box(r, x + dx, 25 + dy, x + dx + 10, 31 + dy, "#e0b84a", "#a8843a");
+    r(x + dx + 1, 27 + dy, x + dx + 9, 27 + dy, "#c49a3a");
+    r(x + dx + 1, 29 + dy, x + dx + 9, 29 + dy, "#f0cf6a");
+  }
+}
+function pond(r, x) {
+  const rows = [[6, 24], [2, 28], [0, 30], [2, 28]];
+  rows.forEach(([a, b], i) => r(x + a, 27 + i, x + b, 27 + i, "#5fa8d8"));
+  r(x + 8, 28, x + 14, 28, "#9fd0f0");
+  for (const dx of [6, 18]) {
+    r(x + dx, 27, x + dx + 3, 28, "#f4f6f8");
+    r(x + dx + 3, 26, x + dx + 4, 26, "#f4f6f8");
+    r(x + dx + 5, 26, x + dx + 5, 26, "#f4a030");
+  }
+  for (const dx of [-2, 31]) r(x + dx, 25, x + dx, 30, "#4f8a3a");
+}
+function vane(r, x, y) {
+  r(x, y, x, y + 5, "#3a3f48");
+  r(x - 3, y + 1, x + 3, y + 1, "#3a3f48");
+  r(x + 1, y, x + 3, y, "#3a3f48");
+}
+function chicken(r, x, b) {
+  box(r, x, b - 3, x + 3, b - 1, "#f4f6f8", "#c9ccd2");
+  r(x + 3, b - 5, x + 4, b - 3, "#f4f6f8");
+  r(x + 4, b - 6, x + 4, b - 6, "#d64545");
+  r(x + 5, b - 4, x + 5, b - 4, "#f4a030");
+  r(x - 1, b - 4, x - 1, b - 3, "#e0e2e6");
+  r(x + 1, b, x + 2, b, "#f4a030");
+}
+function cow(r, x, b, coat) {
+  box(r, x, b - 9, x + 14, b - 3, coat, "#3a3f48");
+  r(x + 1, b - 8, x + 13, b - 8, lightOf(coat));
+  for (const [x0, y0, x1, y1] of [[x + 3, b - 8, x + 6, b - 6], [x + 9, b - 6, x + 12, b - 4]]) r(x0, y0, x1, y1, "#2a2d33");
+  box(r, x + 14, b - 11, x + 18, b - 6, coat, "#3a3f48");
+  r(x + 17, b - 8, x + 18, b - 6, "#e8a0a8");
+  r(x + 16, b - 10, x + 16, b - 10, "#1d2026");
+  r(x + 14, b - 12, x + 14, b - 12, "#e0d0b0");
+  r(x + 18, b - 12, x + 18, b - 12, "#e0d0b0");
+  for (const dx of [1, 3, 11, 13]) r(x + dx, b - 2, x + dx, b, "#3a3f48");
+  r(x + 7, b - 2, x + 8, b - 2, "#e8a0a8");
+  r(x - 1, b - 8, x - 1, b - 4, "#3a3f48");
+}
+function sheep(r, x, b) {
+  box(r, x, b - 6, x + 8, b - 2, "#f4f0e0", "#c9c2ad");
+  for (const dx of [1, 4, 7]) r(x + dx, b - 7, x + dx + 1, b - 7, "#f4f0e0");
+  box(r, x + 8, b - 7, x + 10, b - 4, "#3a3f48", "#2a2d33");
+  r(x + 9, b - 6, x + 9, b - 6, "#f4f6f8");
+  for (const dx of [1, 7]) r(x + dx, b - 1, x + dx, b, "#3a3f48");
+}
+function pig(r, x, b) {
+  box(r, x, b - 5, x + 9, b - 1, "#f0a0a8", "#c07078");
+  r(x + 1, b - 5, x + 8, b - 5, "#f8c0c6");
+  box(r, x + 9, b - 5, x + 12, b - 2, "#f0a0a8", "#c07078");
+  r(x + 12, b - 3, x + 13, b - 3, "#d07880");
+  r(x + 10, b - 4, x + 10, b - 4, "#1d2026");
+  r(x - 1, b - 5, x - 1, b - 4, "#d07880");
+  for (const dx of [1, 8]) r(x + dx, b, x + dx, b, "#c07078");
+  r(x + 2, b - 1, x + 6, b - 1, "#8a5a3a");
+}
+function horse(r, x, b) {
+  box(r, x, b - 12, x + 14, b - 7, "#8a5a33", "#5a3a20");
+  r(x + 1, b - 12, x + 13, b - 12, "#a8703f");
+  r(x + 12, b - 17, x + 15, b - 12, "#8a5a33");
+  box(r, x + 14, b - 18, x + 19, b - 14, "#8a5a33", "#5a3a20");
+  r(x + 18, b - 16, x + 19, b - 14, "#6b4424");
+  r(x + 16, b - 17, x + 16, b - 17, "#1d2026");
+  r(x + 11, b - 18, x + 13, b - 13, "#3a2618");
+  for (const dx of [1, 3, 11, 13]) r(x + dx, b - 6, x + dx, b, "#5a3a20");
+  r(x - 2, b - 12, x - 1, b - 6, "#3a2618");
+}
+
+// Scrapyard pieces.
+function chainFence(r) {
+  r(0, 13, WW - 1, 13, "#6b6f78");
+  for (let x = 0; x < WW; x += 2) for (let y = 14 + (x % 4 ? 1 : 0); y < 23; y += 2) r(x, y, x, y, "#8a909a");
+  for (let x = 0; x < WW; x += 24) r(x, 12, x, 23, "#5a5e66");
+  for (let x = 1; x < WW; x += 4) r(x, 11, x, 11, "#9aa0a8");
+}
+// A lumpy heap of scrap in 2x2 chunks of mixed metal, with a pipe, a tyre and a few painted
+// panels sticking out.
+function junkPile(r, x, w, h, c) {
+  const junk = [c, shadowOf(c), lightOf(c), "#6b6f78", "#5a524a", "#8a6a4a", "#9aa0a8", shadowOf(c)];
+  for (let dx = 0; dx <= w; dx += 2) {
+    const t = 1 - Math.abs(dx - w / 2) / (w / 2);
+    const top = Math.max(1, Math.round(h * Math.sqrt(t) + (hash01(x + dx, 31) - 0.5) * 3));
+    for (let dy = 0; dy < top; dy += 2) r(x + dx, 31 - dy - 1, x + dx + 1, 31 - dy, junk[Math.floor(hash01(x + dx, dy + 40) * junk.length)]);
+    r(x + dx, 31 - top, x + dx + 1, 31 - top, lightOf(junk[Math.floor(hash01(x + dx, 77) * junk.length)]));
+  }
+  const mid = x + Math.round(w / 2);
+  for (let i = 0; i < 6; i++) r(mid - 6 + i, 31 - h + 1 - Math.floor(i / 2), mid - 6 + i, 31 - h + 1 - Math.floor(i / 2), "#9aa0a8");
+  box(r, x + Math.round(w * 0.7), 26, x + Math.round(w * 0.7) + 5, 29, "#1d2026", "#0e1014");
+  for (const [f, dy, cc] of [[0.25, 3, "#b03030"], [0.55, Math.max(2, h - 4), "#3f6fb5"], [0.85, 2, "#c9a236"]]) r(x + Math.round(w * f), 31 - dy, x + Math.round(w * f) + 3, 31 - dy + 1, cc);
+}
+function wreck(r, x, base, c, burnt) {
+  box(r, x, base - 5, x + 26, base, c, shadowOf(c));
+  box(r, x + 6, base - 8, x + 19, base - 5, mix(c, "#1d2026", 0.35));
+  r(x + 8, base - 7, x + 17, base - 7, burnt ? "#1d2026" : "#8fb1c4");
+  for (const dx of [3, 19]) box(r, x + dx, base - 2, x + dx + 4, base, "#1d2026");
+  if (burnt) for (const [dx, dy] of [[4, 4], [12, 3], [20, 4], [9, 6]]) r(x + dx, base - dy, x + dx + 1, base - dy, "#8a4a2a");
+}
+function tyre(r, x, y) {
+  box(r, x, y - 2, x + 7, y, "#1d2026", "#0e1014");
+  r(x + 2, y - 1, x + 5, y - 1, "#3a3f48");
+}
+function drum(r, x, base, c) {
+  box(r, x, base - 8, x + 6, base, c, shadowOf(c));
+  r(x, base - 6, x + 6, base - 6, shadowOf(c));
+  r(x, base - 2, x + 6, base - 2, shadowOf(c));
+  r(x + 1, base - 7, x + 1, base - 1, lightOf(c));
+}
+function workbench(r, x) {
+  r(x, 23, x + 22, 24, "#8a5f33");
+  r(x, 23, x + 22, 23, "#a8753f");
+  for (const dx of [1, 20]) r(x + dx, 25, x + dx, 31, "#5a3b24");
+  r(x + 2, 29, x + 19, 29, "#5a3b24");
+  box(r, x + 3, 20, x + 7, 22, "#d64545", "#8a2a2a");
+  r(x + 11, 21, x + 16, 22, "#9aa0a8");
+  r(x + 18, 19, x + 18, 22, "#6b6f78");
+  r(x + 2, 14, x + 20, 14, "#5a3b24");
+  for (const [dx, h, c] of [[3, 3, "#9aa0a8"], [8, 4, "#6b6f78"], [13, 2, "#e0a536"], [17, 3, "#9aa0a8"]]) r(x + dx, 14 - h, x + dx, 13, c);
+}
+function container(r, x) {
+  box(r, x, 16, x + 40, 31, "#3f6f8f", "#2a4a60");
+  for (let xx = x + 3; xx < x + 40; xx += 3) r(xx, 17, xx, 30, "#35607c");
+  r(x, 16, x + 40, 16, "#5a8aaa");
+  for (const [dx, dy] of [[6, 20], [22, 26], [33, 18]]) r(x + dx, dy, x + dx + 3, dy + 1, "#8a5a3a");
+  r(x + 36, 19, x + 36, 28, "#1d2630");
+}
+function crane(r) {
+  r(404, 3, 406, 31, "#e0a536");
+  for (let y = 6; y < 31; y += 4) r(402, y, 408, y, "#c98a2a");
+  r(338, 3, 410, 4, "#e0a536");
+  for (let x = 340; x < 404; x += 6) r(x, 5, x + 2, 5, "#c98a2a");
+  box(r, 396, 6, 402, 11, "#3a3f48", "#1d2026");
+  r(350, 5, 350, 9, "#3a3f48");
+  box(r, 345, 10, 355, 12, "#3a3f48", "#1d2026");
+  box(r, 339, 13, 361, 17, "#b03030", "#7a2020");
+  box(r, 344, 11, 356, 13, "#8a2a2a");
+  for (const dx of [2, 17]) box(r, 339 + dx, 16, 339 + dx + 3, 18, "#1d2026");
+}
+function sign(r, x, broken) {
+  r(x + 2, 18, x + 3, 31, "#6b6f78");
+  box(r, x - 6, 12, x + 11, 18, broken ? "#8a8457" : "#f4d35e", "#3a3f48");
+  if (broken) r(x + 6, 12, x + 11, 14, mix("#a39c8f", "#6f7780", 0.5));
+  r(x - 4, 15, x + 7, 15, "#3a3f48");
+}
+function crusher(r, x) {
+  box(r, x, 12, x + 26, 31, "#6b7a8a", "#3a4450");
+  r(x + 1, 12, x + 25, 12, "#8a9aaa");
+  box(r, x + 4, 16, x + 22, 22, "#2a2d33", "#1d2026");
+  box(r, x + 6, 22, x + 20, 27, "#c9a236", "#8a6a1a");
+  for (let xx = x + 2; xx < x + 25; xx += 4) r(xx, 29, xx + 1, 29, "#f4d35e");
+  r(x + 12, 5, x + 14, 12, "#4a5460");
+  // crushed cubes stacked beside it
+  for (const [dx, dy, c] of [[28, 0, "#b03030"], [36, 0, "#3f6fb5"], [32, -7, "#9aa0a8"]]) {
+    box(r, x + dx, 24 + dy, x + dx + 7, 31 + dy, c, shadowOf(c));
+    r(x + dx + 2, 26 + dy, x + dx + 5, 26 + dy, lightOf(c));
+  }
+}
+function floodlight(r, x) {
+  r(x, 4, x + 1, 31, "#6b6f78");
+  box(r, x - 3, 2, x + 4, 5, "#f4d35e", "#c9a227");
+  r(x - 2, 3, x + 3, 3, "#fffbe8");
+  for (let i = 1; i < 5; i++) r(x - 3 - i, 5 + i, x + 4 + i, 5 + i, "#fff4b01a");
+}
+function forklift(r, x, base) {
+  box(r, x + 6, base - 9, x + 20, base - 3, "#e0a536", "#a8761a");
+  r(x + 12, base - 16, x + 12, base - 9, "#3a3f48");
+  r(x + 19, base - 16, x + 19, base - 9, "#3a3f48");
+  r(x + 12, base - 16, x + 19, base - 16, "#3a3f48");
+  r(x + 2, base - 14, x + 3, base - 1, "#3a3f48");
+  r(x - 3, base - 2, x + 3, base - 1, "#3a3f48");
+  box(r, x - 4, base - 8, x + 1, base - 3, "#8a6a4a", "#5a4430");
+  box(r, x + 6, base - 3, x + 10, base, "#1d2026");
+  box(r, x + 15, base - 3, x + 19, base, "#1d2026");
+}
 
 const sceneCache = new Map();
 
@@ -971,7 +1452,7 @@ export function sceneBackground(kind) {
       rects += `<rect x="${x0}" y="${y0}" width="${x1 - x0 + 1}" height="${y1 - y0 + 1}" fill="${c}"/>`;
     };
     (hi || HI_SCENES.classroom_empty)(r, Math.min(5, Math.max(1, Number(lvText) || 5)));
-    const [w, h] = [HW, HH];
+    const [w, h] = [SCENE_WIDTH[name] || HW, HH];
     const svg = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
     sceneCache.set(kind, `url('data:image/svg+xml,${encodeURIComponent(svg)}')`);
   }
