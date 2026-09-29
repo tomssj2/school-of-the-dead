@@ -164,6 +164,21 @@ export function setNight(state, day = 8) {
   return `Night ${day}: ${G.nightCondition(state).name}, ${fighters.length} on watch`;
 }
 
+// What can follow a won night: "assault" (the horde falls back and can be chased — tonight's
+// defenders make the squad) or "farm" / "scrapyard" (a raid on that facility).
+export function forceFollowUp(state, kind = "assault") {
+  state.turn = 3;
+  if (kind === "assault") {
+    state.pendingRaid = null;
+    state.pendingAssault = true;
+    return `The horde is falling back — ${G.assaultCandidates(state).length} can chase it`;
+  }
+  state.pendingAssault = false;
+  state.pendingRaid = { facility: kind };
+  state.raidDefenders = [];
+  return `A raid on the ${kind}`;
+}
+
 // Clears the Radio Station's boards and builds its first `stage` upgrades for free (5 = satellite
 // communications, which sends for the helicopter).
 export function buildRadio(state, stage = 5) {

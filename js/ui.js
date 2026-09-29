@@ -9,13 +9,14 @@ import {
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, roomMaxLevel, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -233,16 +234,6 @@ function statChips(c) {
   </div>`;
 }
 
-// Bolds whichever of STR/DEX is higher — used in the compact defender-picking lists (Night
-// Watch, facility raids) that only show these two combat stats, not the full statChips().
-function strDexLabel(c) {
-  const str = c.grades.PE;
-  const dex = c.grades.Gymnastics;
-  const max = Math.max(str, dex);
-  const strHtml = str === max ? `<b class="stat-top">STR ${str}</b>` : `STR ${str}`;
-  const dexHtml = dex === max ? `<b class="stat-top">DEX ${dex}</b>` : `DEX ${dex}`;
-  return `${strHtml} ${dexHtml}`;
-}
 
 // Letter grade (+ the flat bonus a teacher's grade gives students while teaching), used
 // wherever a teacher is being assigned to a post.
@@ -1288,6 +1279,7 @@ export function renderRaidModal(state, landmarkId) {
 export function renderRaidFight(state, anim) {
   const { report } = anim;
   const lm = LANDMARKS.find((l) => l.id === report.landmarkId);
+  const chase = report.kind === "chase"; // the squad running down the horde's leader, out on the street
   const frame = report.frames[anim.frameIndex];
   const hitIds = new Map(frame.hits.map((h) => [h.id, h]));
   const members = report.memberIds
@@ -1313,9 +1305,9 @@ export function renderRaidFight(state, anim) {
     ...Object.entries(report.loot).map(([k, v]) => `<span>${RESOURCE_ICON[k]} +${v}</span>`),
   ];
   return `<div class="modal-overlay raid-overlay">
-    <div class="raid-stage">
-      <div class="raid-title">☠ Raid — ${esc(lm.name)}</div>
-      <div class="raid-arena">
+    <div class="raid-stage ${chase ? "raid-chase" : ""}">
+      <div class="raid-title">${chase ? esc(report.title) : `☠ Raid — ${esc(lm.name)}`}</div>
+      <div class="raid-arena" ${chase ? `style="background-image:${courtyardBackground(ENTRANCE_GRID_SIZE)}"` : ""}>
         <div class="raid-squad">${members}</div>
         <div class="raid-boss ${frame.enraged ? "raid-boss-enraged" : ""} ${frame.dealt ? "raid-boss-hit" : ""} ${frame.bossHp <= 0 ? "raid-boss-dead" : ""}">
           ${frame.dealt ? `<span class="raid-float raid-float-good">-${frame.dealt}</span>` : ""}
@@ -1672,31 +1664,7 @@ export function renderBattleAnimation(state, anim) {
     </div>`;
   }
 
-  // kind === "assault" — the squad (whoever defended tonight) chasing the horde's leader
-  if (anim.phase === "clash") {
-    const squad = state.characters.filter((c) => c.defending && c.alive);
-    const shown = squad.slice(0, 4);
-    const extra = squad.length - shown.length;
-    const sprites = shown.map((c) => `<div class="fight-combatant fight-scout">${characterSprite(c, 72)}</div>`).join("");
-    return `
-    <div class="modal-overlay fight-overlay">
-      <div class="fight-scene battle-lineup">
-        <div class="battle-side">${sprites || '<div class="fight-combatant fight-scout">🧍</div>'}${extra > 0 ? `<div class="battle-extra">+${extra}</div>` : ""}</div>
-        <div class="fight-impact">💥</div>
-        <div class="fight-combatant fight-zombie">🧟‍♂️</div>
-      </div>
-      <div class="fight-caption">The squad chases the horde's leader into the dark…</div>
-    </div>`;
-  }
-
-  const won = anim.summary.won;
-  return `
-  <div class="modal-overlay fight-overlay">
-    <div class="fight-result ${won ? "fight-win" : "fight-lose"}">
-      <div class="fight-result-icon">${won ? "🏆" : "💨"}</div>
-      <div class="fight-result-text">${won ? "Struck it rich!" : "The chase came up empty."}</div>
-    </div>
-  </div>`;
+  return "";
 }
 
 export function renderMissionModal(state, locationId) {
@@ -1820,42 +1788,100 @@ function renderTurn3Overview(state) {
 // A won main battle can peel off part of the horde toward one of the outside facilities — this
 // replaces the normal Night Watch panel until it's resolved, since it's the same slot in the
 // turn flow (there's no skipping past it; it *is* what advancing the day now requires).
+// A won night can send part of the horde after the Farm or the Scrapyard: its banner overrun,
+// students picked with chips to go and drive them off, and the odds.
 function renderFacilityRaidPanel(state) {
   const facility = state.pendingRaid.facility;
   const available = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
-  const rows = available
+  const defenders = available.filter((c) => state.raidDefenders.includes(c.id));
+  const pct = Math.round(facilityRaidChance(state, defenders) * 100);
+  const chips = available
+    .sort((a, b) => (b.grades.PE + b.grades.Gymnastics) - (a.grades.PE + a.grades.Gymnastics))
     .map((c) => {
-      const checked = state.raidDefenders.includes(c.id) ? "checked" : "";
-      return `<label class="check-row">
-        <input type="checkbox" data-action="toggle-raid-defender" data-id="${c.id}" ${checked}/>
-        ${nameTag(c)} — ${strDexLabel(c)} ${statusTag(c)}
-      </label>`;
+      const on = state.raidDefenders.includes(c.id);
+      return `<button class="nw-chip ${on ? "nw-chip-on" : ""} ${c.injured ? "nw-chip-hurt" : ""}" data-action="raid-defender-toggle" data-id="${c.id}" title="${esc(c.name)} — ${on ? "click to leave them home" : "click to send them"}">
+        <span class="nw-chip-sprite">${characterSprite(c, 22)}</span>
+        <span class="nw-chip-name">${esc(shortName(c))}</span>
+        <span class="nw-chip-stats">💪${effectiveGrade(state, c, "PE")} 🤸${effectiveGrade(state, c, "Gymnastics")}</span>
+        <span class="nw-chip-gear">${on ? "✓" : ""}</span>
+      </button>`;
     })
     .join("");
-
+  const raiders = ["walker", "runner", "walker", "brute", "walker"].map((t, i) => `<span class="fr-raider" style="--i:${i}">${hordeSprite(t, 34)}</span>`).join("");
   return `
-  <div class="card">
-    <h2>${FACILITY_ICON[facility]} The ${FACILITY_LABEL[facility]} is Under Attack!</h2>
-    <p>While the entrance held, part of the horde broke off toward the ${FACILITY_LABEL[facility]}. Send students to
-    defend it before the night is over — high STR/DEX repels them.</p>
-    <div class="mini-label">Assign defenders (${state.raidDefenders.length})</div>
-    <div class="check-list">${rows || '<p class="muted">Nobody available.</p>'}</div>
-    <button class="btn btn-primary btn-big" data-action="resolve-raid">⚔ Repel the Raid &amp; Advance to Next Day</button>
+  <div class="card fr-card">
+    <div class="room-scene fr-banner" style="background-image:${sceneBackground(`${facility}@${roomLevel(state, facility)}`)}">
+      <div class="fr-raiders">${raiders}</div>
+      <div class="scene-top"><div class="scene-plaque">${FACILITY_ICON[facility]} The ${FACILITY_LABEL[facility]} is under attack!</div></div>
+    </div>
+    <div class="stat-row farm-pill">
+      <span class="stat-pill">🧟 Part of the horde broke off ${infoDot({ title: "🧟 A raid on the " + FACILITY_LABEL[facility], notes: ["Strong (STR) and quick (DEX) students drive them off", "If they get through, a worker slot is broken until it's repaired", ...(facility === "farm" ? ["…and every field and pen starts over"] : [])] })}</span>
+      <span class="${pct >= 60 ? "farm-ready-ok" : pct >= 35 ? "farm-ready-short" : "plot-warn"}"><b>${pct}%</b> to drive them off</span>
+      <span class="mini-label">Sending (${defenders.length})</span>
+    </div>
+    <div class="nw-roster fr-roster">${chips || '<p class="muted">Nobody available.</p>'}</div>
+    <button class="btn btn-primary btn-big" data-action="resolve-raid">⚔ Drive them off</button>
   </div>`;
 }
 
-// The Assault popup — shown automatically (see main.js render()) whenever state.pendingAssault
-// is true. Resolves immediately on "Chase" using whoever defended that night, no team-picker.
-export function renderAssaultModal() {
+// The street at night, the horde's stragglers shuffling off and their leader turning to face the
+// school — the banner of the chase pop-up and the Assault tab.
+function assaultBanner(state, title) {
+  const leader = assaultLeader(state);
+  const stragglers = ["walker", "runner", "walker", "walker"].map((t, i) => `<span class="as-straggler" style="--i:${i}">${hordeSprite(t, 30)}</span>`).join("");
+  return `<div class="as-banner" style="background-image:${courtyardBackground(ENTRANCE_GRID_SIZE)}">
+    <div class="as-stragglers">${stragglers}</div>
+    <span class="as-leader-sprite">${zombieSprite(leader.look, 64)}</span>
+    <div class="scene-plaque as-plaque">${title}</div>
+  </div>`;
+}
+
+// The Assault pop-up — shown (main.js render()) whenever state.pendingAssault is true: who
+// chases the horde (tonight's defenders still standing, picked with chips), how the fight
+// against its leader might go, and what's in it.
+export function renderAssaultModal(state, pick) {
+  const leader = assaultLeader(state);
+  const candidates = assaultCandidates(state);
+  const squad = candidates.filter((c) => pick.has(c.id));
+  const chips = candidates.map((c) => {
+    const role = defenderRole(state, c);
+    return `<button class="nw-chip ${pick.has(c.id) ? "nw-chip-on" : ""}" data-action="assault-toggle" data-id="${c.id}" title="${esc(c.name)} — HP ${c.hp}/${c.maxHp}${pick.has(c.id) ? " · click to leave them home" : " · click to take them"}">
+      <span class="nw-chip-sprite">${characterSprite(c, 22)}</span>
+      <span class="nw-chip-name">${role.icon} ${esc(shortName(c))}</span>
+      <span class="nw-chip-stats">❤ ${c.hp}/${c.maxHp}</span>
+      <span class="nw-chip-gear">${pick.has(c.id) ? "✓" : ""}</span>
+    </button>`;
+  }).join("");
+  let verdict = `<div class="mission-success mission-bad">Pick who goes.</div>`;
+  if (squad.length) {
+    const est = assaultEstimate(state, squad);
+    const cls = est.rounds <= RAID_MAX_ROUNDS * 0.7 ? "mission-good" : est.rounds <= RAID_MAX_ROUNDS ? "mission-ok" : "mission-bad";
+    const say = est.rounds <= RAID_MAX_ROUNDS * 0.7 ? "should bring it down" : est.rounds <= RAID_MAX_ROUNDS ? "a close fight" : "not enough firepower";
+    verdict = `<div class="mission-success ${cls}" ${tipAttr({
+      title: `⚔ ${squad.length} against ${esc(leader.name)}`,
+      rows: [["Damage a round", `~${est.perRound}`], [`${esc(leader.name)}'s HP`, `${leader.hp}`]],
+      total: ["Rounds to bring it down", `${est.rounds === Infinity ? "∞" : est.rounds} of ${RAID_MAX_ROUNDS}`],
+      notes: ["Anyone who goes down is dragged back by the others — hurt, but alive"],
+    })}>~${est.perRound} a round → ${est.rounds === Infinity ? "∞" : est.rounds} of ${RAID_MAX_ROUNDS} rounds: <b>${say}</b></div>`;
+  }
   return `
-  <div class="modal-overlay" data-action="assault-decline">
-    <div class="char-card mission-card" data-action="noop">
-      <h3>⚔ The Horde is Retreating</h3>
-      <p class="muted">Your squad broke the attack and the horde is falling back. Chase them down for a chance at
-      extra loot, XP, and — if you're lucky — a legendary survivor? Whoever defended tonight will make the run.</p>
+  <div class="modal-overlay" data-action="noop">
+    <div class="char-card mission-card as-card" data-action="noop">
+      ${assaultBanner(state, "⚔ The horde is falling back")}
+      <div class="as-leader">
+        <b>☠ ${esc(leader.name)}</b>
+        <span class="raid-boss-stats"><span>❤ ${leader.hp} HP</span><span>⚔ ${leader.damage} × ${leader.attacks} a round</span><span>⏱ ${RAID_MAX_ROUNDS} rounds</span></span>
+      </div>
+      <div class="raid-rewards">
+        <span>🍞 🔧 💊 ${ASSAULT_LOOT[0]}–${ASSAULT_LOOT[1]} each</span>
+        <span class="legend-text">🙋 ${Math.round(LEGENDARY_CHANCE * 100)}% legendary survivor</span>
+      </div>
+      <div class="mini-label">The squad (${squad.length}) — tonight's defenders still standing</div>
+      <div class="nw-roster as-squad">${chips || '<p class="muted">Nobody is fit to go.</p>'}</div>
+      ${verdict}
       <div class="row-actions">
         <button class="btn btn-sm" data-action="assault-decline">🏠 Let them go</button>
-        <button class="btn btn-primary" data-action="assault-chase">⚔ Chase the horde</button>
+        <button class="btn btn-primary" data-action="assault-chase" ${squad.length ? "" : "disabled"}>⚔ Chase them (${squad.length})</button>
       </div>
     </div>
   </div>`;
@@ -2907,11 +2933,22 @@ export function renderDefenseTab(state) {
   </div>`;
 }
 
+// The Assault tab: when the horde can be chased, and who leads it tonight.
 export function renderAssaultTab(state) {
-  if (state.pendingAssault) {
-    return renderComingSoon("⚔", "Assault", "The horde is retreating and there may be time to chase them down — answer the popup on screen.");
-  }
-  return renderComingSoon("⚔", "Assault", "Winning a battle has a 20% chance to open a chance to chase the horde for a boss fight — extra loot, XP, and a shot at a legendary survivor.");
+  const leader = assaultLeader(state);
+  return `
+  <div class="card as-page">
+    ${assaultBanner(state, `⚔ Assault ${infoDot({
+      title: "⚔ Chasing the horde",
+      rows: [["After a night the entrance holds", `${Math.round(ASSAULT_CHANCE * 100)}% chance`], ["Loot from its trail", `🍞 🔧 💊 ${ASSAULT_LOOT[0]}–${ASSAULT_LOOT[1]} each`], ["Legendary survivor", `${Math.round(LEGENDARY_CHANCE * 100)}%`]],
+      notes: ["Tonight's defenders still standing can run down its leader", "Anyone who goes down is dragged back — hurt, but alive"],
+    })}`)}
+    <div class="as-leader">
+      <b>☠ Tonight's leader: ${esc(leader.name)}</b>
+      <span class="raid-boss-stats"><span>❤ ${leader.hp} HP</span><span>⚔ ${leader.damage} × ${leader.attacks} a round</span><span>⏱ ${RAID_MAX_ROUNDS} rounds</span></span>
+    </div>
+    <p class="muted as-note">${state.pendingAssault ? "The horde is falling back right now — pick the squad in the pop-up." : "If the entrance holds tonight, the horde may fall back — and you can chase it down."}</p>
+  </div>`;
 }
 
 export function renderEventTab(state) {

@@ -6,7 +6,7 @@ import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
-import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight } from "./dev.js";
+import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
@@ -55,6 +55,7 @@ let expeditionReport = null; // { summary, phase: "travel" | "report" } at the e
 let openUpgrade = null; // room key whose Upgrade popup is open
 let openMenu = false; // the Cafeteria's menu pop-up
 let openQuarantine = false; // the Nurse's Office quarantine pop-up
+let assaultPick = null; // Set of ids picked to chase the retreating horde (all of tonight's defenders at first)
 let openPlot = null; // { kind: a crop or animal (PRODUCERS id), index } of the Farm slot being looked at
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
@@ -591,7 +592,7 @@ function render() {
     : openPlot
     ? renderPlotModal(state, openPlot.kind, openPlot.index)
     : state.pendingAssault
-    ? renderAssaultModal()
+    ? renderAssaultModal(state, assaultPick || (assaultPick = new Set(G.assaultCandidates(state).map((c) => c.id))))
     : "";
   // The page never scrolls — the content area does — so keep it where it was within the same tab.
   const contentScroll = sameTab ? root.querySelector(".content")?.scrollTop || 0 : 0;
@@ -1069,28 +1070,28 @@ root.addEventListener("click", (e) => {
       G.resolveFacilityRaid(state);
       render();
       break;
-    case "assault-chase": {
-      const result = G.resolveAssault(state, true);
-      if (!result) {
-        render();
-        break;
-      }
-      battleAnimation = { kind: "assault", summary: result, phase: "clash" };
-      playHit();
+    case "assault-toggle": {
+      // who runs the horde down: tonight's defenders still standing, all of them unless unpicked
+      const id = el.dataset.id;
+      if (assaultPick.has(id)) assaultPick.delete(id);
+      else assaultPick.add(id);
       render();
-      setTimeout(() => {
-        battleAnimation.phase = "result";
-        (result.won ? playSuccess : playFail)();
-        render();
-        setTimeout(() => {
-          battleAnimation = null;
-          render();
-        }, 1200);
-      }, 1300);
+      break;
+    }
+    case "assault-chase": {
+      const report = G.resolveAssault(state, true, [...assaultPick]);
+      assaultPick = null;
+      if (!report?.chased && report?.frames) playRaidFight(report, () => render());
+      else render();
       break;
     }
     case "assault-decline":
       G.resolveAssault(state, false);
+      assaultPick = null;
+      render();
+      break;
+    case "raid-defender-toggle":
+      G.setRaidDefender(state, el.dataset.id, !state.raidDefenders.includes(el.dataset.id));
       render();
       break;
     case "site-auto": {
@@ -1765,6 +1766,15 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
     night(day) {
       if (!beforeMax) beforeMax = JSON.stringify(state);
       const summary = setNight(state, day);
+      activeTab = "overview";
+      render();
+      return summary;
+    },
+    // schoolDev.followUp("assault" | "farm" | "scrapyard"): a chase or a facility raid, as after a won night.
+    followUp(kind) {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      const summary = forceFollowUp(state, kind);
+      assaultPick = null;
       activeTab = "overview";
       render();
       return summary;

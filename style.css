@@ -2248,6 +2248,45 @@ button.ex-team:hover { border-color: var(--team); }
   border: 1px solid #5a2430;
   box-shadow: 0 0 40px rgba(214, 69, 69, 0.25);
 }
+/* The chase: the same arena, out on the street at night (the Night Watch art, street end). */
+.raid-chase .raid-arena { background-size: 100% auto; background-position: center bottom; image-rendering: pixelated; box-shadow: inset 0 0 60px rgba(4, 6, 16, 0.7); }
+.raid-chase { border-color: #4a3a5a; box-shadow: 0 0 40px rgba(120, 90, 200, 0.2); }
+
+/* The chase pop-up and the Assault tab: the street banner with the horde's stragglers shuffling
+   off and their leader turning back. */
+.as-card { max-width: 560px; }
+.as-banner {
+  position: relative;
+  height: 130px;
+  margin: -22px -22px 10px;
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+  background-size: 100% auto;
+  background-position: center bottom;
+  image-rendering: pixelated;
+  box-shadow: inset 0 -30px 40px rgba(4, 6, 16, 0.6);
+}
+.as-page .as-banner { margin: -12px -12px 10px; border-radius: 7px 7px 0 0; }
+.as-plaque { position: absolute; top: 8px; left: 8px; }
+.as-stragglers { position: absolute; left: 12%; bottom: 10px; display: flex; gap: 10px; opacity: 0.55; filter: brightness(0.7); }
+.as-straggler { transform: scaleX(-1); animation: as-shuffle 1.2s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -0.3s); }
+.as-straggler svg { display: block; }
+@keyframes as-shuffle { to { translate: 0 -3px; } }
+.as-leader-sprite { position: absolute; right: 14%; bottom: 6px; filter: drop-shadow(0 0 10px rgba(214, 69, 69, 0.7)); }
+.as-leader-sprite svg { display: block; }
+.as-leader { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.as-leader .raid-boss-stats { margin: 0; }
+.as-squad { grid-template-columns: repeat(3, 1fr); max-height: 170px; margin-bottom: 8px; }
+.as-squad .nw-chip, .fr-roster .nw-chip { font: inherit; font-size: 11.5px; color: inherit; text-align: left; cursor: pointer; }
+.as-note { margin: 4px 0 0; }
+
+/* A facility raid: its banner overrun, and the students picked with chips. */
+.fr-banner { position: relative; }
+.fr-raiders { position: absolute; right: 8%; bottom: 4px; display: flex; gap: 8px; }
+.fr-raider { animation: as-shuffle 0.9s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -0.25s); filter: drop-shadow(0 0 4px rgba(214, 69, 69, 0.6)); }
+.fr-raider svg { display: block; }
+.fr-roster { grid-template-columns: repeat(4, 1fr); max-height: 260px; margin: 6px 0; }
+
 .raid-title { margin-bottom: 10px; padding: 0 64px; text-align: center; font-weight: 800; letter-spacing: 0.5px; color: #ff9a9a; }
 .raid-arena {
   display: flex;
@@ -2456,6 +2495,8 @@ html[data-gfx="medium"] .fslot-ready,
 html[data-gfx="medium"] .nw-ghost,
 html[data-gfx="medium"] .nw-zombie svg,
 html[data-gfx="medium"] .nw-cells::before,
+html[data-gfx="medium"] .as-straggler,
+html[data-gfx="medium"] .fr-raider,
 html[data-gfx="medium"] .hex-nest .hex-tile::after,
 html[data-gfx="medium"] .exp-walker svg,
 html[data-gfx="medium"] .upg-pip-next,

@@ -1973,11 +1973,7 @@ export function resolveFacilityRaid(state) {
   const raid = state.pendingRaid;
   if (!raid) return;
   const defenders = state.raidDefenders.map((id) => getChar(state, id)).filter((c) => c && c.alive);
-  const power = defenders.length
-    ? defenders.reduce((sum, c) => sum + (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2, 0) / defenders.length
-    : 0;
-  const successChance = clamp01(0.25 + (power - 40) / 100) * (defenders.length ? 1 : 0.1);
-  const success = Math.random() < successChance;
+  const success = Math.random() < facilityRaidChance(state, defenders);
   const room = state.rooms[raid.facility];
 
   if (success) {
@@ -2029,49 +2025,93 @@ function addLegendaryRecruit(state) {
   return recruit;
 }
 
-export function resolveAssault(state, chase) {
+// The horde's leader, run down when the squad chases the retreating horde: a big zombie that
+// grows with the nights (a different one each night).
+const PACK_LEADERS = [
+  { name: "The Pack Leader", look: "jersey" },
+  { name: "The Howler", look: "walker" },
+  { name: "Old Stitches", look: "labcoat" },
+  { name: "The Sergeant", look: "soldier" },
+];
+export function assaultLeader(state) {
+  const z = zombieStatsForDay(state.day);
+  const who = PACK_LEADERS[state.day % PACK_LEADERS.length];
+  return { ...who, hp: Math.round(z.hp * 5), damage: Math.round(z.damage * 1.4), attacks: 2 };
+}
+export const ASSAULT_LOOT = [15, 35]; // food, scrap and medicine each, from the horde's trail
+
+// Who can go: tonight's defenders still on their feet.
+export const assaultCandidates = (state) => state.characters.filter((c) => c.defending && c.alive && !c.infection && c.role === "student");
+
+// Roughly how the chase would go with this squad (the raid screen's estimate, against the leader).
+export function assaultEstimate(state, squad) {
+  const leader = assaultLeader(state);
+  const lead = squad.length ? squadModifiers(state, squad).damageDealt : 1;
+  const perRound = squad.reduce((sum, c) => {
+    const a = raidAttack(state, c);
+    return sum + a.damage * a.hitChance * 1.12 * lead;
+  }, 0);
+  return { leader, perRound: Math.round(perRound), rounds: perRound ? Math.ceil(leader.hp / perRound) : Infinity };
+}
+
+// Chase the retreating horde (or let it go). The squad fights the pack leader round by round;
+// bring it down for a haul from the horde's trail and maybe a legendary survivor. Anyone who goes
+// down is dragged back by the others — hurt, but alive. Returns the fight to replay.
+export function resolveAssault(state, chase, squadIds = null) {
   if (!state.pendingAssault) return null;
   state.pendingAssault = false;
-  if (!chase) {
+  const candidates = assaultCandidates(state);
+  const squad = squadIds ? candidates.filter((c) => squadIds.includes(c.id)) : candidates;
+  if (!chase || !squad.length) {
     addLog(state, `You let the horde go and secured the school for the night.`);
     advanceTurn(state);
     return { chased: false, won: null };
   }
 
-  const squad = state.characters.filter((c) => c.defending && c.alive);
-  const power = squad.length
-    ? squad.reduce((sum, c) => sum + (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2, 0) / squad.length
-    : 0;
-  const successChance = clamp01(0.3 + (power - 45) / 100) * (squad.length ? 1 : 0.1);
-  const success = Math.random() < successChance;
-
-  if (success) {
-    for (const key of ["food", "materials", "medicine"]) {
-      const amt = randInt(15, 35);
-      state.resources[key] += amt;
+  const leader = assaultLeader(state);
+  const sim = simulateBossFight(state, leader, squad);
+  const report = {
+    kind: "chase", title: `⚔ The chase — ${leader.name}`, bossName: leader.name, look: leader.look, bossMaxHp: leader.hp,
+    won: sim.won, frames: sim.frames, memberIds: squad.map((c) => c.id), loot: {}, items: [], recruit: null, hurt: [], lost: [],
+  };
+  for (const f of sim.fighters) {
+    const c = getChar(state, f.id);
+    if (f.down) {
+      c.hp = Math.max(1, Math.round(c.maxHp * 0.1));
+      c.injured = true;
+      report.hurt.push(`${c.name} went down and was dragged back`);
+    } else {
+      c.hp = Math.max(1, f.hp);
+      c.injured = c.hp < c.maxHp * 0.5;
     }
-    for (const c of squad) grantXp(state, c.id, "PE", 4 + randInt(0, 3));
-    gainExpAll(state, squad, LEVEL_XP.raid);
-    addLog(state, `The squad ran down the horde's leader and looted its trail — a big haul.`);
-
+    grantXp(state, c.id, "PE", 4 + randInt(0, 3));
+    gainExp(state, c, LEVEL_XP.raid);
+  }
+  if (sim.won) {
+    for (const key of ["food", "materials", "medicine"]) {
+      const amt = randInt(ASSAULT_LOOT[0], ASSAULT_LOOT[1]);
+      state.resources[key] += amt;
+      report.loot[key] = amt;
+    }
+    addLog(state, `The squad ran down ${leader.name} and looted the horde's trail — a big haul.`);
     if (Math.random() < LEGENDARY_CHANCE) {
       const recruit = addLegendaryRecruit(state);
+      report.recruit = recruit.name;
       addLog(state, `Among the dead, a survivor: ${recruit.name} wants to join the school.`);
     }
   } else {
-    for (const c of squad) {
-      if (Math.random() < 0.4) {
-        const dmg = randInt(10, 30);
-        c.hp = Math.max(1, c.hp - dmg);
-        c.injured = c.hp < c.maxHp * 0.5;
-        addLog(state, `${c.name} was hurt chasing the horde (-${dmg} HP).`);
-      }
-    }
-    addLog(state, `The chase went badly — the squad pulled back empty-handed.`);
+    addLog(state, `${leader.name} was too much — the squad pulled back empty-handed.`);
   }
-
   advanceTurn(state);
-  return { chased: true, won: success };
+  return report;
+}
+
+// A facility raid's odds with these defenders (see resolveFacilityRaid).
+export function facilityRaidChance(state, defenders) {
+  const power = defenders.length
+    ? defenders.reduce((sum, c) => sum + (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2, 0) / defenders.length
+    : 0;
+  return clamp01(0.25 + (power - 40) / 100) * (defenders.length ? 1 : 0.1);
 }
 
 // ---------- turn advance / reset ----------
@@ -2827,7 +2867,12 @@ export function raidEstimate(state, landmark, squad) {
 }
 
 function simulateRaid(state, landmark, squad) {
-  const boss = raidBoss(state, landmark);
+  return simulateBossFight(state, raidBoss(state, landmark), squad);
+}
+
+// A squad against one big zombie, round by round (up to RAID_MAX_ROUNDS): a raid boss, or the
+// pack leader the squad runs down when chasing the horde. Half-dead, it goes berserk.
+function simulateBossFight(state, boss, squad) {
   let bossHp = boss.hp;
   let enraged = false;
   const fighters = squad.map((c) => ({ id: c.id, hp: c.hp, maxHp: c.maxHp, down: false, ...raidAttack(state, c) }));
