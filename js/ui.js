@@ -1946,6 +1946,30 @@ function studentBusyLabel(c, exceptFlag) {
   return null;
 }
 
+// A student in a class or training session: what today's `lesson` adds to its stat (`value`, their
+// grade, is what recommendations rank by), or `maxed` when there's nothing left to learn there.
+function lessonEntry(c, reason, lesson) {
+  if (reason || !lesson.subject) return { c, reason };
+  const stat = STAT_OF_SUBJECT[lesson.subject];
+  const now = c.grades[lesson.subject];
+  const gain = Math.max(0, Math.min(lesson.gain, lesson.ceiling - now, 100 - now));
+  if (!gain) {
+    return { c, maxed: `${stat}: MAX`, maxedWhy: now >= 100 ? `${stat} is already 100` : `${stat} ${now} — the teacher here can't take them past ${lesson.ceiling}` };
+  }
+  return { c, value: now, hint: `<span class="pk-gain" title="What they'd learn here today">${stat} ${now} → <b>${now + gain}</b></span>` };
+}
+
+// A student resting or healing: their HP / stamina now → after tonight (out of their max), or
+// `maxed` when the bar is full. Whoever gets the most back is recommended (then the emptiest bar).
+function recoveryEntry(c, reason, icon, label, now, max, gain) {
+  if (reason) return { c, reason };
+  if (now >= max) return { c, maxed: `${label}: MAX`, maxedWhy: `${label} is already full` };
+  return {
+    c, value: -gain + now / max,
+    hint: `<span class="pk-gain" title="${label} after tonight">${icon} ${now} → <b>${now + gain}</b><span class="muted">/${max}</span></span>`,
+  };
+}
+
 function resolvePickerCandidates(state, picker) {
   const { kind, roomId, postKey } = picker;
   const teacherRow = (c, exceptPost) => ({ c, reason: teacherBusyLabel(state, c, exceptPost) });
@@ -1957,12 +1981,16 @@ function resolvePickerCandidates(state, picker) {
         role: "teacher", title: `Assign a ${GYM_SIDES[postKey].room} Coach`,
         list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== `gym:${postKey}`).map((c) => teacherRow(c, `gym:${postKey}`)),
       };
-    case "gym-student":
+    case "gym-student": {
+      // taught like a class: up to the coach's grade (or NO_TEACHER_CAP without one)
+      const lesson = gymLesson(state, postKey);
       return {
         role: "student", title: `Send a Student to ${GYM_SIDES[postKey].ref}`,
+        focus: STAT_OF_SUBJECT[postKey],
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.gymToday !== postKey)
-          .map((c) => studentRow(c, "gymToday")),
+          .map((c) => lessonEntry(c, studentBusyLabel(c, "gymToday"), lesson)),
       };
+    }
     case "cafeteria-teacher":
       return {
         role: "teacher", title: "Assign a Cook",
@@ -1973,12 +2001,18 @@ function resolvePickerCandidates(state, picker) {
         role: "teacher", title: "Assign a Nurse",
         list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "infirmary").map((c) => teacherRow(c, "infirmary")),
       };
-    case "infirmary-student":
+    case "infirmary-student": {
+      // the next patient is treated if tonight's medicine still covers one more, else bed rest
+      const patients = state.characters.filter((x) => x.alive && x.infirmaryToday).length;
+      const treated = Math.floor(state.resources.medicine / INFIRMARY_MEDICINE_PER_PATIENT) > patients;
       return {
         role: "student", title: "Send a Student to the Nurse",
+        recToggle: false, recLabel: "the most hurt",
+        empty: treated ? null : `Not enough medicine for another treatment — they'd only get bed rest (+${INFIRMARY_BED_REST} HP).`,
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.infirmaryToday)
-          .map((c) => studentRow(c, "infirmaryToday", (c) => (c.hp >= c.maxHp ? "Already at full HP" : null))),
+          .map((c) => recoveryEntry(c, studentBusyLabel(c, "infirmaryToday"), "❤", "HP", c.hp, c.maxHp, healAmount(state, c, treated))),
       };
+    }
     case "research-student":
       return {
         role: "student", title: "Send a Student to the Research Room",
@@ -2003,8 +2037,9 @@ function resolvePickerCandidates(state, picker) {
     case "cafeteria-rest":
       return {
         role: "student", title: "Send a Student to Rest",
+        recToggle: false, recLabel: "the most worn out",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.restToday)
-          .map((c) => studentRow(c, "restToday", (c) => (c.stamina >= c.maxStamina ? "Already fully rested" : null))),
+          .map((c) => recoveryEntry(c, studentBusyLabel(c, "restToday"), "⚡", "Stamina", c.stamina, c.maxStamina, Math.min(cafeteriaRest(state), c.maxStamina - c.stamina))),
       };
     case "classroom-teacher": {
       const post = `classroom:${roomId}`;
@@ -2016,28 +2051,14 @@ function resolvePickerCandidates(state, picker) {
     }
     case "classroom-seat": {
       // What each student would learn here today: the room's subject, up to its teacher's grade.
-      // `value` (their grade) is what recommendations rank by; anyone with nothing left to learn
-      // here is `maxed`. A room with no teacher teaches nothing.
+      // A room with no teacher teaches nothing.
       const lesson = classroomLesson(state, roomId);
-      const stat = lesson.subject ? STAT_OF_SUBJECT[lesson.subject] : null;
       return {
         role: "student", title: `Assign a Seat — ${roomDisplayName(state, roomId)}`,
-        focus: stat,
+        focus: lesson.subject ? STAT_OF_SUBJECT[lesson.subject] : null,
         empty: lesson.subject ? null : "No teacher here yet — the room teaches nothing until one is posted, so there's no recommendation.",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection)
-          .map((c) => {
-            const reason = c.seat ? `Seated in ${roomDisplayName(state, c.seat.room)}` : null;
-            if (!lesson.subject || reason) return { c, reason };
-            const now = c.grades[lesson.subject];
-            const gain = Math.max(0, Math.min(lesson.gain, lesson.ceiling - now, 100 - now));
-            if (!gain) {
-              return {
-                c, maxed: `${stat}: MAX`,
-                maxedWhy: now >= 100 ? `${stat} is already 100` : `${stat} ${now} — this room's teacher can't take them past ${lesson.ceiling}`,
-              };
-            }
-            return { c, value: now, hint: `<span class="pk-gain" title="What they'd learn here today">${stat} ${now} → <b>${now + gain}</b></span>` };
-          }),
+          .map((c) => lessonEntry(c, c.seat ? `Seated in ${roomDisplayName(state, c.seat.room)}` : null, lesson)),
       };
     }
     case "utility":
@@ -2092,7 +2113,8 @@ function pickerRow({ c, reason, note, hint, maxed, maxedWhy }, role, focus, reco
 }
 
 export function renderPickerModal(state, picker, sortKey, sortDir, recMode = "low") {
-  const { role, title, list, focus = null, empty = null } = resolvePickerCandidates(state, picker);
+  const { role, title, list, focus = null, empty = null, recToggle = true, recLabel = null } = resolvePickerCandidates(state, picker);
+  if (!recToggle) recMode = "low"; // recovery pickers: always whoever needs it most
   const fields = role === "student" ? STUDENT_SORT_FIELDS : TEACHER_SORT_FIELDS;
   const effectiveSortKey = fields.some((f) => f.key === sortKey) ? sortKey : fields[0].key;
 
@@ -2113,7 +2135,7 @@ export function renderPickerModal(state, picker, sortKey, sortDir, recMode = "lo
   const rest = sorted.filter((x) => !recommended.includes(x));
 
   const sortOptions = fields.map((f) => `<option value="${f.key}" ${f.key === effectiveSortKey ? "selected" : ""}>${f.label}</option>`).join("");
-  const recToggle = `<div class="subtabs pk-rec-toggle">
+  const recToggleHtml = `<div class="subtabs pk-rec-toggle">
     ${[["low", `Lowest ${focus}`, `The weakest in ${focus} first — they have the most to learn`], ["high", `Highest ${focus}`, `The strongest in ${focus} first — push a specialist further`]]
       .map(([mode, label, why]) => `<button class="subtab-btn ${recMode === mode ? "active" : ""}" data-action="set-picker-rec" data-mode="${mode}" title="${why}">${label}</button>`).join("")}
   </div>`;
@@ -2125,8 +2147,8 @@ export function renderPickerModal(state, picker, sortKey, sortDir, recMode = "lo
       <h3>${esc(title)}</h3>
       ${empty ? `<div class="mission-success mission-ok">${esc(empty)}</div>` : ""}
       ${recommended.length ? `<div class="pk-group-row">
-          <span class="mini-label pk-group">⭐ Recommended — ${recMode === "high" ? `the strongest in ${focus}` : `the weakest in ${focus}, most to learn`}</span>
-          ${recToggle}
+          <span class="mini-label pk-group">⭐ Recommended — ${recLabel || (recMode === "high" ? `the strongest in ${focus}` : `the weakest in ${focus}, most to learn`)}</span>
+          ${recToggle ? recToggleHtml : ""}
         </div>
         <div class="check-list picker-list pk-rec-list">${recommended.map((x) => pickerRow(x, role, focus, true)).join("")}</div>` : ""}
       <div class="picker-sort-row">
