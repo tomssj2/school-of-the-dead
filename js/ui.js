@@ -871,8 +871,9 @@ function renderObjectiveBanner(state) {
 }
 
 // One room at a glance on the Turn 1 dashboard: a strip of its pixel art with its name, the one
-// number that matters today, how full it is, a short line, and its notes — what's wrong in orange
-// ("bad"), what could be done right now in green ("tip"). Clicking it goes to the room's floor.
+// number that matters today, how full it is, a short line, and its warnings in orange — what's
+// wrong ("bad", ⚠, first), then what could be done right now ("tip"). Clicking it goes to the
+// room's floor.
 function overviewCard({ tab, scene, name, level = "", big, unit = "", used = null, cap = null, meta = "", notes = [], locked = false }) {
   const pct = cap ? Math.round((Math.min(used, cap) / cap) * 100) : 0;
   const shown = notes.filter(Boolean).sort((a, b) => (a[0] === "bad" ? 0 : 1) - (b[0] === "bad" ? 0 : 1));
@@ -988,7 +989,7 @@ function renderTurn1Overview(state) {
 
   return `
   <div class="card">
-    <h2>Turn 1 — Classes Summary ${infoDot({ title: "📚 Turn 1 — Classes Summary", notes: ["Classrooms raise their subject every day, up to the teacher's grade", "The Gymnasium raises STR, Acrobatics DEX", "Resting and healing happen now too", "Orange: something's wrong · green: something you could do now", "Click a room to go to it"] })}</h2>
+    <h2>Turn 1 — Classes Summary ${infoDot({ title: "📚 Turn 1 — Classes Summary", notes: ["Classrooms raise their subject every day, up to the teacher's grade", "The Gymnasium raises STR, Acrobatics DEX", "Resting and healing happen now too", "Orange: something needs you — ⚠ a problem, or something you could do now","Click a room to go to it"] })}</h2>
     <div class="ov-chips">${lazyPill}</div>
     <div class="mini-label ov-section">Classrooms</div>
     <div class="ov-grid">${classrooms}</div>
