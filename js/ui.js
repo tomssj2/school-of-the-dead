@@ -1925,14 +1925,29 @@ function renderGridBattle(state, anim) {
       }
       if (e.hit) hurt.add(`${tr},${tc}`);
       if (e.crit) shake = Math.max(shake, 1);
+      // a weak spot or armour shows under the number
+      const tag = e.weak ? `<em class="nw-tag-weak">weak spot</em>` : e.resist ? `<em class="nw-tag-resist">armour</em>` : "";
       fx += e.crit
-        ? pop(tr, tc, "nw-pop-crit", `<small>${e.ability === "scout" ? "HEADSHOT!" : "CRIT!"}</small>-${e.dmg}`)
-        : pop(tr, tc, e.hit ? (e.dmg >= 20 || e.ability ? "nw-pop-heavy" : "") : "nw-pop-miss", e.hit ? `-${e.dmg}` : "miss");
-    } else if (e.type === "bite" || e.type === "spit") {
+        ? pop(tr, tc, "nw-pop-crit", `<small>${e.ability === "scout" ? "HEADSHOT!" : "CRIT!"}</small>-${e.dmg}${tag}`)
+        : pop(tr, tc, e.hit ? (e.dmg >= 20 || e.ability ? "nw-pop-heavy" : "") : "nw-pop-miss", e.hit ? `-${e.dmg}${tag}` : e.evaded ? "slipped it" : "miss");
+    } else if (e.type === "bite" || e.type === "spit" || e.type === "smash") {
       if (e.type === "spit") fx += `<span class="nw-shot nw-spit" style="--r0:${r0};--c0:${c0};--r1:${e.to[0]};--c1:${e.to[1]}"></span>`;
       if (e.hit) hurt.add(`${e.to[0]},${e.to[1]}`);
-      if (e.hit && e.dmg >= 15) shake = Math.max(shake, 1);
-      fx += pop(e.to[0], e.to[1], `nw-pop-bad ${e.hit ? "" : "nw-pop-miss"}`, e.hit ? `${e.type === "spit" ? "🤮" : ""}-${e.dmg}` : e.dodged ? "dodge" : "miss");
+      if (e.hit && (e.dmg >= 15 || e.type === "smash")) shake = Math.max(shake, e.type === "smash" ? 2 : 1);
+      fx += pop(e.to[0], e.to[1], `nw-pop-bad ${e.type === "smash" ? "nw-pop-smash" : ""} ${e.hit ? "" : "nw-pop-miss"}`,
+        e.hit ? `${e.type === "spit" ? "🤮" : e.type === "smash" ? "💥" : ""}-${e.dmg}` : e.dodged ? "dodge" : "miss");
+    } else if (e.type === "slam") {
+      fx += `<span class="nw-slam" ${at(e.at[0], e.at[1])}></span>`;
+      shake = 2;
+    } else if (e.type === "telegraph") {
+      fx += pop(e.from[0], e.from[1], "nw-pop-warn", "winding up!");
+    } else if (e.type === "interrupt") {
+      fx += pop(e.at[0], e.at[1], "nw-pop-note nw-pop-interrupt", "interrupted!");
+    } else if (e.type === "enrage") {
+      banner = `<div class="nw-banner nw-banner-boss">☠ ${esc(summary.bossName || "The boss")} goes berserk!</div>`;
+      shake = 2;
+    } else if (e.type === "summon") {
+      fx += pop(e.at[0], e.at[1], "nw-pop-bad", "+🧟");
     } else if (e.type === "kill") {
       const type = e.ztype || zombieAtPrev(e.at[0], e.at[1])?.type || (e.boss ? "boss" : "walker");
       fx += `<div class="nw-unit nw-corpse" ${at(e.at[0], e.at[1])}>${hordeSprite(type, 36)}</div>`;
@@ -2026,9 +2041,14 @@ function renderGridBattle(state, anim) {
   for (const z of frame.zombies) {
     const p = prevZombies.get(z.id);
     const T = ZOMBIE_TYPES[z.type] || ZOMBIE_TYPES.walker;
-    units += `<div class="nw-unit nw-zombie nw-z-${z.type} ${hurt.has(`${z.row},${z.col}`) ? "nw-flash" : ""} ${z.id === focusId ? "nw-focused" : ""}" ${at(z.row, z.col, `--pr:${p ? p.row : z.row + 1};--pc:${p ? p.col : z.col};`)} title="${T.name} · ${Math.max(0, z.hp)}/${z.maxHp} HP">
+    units += `<div class="nw-unit nw-zombie nw-z-${z.type} ${hurt.has(`${z.row},${z.col}`) ? "nw-flash" : ""} ${z.id === focusId ? "nw-focused" : ""} ${z.windup ? "nw-winding" : ""} ${z.enraged ? "nw-enraged" : ""}" ${at(z.row, z.col, `--pr:${p ? p.row : z.row + 1};--pc:${p ? p.col : z.col};`)} ${tipAttr({
+      title: `${T.badge || "🧟"} ${T.name}${z.enraged ? " · berserk" : ""}`, rows: [["HP", `${Math.max(0, z.hp)}/${z.maxHp}`]],
+      notes: [esc(T.desc), ...(z.windup ? ["⚠ Winding up a smash — hit it with an ability, a crit or fire to break it"] : [])],
+    })}>
       ${hordeSprite(z.type, 36)}${bar(z.hp, z.maxHp, "nw-hp-zombie")}
     </div>`;
+    // the square it's about to smash
+    if (z.windup) units += `<div class="nw-cell nw-telegraph" ${at(z.windup.row, z.windup.col)}><span>⚠ Smash</span></div>`;
   }
   // aiming a night action: every square is a button
   let aimCells = "";

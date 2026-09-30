@@ -1224,6 +1224,31 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
   75% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
   100% { opacity: 0; transform: translate(-20%, -50%) skewX(10deg); }
 }
+/* ----- smarter zombies ----- */
+.nw-pop em { display: block; font-style: normal; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.nw-tag-weak { color: #9ff0a9; }
+.nw-tag-resist { color: #b8c4d8; }
+.nw-pop-warn { color: #ffb35c; font-size: 12px; }
+.nw-pop-interrupt { color: #9fe6ff; font-weight: 800; }
+.nw-pop-smash { font-size: 20px; }
+/* a wind-up: the zombie rears up, glowing red; the square it'll smash pulses a warning */
+.nw-winding svg { animation: nw-windup 0.5s ease-in-out infinite alternate !important; filter: drop-shadow(0 0 8px rgba(255, 60, 40, 1)); }
+@keyframes nw-windup { from { transform: translateY(0) scale(1); } to { transform: translateY(-6px) scale(1.12, 1.08); } }
+.nw-telegraph { z-index: 14; align-items: flex-start; background: repeating-linear-gradient(45deg, rgba(255, 60, 40, 0.28) 0 6px, rgba(255, 60, 40, 0.12) 6px 12px); border: 2px solid rgba(255, 90, 60, 0.95); animation: nw-telegraph 0.5s ease-in-out infinite alternate; pointer-events: none; }
+.nw-telegraph span { margin-top: 2px; padding: 0 5px; border-radius: 4px; background: rgba(120, 10, 10, 0.9); color: #fff; font-size: 11px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; }
+@keyframes nw-telegraph { from { box-shadow: inset 0 0 6px rgba(255, 60, 40, 0.6); } to { box-shadow: inset 0 0 22px rgba(255, 60, 40, 1); } }
+/* the smash landing: a shockwave on the square */
+.nw-slam {
+  position: absolute; z-index: 18; pointer-events: none;
+  left: calc((var(--c) + 0.5) * 32px * var(--px)); top: calc((var(--r) + 0.6) * 20px * var(--px));
+  width: calc(2 * 32px * var(--px)); height: calc(1.2 * 20px * var(--px)); transform: translate(-50%, -50%);
+  border-radius: 50%; border: 5px solid rgba(255, 140, 60, 0.95); box-shadow: 0 0 20px rgba(255, 90, 40, 0.9);
+  animation: nw-wave 0.5s ease-out forwards;
+}
+/* the boss gone berserk */
+.nw-enraged svg { filter: drop-shadow(0 0 10px rgba(255, 30, 30, 1)) saturate(1.6) !important; }
+.nw-z-boss.nw-enraged::after { content: "😡"; position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 16px; animation: hm-bob 0.4s ease-in-out infinite alternate; }
+
 /* ----- abilities ----- */
 /* the charge under a defender's HP (a blue "other" bar), glowing when it's full */
 .nw-charge { display: block; width: 38px; height: 3px; margin-top: 1px; border-radius: 2px; overflow: hidden; background: rgba(0, 0, 0, 0.65); }

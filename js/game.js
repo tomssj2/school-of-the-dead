@@ -17,7 +17,7 @@ import {
   ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
   NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, BATTLE_ABILITIES, ABILITY_CHARGE, DEFENDER_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
-  zombieStatsForDay, ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
+  zombieStatsForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay,
   RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
@@ -1612,7 +1612,7 @@ function battleSnapshot(b, events) {
   return {
     tick: b.tick,
     events,
-    zombies: b.zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp })),
+    zombies: b.zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp, windup: z.windup ? { ...z.windup } : null, enraged: !!z.enraged })),
     students: b.students.map((s) => ({ id: s.id, row: s.row, col: s.col, hp: Math.max(0, s.hp), maxHp: s.maxHp, downed: s.downed, role: s.role, ability: s.ability, charge: s.charge, inspired: s.inspired })),
     structures: Object.values(b.structures).map((st) => ({ key: st.key, id: st.def.id, hp: st.hp, maxHp: st.maxHp, destroyed: st.destroyed })),
     gate: { ...b.gate },
@@ -1759,20 +1759,30 @@ export function battleTick(state, b) {
     if (useMelee) s.usedMelee = true;
     else s.usedRanged = true;
     const dark = b.condition.id === "blackout" && !b.lamps.includes(s.col) ? 0.15 : 0;
-    const hit = Math.random() < s.hitChance - dark;
+    // its type fights back: a runner slips melee blows, armour shrugs off shots, a weak spot doesn't
+    const T = ZOMBIE_TYPES[target.type];
+    const evaded = useMelee && T.meleeEvade && Math.random() < T.meleeEvade;
+    const hit = !evaded && Math.random() < s.hitChance - dark;
     const crit = hit && Math.random() < s.critChance;
+    const typeMult = useMelee ? 1 : T.rangedMult || 1;
     const desperate = b.lastStand && s.hp < s.maxHp * 0.25 ? 2 : 1;
     const dmg = hit
-      ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * desperate * rallied * inspired * b.squad.damageDealt * (0.85 + Math.random() * 0.3) * (crit ? BATTLE_CRIT.mult : 1)))
+      ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * typeMult * desperate * rallied * inspired * b.squad.damageDealt * (0.85 + Math.random() * 0.3) * (crit ? BATTLE_CRIT.mult : 1)))
       : 0;
     target.hp -= dmg;
     if (hit) chargeAbility(s, ABILITY_CHARGE.perHit, events);
-    events.push({ type: "attack", from: [s.row, s.col], to: [target.row, target.col], zid: target.id, dmg, hit, crit, kind: useMelee ? "melee" : "ranged", icon: weapon.icon });
+    events.push({ type: "attack", from: [s.row, s.col], to: [target.row, target.col], zid: target.id, dmg, hit, crit, evaded, weak: hit && typeMult > 1, resist: hit && typeMult < 1, kind: useMelee ? "melee" : "ranged", icon: weapon.icon });
+    // a critical hit breaks a wind-up
+    if (crit && target.windup && target.hp > 0) {
+      target.windup = null;
+      events.push({ type: "interrupt", at: [target.row, target.col] });
+    }
     if (target.hp <= 0) {
       s.kills++;
       killZombie(b, target, events);
     }
   }
+  checkEnrage(b, events);
 
   // 3. the horde advances, front-most first so the ones behind can step up
   const hurtStudent = (z, s, dmgBase, type) => {
@@ -1840,9 +1850,24 @@ export function battleTick(state, b) {
       z.snagged = false;
       continue;
     }
+    // a wound-up heavy brings its smash down on the marked square — whoever's still standing there
+    if (z.windup) {
+      const w = z.windup;
+      z.windup = null;
+      events.push({ type: "slam", at: [w.row, w.col], from: [z.row, z.col] });
+      const victim = studentAt(b, w.row, w.col);
+      if (victim) hurtStudent(z, victim, z.dmg * ZOMBIE_SMASH.mult, "smash");
+      continue;
+    }
     const adjacentTo = () => b.students.filter((s) => !s.downed && chebyshev(s, z) <= 1).sort((a, c) => (a.col === z.col ? 0 : 1) - (c.col === z.col ? 0 : 1));
     const adjacent = adjacentTo();
     if (adjacent.length) {
+      // a heavy may wind up instead: the square's marked, and it smashes next turn
+      if (T.heavy && Math.random() < ZOMBIE_SMASH.chance) {
+        z.windup = { row: adjacent[0].row, col: adjacent[0].col };
+        events.push({ type: "telegraph", at: [adjacent[0].row, adjacent[0].col], from: [z.row, z.col] });
+        continue;
+      }
       hurtStudent(z, adjacent[0], z.dmg, "bite");
       continue;
     }
@@ -1888,6 +1913,27 @@ export function battleTick(state, b) {
   return frame;
 }
 
+// The boss at half health goes berserk: it hits harder and calls walkers in behind it.
+function checkEnrage(b, events) {
+  for (const z of b.zombies) {
+    if (!z.alive || z.enraged || !ZOMBIE_TYPES[z.type].enrages || z.hp > z.maxHp / 2) continue;
+    z.enraged = true;
+    z.dmg = Math.round(z.dmg * ZOMBIE_SMASH.enrageDmg);
+    events.push({ type: "enrage", at: [z.row, z.col] });
+    for (let n = 0; n < ZOMBIE_SMASH.summons; n++) {
+      const free = [];
+      for (let col = 0; col < b.size; col++) if (!zombieAt(b, b.size - 1, col)) free.push(col);
+      if (!free.length) break;
+      const col = pick(free);
+      const hp = Math.round(b.zStats.hp);
+      b.zombies.push({ id: b.spawned + 1, type: "walker", row: b.size - 1, col, hp, maxHp: hp, dmg: Math.max(1, Math.round(b.zStats.damage)), alive: true, snagged: false });
+      b.spawned++;
+      b.toSpawn++;
+      events.push({ type: "summon", at: [b.size - 1, col] });
+    }
+  }
+}
+
 // ----- abilities (BATTLE_ABILITIES) -----
 // Charges a defender's ability; a "ready" event when it fills up.
 function chargeAbility(s, amount, events) {
@@ -1919,8 +1965,11 @@ function fireAbility(state, b, s, events) {
   const a = BATTLE_ABILITIES[s.ability];
   s.charge = 0;
   events.push({ type: "ability", ability: s.ability, at: [s.row, s.col], id: s.id });
-  const hitZombie = (z, dmg, kind, crit) => {
+  const hitZombie = (z, baseDmg, kind, crit) => {
+    const typeMult = kind === "ranged" ? ZOMBIE_TYPES[z.type].rangedMult || 1 : 1;
+    const dmg = Math.max(1, Math.round(baseDmg * typeMult));
     z.hp -= dmg;
+    if (z.windup && z.hp > 0) events.push({ type: "interrupt", at: [z.row, z.col] });
     z.windup = null; // a heavy blow breaks a wind-up
     events.push({ type: "attack", from: [s.row, s.col], to: [z.row, z.col], zid: z.id, dmg, hit: true, crit, kind, ability: s.ability });
     if (z.hp <= 0) {
@@ -1955,6 +2004,7 @@ function fireAbility(state, b, s, events) {
       events.push({ type: "heal", at: [x.row, x.col], amount: heal, inspire: true });
     }
   }
+  checkEnrage(b, events);
   return true;
 }
 // The player clicks a charged defender: their ability goes off at once, in a frame of its own.
@@ -2010,8 +2060,11 @@ export function battleAction(state, b, actionId, row, col) {
     for (const z of b.zombies.filter((z) => z.alive && chebyshev(z, { row, col }) <= 1)) {
       z.hp -= dmg;
       events.push({ type: "burn", at: [z.row, z.col], dmg });
+      if (z.windup && z.hp > 0) events.push({ type: "interrupt", at: [z.row, z.col] });
+      z.windup = null; // fire breaks a wind-up
       if (z.hp <= 0) killZombie(b, z, events);
     }
+    checkEnrage(b, events);
   } else if (actionId === "focus") {
     const z = zombieAt(b, row, col);
     if (!z) return false;

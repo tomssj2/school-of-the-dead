@@ -277,13 +277,20 @@ export function zombieStatsForDay(day) {
 // Multipliers are applied to zombieStatsForDay. `speed` = rows moved per turn, `wallMult` scales
 // damage to walls, `spitRange` lets it attack a defender from that many squares away instead of
 // closing in, `unsnaggable` ignores razor wire.
+// How each fights back: `meleeEvade` (a share of melee blows it slips), `rangedMult` (how much
+// ranged hits hurt it: under 1 armoured, over 1 a weak spot), `heavy` (winds up smashes — see
+// ZOMBIE_SMASH), `enrages` (the boss's second phase).
 export const ZOMBIE_TYPES = {
   walker: { name: "Walker", badge: "", hpMult: 1, dmgMult: 1, from: 1, desc: "Slow and relentless." },
-  runner: { name: "Runner", badge: "💨", hpMult: 0.6, dmgMult: 0.8, speed: 2, from: 4, desc: "Covers two rows a turn, but goes down easy." },
-  brute: { name: "Brute", badge: "💪", hpMult: 2, dmgMult: 1.5, wallMult: 2, from: 7, desc: "Soaks up hits and smashes walls twice as fast." },
-  spitter: { name: "Spitter", badge: "🤮", hpMult: 0.8, dmgMult: 0.7, spitRange: 3, from: 10, desc: "Spits acid at defenders up to 3 squares away." },
-  boss: { name: "Boss", badge: "👑", hpMult: 5, dmgMult: 2, wallMult: 3, unsnaggable: true, from: 5, desc: "Leads the horde every 5th night. Brings a hoard worth taking." },
+  runner: { name: "Runner", badge: "💨", hpMult: 0.6, dmgMult: 0.8, speed: 2, meleeEvade: 0.3, from: 4, desc: "Covers two rows a turn and slips 30% of melee blows — shoot it." },
+  brute: { name: "Brute", badge: "💪", hpMult: 2, dmgMult: 1.5, wallMult: 2, rangedMult: 0.6, heavy: true, from: 7, desc: "Armoured: ranged hits do 40% less — get up close. Winds up heavy smashes and breaks walls fast." },
+  spitter: { name: "Spitter", badge: "🤮", hpMult: 0.8, dmgMult: 0.7, spitRange: 3, rangedMult: 1.5, from: 10, desc: "Spits acid up to 3 squares away, but ranged hits do 50% more." },
+  boss: { name: "Boss", badge: "👑", hpMult: 5, dmgMult: 2, wallMult: 3, unsnaggable: true, rangedMult: 0.8, heavy: true, enrages: true, from: 5, desc: "Leads the horde every 5th night. Winds up smashes; at half health goes berserk and calls for help." },
 };
+// A heavy zombie next to a defender may wind up (`chance` a turn): the square is marked, and next
+// turn it smashes for `mult`× — unless an ability, a crit, a knockback or fire breaks it first.
+// The boss at half health: `enrageDmg`× damage, and `summons` walkers at the back.
+export const ZOMBIE_SMASH = { chance: 0.5, mult: 2.5, enrageDmg: 1.5, summons: 2 };
 
 // ===== The Night Watch, fought live =====
 // The horde comes in waves (1 up to 6 zombies, 2 up to 14, 3 beyond), with a break between them
