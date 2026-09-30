@@ -56,8 +56,8 @@ export const STAT_TUNING = {
   hpBase: 40,
   hpPerCon: 0.8, // max HP = 40 + CON × 0.8 + STR × 0.4 (+ Gym training)
   hpPerStr: 0.4,
-  staminaPerDex: 1.2, // max stamina = DEX × 1.2 + WIS × 0.8 (+ Gym training): 20 at level 1, ~90 for
-  staminaPerWis: 0.8, // a typical new student, 200 with both maxed
+  staminaPerDex: 1.2, // max stamina = DEX × 1.2 + WIS × 0.8 (+ Gym training): ~65 for a typical new
+  staminaPerWis: 0.8, // student, 200 with both maxed
   staminaMin: 10,
   carryPerStr: 1 / 250, // expedition food & scrap × (0.8 + avg STR / 250): ×1.0 at 50, ×1.2 at 100
   yieldStrStep: 25, // +1 Farm food / Scrapyard scrap per worker for every 25 STR
@@ -100,8 +100,10 @@ export const GRADE_RANGES = {
   S: [95, 100],
 };
 
-// Spawn-roll weights for students, parallel to GRADE_TIERS (F..S).
-export const STUDENT_TIER_WEIGHTS = [40, 28, 18, 9, 4, 1];
+// Spawn-roll weights for students, parallel to GRADE_TIERS (F..S): a new student is mostly F and D
+// with the odd C — B and up only through a talent (which bumps its subject a tier). That's ~32 a
+// stat on average, ~54 in their best, ~80 HP and ~65 stamina: weak at first, grown in class.
+export const STUDENT_TIER_WEIGHTS = [70, 25, 5, 0, 0, 0];
 
 // Teachers are generated completely differently from students: they roll ONE specialty subject
 // at A rank (only legendary teachers reach S), and their other five subjects are randomized among
@@ -762,9 +764,9 @@ export const EXPLORE_TEAMWORK_BONUS = 0.05;
 // How hard a place is: the team power it needs grows with every block from the school (the
 // nearest places are 3 out), give or take its own difficulty (1-5, around 3). A team with exactly
 // that power succeeds EXPEDITION_ODDS_AT_NEED of the time, ±1% per EXPEDITION_POWER_PER_PERCENT.
-// A new school's best five come to ~780 power with teamwork: about 88% / 63% / 30% / 9% at 3 / 4 /
-// 5 / 6 blocks out (a careless or short-handed team, far less); a maxed team (~1200) takes the far
-// side of town at ~85%.
+// A new school's best five come to ~570 power with teamwork: about 46% / 19% / 5% / 5% at 3 / 4 /
+// 5 / 6 blocks out, so the town opens up as students grow in class (a trained ~780 team: 88% / 63%
+// / 30% / 9%); a maxed team (~1200) takes the far side of town at ~85%.
 export const EXPEDITION_NEED = { base: 630, perBlock: 120, perDifficulty: 30, nearest: 3 };
 export const EXPEDITION_ODDS_AT_NEED = 0.55;
 export const EXPEDITION_POWER_PER_PERCENT = 5;

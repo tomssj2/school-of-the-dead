@@ -218,7 +218,7 @@ export function conOf(grades) {
 }
 
 // Max stamina is built like max HP: mostly DEX, partly WIS (Gymnastics + History), plus Gym
-// training — about 20 for a level-1 student.
+// training — about 65 for a new student.
 export function maxStaminaFor(c) {
   const fromStats = Math.round(c.grades.Gymnastics * STAT_TUNING.staminaPerDex + c.grades.History * STAT_TUNING.staminaPerWis);
   return Math.max(STAT_TUNING.staminaMin, fromStats) + (c.trainedStamina || 0);
