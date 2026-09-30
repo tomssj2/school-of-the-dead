@@ -492,9 +492,10 @@ button.ov-chip { font: inherit; font-size: 12px; cursor: pointer; }
 .ov-chip-bad:hover { background: rgba(255, 159, 67, 0.16); }
 .ov-chip-ok { color: #7fd18b; border-color: rgba(127, 209, 139, 0.35); }
 .ov-section { margin: 14px 0 7px; }
-/* the summary's top row: title | lazy pill (centred) | warnings counter */
+/* the summary's top row: lazy pill | title (centred) | warnings counter */
 .ov-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
-.ov-head h2 { margin: 0; }
+.ov-head h2 { margin: 0; display: flex; align-items: center; gap: 6px; }
+.ov-head-left { justify-self: start; }
 .ov-head-right { justify-self: end; }
 .ov-warn-dd { position: relative; }
 .ov-warn-btn {

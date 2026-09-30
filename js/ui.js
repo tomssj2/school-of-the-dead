@@ -1059,8 +1059,8 @@ function renderTurn1Overview(state) {
   return `
   <div class="card">
     <div class="ov-head">
-      <h2>Turn 1 — Classes Summary ${infoDot({ title: "📚 Turn 1 — Classes Summary", notes: ["Classrooms raise their subject every day, up to the teacher's grade", "The Gymnasium raises STR, Acrobatics DEX", "Resting and healing happen now too", "Orange: something needs you — ⚠ a problem, or something you could do now", "Choose which warnings to show from the counter on the right", "Click a room to go to it"] })}</h2>
-      <div class="ov-head-mid">${lazyPill}</div>
+      <div class="ov-head-left">${lazyPill}</div>
+      <h2>Classes Summary ${infoDot({ title: "📚 Turn 1 — Classes Summary", notes: ["Classrooms raise their subject every day, up to the teacher's grade", "The Gymnasium raises STR, Acrobatics DEX", "Resting and healing happen now too", "Orange: something needs you — ⚠ a problem, or something you could do now", "Choose which warnings to show from the counter on the right", "Click a room to go to it"] })}</h2>
       <div class="ov-head-right">${renderWarningCounter(all)}</div>
     </div>
     <div class="mini-label ov-section">Classrooms</div>
