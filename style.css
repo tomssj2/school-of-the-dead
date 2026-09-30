@@ -1920,6 +1920,29 @@ button.ex-team:hover { border-color: var(--team); }
 .picker-row-disabled { opacity: 0.5; }
 .picker-row-disabled .picker-row-main { cursor: default; }
 
+/* A picker row: portrait | name, level and stats | Assign */
+.mission-card.picker-card { width: 620px; max-width: 92vw; }
+.pk-row { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; padding: 6px 4px; }
+.pk-portrait {
+  display: grid; place-items: center; width: 44px; height: 44px; overflow: hidden;
+  border-radius: 6px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border);
+}
+.pk-mid { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pk-name { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.pk-mid .stat-chips { margin: 0; }
+.pk-action { display: flex; justify-content: flex-end; width: 110px; }
+.pk-action .tag { white-space: normal; text-align: center; }
+.pk-action .btn { min-width: 84px; }
+.pk-gain { margin-left: auto; font-size: 12px; color: #7fd18b; white-space: nowrap; }
+.pk-gain b { color: #9ff0a9; }
+.pk-gain-none { color: var(--muted); }
+.chip.chip-focus { border-color: #7fd18b; color: #9ff0a9; }
+.chip.chip-focus.chip-specialty { color: #f4c430; }
+.pk-group { margin: 10px 0 4px; color: #f4c430; }
+/* both lists pad and reserve the scrollbar's gutter the same way, so their columns line up */
+.picker-card .picker-list { padding: 0 6px; border: 1px solid transparent; border-radius: 8px; scrollbar-gutter: stable; }
+.picker-card .pk-rec-list { border-color: rgba(244, 196, 48, 0.35); background: rgba(244, 196, 48, 0.05); max-height: none; }
+
 /* ---------- Scout fight animation ---------- */
 
 .fight-overlay { flex-direction: column; gap: 22px; background: rgba(0, 0, 0, 0.82); }
