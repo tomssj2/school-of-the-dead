@@ -638,8 +638,29 @@ Object.assign(HI_SCENES, {
       r(x + 1, y + 1, x + 2, y + 2, "#c9a227");
       r(x, y + 3, x + 3, y + 3, "#c9a227");
     }
+    // the Headmaster in his big leather chair behind the desk (he'll hand out missions): a grey,
+    // balding head with glasses and a moustache over a dark suit, white shirt and red tie
+    box(r, 85, 4, 101, 21, "#6e1f28", "#4a1218");
+    r(86, 5, 100, 5, "#8a2c36");
+    for (const x of [87, 93, 99]) r(x, 6, x, 6, "#c9a227");
+    box(r, 86, 15, 100, 21, "#2c3140", "#1c2029");
+    r(92, 15, 94, 19, "#f4f6f8");
+    r(93, 16, 93, 21, "#b03030");
+    r(90, 16, 91, 18, "#3a4052");
+    r(95, 16, 96, 18, "#3a4052");
+    box(r, 90, 7, 96, 14, "#e8b894", "#c48f6a");
+    r(90, 7, 96, 7, "#c4c8d0");
+    r(89, 8, 89, 11, "#b8bcc4");
+    r(97, 8, 97, 11, "#b8bcc4");
+    r(91, 10, 92, 10, "#1d2026");
+    r(94, 10, 95, 10, "#1d2026");
+    r(93, 10, 93, 10, "#5a5f68");
+    r(92, 12, 94, 12, "#c4c8d0");
     // the headmaster's desk with a lamp, a globe and papers
     box(r, 66, 22, 132, 31, "#5a3620", "#3a2414");
+    // his hands folded on it
+    r(89, 22, 91, 22, "#e8b894");
+    r(95, 22, 97, 22, "#e8b894");
     r(66, 22, 132, 22, "#a8753f");
     box(r, 93, 25, 105, 29, "#c9a227", "#8a6a1a");
     r(72, 16, 72, 21, "#c9a227");

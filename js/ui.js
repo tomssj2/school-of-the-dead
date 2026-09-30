@@ -20,7 +20,7 @@ import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
-  gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
+  gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
   hexTileKey, tileBackground, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
@@ -436,7 +436,8 @@ const SCENE_ROW = 9;
 const SCENE_MAX_PEOPLE = 18;
 // `actions` (the Upgrade button) sits in the bottom-left corner with the figures to its right.
 // The room's headline number goes under the teacher row instead (statRow).
-function roomScene(kind, people, title, info = "", actions = "") {
+// `overlay`: anything else placed over the art (the Headmaster's hover spot).
+function roomScene(kind, people, title, info = "", actions = "", overlay = "") {
   const shown = [...people].sort((a, b) => (b.role === "teacher") - (a.role === "teacher")).slice(0, SCENE_MAX_PEOPLE);
   const extra = people.length - shown.length;
   const twoRows = shown.length > SCENE_ROW;
@@ -462,6 +463,7 @@ function roomScene(kind, people, title, info = "", actions = "") {
       ? `<div class="scene-bottom"><div class="scene-actions">${actions}</div><div class="scene-figures">${figures}</div></div>`
       : figures}
     ${extra > 0 ? `<span class="scene-more">+${extra}</span>` : ""}
+    ${overlay}
   </div>`;
 }
 
@@ -850,24 +852,9 @@ function renderVictory(state) {
 export function renderOverview(state) {
   if (state.gameOver) return renderGameOver(state);
   if (state.victory) return renderVictory(state);
-  const banner = renderObjectiveBanner(state);
-  if (state.turn === 1) return banner + renderTurn1Overview(state);
-  if (state.turn === 2) return banner + renderTurn2Overview(state);
-  return banner + renderTurn3Overview(state);
-}
-
-const REWARD_ICON = { food: "🍞", materials: "🔧", medicine: "💊", research: "🧠" };
-function renderObjectiveBanner(state) {
-  const o = currentObjective(state);
-  if (!o) return "";
-  const progress = objectiveProgress(state, o);
-  const reward = Object.entries(o.reward).map(([k, v]) => `${REWARD_ICON[k]} +${v}`).join(" ");
-  const step = state.objectivesDone.length + 1;
-  return `<div class="objective-banner">
-    <div class="objective-head"><span class="objective-tag">📋 Objective ${step}</span><b>${esc(o.title)}</b><span class="objective-reward">Reward: ${reward}</span></div>
-    <div class="objective-hint">${esc(o.hint)}</div>
-    ${progress ? `<div class="objective-progress">${esc(progress)}</div>` : ""}
-  </div>`;
+  if (state.turn === 1) return renderTurn1Overview(state);
+  if (state.turn === 2) return renderTurn2Overview(state);
+  return renderTurn3Overview(state);
 }
 
 // One room at a glance on the Turn 1 dashboard: a strip of its pixel art with its name, the one
@@ -2933,7 +2920,9 @@ export function renderFloor3(state) {
     notes: [`Students who reach level ${PROMOTE_LEVEL_THRESHOLD} (max) can become teachers — they teach their best subject`, "Students level up from experience: classes, training, work, scouting and fighting", `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`, "Expel someone from their character card"],
   };
   const office = `<div class="room room-office">
-    ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office", officeHow)}
+    ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office", officeHow, "",
+      // the Headmaster at his desk (drawn in the scene): he'll give out missions — not yet
+      `<span class="hm-npc" ${tipAttr({ title: "🎩 The Headmaster", notes: ["Hands out missions — coming soon", "Missions will come with their own rewards"] })}><span class="hm-bubble">📜</span></span>`)}
     <div class="office-split">
       <div>
         ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, "", "stat-row-left")}

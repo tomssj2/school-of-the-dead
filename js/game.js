@@ -358,6 +358,8 @@ export function fightForRoom(state, roomKey, ids) {
 }
 
 // ---------- objectives ----------
+// Switched off (nothing shows or checks them since 2026-10-01): the Headmaster will hand out
+// missions instead. Kept as a starting point for those.
 const OBJECTIVE_CHECKS = {
   clear_research: (state) => !isBoarded(state, "research"),
   staff_research: (state) => state.characters.some((c) => c.alive && c.role === "teacher" && c.post === "research"),

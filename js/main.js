@@ -537,13 +537,7 @@ function render() {
   }
   lastDay = state.day;
 
-  // Held while a fight or report is on screen, so finishing an objective never spoils the result.
-  const busy = roomFight || raidFight || battleAnimation || fightAnimation || expeditionReport;
-  const finished = busy ? [] : G.checkObjectives(state);
-  if (finished.length) {
-    playSuccess();
-    flash(`✅ Objective complete: ${finished.map((o) => o.title).join(", ")}`);
-  }
+  // (The objectives are switched off for now — the Headmaster will hand out missions instead.)
 
   // Drives the time-of-day backdrop in style.css: morning, golden afternoon, starry night.
   document.body.dataset.turn = state.gameOver ? "over" : state.victory ? "victory" : String(state.turn);
