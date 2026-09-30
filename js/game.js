@@ -15,7 +15,7 @@ import {
   EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
   ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
-  NIGHT_ACTIONS, MOLOTOV_DAMAGE, DEFENDER_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
+  NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, DEFENDER_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
   RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
@@ -1649,7 +1649,9 @@ export function startNightBattle(state) {
       const [row, col] = key.split(",").map(Number);
       const role = defenderRole(state, c);
       roleCount[role.id] = (roleCount[role.id] || 0) + 1;
-      const s = { id: c.id, row, col, hp: c.hp, maxHp: c.maxHp, downed: false, kills: 0, usedMelee: false, usedRanged: false, role: role.id, ...battleStats(state, c) };
+      const s = { id: c.id, row, col, hp: c.hp, maxHp: c.maxHp, downed: false, kills: 0, usedMelee: false, usedRanged: false, role: role.id, ...battleStats(state, c),
+        // a critical hit (double damage): 5%, plus 1% for every 10 DEX
+        critChance: BATTLE_CRIT.base + effectiveGrade(state, c, "Gymnastics") * BATTLE_CRIT.perDex };
       if (role.id === "brawler") s.meleeMult *= 1.25;
       if (role.id === "marksman" && s.ranged) s.ranged = { ...s.ranged, range: s.ranged.range + 1 };
       if (role.id === "tank") s.armorMult *= 0.75;
@@ -1716,6 +1718,7 @@ export function battleTick(state, b) {
   b.waveTick++;
   const wave = b.waves[b.wave];
 
+  if (b.waveTick === 1) events.push({ type: "waveStart", wave: b.wave });
   // 1. the next few zombies shamble in, back row first
   for (let n = 0; n < Math.ceil(size / 2) && b.waveSpawned < wave.length; n++) {
     const free = [];
@@ -1728,6 +1731,7 @@ export function battleTick(state, b) {
     const hp = Math.round(b.zStats.hp * T.hpMult);
     const dmg = Math.max(1, Math.round(b.zStats.damage * T.dmgMult));
     b.zombies.push({ id: b.spawned + 1, type, row: spot.row, col: spot.col, hp, maxHp: hp, dmg, alive: true, snagged: false });
+    if (type === "boss") events.push({ type: "bossArrives", at: [spot.row, spot.col] });
     b.spawned++;
     b.waveSpawned++;
   }
@@ -1750,12 +1754,13 @@ export function battleTick(state, b) {
     else s.usedRanged = true;
     const dark = b.condition.id === "blackout" && !b.lamps.includes(s.col) ? 0.15 : 0;
     const hit = Math.random() < s.hitChance - dark;
+    const crit = hit && Math.random() < s.critChance;
     const desperate = b.lastStand && s.hp < s.maxHp * 0.25 ? 2 : 1;
     const dmg = hit
-      ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * desperate * rallied * b.squad.damageDealt * (0.85 + Math.random() * 0.3)))
+      ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * desperate * rallied * b.squad.damageDealt * (0.85 + Math.random() * 0.3) * (crit ? BATTLE_CRIT.mult : 1)))
       : 0;
     target.hp -= dmg;
-    events.push({ type: "attack", from: [s.row, s.col], to: [target.row, target.col], zid: target.id, dmg, hit, kind: useMelee ? "melee" : "ranged", icon: weapon.icon });
+    events.push({ type: "attack", from: [s.row, s.col], to: [target.row, target.col], zid: target.id, dmg, hit, crit, kind: useMelee ? "melee" : "ranged", icon: weapon.icon });
     if (target.hp <= 0) {
       s.kills++;
       killZombie(b, target, events);
@@ -1851,8 +1856,10 @@ export function battleTick(state, b) {
   if (b.focus && !b.zombies.find((z) => z.id === b.focus.id && z.alive)) b.focus = null;
 
   // 4. is this wave over? (all of it spawned and gone — or it's dragged on too long)
-  const waveOver = (b.waveSpawned >= wave.length && !b.zombies.some((z) => z.alive)) || b.waveTick >= BATTLE_MAX_TICKS;
+  const cleared = b.waveSpawned >= wave.length && !b.zombies.some((z) => z.alive);
+  const waveOver = cleared || b.waveTick >= BATTLE_MAX_TICKS;
   const everyoneDown = !b.students.some((s) => !s.downed) && b.gate.hp <= 0 && b.spawned >= b.toSpawn;
+  if (cleared && b.breached < b.spawned) events.push({ type: "cleared", wave: b.wave, last: b.wave >= b.waves.length - 1 });
   if (waveOver || everyoneDown) {
     if (b.wave < b.waves.length - 1 && !everyoneDown) {
       b.wave++;
@@ -3023,7 +3030,7 @@ function simulateBossFight(state, boss, squad) {
     } else {
       text += ` ${boss.name} falls!`;
     }
-    frames.push({ bossHp, hp: fighters.map((f) => f.hp), hits, dealt, text, enraged });
+    frames.push({ bossHp, hp: fighters.map((f) => f.hp), hits, dealt, crits, text, enraged });
   }
   return { boss, won: bossHp <= 0, fighters, frames };
 }

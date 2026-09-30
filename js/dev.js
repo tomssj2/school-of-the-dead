@@ -1,7 +1,7 @@
 // Test shortcuts for developing the game (main.js exposes them as window.schoolDev on localhost;
 // the /max and /min project commands run them). Nothing here saves — the player's Save does.
 import * as G from "./game.js";
-import { makeCharacter, makeLegendaryCharacter } from "./characters.js";
+import { makeCharacter, makeLegendaryCharacter, makeItem } from "./characters.js";
 import { MAP_RADIUS } from "./map.js";
 import { CLASSROOM_IDS, PRODUCERS, YARD_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel } from "./data.js";
 
@@ -163,6 +163,18 @@ export function setNight(state, day = 8) {
   state.resources.materials = Math.max(state.resources.materials, 30);
   state.resources.medicine = Math.max(state.resources.medicine, 20);
   return `Night ${day}: ${G.nightCondition(state).name}, ${fighters.length} on watch`;
+}
+
+// Hands everyone on watch tonight a Fire Axe and a Recurve Bow (made on the spot, so the armory
+// isn't touched) — to see the fight with real weapons.
+export function armDefenders(state) {
+  const defenders = state.characters.filter((c) => c.defending && c.alive);
+  for (const c of defenders) {
+    c.equipment = c.equipment || { meleeWeapon: null, rangedWeapon: null, armor: null, accessories: [null, null, null] };
+    c.equipment.meleeWeapon = makeItem("axe");
+    c.equipment.rangedWeapon = makeItem("recurve_bow");
+  }
+  return `${defenders.length} defender${defenders.length === 1 ? "" : "s"} armed with 🪓 and 🏹`;
 }
 
 // What can follow a won night: "assault" (the horde falls back and can be chased — tonight's

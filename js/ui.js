@@ -1691,10 +1691,12 @@ export function renderRaidFight(state, anim) {
   return `<div class="modal-overlay raid-overlay">
     <div class="raid-stage ${chase ? "raid-chase" : ""}">
       <div class="raid-title">${chase ? esc(report.title) : `☠ Raid — ${esc(lm.name)}`}</div>
-      <div class="raid-arena" ${chase ? `style="background-image:${courtyardBackground(ENTRANCE_GRID_SIZE)}"` : ""}>
+      <div class="raid-arena ${frame.crits || (frame.bossHp <= 0 && frame.dealt) ? "nw-shake-big" : frame.hits.some((h) => h.dmg) ? "nw-shake" : ""}" ${chase ? `style="background-image:${courtyardBackground(ENTRANCE_GRID_SIZE)}"` : ""}>
         <div class="raid-squad">${members}</div>
         <div class="raid-boss ${frame.enraged ? "raid-boss-enraged" : ""} ${frame.dealt ? "raid-boss-hit" : ""} ${frame.bossHp <= 0 ? "raid-boss-dead" : ""}">
-          ${frame.dealt ? `<span class="raid-float raid-float-good">-${frame.dealt}</span>` : ""}
+          ${frame.dealt ? `<span class="raid-float raid-float-good ${frame.crits ? "raid-float-crit" : ""}">${frame.crits ? `<small>CRIT${frame.crits > 1 ? ` ×${frame.crits}` : ""}!</small>` : ""}-${frame.dealt}</span>` : ""}
+          ${frame.dealt ? `<span class="nw-slash ${frame.crits ? "nw-slash-crit" : ""} raid-slash" style="--rot:${(anim.frameIndex * 47) % 100 - 50}deg"></span>` : ""}
+          ${frame.bossHp <= 0 && frame.dealt ? `<span class="nw-burst nw-burst-big raid-burst">${Array.from({ length: 22 }, (_, i) => { const a = (i * 16.4 * Math.PI) / 180; const d = 40 + ((i * 29) % 50); return `<i style="--dx:${Math.round(Math.cos(a) * d)}px;--dy:${Math.round(Math.sin(a) * d - 20)}px;--s:${3 + (i % 3)}px"></i>`; }).join("")}</span>` : ""}
           ${zombieSprite(report.look, 128)}
           <div class="raid-boss-name">${esc(report.bossName)}${frame.enraged ? " · berserk" : ""}</div>
           <div class="raid-boss-bar"><div style="width:${bossPct}%"></div><span>${frame.bossHp} / ${report.bossMaxHp}</span></div>
@@ -1882,45 +1884,100 @@ function renderGridBattle(state, anim) {
   const struck = new Set(); // defenders who swung or shot
   const hurt = new Set(); // squares something got hit on
   let fx = "";
+  // damage numbers stack upward when several land on one square
+  const popCount = new Map();
+  const pop = (row, col, cls, text) => {
+    const k = `${row},${col}`;
+    const n = popCount.get(k) || 0;
+    popCount.set(k, n + 1);
+    return `<span class="nw-pop ${cls}" ${at(row, col, `--k:${n};`)}>${text}</span>`;
+  };
+  // a zombie going down bursts into pixels (the same spray each time it's drawn)
+  const burst = (row, col, seed, big) => {
+    let bits = "";
+    for (let i = 0; i < (big ? 18 : 10); i++) {
+      const a = ((seed * 37 + i * 97) % 360) * (Math.PI / 180);
+      const d = (big ? 30 : 18) + ((seed * 13 + i * 29) % (big ? 34 : 20));
+      bits += `<i style="--dx:${Math.round(Math.cos(a) * d)}px;--dy:${Math.round(Math.sin(a) * d - 10)}px;--s:${2 + ((seed + i) % 3)}px"></i>`;
+    }
+    return `<span class="nw-burst ${big ? "nw-burst-big" : ""}" ${at(row, col)}>${bits}</span>`;
+  };
+  // where a line from one square to another points (the art's squares are 32x20)
+  const aim = (r0, c0, r1, c1) => {
+    const dx = (c1 - c0) * 32;
+    const dy = (r1 - r0) * 20;
+    return `--ang:${Math.round((Math.atan2(dy, dx) * 180) / Math.PI)}deg;--len:${Math.round(Math.hypot(dx, dy))};`;
+  };
+  let shake = 0; // 1 a jolt, 2 a big one
+  let banner = "";
   for (const e of frame.events) {
     const [r0, c0] = e.from || e.at || [];
     if (e.type === "attack") {
       struck.add(`${e.from[0]},${e.from[1]}`);
       const z = frame.zombies.find((zz) => zz.id === e.zid) || prevZombies.get(e.zid);
       const [tr, tc] = z ? [z.row, z.col] : e.to;
-      if (e.kind === "ranged") fx += `<span class="nw-shot" style="--r0:${e.from[0]};--c0:${e.from[1]};--r1:${tr};--c1:${tc}"></span>`;
+      if (e.kind === "ranged") {
+        fx += `<span class="nw-tracer ${e.crit ? "nw-tracer-crit" : ""}" style="--r0:${e.from[0]};--c0:${e.from[1]};${aim(e.from[0], e.from[1], tr, tc)}"></span>`;
+        fx += `<span class="nw-shot" style="--r0:${e.from[0]};--c0:${e.from[1]};--r1:${tr};--c1:${tc}"></span>`;
+        fx += `<span class="nw-muzzle" ${at(e.from[0], e.from[1])}></span>`;
+      } else if (e.hit) {
+        fx += `<span class="nw-slash ${e.crit ? "nw-slash-crit" : ""}" ${at(tr, tc, `--rot:${(e.zid * 53) % 120 - 60}deg;`)}></span>`;
+      }
       if (e.hit) hurt.add(`${tr},${tc}`);
-      fx += `<span class="nw-pop ${e.hit ? "" : "nw-pop-miss"}" ${at(tr, tc)}>${e.hit ? `-${e.dmg}` : "miss"}</span>`;
+      if (e.crit) shake = Math.max(shake, 1);
+      fx += e.crit
+        ? pop(tr, tc, "nw-pop-crit", `<small>CRIT!</small>-${e.dmg}`)
+        : pop(tr, tc, e.hit ? (e.dmg >= 20 ? "nw-pop-heavy" : "") : "nw-pop-miss", e.hit ? `-${e.dmg}` : "miss");
     } else if (e.type === "bite" || e.type === "spit") {
       if (e.type === "spit") fx += `<span class="nw-shot nw-spit" style="--r0:${r0};--c0:${c0};--r1:${e.to[0]};--c1:${e.to[1]}"></span>`;
       if (e.hit) hurt.add(`${e.to[0]},${e.to[1]}`);
-      fx += `<span class="nw-pop nw-pop-bad ${e.hit ? "" : "nw-pop-miss"}" ${at(e.to[0], e.to[1])}>${e.hit ? `${e.type === "spit" ? "🤮" : ""}-${e.dmg}` : e.dodged ? "dodge" : "miss"}</span>`;
+      if (e.hit && e.dmg >= 15) shake = Math.max(shake, 1);
+      fx += pop(e.to[0], e.to[1], `nw-pop-bad ${e.hit ? "" : "nw-pop-miss"}`, e.hit ? `${e.type === "spit" ? "🤮" : ""}-${e.dmg}` : e.dodged ? "dodge" : "miss");
     } else if (e.type === "kill") {
       const type = e.ztype || zombieAtPrev(e.at[0], e.at[1])?.type || (e.boss ? "boss" : "walker");
       fx += `<div class="nw-unit nw-corpse" ${at(e.at[0], e.at[1])}>${hordeSprite(type, 36)}</div>`;
-      if (e.boss) fx += `<span class="nw-pop nw-pop-big" ${at(e.at[0], e.at[1])}>👑💥</span>`;
+      fx += burst(e.at[0], e.at[1], e.at[0] * 7 + e.at[1] * 3 + frame.tick, e.boss);
+      if (e.boss) {
+        fx += pop(e.at[0], e.at[1], "nw-pop-big", "👑💥");
+        shake = 2;
+        banner = `<div class="nw-banner nw-banner-boss">☠ ${esc(summary.bossName || "The boss")} is down!</div>`;
+      }
     } else if (e.type === "trap" || e.type === "burn") {
       hurt.add(`${e.at[0]},${e.at[1]}`);
-      fx += `<span class="nw-pop ${e.type === "burn" ? "nw-pop-fire" : ""}" ${at(e.at[0], e.at[1])}>-${e.dmg}</span>`;
+      fx += pop(e.at[0], e.at[1], e.type === "burn" ? "nw-pop-fire" : "", `-${e.dmg}`);
     } else if (e.type === "fire") {
       fx += `<span class="nw-fire" ${at(e.at[0], e.at[1])}>🔥</span>`;
+      shake = Math.max(shake, 1);
     } else if (e.type === "heal") {
-      fx += `<span class="nw-pop nw-pop-heal" ${at(e.at[0], e.at[1])}>+${e.amount}</span>`;
+      fx += pop(e.at[0], e.at[1], "nw-pop-heal", `+${e.amount}`);
+      fx += `<span class="nw-heal-ring" ${at(e.at[0], e.at[1])}></span>`;
     } else if (e.type === "focus") {
-      fx += `<span class="nw-pop nw-pop-big" ${at(e.at[0], e.at[1])}>🎯</span>`;
+      fx += pop(e.at[0], e.at[1], "nw-pop-big", "🎯");
     } else if (e.type === "smash") {
-      fx += `<span class="nw-pop nw-pop-bad" ${at(e.at[0], e.at[1])}>-${e.dmg}</span>`;
+      fx += pop(e.at[0], e.at[1], "nw-pop-bad", `-${e.dmg}`);
     } else if (e.type === "destroyed") {
-      fx += `<span class="nw-pop nw-pop-big" ${at(e.at[0], e.at[1])}>💥</span>`;
+      fx += pop(e.at[0], e.at[1], "nw-pop-big", "💥");
+      shake = Math.max(shake, 1);
     } else if (e.type === "gate") {
       fx += `<span class="nw-pop nw-pop-bad nw-pop-gate" ${at(0, e.at[1])}>🚪-${e.dmg}</span>`;
+      shake = 2;
     } else if (e.type === "breach") {
       fx += `<span class="nw-pop nw-pop-bad nw-pop-big nw-pop-gate" ${at(0, e.at[1])}>🚨</span>`;
+      shake = 2;
+    } else if (e.type === "waveStart" && !banner) {
+      banner = `<div class="nw-banner">Wave ${e.wave + 1}${(summary.waves?.length || 1) > 1 ? ` of ${summary.waves.length}` : ""}</div>`;
+    } else if (e.type === "bossArrives") {
+      banner = `<div class="nw-banner nw-banner-boss">☠ ${esc(summary.bossName || "The boss")} arrives</div>`;
+      shake = Math.max(shake, 1);
+    } else if (e.type === "cleared") {
+      banner = `<div class="nw-banner nw-banner-clear">${e.last ? "Night survived!" : "Wave cleared!"}</div>`;
     }
   }
   const gateHit = frame.events.some((e) => e.type === "gate");
   const breach = frame.events.some((e) => e.type === "breach");
   const rallyNow = frame.events.some((e) => e.type === "rally");
+  // the last kill of the night lingers in slow motion before the result
+  const slowmo = anim.phase === "battle" && b?.phase === "done" && anim.frameIndex === summary.frames.length - 1 && frame.events.some((e) => e.type === "kill");
 
   let units = "";
   for (const st of frame.structures) {
@@ -1956,13 +2013,13 @@ function renderGridBattle(state, anim) {
     </div>`;
   }
   // aiming a night action: every square is a button
-  let aim = "";
+  let aimCells = "";
   if (anim.target) {
     for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
       const hasZombie = frame.zombies.some((z) => z.row === row && z.col === col);
       const hasHurt = frame.students.some((s) => !s.downed && s.row === row && s.col === col && s.hp < s.maxHp);
       const ok = anim.target === "molotov" || (anim.target === "focus" && hasZombie) || (anim.target === "patch" && hasHurt);
-      aim += `<div class="nw-cell nw-pick ${ok ? "nw-pick-ok" : ""} nw-pick-${anim.target}" ${at(row, col)} data-action="night-target" data-row="${row}" data-col="${col}"></div>`;
+      aimCells += `<div class="nw-cell nw-pick ${ok ? "nw-pick-ok" : ""} nw-pick-${anim.target}" ${at(row, col)} data-action="night-target" data-row="${row}" data-col="${col}"></div>`;
     }
   }
 
@@ -2032,9 +2089,10 @@ function renderGridBattle(state, anim) {
         ${b?.rally ? ` · <span class="nw-rallied">🔔 Rallied (${b.rally})</span>` : ""}
       </div>
     </div>
-    <div class="nw-board nw-battle nw-cond-${condition.id} ${gateHit ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--lamp-a:${lampLanes(size)[0]};--lamp-b:${lampLanes(size)[1]};background-image:${courtyardBackground(size)}">
+    <div class="nw-board nw-battle nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--lamp-a:${lampLanes(size)[0]};--lamp-b:${lampLanes(size)[1]};background-image:${courtyardBackground(size)}">
       ${gate}
-      <div class="nw-cells">${units}${fx}${aim}</div>
+      <div class="nw-cells">${units}${fx}${aimCells}</div>
+      ${breakTime ? "" : banner}
       ${breakBanner}
     </div>
     ${footer}

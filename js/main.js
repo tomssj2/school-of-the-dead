@@ -5,9 +5,10 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
-import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
+import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled,
+  playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
-import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp } from "./dev.js";
+import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp, armDefenders } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
@@ -853,7 +854,12 @@ function playRaidFight(report, after) {
       return;
     }
     raidFight.frameIndex++;
-    playHit();
+    const f = report.frames[raidFight.frameIndex];
+    if (f.dealt) playSwing();
+    if (f.crits) playCrit();
+    if (f.hits.some((h) => h.dmg)) playHit();
+    if (f.bossHp <= 0) playKill();
+    else if (f.enraged && !report.frames[raidFight.frameIndex - 1]?.enraged) playGrowl();
     render();
     raidTimer = setTimeout(step, RAID_TICK_MS);
   };
@@ -913,6 +919,22 @@ function playSkirmish(studentId, lost, done) {
   }, 1100);
 }
 
+// One turn of a fight, heard: a sound for each kind of thing that happened (once each, so a
+// volley doesn't turn into noise), the biggest last.
+function playBattleSounds(events) {
+  const has = (fn) => events.some(fn);
+  if (has((e) => e.type === "attack" && e.hit && e.kind === "ranged")) playShot();
+  if (has((e) => e.type === "attack" && e.hit && e.kind === "melee")) playSwing();
+  if (has((e) => e.type === "attack" && e.crit)) playCrit();
+  if (has((e) => e.type === "kill")) playKill();
+  if (has((e) => (e.type === "bite" || e.type === "spit") && e.hit)) playHit();
+  if (has((e) => e.type === "heal")) playHeal();
+  if (has((e) => e.type === "ability")) playAbility();
+  if (has((e) => e.type === "bossArrives" || e.type === "telegraph" || e.type === "enrage")) playGrowl();
+  if (has((e) => e.type === "gate" || e.type === "breach" || e.type === "destroyed" || e.type === "slam" || e.type === "fire")) playBoom();
+  if (has((e) => e.type === "cleared")) playWave();
+}
+
 // The night battle, played live: a turn every BATTLE_TICK_MS. It waits at the break between
 // waves (for "Send them in") and while a night action is being aimed; "Skip" plays the rest out
 // at once, and "Continue" on the result screen runs `afterResult` to finish the turn.
@@ -936,14 +958,17 @@ function playNightBattle(afterResult) {
     clearTimeout(battleTimer);
     if (anim.phase !== "battle" || anim.target) return; // done, or paused while aiming
     if (b.phase === "done") return showResult();
+    let lastKill = false;
     if (b.phase === "fight") {
       const frame = G.battleTick(state, b);
-      if (frame.events.some((e) => (e.type === "bite" && e.hit) || e.type === "breach" || e.type === "downed")) playHit();
+      playBattleSounds(frame.events);
+      lastKill = b.phase === "done" && frame.events.some((e) => e.type === "kill");
     }
     sync();
     render();
     if (b.phase === "fight") battleTimer = setTimeout(step, BATTLE_TICK_MS);
-    else if (b.phase === "done") battleTimer = setTimeout(showResult, 900);
+    // the last kill lingers a moment (the board goes slow-motion) before the result
+    else if (b.phase === "done") battleTimer = setTimeout(showResult, lastKill ? 1800 : 900);
     // a break waits for the player
   };
   anim.resume = step;
@@ -951,6 +976,7 @@ function playNightBattle(afterResult) {
   anim.resumeSoon = () => {
     clearTimeout(battleTimer);
     sync();
+    playBattleSounds(b.frames[b.frames.length - 1].events);
     render();
     if (b.phase === "fight") battleTimer = setTimeout(step, BATTLE_TICK_MS);
   };
@@ -1819,6 +1845,13 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       if (!beforeMax) beforeMax = JSON.stringify(state);
       const summary = setNight(state, day);
       activeTab = "overview";
+      render();
+      return summary;
+    },
+    // schoolDev.arm(): everyone on watch gets an axe and a bow.
+    arm() {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      const summary = armDefenders(state);
       render();
       return summary;
     },

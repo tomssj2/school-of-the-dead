@@ -295,6 +295,8 @@ export const NIGHT_ACTIONS = {
   rally: { name: "Rally", icon: "🔔", uses: 1, target: null, desc: "Everyone hits 50% harder for 3 turns" },
 };
 export const MOLOTOV_DAMAGE = 0.8; // of a walker's HP tonight
+// A defender's critical hit: `mult`× damage, `base` chance plus `perDex` for every DEX point.
+export const BATTLE_CRIT = { base: 0.05, perDex: 0.001, mult: 2 };
 // A defender's role is their best stat (the subject behind it).
 export const DEFENDER_ROLES = {
   PE: { id: "brawler", name: "Brawler", icon: "💪", desc: "+25% melee damage" },
