@@ -60,6 +60,9 @@ let openPlot = null; // { kind: a crop or animal (PRODUCERS id), index } of the 
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
 let pickerSortDir = "desc";
+// who a picker recommends: "low" (the weakest in the stat — most to learn) or "high" (the strongest
+// — push a specialist further); remembered in this browser
+let pickerRecMode = (() => { try { return localStorage.getItem("sotd-picker-rec") === "high" ? "high" : "low"; } catch { return "low"; } })();
 let lastResources = null; // resources/happiness snapshot from the previous render(), for floaties
 let lastHappiness = null;
 let lastPopulation = null;
@@ -580,7 +583,7 @@ function render() {
     : openScoutHex
     ? renderScoutModal(state, openScoutHex.q, openScoutHex.r, openScoutHex.drop)
     : openPicker
-    ? renderPickerModal(state, openPicker, pickerSortKey, pickerSortDir)
+    ? renderPickerModal(state, openPicker, pickerSortKey, pickerSortDir, pickerRecMode)
     : openDefenseBuild
     ? renderDefenseBuildModal(state, openDefenseBuild)
     : openMenu
@@ -1552,6 +1555,11 @@ root.addEventListener("click", (e) => {
     }
     case "toggle-picker-sort-dir":
       pickerSortDir = pickerSortDir === "asc" ? "desc" : "asc";
+      render();
+      break;
+    case "set-picker-rec":
+      pickerRecMode = el.dataset.mode === "high" ? "high" : "low";
+      try { localStorage.setItem("sotd-picker-rec", pickerRecMode); } catch {}
       render();
       break;
     case "toggle-roster-sort-dir":

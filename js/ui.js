@@ -2016,7 +2016,8 @@ function resolvePickerCandidates(state, picker) {
     }
     case "classroom-seat": {
       // What each student would learn here today: the room's subject, up to its teacher's grade.
-      // Whoever would learn the most is recommended; a room with no teacher teaches nothing.
+      // `value` (their grade) is what recommendations rank by; anyone with nothing left to learn
+      // here is `maxed`. A room with no teacher teaches nothing.
       const lesson = classroomLesson(state, roomId);
       const stat = lesson.subject ? STAT_OF_SUBJECT[lesson.subject] : null;
       return {
@@ -2029,13 +2030,12 @@ function resolvePickerCandidates(state, picker) {
             if (!lesson.subject || reason) return { c, reason };
             const now = c.grades[lesson.subject];
             const gain = Math.max(0, Math.min(lesson.gain, lesson.ceiling - now, 100 - now));
-            return {
-              c, reason,
-              score: gain && gain * 1000 + (lesson.ceiling - now), // then whoever has the most left to learn here
-              hint: gain
-                ? `<span class="pk-gain" title="What they'd learn here today">${stat} ${now} → <b>${now + gain}</b></span>`
-                : `<span class="pk-gain pk-gain-none" title="This room can't teach them more — its teacher's grade is the limit">${stat} ${now} · at the limit</span>`,
-            };
+            if (!gain) {
+              return now >= 100
+                ? { c, maxed: `${stat} — MAX`, maxedWhy: `${stat} is already 100` }
+                : { c, maxed: `${stat} — MAX here`, maxedWhy: `${stat} ${now} — this room's teacher can't take them past ${lesson.ceiling}` };
+            }
+            return { c, value: now, hint: `<span class="pk-gain" title="What they'd learn here today">${stat} ${now} → <b>${now + gain}</b></span>` };
           }),
       };
     }
@@ -2069,42 +2069,53 @@ function resolvePickerCandidates(state, picker) {
 // How many of the best candidates a picker puts in its "Recommended" group.
 const PICKER_RECOMMENDED = 3;
 
-// One person in a picker: their portrait on the left; their name, level and stats in the middle
-// (with what this job would do for them, when the picker knows); Assign — or why they can't —
-// on the right.
-function pickerRow({ c, reason, note, hint }, role, focus, recommended) {
-  return `<div class="picker-row pk-row ${reason ? "picker-row-disabled" : ""} ${recommended ? "pk-rec" : ""}">
+// One person in a picker: their portrait on the left; their name, level and stats in the middle;
+// Assign on the right, with what this job would do for them underneath (when the picker knows).
+// Someone busy shows why instead; someone `maxed` (nothing to gain here) gets a greyed-out Assign.
+function pickerRow({ c, reason, note, hint, maxed, maxedWhy }, role, focus, recommended) {
+  const action = reason
+    ? `<span class="tag tag-injured">${esc(reason)}</span>`
+    : maxed
+    ? `<button class="btn btn-sm btn-primary" disabled title="${esc(maxedWhy || maxed)}">✓ Assign</button>
+       <span class="pk-gain pk-gain-max" title="${esc(maxedWhy || maxed)}">${esc(maxed)}</span>`
+    : `<button class="btn btn-sm btn-primary" data-action="confirm-picker" data-id="${c.id}">✓ Assign</button>${hint || ""}`;
+  return `<div class="picker-row pk-row ${reason ? "picker-row-disabled" : maxed ? "pk-maxed" : ""} ${recommended ? "pk-rec" : ""}">
     <span class="pk-portrait">${characterSprite(c, 34)}</span>
     <div class="pk-mid">
-      <div class="pk-name">${nameTag(c, { icon: false })}${role === "student" ? `<span class="muted">Lv ${overallLevel(c)}</span>` : ""}${hint || ""}</div>
+      <div class="pk-name">${nameTag(c, { icon: false })}${role === "student" ? `<span class="muted">Lv ${overallLevel(c)}</span>` : ""}</div>
       ${statChips(c, focus)}
       ${note || ""}
     </div>
-    <div class="pk-action">${reason
-      ? `<span class="tag tag-injured">${esc(reason)}</span>`
-      : `<button class="btn btn-sm btn-primary" data-action="confirm-picker" data-id="${c.id}">✓ Assign</button>`}</div>
+    <div class="pk-action">${action}</div>
   </div>`;
 }
 
-export function renderPickerModal(state, picker, sortKey, sortDir) {
+export function renderPickerModal(state, picker, sortKey, sortDir, recMode = "low") {
   const { role, title, list, focus = null, empty = null } = resolvePickerCandidates(state, picker);
   const fields = role === "student" ? STUDENT_SORT_FIELDS : TEACHER_SORT_FIELDS;
   const effectiveSortKey = fields.some((f) => f.key === sortKey) ? sortKey : fields[0].key;
 
+  // selectable first, then busy, then those with nothing to gain here
+  const rank = (x) => (x.maxed ? 2 : x.reason ? 1 : 0);
   const sorted = [...list].sort((a, b) => {
-    if (!!a.reason !== !!b.reason) return a.reason ? 1 : -1; // selectable first, busy/ineligible last
+    if (rank(a) !== rank(b)) return rank(a) - rank(b);
     const va = pickerSortValue(a.c, effectiveSortKey);
     const vb = pickerSortValue(b.c, effectiveSortKey);
     return sortDir === "asc" ? va - vb : vb - va;
   });
-  // the best candidates first, when the picker can score them (most to gain, then lowest level)
-  const recommended = list
-    .filter((x) => !x.reason && x.score > 0)
-    .sort((a, b) => b.score - a.score || overallLevel(a.c) - overallLevel(b.c))
+  // when the picker ranks people by a stat (`value`): the weakest in it first (most to learn) or
+  // the strongest (to push a specialist further), then the lowest level
+  const ranked = list.filter((x) => !x.reason && !x.maxed && x.value != null);
+  const recommended = ranked
+    .sort((a, b) => (recMode === "high" ? b.value - a.value : a.value - b.value) || overallLevel(a.c) - overallLevel(b.c))
     .slice(0, PICKER_RECOMMENDED);
   const rest = sorted.filter((x) => !recommended.includes(x));
 
   const sortOptions = fields.map((f) => `<option value="${f.key}" ${f.key === effectiveSortKey ? "selected" : ""}>${f.label}</option>`).join("");
+  const recToggle = `<div class="subtabs pk-rec-toggle">
+    ${[["low", `Lowest ${focus}`, `The weakest in ${focus} first — they have the most to learn`], ["high", `Highest ${focus}`, `The strongest in ${focus} first — push a specialist further`]]
+      .map(([mode, label, why]) => `<button class="subtab-btn ${recMode === mode ? "active" : ""}" data-action="set-picker-rec" data-mode="${mode}" title="${why}">${label}</button>`).join("")}
+  </div>`;
 
   return `
   <div class="modal-overlay" data-action="close-picker">
@@ -2112,7 +2123,10 @@ export function renderPickerModal(state, picker, sortKey, sortDir) {
       <button class="cc-close" data-action="close-picker" title="Close">✕</button>
       <h3>${esc(title)}</h3>
       ${empty ? `<div class="mission-success mission-ok">${esc(empty)}</div>` : ""}
-      ${recommended.length ? `<div class="mini-label pk-group">⭐ Recommended — they'd get the most out of it</div>
+      ${recommended.length ? `<div class="pk-group-row">
+          <span class="mini-label pk-group">⭐ Recommended — ${recMode === "high" ? `the strongest in ${focus}` : `the weakest in ${focus}, most to learn`}</span>
+          ${recToggle}
+        </div>
         <div class="check-list picker-list pk-rec-list">${recommended.map((x) => pickerRow(x, role, focus, true)).join("")}</div>` : ""}
       <div class="picker-sort-row">
         <span class="mini-label">${recommended.length ? "Everyone else" : "Sort by"}</span>
