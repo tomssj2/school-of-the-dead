@@ -1932,7 +1932,7 @@ export function battleTick(state, b) {
       z.windup = null;
       events.push({ type: "slam", at: [w.row, w.col], from: [z.row, z.col] });
       const victim = studentAt(b, w.row, w.col);
-      if (victim) hurtStudent(z, victim, z.dmg * ZOMBIE_SMASH.mult, "smash");
+      if (victim) hurtStudent(z, victim, z.dmg * ZOMBIE_SMASH.mult, "crush"); // ("smash" is a zombie hitting a wall)
       continue;
     }
     const adjacentTo = () => b.students.filter((s) => !s.downed && chebyshev(s, z) <= 1).sort((a, c) => (a.col === z.col ? 0 : 1) - (c.col === z.col ? 0 : 1));

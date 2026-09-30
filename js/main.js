@@ -932,7 +932,7 @@ function playBattleSounds(events) {
   if (has((e) => e.type === "attack" && e.hit && e.kind === "melee")) playSwing();
   if (has((e) => e.type === "attack" && e.crit)) playCrit();
   if (has((e) => e.type === "kill")) playKill();
-  if (has((e) => (e.type === "bite" || e.type === "spit") && e.hit)) playHit();
+  if (has((e) => (e.type === "bite" || e.type === "spit" || e.type === "crush") && e.hit)) playHit();
   if (has((e) => e.type === "heal")) playHeal();
   if (has((e) => e.type === "ability")) playAbility();
   if (has((e) => e.type === "bossArrives" || e.type === "telegraph" || e.type === "enrage")) playGrowl();
@@ -970,7 +970,12 @@ function playNightBattle(afterResult) {
       lastKill = b.phase === "done" && frame.events.some((e) => e.type === "kill");
     }
     sync();
-    render();
+    // a drawing bug must never freeze the fight: log it and keep the turns coming
+    try {
+      render();
+    } catch (err) {
+      console.error("Night battle render failed:", err);
+    }
     if (b.phase === "fight") battleTimer = setTimeout(step, BATTLE_TICK_MS);
     // the last kill lingers a moment (the board goes slow-motion) before the result
     else if (b.phase === "done") battleTimer = setTimeout(showResult, lastKill ? 1800 : 900);

@@ -2022,12 +2022,13 @@ function renderGridBattle(state, anim) {
       fx += e.crit
         ? pop(tr, tc, "nw-pop-crit", `<small>${e.ability === "scout" ? "HEADSHOT!" : "CRIT!"}</small>-${e.dmg}${tag}`)
         : pop(tr, tc, e.hit ? (e.dmg >= 20 || e.ability ? "nw-pop-heavy" : "") : "nw-pop-miss", e.hit ? `-${e.dmg}${tag}` : e.evaded ? "slipped it" : "miss");
-    } else if (e.type === "bite" || e.type === "spit" || e.type === "smash") {
+    } else if (e.type === "bite" || e.type === "spit" || e.type === "crush") {
+      // a zombie hurting a defender (a "crush" is a wound-up heavy's smash landing)
       if (e.type === "spit") fx += `<span class="nw-shot nw-spit" style="--r0:${r0};--c0:${c0};--r1:${e.to[0]};--c1:${e.to[1]}"></span>`;
       if (e.hit) hurt.add(`${e.to[0]},${e.to[1]}`);
-      if (e.hit && (e.dmg >= 15 || e.type === "smash")) shake = Math.max(shake, e.type === "smash" ? 2 : 1);
-      fx += pop(e.to[0], e.to[1], `nw-pop-bad ${e.type === "smash" ? "nw-pop-smash" : ""} ${e.hit ? "" : "nw-pop-miss"}`,
-        e.hit ? `${e.type === "spit" ? "🤮" : e.type === "smash" ? "💥" : ""}-${e.dmg}` : e.dodged ? "dodge" : "miss");
+      if (e.hit && (e.dmg >= 15 || e.type === "crush")) shake = Math.max(shake, e.type === "crush" ? 2 : 1);
+      fx += pop(e.to[0], e.to[1], `nw-pop-bad ${e.type === "crush" ? "nw-pop-smash" : ""} ${e.hit ? "" : "nw-pop-miss"}`,
+        e.hit ? `${e.type === "spit" ? "🤮" : e.type === "crush" ? "💥" : ""}-${e.dmg}` : e.dodged ? "dodge" : "miss");
     } else if (e.type === "slam") {
       fx += `<span class="nw-slam" ${at(e.at[0], e.at[1])}></span>`;
       shake = 2;
