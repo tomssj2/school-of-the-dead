@@ -8,7 +8,7 @@ import {
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL,
-  STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
+  STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
@@ -1113,6 +1113,16 @@ export function expeditionNeed(location) {
   return EXPEDITION_NEED.base + (blocks - EXPEDITION_NEED.nearest) * EXPEDITION_NEED.perBlock + (location.difficulty - 3) * EXPEDITION_NEED.perDifficulty;
 }
 export const expeditionBlocks = (location) => hexDistance(location.hex.q, location.hex.r);
+// Harder places pay better (EXPEDITION_LOOT): what their supplies are multiplied by...
+export function expeditionLootScale(location) {
+  return Math.max(EXPEDITION_LOOT.min, 1 + (expeditionNeed(location) - EXPEDITION_NEED.base) / EXPEDITION_LOOT.perPower);
+}
+// ...and their gear level (1-5): the chance of finding gear and the best tier it can be.
+export function expeditionGearLevel(location) {
+  return Math.max(1, Math.min(5, Math.round((expeditionNeed(location) - EXPEDITION_LOOT.gearFrom) / EXPEDITION_LOOT.gearStep)));
+}
+export const expeditionGearChance = (location) => EXPEDITION_ITEM_CHANCE + expeditionGearLevel(location) * 0.08;
+export const expeditionGearTier = (location) => Math.min(4, Math.ceil(expeditionGearLevel(location) * 0.8));
 // A team's odds at a place: EXPEDITION_ODDS_AT_NEED with exactly the power it needs, ±1% per
 // EXPEDITION_POWER_PER_PERCENT over or under, plus research, minus a nest or the horde next door.
 export function expeditionOdds(state, teamIndex, location) {
@@ -1301,11 +1311,12 @@ function itemTier(t) {
   return sum <= 4 ? 1 : sum <= 6 ? 2 : sum <= 8 ? 3 : 4;
 }
 
-// Legendary gear never drops here — it only arrives on legendary survivors.
+// Legendary gear never drops here — it only arrives on legendary survivors. Harder places find
+// gear more often, and better (expeditionGearLevel).
 function rollExpeditionItem(state, location, success, bonus = 0) {
-  const chance = (success ? EXPEDITION_ITEM_CHANCE + location.difficulty * 0.08 : EXPEDITION_ITEM_CHANCE_FAILED) + techPerk(state, "itemChance") + bonus;
+  const chance = (success ? expeditionGearChance(location) : EXPEDITION_ITEM_CHANCE_FAILED) + techPerk(state, "itemChance") + bonus;
   if (Math.random() >= chance) return null;
-  const maxTier = Math.min(4, Math.ceil(location.difficulty * 0.8));
+  const maxTier = expeditionGearTier(location);
   const pool = ITEM_TEMPLATES.filter((t) => itemTier(t) <= maxTier);
   const weighted = pool.flatMap((t) => (t.slot === location.lootBias ? [t, t, t] : [t]));
   const item = makeItem(pick(weighted).id);
@@ -1367,7 +1378,8 @@ export function resolveExploration(state) {
     const success = Math.random() < successChance;
     report.success = success;
 
-    const lootMult = (0.5 + wis / 100) * (success ? 1 : 0.35) * (1 + techPerk(state, "expeditionLoot")) * (1 + avgSkill("History"));
+    // WIS finds more, and harder places have more to find (expeditionLootScale)
+    const lootMult = (0.5 + wis / 100) * (success ? 1 : 0.35) * (1 + techPerk(state, "expeditionLoot")) * (1 + avgSkill("History")) * expeditionLootScale(location);
     // What the team can physically carry home: STR, for the bulky stuff.
     const carry = (key) => (key === "food" || key === "materials" ? 0.8 + avg("PE") * TUNE.carryPerStr : 1);
     const dangerReq = location.danger * 15;

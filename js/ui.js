@@ -10,7 +10,7 @@ import {
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, SCOUT_ENCOUNTER_HP_LOSS,
-  EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
+  RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -19,7 +19,7 @@ import {
 import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, expeditionNeed, expeditionBlocks, expeditionOdds, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -1178,10 +1178,10 @@ function renderExplorationMap(state) {
     }
 
     if (loc) {
-      const rewards = Object.entries(loc.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ~${v}`).join(" ");
+      const rewards = lootLine(loc);
       cells += `<div class="cm-cell cm-place ${team !== undefined ? "cm-assigned" : ""}" data-action="open-mission" data-location="${loc.id}" style="${at(q, r)}${teamStyle}" ${tipAttr({
         title: `${LOCATION_ICON[loc.id]} ${esc(loc.name)}`,
-        rows: [["⚔ Power needed", `${expeditionNeed(loc)}`], ["📍 Distance", `${expeditionBlocks(loc)} blocks`], ["Danger", `${loc.danger}/5`], ["Loot", rewards], ...(loc.serumChance ? [["Rare", "💉 serum"]] : [])],
+        rows: [["⚔ Power needed", `${expeditionNeed(loc)}`], ["📍 Distance", `${expeditionBlocks(loc)} blocks`], ["Danger", `${loc.danger}/5`], ["Loot (about)", rewards], ["Gear chance", `${Math.round(expeditionGearChance(loc) * 100)}%`], ...(loc.serumChance ? [["Rare", "💉 serum"]] : [])],
         notes: [esc(loc.desc), ...dangerNotes(state, q, r)],
       })}>${squad}<span class="cm-label">${LOCATION_ICON[loc.id]}<span class="cm-name"> ${esc(loc.name)}</span></span></div>`;
     } else if (lm) {
@@ -1806,6 +1806,19 @@ export function renderBattleAnimation(state, anim) {
   return "";
 }
 
+// A place's supplies as they'd come home, harder places paying more (before the team's WIS and luck).
+const lootLine = (loc) => Object.entries(loc.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ${Math.round(v * expeditionLootScale(loc))}`).join(" ");
+const GEAR_TIER_NAME = ["", "basic", "decent", "good", "great"];
+function lootTip(loc) {
+  const scale = expeditionLootScale(loc);
+  return {
+    title: "🎒 Loot — about",
+    rows: [...Object.entries(loc.rewards).map(([k, v]) => [`${RESOURCE_ICON[k]} ${RESOURCE_NAME[k] || k}`, `${Math.round(v * scale)}`]),
+      ["Gear chance", `${Math.round(expeditionGearChance(loc) * 100)}%`], ["Best gear", GEAR_TIER_NAME[expeditionGearTier(loc)]]],
+    notes: [`×${scale.toFixed(2)} for how hard it is — the more power a place needs, the more it pays`, "A wise team (WIS) finds more; a struggling one, about a third"],
+  };
+}
+
 // How a place's needed power adds up: its distance from the school, give or take its difficulty.
 function needTip(loc) {
   const blocks = expeditionBlocks(loc);
@@ -1868,6 +1881,7 @@ export function renderMissionModal(state, locationId) {
         <span class="ms-need" ${tipAttr(needTip(loc))}>⚔ Power needed <b>${need}</b></span>
         <span>📍 ${expeditionBlocks(loc)} blocks out</span>
         <span>Danger ${loc.danger}/5</span>
+        <span class="ms-loot" ${tipAttr(lootTip(loc))}>🎒 ${lootLine(loc)}</span>
         ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
         ${loc.serumChance ? `<span ${tipAttr({ title: "💉 Antiviral Serum", notes: ["The only cure for an infection — one per person", "Rare: found here, at the Hospital, Pharmacy and Fire Station, and on raid bosses"] })}>💉 Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
       </div>

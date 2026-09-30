@@ -766,6 +766,11 @@ export const EXPEDITION_NEED = { base: 525, perBlock: 100, perDifficulty: 25, ne
 export const EXPEDITION_ODDS_AT_NEED = 0.55;
 export const EXPEDITION_POWER_PER_PERCENT = 4;
 export const EXPEDITION_ODDS_RANGE = [0.05, 0.95];
+// Harder places pay better: supplies × (1 + every `perPower` needed over the nearest places'
+// base), never under `min` — ×1.25 / ×1.5 / ×1.75 at 4 / 5 / 6 blocks out. Gear: a place's gear
+// level (1-5) rises every `gearStep` power needed past `gearFrom`, raising the chance of gear
+// (+8% a level) and the best tier it can be.
+export const EXPEDITION_LOOT = { perPower: 400, min: 0.75, gearFrom: 400, gearStep: 90 };
 
 // ===== Happiness =====
 // A school-wide mood meter that reacts to wins/losses/recruits/deaths and, in turn, skews
