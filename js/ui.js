@@ -19,7 +19,7 @@ import {
 import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -2922,8 +2922,13 @@ export function renderFloor3(state) {
   const office = `<div class="room room-office">
     ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office", officeHow, "",
       // the Headmaster at his desk (drawn in the scene): he'll give out missions — not yet
-      `<span class="hm-glow"></span>
-      <span class="hm-npc" data-action="open-missions" ${tipAttr({ title: "🎩 The Headmaster", notes: ["Hands out missions — coming soon", "Missions will come with their own rewards"] })}><span class="hm-bubble">📜</span></span>
+      // his glow: blue when he has a mission to give, green when one can be handed in
+      `${missionStatus(state) ? `<span class="hm-glow hm-${missionStatus(state)}"></span>` : ""}
+      <span class="hm-npc hm-${missionStatus(state) || "none"}" data-action="open-missions" ${tipAttr({
+        title: "🎩 The Headmaster",
+        notes: [missionStatus(state) === "complete" ? "A mission is done — come and collect" : missionStatus(state) === "available" ? "Has a mission for you" : "Nothing for you right now",
+          "Blue glow: a mission to take · green: one to hand in", "Missions and rewards are coming soon"],
+      })}><span class="hm-bubble">${missionStatus(state) === "complete" ? "✅" : "📜"}</span></span>
       <button class="hm-missions-btn" data-action="open-missions" title="The Headmaster's missions — coming soon">📜 Missions</button>`)}
     <div class="office-split">
       <div>

@@ -357,6 +357,14 @@ export function fightForRoom(state, roomKey, ids) {
   return { roomKey, won: sim.won, frames: sim.frames, memberIds: squad.map((c) => c.id), zombies: roomZombies(roomKey), hurt, cost: room.cost, tutorial };
 }
 
+// ---------- the Headmaster's missions (work in progress) ----------
+// What the Headmaster has for the player, shown as the glow around him: "complete" (a mission is
+// done — come and collect, green), "available" (one to take on, blue), or null (nothing, no glow).
+// Missions aren't in yet, so for now he always has one on offer.
+export function missionStatus(state) {
+  return "available";
+}
+
 // ---------- objectives ----------
 // Switched off (nothing shows or checks them since 2026-10-01): the Headmaster will hand out
 // missions instead. Kept as a starting point for those.

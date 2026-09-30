@@ -677,20 +677,29 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 }
 .hm-npc { cursor: pointer; }
 .hm-npc:hover { box-shadow: 0 0 0 2px rgba(244, 211, 94, 0.8), 0 0 14px rgba(244, 211, 94, 0.5); }
-/* a warm spotlight on him, gently pulsing, so he's easy to spot */
+/* a pulsing glow around him: blue when he has a mission to give, green when one can be handed in
+   (cool colours, so it stands out against the office's warm wood) */
 .hm-glow {
+  --glow: 40, 140, 255;
   position: absolute; z-index: 1; pointer-events: none;
-  left: calc(50% + (93 - 96) * var(--px, calc(130px / 48)) - 50px); top: -6px; width: 100px; height: 86px;
-  background: radial-gradient(ellipse at 50% 45%, rgba(255, 226, 130, 0.55), rgba(255, 210, 90, 0.18) 45%, transparent 70%);
-  mix-blend-mode: screen; animation: hm-glow 2.2s ease-in-out infinite alternate;
+  left: calc(50% + (93 - 96) * (130px / 48) - 70px); top: -18px; width: 140px; height: 112px;
+  /* a halo: clear in the middle so he stays sharp, a bright ring around him fading out */
+  background: radial-gradient(ellipse at 50% 46%, rgba(var(--glow), 0) 0 30%, rgba(var(--glow), 0.95) 38%, rgba(var(--glow), 0.45) 48%, transparent 66%);
+  mix-blend-mode: screen; animation: hm-glow 1.8s ease-in-out infinite alternate;
 }
-@keyframes hm-glow { from { opacity: 0.55; } to { opacity: 1; } }
+.hm-glow.hm-complete { --glow: 40, 220, 110; }
+@keyframes hm-glow { from { opacity: 0.6; } to { opacity: 1; } }
+.hm-npc.hm-available:hover { box-shadow: 0 0 0 2px rgba(90, 170, 255, 0.9), 0 0 14px rgba(90, 170, 255, 0.6); }
+.hm-npc.hm-complete:hover { box-shadow: 0 0 0 2px rgba(90, 230, 140, 0.9), 0 0 14px rgba(90, 230, 140, 0.6); }
 .hm-bubble {
+  --edge: #c9a227;
   position: absolute; left: 100%; top: -8px; display: grid; place-items: center; width: 28px; height: 25px;
-  border-radius: 7px; background: #fffbe8; border: 2px solid #c9a227; font-size: 15px; line-height: 1;
+  border-radius: 7px; background: #fffbe8; border: 2px solid var(--edge); font-size: 15px; line-height: 1;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); animation: hm-bob 1.6s ease-in-out infinite alternate;
 }
-.hm-bubble::after { content: ""; position: absolute; left: -7px; bottom: 4px; border: 5px solid transparent; border-right-color: #c9a227; }
+.hm-available .hm-bubble { --edge: #4a9eff; }
+.hm-complete .hm-bubble { --edge: #3fcf7a; }
+.hm-bubble::after { content: ""; position: absolute; left: -7px; bottom: 4px; border: 5px solid transparent; border-right-color: var(--edge); }
 @keyframes hm-bob { to { transform: translateY(-4px); } }
 /* the Missions button, top-right of the office banner */
 .hm-missions-btn {
