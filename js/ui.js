@@ -1069,45 +1069,62 @@ function renderTeamCard(state, i) {
   </div>`;
 }
 
-// The three expedition roles (EXPLORE_ROLES): every student free to explore today, each in the
-// role their stats point to (best first) — drag one onto another window to change it. Students
-// already on a team wear its colour; those too tired to go are dimmed.
+// Which role the Exploration tab's role window shows (main.js flips it: set-role-tab).
+let roleTab = "fighter";
+export function setRoleTab(role) {
+  if (EXPLORE_ROLES[role]) roleTab = role;
+}
+
+// The expedition roles (EXPLORE_ROLES), one at a time: a tab per role next to "Roles" — drop a
+// student on a tab to move them to that role — and the chosen role's students, strongest first,
+// each with their power and HP / stamina bars. Students already on a team wear its colour; those
+// too tired to go are dimmed.
 function renderRoleWindows(state) {
   const cost = exploreStaminaCost(state);
   const free = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.farmToday && !c.scrapyardToday);
   const statsOf = (r) => r.stats.map((s) => STAT_OF_SUBJECT[s]).join(" + ");
-  const windows = Object.entries(EXPLORE_ROLES).map(([role, r]) => {
-    const members = free.filter((c) => exploreRole(c) === role).sort((a, b) => roleScores(b)[role] - roleScores(a)[role]);
-    const chips = members.map((c) => {
-      const scores = roleScores(c);
-      const team = c.exploreTeam;
-      const tired = team === null && c.stamina < cost;
-      return `<span class="ex-role-chip ${tired ? "ex-role-tired" : ""} ${c.exploreRole ? "ex-role-moved" : ""} ${team !== null ? "ex-role-onteam" : ""}"
-        draggable="true" data-drag-student="${c.id}" data-action="open-card" data-id="${c.id}" ${team !== null ? `style="--team:${TEAM_COLORS[team]}"` : ""} ${tipAttr({
-          title: `${esc(c.name)} · Lv ${overallLevel(c)}`,
-          rows: Object.entries(EXPLORE_ROLES).map(([k, x]) => [`${x.icon} ${x.name} · ${statsOf(x)}`, `${scores[k]}`, k === role ? "" : "tip-dim"]),
-          notes: [
-            ...(team !== null ? [`On ${teamLabel(team)}`] : []),
-            ...(tired ? [`Too tired to explore — needs ${cost} stamina`] : []),
-            ...(c.exploreRole ? [`Moved here by hand — their stats say ${EXPLORE_ROLES[autoRole(c)].name}`] : []),
-            "Drag to another role",
-          ],
-        })}>${characterSprite(c, 24)}</span>`;
-    }).join("");
-    return `<div class="ex-role ex-role-${role}" data-drop-role="${role}">
-      <div class="ex-role-head"><span class="ex-role-name">${r.icon} ${r.name}</span><span class="ex-role-stats">${statsOf(r)}</span><b>${members.length}</b></div>
-      <div class="ex-role-chips">${chips || '<span class="muted ex-role-empty">Drag students here</span>'}</div>
-    </div>`;
+  const inRole = (role) => free.filter((c) => exploreRole(c) === role);
+  const tabs = Object.entries(EXPLORE_ROLES).map(([role, r]) => `<button class="ex-rtab ex-role-${role} ${role === roleTab ? "active" : ""}"
+    data-action="set-role-tab" data-role="${role}" data-drop-role="${role}" title="${r.name} · ${statsOf(r)} — drop a student here to make them one">${r.icon}<b>${inRole(role).length}</b></button>`).join("");
+
+  const r = EXPLORE_ROLES[roleTab];
+  const pct = (v, max) => Math.max(0, Math.min(100, Math.round((v / max) * 100)));
+  const tiles = inRole(roleTab).sort((a, b) => memberPower(state, b) - memberPower(state, a)).map((c) => {
+    const scores = roleScores(c);
+    const team = c.exploreTeam;
+    const tired = team === null && c.stamina < cost;
+    const power = memberPower(state, c);
+    return `<span class="ex-rt ${tired ? "ex-rt-tired" : ""} ${c.exploreRole ? "ex-rt-moved" : ""} ${team !== null ? "ex-rt-onteam" : ""}"
+      draggable="true" data-drag-student="${c.id}" data-action="open-card" data-id="${c.id}" ${team !== null ? `style="--team:${TEAM_COLORS[team]}"` : ""} ${tipAttr({
+        title: `${esc(c.name)} · Lv ${overallLevel(c)}`,
+        rows: [[`⚔ Power as a ${r.name.slice(0, -1).toLowerCase()}`, `${power}`], ["❤ HP", `${c.hp}/${c.maxHp}`], ["⚡ Stamina", `${c.stamina}/${c.maxStamina}`],
+          ...Object.entries(EXPLORE_ROLES).map(([k, x]) => [`${x.icon} ${x.name} · ${statsOf(x)}`, `${scores[k]}`, k === roleTab ? "" : "tip-dim"])],
+        notes: [
+          ...(team !== null ? [`On ${teamLabel(team)}`] : []),
+          ...(tired ? [`Too tired to explore — needs ${cost} stamina`] : []),
+          ...(c.exploreRole ? [`Moved here by hand — their stats say ${EXPLORE_ROLES[autoRole(c)].name}`] : []),
+          "Drag onto a team slot, or onto another role's tab",
+        ],
+      })}>
+      <span class="ex-rt-sprite">${characterSprite(c, 34)}</span>
+      <span class="ex-rt-power">${power}</span>
+      <span class="ex-rt-bar ex-rt-hp"><i style="width:${pct(c.hp, c.maxHp)}%"></i></span>
+      <span class="ex-rt-bar ex-rt-stam"><i style="width:${pct(c.stamina, c.maxStamina)}%"></i></span>
+    </span>`;
   }).join("");
+
   const how = {
     title: "🧭 Expedition roles",
     intro: ["Everyone free to explore today, sorted by their stats"],
-    rows: Object.values(EXPLORE_ROLES).map((r) => [`${r.icon} ${r.name}`, statsOf(r)]),
-    notes: ["Score in a role = the average of its two stats", "Each student goes where they score highest", "Drag a student to another window to change it"],
+    rows: Object.values(EXPLORE_ROLES).map((x) => [`${x.icon} ${x.name}`, statsOf(x)]),
+    notes: ["Score in a role = the average of its two stats", "Each student goes where they score highest", "Drop a student on another role's tab to move them", "Each portrait: power in this role, then HP (red) and stamina (yellow)"],
   };
   const moved = free.some((c) => c.exploreRole);
-  return `<div class="ex-roles-head"><span class="mini-label">Roles ${infoDot(how)}</span>${moved ? `<button class="btn btn-sm" data-action="reset-roles" title="Put everyone back in the role their stats point to">↺ By stats</button>` : ""}</div>
-    ${windows}`;
+  return `<div class="ex-roles-head"><span class="mini-label">Roles ${infoDot(how)}</span><span class="ex-rtabs">${tabs}</span></div>
+    <div class="ex-role ex-role-${roleTab}" data-drop-role="${roleTab}">
+      <div class="ex-role-head"><span class="ex-role-name">${r.icon} ${r.name}</span><span class="ex-role-stats">${statsOf(r)}</span>${moved ? `<button class="btn btn-sm ex-role-reset" data-action="reset-roles" title="Put everyone back in the role their stats point to">↺ By stats</button>` : "<span></span>"}</div>
+      <div class="ex-rt-grid">${tiles || '<span class="muted ex-role-empty">Nobody — drop students on this tab</span>'}</div>
+    </div>`;
 }
 
 // Why a block is riskier than usual: a nest next door, the horde close by, or both.
