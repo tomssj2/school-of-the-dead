@@ -8,7 +8,7 @@ import {
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL,
-  STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
+  STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
@@ -1096,11 +1096,32 @@ export function buyTeamSlot(state) {
   addLog(state, `🧭 A new expedition team is ready — Team ${state.teamSlots} (−${cost} scrap).`);
   return true;
 }
-// A team's power: every member adds the two stats of their role (fighters STR + CON, scouts DEX +
-// CHA, supports INT + WIS), up to 200 each. Its rank is that as a grade (an empty slot counts 0).
+// What one member adds to their team's power: the two stats of their role (fighters STR + CON,
+// scouts DEX + CHA, supports INT + WIS), gear included.
+export function memberPower(state, c) {
+  return EXPLORE_ROLES[exploreRole(c)].stats.reduce((sum, s) => sum + effectiveGrade(state, c, s), 0);
+}
+// A team's power: its members' added up. Its rank is that as a grade (an empty slot counts 0).
 export function teamPower(state, i) {
-  const power = teamMembers(state, i).reduce((sum, c) => sum + roleScores(c)[exploreRole(c)] * 2, 0);
-  return { power, rank: gradeLetter(Math.round(power / (EXPLORE_TEAM_SLOTS.length * 2))) };
+  const power = teamMembers(state, i).reduce((sum, c) => sum + memberPower(state, c), 0);
+  return { power, rank: gradeLetter(Math.min(100, Math.round(power / (EXPLORE_TEAM_SLOTS.length * 2)))) };
+}
+// The team power a place needs: more for every block further from the school, give or take its
+// own difficulty.
+export function expeditionNeed(location) {
+  const blocks = hexDistance(location.hex.q, location.hex.r);
+  return EXPEDITION_NEED.base + (blocks - EXPEDITION_NEED.nearest) * EXPEDITION_NEED.perBlock + (location.difficulty - 3) * EXPEDITION_NEED.perDifficulty;
+}
+export const expeditionBlocks = (location) => hexDistance(location.hex.q, location.hex.r);
+// A team's odds at a place: EXPEDITION_ODDS_AT_NEED with exactly the power it needs, ±1% per
+// EXPEDITION_POWER_PER_PERCENT over or under, plus research, minus a nest or the horde next door.
+export function expeditionOdds(state, teamIndex, location) {
+  const { power } = teamPower(state, teamIndex);
+  const nearNest = nextToNest(state, location.hex.q, location.hex.r);
+  const [lo, hi] = EXPEDITION_ODDS_RANGE;
+  const raw = EXPEDITION_ODDS_AT_NEED + (power - expeditionNeed(location)) / EXPEDITION_POWER_PER_PERCENT / 100
+    + techPerk(state, "expeditionSuccess") - (nearNest ? NEST_EXPEDITION_PENALTY : 0);
+  return Math.max(lo, Math.min(hi, raw));
 }
 // Puts a student in one of a team's `role` slots (their role changes to it if needed).
 export function assignTeamSlot(state, studentId, teamIndex, role) {
@@ -1335,17 +1356,14 @@ export function resolveExploration(state) {
     teams.push(report);
 
     const avg = (statKey) => members.reduce((sum, c) => sum + effectiveGrade(state, c, statKey), 0) / members.length;
-    const power = (avg("PE") + avg("Gymnastics")) / 2;
     const safety = (avg("Biology") + avg("History")) / 2; // CON and WIS keep a team safe
     const avgSkill = (subject) => members.reduce((sum, c) => sum + skillBonus(c, subject), 0) / members.length;
     const bestSkill = (subject) => members.reduce((m, c) => Math.max(m, skillBonus(c, subject)), 0);
     const wis = avg("History");
     const cha = avg("SocialStudies");
 
-    const requirement = location.difficulty * 15;
-    const successChance = clamp01(
-      0.3 + (power - requirement) / 100 + techPerk(state, "expeditionSuccess") - (nearNest ? NEST_EXPEDITION_PENALTY : 0)
-    );
+    // the team's power against what the place needs (expeditionNeed: further out needs more)
+    const successChance = expeditionOdds(state, teamIndex, location);
     const success = Math.random() < successChance;
     report.success = success;
 

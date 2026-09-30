@@ -757,6 +757,15 @@ export const EXPLORE_ROLES = {
 // unlocks team i + 1), up to three. Every team has these five slots.
 export const EXPLORE_TEAM_COSTS = [0, 40, 80];
 export const EXPLORE_TEAM_SLOTS = ["fighter", "fighter", "scout", "support", "support"];
+// How hard a place is: the team power it needs grows with every block from the school (the
+// nearest places are 3 out), give or take its own difficulty (1-5, around 3). A team with exactly
+// that power succeeds EXPEDITION_ODDS_AT_NEED of the time, ±1% per EXPEDITION_POWER_PER_PERCENT.
+// A new school's best five come to ~650 power: about 88% / 63% / 30% / 9% at 3 / 4 / 5 / 6 blocks
+// out (a careless five, far less); a maxed team (~1000) takes the far side of town at ~85%.
+export const EXPEDITION_NEED = { base: 525, perBlock: 100, perDifficulty: 25, nearest: 3 };
+export const EXPEDITION_ODDS_AT_NEED = 0.55;
+export const EXPEDITION_POWER_PER_PERCENT = 4;
+export const EXPEDITION_ODDS_RANGE = [0.05, 0.95];
 
 // ===== Happiness =====
 // A school-wide mood meter that reacts to wins/losses/recruits/deaths and, in turn, skews

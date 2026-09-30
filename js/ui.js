@@ -10,6 +10,7 @@ import {
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, SCOUT_ENCOUNTER_HP_LOSS,
+  EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -18,7 +19,7 @@ import {
 import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, teamCount, nextTeamCost, teamPower, teamMembers, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, expeditionNeed, expeditionBlocks, expeditionOdds, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -1018,10 +1019,10 @@ function teamPowerChip(state, i) {
   return `<span class="ex-power" ${tipAttr({
     title: `⚔ Team power ${power}`,
     rows: members.length
-      ? members.map((c) => { const r = EXPLORE_ROLES[exploreRole(c)]; return [`${r.icon} ${esc(shortName(c))} · ${r.stats.map((s) => STAT_OF_SUBJECT[s]).join("+")}`, `+${roleScores(c)[exploreRole(c)] * 2}`]; })
+      ? members.map((c) => { const r = EXPLORE_ROLES[exploreRole(c)]; return [`${r.icon} ${esc(shortName(c))} · ${r.stats.map((s) => STAT_OF_SUBJECT[s]).join("+")}`, `+${memberPower(state, c)}`]; })
       : [tipNone("Nobody yet", "+0")],
     total: ["Power", `${power} · ${rank}`],
-    notes: ["Fighters add STR + CON, scouts DEX + CHA, supports INT + WIS", `Rank: the power out of ${EXPLORE_TEAM_SLOTS.length * 200} as a grade — an empty slot adds nothing`],
+    notes: ["Fighters add STR + CON, scouts DEX + CHA, supports INT + WIS — gear included", "Places further from the school need more power", `Rank: the power out of ${EXPLORE_TEAM_SLOTS.length * 200} as a grade — an empty slot adds nothing`],
   })}>⚔ ${power} <b class="grade-letter-${rank}">${rank}</b></span>`;
 }
 
@@ -1051,7 +1052,7 @@ function renderTeamCard(state, i) {
     return `<span class="ex-slot ex-role-${role}" draggable="true" data-drag-student="${c.id}" data-action="open-card" data-id="${c.id}"
       data-drop-team="${i}" data-slot-role="${role}" data-occupant="${c.id}" ${tipAttr({
         title: `${esc(c.name)} · Lv ${overallLevel(c)}`,
-        rows: [[`${r.icon} ${r.name.slice(0, -1)} · ${r.stats.map((s) => STAT_OF_SUBJECT[s]).join(" + ")}`, `+${roleScores(c)[role] * 2}`], ["⚡ Stamina", `${c.stamina}/${c.maxStamina}`], ["❤ HP", `${c.hp}/${c.maxHp}`]],
+        rows: [[`${r.icon} ${r.name.slice(0, -1)} · ${r.stats.map((s) => STAT_OF_SUBJECT[s]).join(" + ")}`, `+${memberPower(state, c)}`], ["⚡ Stamina", `${c.stamina}/${c.maxStamina}`], ["❤ HP", `${c.hp}/${c.maxHp}`]],
         notes: ["Drag to another slot or team", "✕ takes them off the team"],
       })}>${characterSprite(c, 30)}<i class="ex-slot-x" data-action="team-remove" data-id="${c.id}" title="Take off the team">✕</i></span>`;
   }).join("");
@@ -1180,7 +1181,7 @@ function renderExplorationMap(state) {
       const rewards = Object.entries(loc.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ~${v}`).join(" ");
       cells += `<div class="cm-cell cm-place ${team !== undefined ? "cm-assigned" : ""}" data-action="open-mission" data-location="${loc.id}" style="${at(q, r)}${teamStyle}" ${tipAttr({
         title: `${LOCATION_ICON[loc.id]} ${esc(loc.name)}`,
-        rows: [["Difficulty", `${loc.difficulty}/5`], ["Danger", `${loc.danger}/5`], ["Loot", rewards], ...(loc.serumChance ? [["Rare", "💉 serum"]] : [])],
+        rows: [["⚔ Power needed", `${expeditionNeed(loc)}`], ["📍 Distance", `${expeditionBlocks(loc)} blocks`], ["Danger", `${loc.danger}/5`], ["Loot", rewards], ...(loc.serumChance ? [["Rare", "💉 serum"]] : [])],
         notes: [esc(loc.desc), ...dangerNotes(state, q, r)],
       })}>${squad}<span class="cm-label">${LOCATION_ICON[loc.id]}<span class="cm-name"> ${esc(loc.name)}</span></span></div>`;
     } else if (lm) {
@@ -1805,6 +1806,20 @@ export function renderBattleAnimation(state, anim) {
   return "";
 }
 
+// How a place's needed power adds up: its distance from the school, give or take its difficulty.
+function needTip(loc) {
+  const blocks = expeditionBlocks(loc);
+  const diff = (loc.difficulty - 3) * EXPEDITION_NEED.perDifficulty;
+  return {
+    title: `⚔ Power needed ${expeditionNeed(loc)}`,
+    rows: [[`${EXPEDITION_NEED.nearest} blocks out`, `${EXPEDITION_NEED.base}`],
+      ...(blocks > EXPEDITION_NEED.nearest ? [[`+${blocks - EXPEDITION_NEED.nearest} block${blocks - EXPEDITION_NEED.nearest === 1 ? "" : "s"} further`, `+${(blocks - EXPEDITION_NEED.nearest) * EXPEDITION_NEED.perBlock}`]] : []),
+      ...(diff ? [[`Difficulty ${loc.difficulty}/5`, `${diff > 0 ? "+" : "−"}${Math.abs(diff)}`]] : [])],
+    total: ["Needed", `${expeditionNeed(loc)}`],
+    notes: [`+${EXPEDITION_NEED.perBlock} for every block further from the school`],
+  };
+}
+
 // A place's pop-up: what's there, then the teams free to send (built in the side panel) with
 // their power and odds — or, once one is going, that team and a Recall.
 export function renderMissionModal(state, locationId) {
@@ -1812,15 +1827,12 @@ export function renderMissionModal(state, locationId) {
   if (!loc) return "";
   const sentIndex = state.teamLocations.indexOf(locationId);
 
-  // the odds, as resolveExploration rolls them (the team's average STR and DEX against the place)
-  const odds = (members) => {
-    if (!members.length) return null;
-    const avg = (statKey) => members.reduce((sum, c) => sum + effectiveGrade(state, c, statKey), 0) / members.length;
-    return Math.round(Math.max(0, Math.min(1, 0.3 + ((avg("PE") + avg("Gymnastics")) / 2 - loc.difficulty * 15) / 100)) * 100);
-  };
+  const need = expeditionNeed(loc);
   const teamRow = (i) => {
     const members = teamMembers(state, i);
-    const pct = odds(members);
+    // the odds, as resolveExploration rolls them: the team's power against what the place needs
+    const pct = members.length ? Math.round(expeditionOdds(state, i, loc) * 100) : null;
+    const { power } = teamPower(state, i);
     const faces = teamSlotList(state, i).map(({ role, c }) => c
       ? `<span class="ms-face ex-role-${role}" title="${esc(c.name)}">${characterSprite(c, 26)}</span>`
       : `<span class="ms-face ms-face-empty ex-role-${role}">${EXPLORE_ROLES[role].icon}</span>`).join("");
@@ -1829,7 +1841,11 @@ export function renderMissionModal(state, locationId) {
       <div class="ms-team-name"><i class="team-dot"></i>${teamLabel(i)}</div>
       <div class="ms-faces">${faces}</div>
       ${teamPowerChip(state, i)}
-      <span class="ms-odds ${pct === null ? "muted" : pct >= 60 ? "ms-good" : pct >= 35 ? "ms-ok" : "ms-bad"}">${pct === null ? "Empty" : `${pct}%`}</span>
+      <span class="ms-odds ${pct === null ? "muted" : pct >= 60 ? "ms-good" : pct >= 35 ? "ms-ok" : "ms-bad"}" ${pct === null ? "" : tipAttr({
+        title: `🎲 ${pct}% to succeed`,
+        rows: [["Team power", `${power}`], ["Power needed", `${need}`], ["Difference", `${power >= need ? "+" : "−"}${Math.abs(power - need)}`]],
+        notes: [`${Math.round(EXPEDITION_ODDS_AT_NEED * 100)}% with exactly the power needed, ±1% per ${EXPEDITION_POWER_PER_PERCENT} power`, `Never below ${Math.round(EXPEDITION_ODDS_RANGE[0] * 100)}% or above ${Math.round(EXPEDITION_ODDS_RANGE[1] * 100)}%`],
+      })}>${pct === null ? "Empty" : `${pct}%`}</span>
       ${sent
         ? `<button class="btn btn-danger btn-sm" data-action="clear-mission" data-team="${i}">Recall</button>`
         : `<button class="btn btn-primary btn-sm" data-action="send-team" data-team="${i}" ${members.length ? "" : 'disabled title="Fill its slots in the side panel first"'}>🧭 Send</button>`}
@@ -1849,13 +1865,14 @@ export function renderMissionModal(state, locationId) {
       <h3>${LOCATION_ICON[locationId]} ${esc(loc.name)}</h3>
       <p class="muted">${esc(loc.desc)}</p>
       <div class="mission-stats-row">
-        <span>Difficulty ${loc.difficulty}/5</span>
+        <span class="ms-need" ${tipAttr(needTip(loc))}>⚔ Power needed <b>${need}</b></span>
+        <span>📍 ${expeditionBlocks(loc)} blocks out</span>
         <span>Danger ${loc.danger}/5</span>
         ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
         ${loc.serumChance ? `<span ${tipAttr({ title: "💉 Antiviral Serum", notes: ["The only cure for an infection — one per person", "Rare: found here, at the Hospital, Pharmacy and Fire Station, and on raid bosses"] })}>💉 Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
       </div>
       ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">${dangerNotes(state, loc.hex.q, loc.hex.r).join(" · ")}: lower odds and more injuries.</div>` : ""}
-      <div class="mini-label ms-label">${sentIndex !== -1 ? "Heading here today" : "Send a team"} ${infoDot({ title: "🧭 Sending a team", notes: ["Build teams in the side panel — 2 fighters, a scout and 2 supports", "Odds: the team's average STR and DEX against the place's difficulty", "Each team goes to one place a day"] })}</div>
+      <div class="mini-label ms-label">${sentIndex !== -1 ? "Heading here today" : "Send a team"} ${infoDot({ title: "🧭 Sending a team", notes: ["Build teams in the side panel — 2 fighters, a scout and 2 supports", "Odds: the team's power against the power this place needs", "Each team goes to one place a day"] })}</div>
       <div class="ms-teams">${teamsHtml}</div>
     </div>
   </div>`;
@@ -2217,7 +2234,7 @@ function resolvePickerCandidates(state, picker) {
         focus: r.stats.map((s) => STAT_OF_SUBJECT[s]),
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.farmToday && !c.scrapyardToday && exploreRole(c) === postKey && c.exploreTeam !== team)
           .map((c) => {
-            const score = roleScores(c)[postKey] * 2;
+            const score = memberPower(state, c);
             const reason = c.exploreTeam !== null ? `On ${teamLabel(c.exploreTeam)}` : c.stamina < cost ? `Too tired (needs ${cost} stamina)` : null;
             return reason ? { c, reason } : { c, value: -score, hint: `<span class="pk-gain" title="What they add to the team's power">⚔ +${score}</span>` };
           }),
