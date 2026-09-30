@@ -711,13 +711,13 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
 const LEFT_TABS_BY_TURN = {
   1: [["floor1", "Lobby", "lobby"], ["floor2", "Classrooms", "classrooms"], ["floor3", "Facilities", "facilities"]],
   2: [["citymap", "City Map", "explore"], ["farm", "Farm", "farm"], ["scrapyard", "Scrapyard", "scrap"]],
-  3: [["defense", "Defense", "defense"], ["assault", "Assault", "assault"], ["event", "Event", "event"]],
+  3: [["defense", "Night Watch", "defense"], ["assault", "Assault", "assault"], ["event", "Event", "event"]],
 };
 const RIGHT_TABS = [["roster", "Roster", "roster"], ["armory", "Armory", "armory"], ["research", "Research", "research"]];
 // The center button always returns to the current turn's action screen (assigning classes,
 // missions, or defenders + the button that actually advances the turn) — labeled per-turn so
 // it doesn't read as a generic "advance turn" action.
-const OVERVIEW_TAB = { 1: ["Classes", "classes"], 2: ["Explore", "explore"], 3: ["Night Watch", "moon"] };
+const OVERVIEW_TAB = { 1: ["Classes", "classes"], 2: ["Explore", "explore"], 3: ["Night", "moon"] };
 
 const navBtn = (activeTab, [id, label, icon], cls = "", size = 18) =>
   `<button class="nav-btn ${cls} ${activeTab === id ? "active" : ""}" data-action="set-tab" data-tab="${id}">${pixelIcon(icon, size)}<span>${label}</span></button>`;
@@ -900,11 +900,23 @@ const WARNING_KINDS = {
   nests: "🧟 Zombie nests to burn out",
   siteWorkers: "⚠ Farm & Scrapyard short of workers",
   plant: "🌱 Seeds & animals to add",
+  // the Night Summary (Turn 3)
+  noDefenders: "⚠ Nobody on watch",
+  unarmed: "👊 Defenders without weapons",
+  hurtDefenders: "❤ Hurt defenders",
+  freeSpots: "🛡 Free spots on the steps",
+  build: "🧱 Scrap to build defenses",
+  kits: "🧰 Defense kits to place",
+  noMedicine: "💊 No medicine for saves",
+  gate: "🚪 No gate",
+  boss: "☠ Boss nights",
+  weather: "🌧 Bad weather",
 };
 // Which kinds each turn's summary can show (the counter's drop-down lists these).
 const TURN_WARNING_KINDS = {
   1: ["noTeacher", "noCook", "quarantine", "teacherFree", "available", "rest", "heal", "dish", "upgrade", "promote", "recruits", "clear"],
   2: ["teamIdle", "lowOdds", "teamEmpty", "teamUnlock", "scouts", "drops", "raid", "nests", "siteWorkers", "plant", "upgrade"],
+  3: ["noDefenders", "unarmed", "hurtDefenders", "freeSpots", "gate", "build", "kits", "noMedicine", "boss", "weather"],
 };
 const HIDDEN_WARNINGS_KEY = "sotd-hidden-warnings";
 let hiddenWarnings = (() => {
@@ -2159,9 +2171,122 @@ export function renderMissionModal(state, locationId) {
 const FACILITY_LABEL = { farm: "Farm", scrapyard: "Scrapyard" };
 const FACILITY_ICON = { farm: "🌾", scrapyard: "🔩" };
 
+// Turn 3's centre button: a facility raid in progress takes the slot; otherwise the Night Summary.
 function renderTurn3Overview(state) {
   if (state.pendingRaid) return renderFacilityRaidPanel(state);
+  return renderTurn3Summary(state);
+}
 
+// The Night Summary (Turn 3's centre button), laid out like the other turns' summaries: tonight's
+// horde, the defenders, the defenses and the supplies for the fight, each with its warnings; the
+// students who could stand watch on the left, the warnings counter on the right, and the button
+// that starts the fight.
+function renderTurn3Summary(state) {
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const all = [];
+  const bad = (kind, text) => { const n = ["bad", `⚠ ${text}`, kind]; all.push(n); return n; };
+  const tip = (kind, text) => { const n = ["tip", text, kind]; all.push(n); return n; };
+  const grid = state.entranceGrid;
+  const size = grid.size;
+  const third = Math.floor(size / 3);
+
+  // ----- tonight's horde -----
+  const zombies = zombieCountForDay(state.day);
+  const waves = nightWaveCount(zombies);
+  const condition = nightCondition(state);
+  const boss = isBossNight(state.day);
+  const comp = hordeComposition(state.day);
+  const kinds = ["boss", "brute", "spitter", "runner", "walker"].filter((t) => comp[t]);
+  const horde = overviewCard({
+    tab: "defense", name: "Tonight's Horde", style: "--team:#8a3a3a",
+    art: `<span class="ov-team-art">${kinds.slice(0, 4).map((t) => `<span class="ov-team-face ov-zombie">${hordeSprite(t, t === "boss" ? 34 : 28)}</span>`).join("")}</span>`,
+    big: `${zombies}`, unit: `zombies · ${plural(waves, "wave")}`,
+    meta: `${condition.icon} ${condition.name}${boss ? " · ☠ boss night" : ""}`,
+    notes: [boss ? bad("boss", `☠ Boss night — ${esc(bossNameForDay(state.day))}`) : null,
+      condition.id !== "clear" ? bad("weather", `${condition.icon} ${condition.name} tonight`) : null],
+  });
+
+  // ----- the defenders on the steps -----
+  const spots = size * third;
+  const defenders = state.characters.filter((c) => c.defending && c.alive);
+  const available = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
+  const standing = available.filter((c) => !c.defending);
+  const unarmed = defenders.filter((c) => !c.equipment?.meleeWeapon && !c.equipment?.rangedWeapon).length;
+  const hurt = defenders.filter((c) => c.hp < c.maxHp * 0.5).length;
+  const freeSpots = spots - defenders.length;
+  const watch = overviewCard({
+    tab: "defense", name: "Defenders", style: "--team:#4a6fa5",
+    art: `<span class="ov-team-art">${defenders.slice(0, 4).map((c) => `<span class="ov-team-face">${characterSprite(c, 30)}</span>`).join("")}${defenders.length > 4 ? `<span class="ov-team-more">+${defenders.length - 4}</span>` : ""}${defenders.length ? "" : '<span class="ov-team-none">Nobody on watch</span>'}</span>`,
+    big: `${defenders.length}`, unit: `on watch · of ${spots} spots`, used: defenders.length, cap: spots,
+    meta: `${unarmed} unarmed · ${hurt} hurt`,
+    notes: [
+      defenders.length ? null : bad("noDefenders", "Nobody on watch — the horde walks in"),
+      unarmed ? bad("unarmed", `👊 ${unarmed} fighting bare-handed`) : null,
+      hurt ? bad("hurtDefenders", `❤ ${hurt} on watch below half HP`) : null,
+      freeSpots && standing.length ? tip("freeSpots", `🛡 ${plural(Math.min(freeSpots, standing.length), "free spot")} on the steps`) : null,
+    ],
+  });
+
+  // ----- the defenses in the courtyard -----
+  let emptyCells = 0;
+  const built = [];
+  for (let row = third; row < third * 2; row++) {
+    for (let col = 0; col < size; col++) {
+      const id = grid.defenses[`${row},${col}`];
+      if (id) built.push(id);
+      else emptyCells++;
+    }
+  }
+  const cheapest = Math.min(...DEFENSE_STRUCTURES.map((d) => d.cost.materials));
+  const affordable = Math.min(emptyCells, Math.floor(state.resources.materials / cheapest));
+  const kits = Object.values(state.defenseKits || {}).reduce((s, n) => s + n, 0);
+  const defenses = overviewCard({
+    tab: "defense", name: "Defenses", style: "--team:#8a6a3f",
+    art: `<span class="ov-team-art ov-struct-art">${built.slice(0, 6).map((id) => `<span class="ov-struct">${structureSprite(id, 34)}</span>`).join("") || '<span class="ov-team-none">Nothing built</span>'}</span>`,
+    big: `${gateHp(state)}`, unit: "gate HP", used: built.length, cap: built.length + emptyCells,
+    meta: `${built.length} built · 🛡 ${state.fortification} fortification`,
+    notes: [gateHp(state) > 0 ? null : bad("gate", "🚪 No gate — fortify it in the Crafting Room"),
+      kits && emptyCells ? tip("kits", `🧰 ${plural(kits, "kit")} to place — free`) : null,
+      affordable ? tip("build", `🧱 Scrap to build ${plural(affordable, "defense")}`) : null],
+  });
+
+  // ----- medicine and the night actions -----
+  const stabilizeCost = MEDICINE_PER_STABILIZE - techPerk(state, "stabilizeDiscount");
+  const saves = Math.floor(state.resources.medicine / stabilizeCost);
+  const uses = nightActionUses(state);
+  const supplies = overviewCard({
+    tab: "defense", name: "Supplies", style: "--team:#5a8a5a",
+    art: `<span class="ov-team-art ov-action-art">${Object.entries(NIGHT_ACTIONS).map(([id, a]) => `<span class="ov-action">${a.icon}<b>×${uses[id]}</b></span>`).join("")}</span>`,
+    big: `${saves}`, unit: `💊 save${saves === 1 ? "" : "s"} for a downed defender`,
+    meta: `${state.resources.medicine} medicine · ${stabilizeCost} a save`,
+    notes: [saves || !defenders.length ? null : bad("noMedicine", "No medicine — a downed defender may not get up")],
+  });
+
+  // who could stand watch: not on the steps, with a free spot for them (the strongest first)
+  const lazy = standing.sort((a, b) => (b.grades.PE + b.grades.Gymnastics) - (a.grades.PE + a.grades.Gymnastics)).slice(0, Math.max(0, freeSpots));
+  const lazyPill = lazy.length
+    ? `<button class="ov-chip ov-chip-bad" data-action="set-tab" data-tab="defense" ${tipAttr({
+        title: `😴 ${plural(lazy.length, "student")} could stand watch`,
+        notes: [...lazy.slice(0, 10).map((c) => `${defenderRole(state, c).icon} ${esc(c.name)}`), ...(lazy.length > 10 ? [`…and ${lazy.length - 10} more`] : []), "Not on the steps tonight, and there's a free spot for them"],
+      })}>😴 <b>${lazy.length}</b> lazy · ${plural(lazy.length, "student")}</button>`
+    : `<span class="ov-chip ov-chip-ok">✓ Nobody's lazy</span>`;
+
+  return `
+  <div class="card">
+    <div class="ov-head">
+      <div class="ov-head-left">${lazyPill}</div>
+      <h2>Night Summary ${infoDot({ title: "🌙 Turn 3 — Night Summary", notes: ["Set up the steps and the courtyard on the Night Watch tab", "The fight starts when you defend — wave by wave, with night actions", "Orange: something needs you — ⚠ a problem, or something you could do now", "Choose which warnings to show from the counter on the right", "Click a card to go to it"] })}</h2>
+      <div class="ov-head-right">${renderWarningCounter(all, 3)}</div>
+    </div>
+    <div class="mini-label ov-section">Tonight</div>
+    <div class="ov-grid">${horde}${watch}${defenses}${supplies}</div>
+    <button class="btn btn-primary btn-big" data-action="resolve-turn">🛡 Defend the Entrance${defenders.length ? "" : " — with nobody on watch"}</button>
+  </div>`;
+}
+
+// The Night Watch tab: the courtyard board and its side panel (tonight, the horde, night actions,
+// defenders to drag onto the steps). The fight itself starts from the Night Summary.
+function renderNightWatchScreen(state) {
   const defenders = state.characters.filter((c) => c.defending && c.alive);
   const zombies = zombieCountForDay(state.day);
   const z = zombieStatsForDay(state.day);
@@ -2192,7 +2317,7 @@ function renderTurn3Overview(state) {
     <div class="nw-layout">
       ${renderNightBoard(state)}
       <aside class="nw-side">
-        <h2>Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the board from the street, one square a turn", "Post defenders on the steps — melee reaches 1–2 squares, ranged 4–9, fists only point-blank", "Build in the courtyard: walls block a lane until smashed, traps hurt whatever walks over", "A zombie past the top row batters the doors, then gets in", "Hover a defender to see what they can reach"] })}</h2>
+        <h2>Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the board from the street, one square a turn", "Post defenders on the steps — melee reaches 1–2 squares, ranged 4–9, fists only point-blank", "Build in the courtyard: walls block a lane until smashed, traps hurt whatever walks over", "A zombie past the top row batters the doors, then gets in", "Hover a defender to see what they can reach", "Start the fight from the Night Summary (the centre button)"] })}</h2>
         <div class="nw-tonight">
           <span class="nw-cond" ${tipAttr({ title: `${condition.icon} ${condition.name}`, notes: [condition.desc] })}>${condition.icon} ${condition.name}</span>
           <span class="muted">${waves} wave${waves === 1 ? "" : "s"}</span>
@@ -2208,7 +2333,6 @@ function renderTurn3Overview(state) {
         </div>
         <div class="mini-label">Defenders — drag onto the steps</div>
         <div class="nw-roster" data-drop-roster="1">${nightRoster(state) || '<p class="muted">Nobody available.</p>'}</div>
-        <button class="btn btn-primary btn-big" data-action="resolve-turn">🛡 Defend the Entrance</button>
       </aside>
     </div>
   </div>`;
@@ -3480,11 +3604,11 @@ export function renderDefenseTab(state) {
       <span class="weapon-stats">🔧 ${d.cost.materials}</span>
     </div>`
   ).join("");
-  return `
-  <div class="card">
+  // the Night Watch tab: the board to set up tonight, then what can be built and who's coming
+  return `${renderNightWatchScreen(state)}
+  <div class="card nw-guide">
     <h2>🛡 Entrance Defenses ${infoDot({ notes: ["Click an empty middle-row cell to build, a top-row cell to post a defender", "Smashed walls are gone; damaged ones are patched by morning", "Fortification makes the gate sturdier"] })}</h2>
     <p class="room-tagline">Fortification ${state.fortification} · gate <b>${gateHp(state)} HP</b></p>
-    ${renderNightBoard(state)}
     <div class="mini-label">What you can build</div>
     <div class="armory-list">${structures}</div>
     <div class="mini-label">Know your enemy</div>

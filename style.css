@@ -565,7 +565,15 @@ button.ov-chip { font: inherit; font-size: 12px; cursor: pointer; }
 .ov-team-art { position: absolute; inset: 0 8px 0 auto; display: flex; align-items: flex-end; justify-content: flex-end; gap: 2px; }
 .ov-team-face { display: grid; place-items: end center; width: 30px; height: 44px; overflow: hidden; }
 .ov-team-none { align-self: center; font-size: 11px; color: var(--muted); padding-right: 4px; }
+.ov-zombie { width: auto; min-width: 30px; }
+.ov-team-more { align-self: center; margin-left: 4px; padding: 1px 6px; border-radius: 8px; background: rgba(0, 0, 0, 0.45); font-size: 11px; font-weight: 700; color: #e6e9ef; }
+.ov-banner-art .ov-plaque { z-index: 2; }
 .ov-banner-bg { background-size: 260% auto; background-position: 50% 50%; background-repeat: no-repeat; }
+.ov-struct-art { align-items: center; gap: 4px; }
+.ov-struct { display: grid; place-items: center; width: 36px; }
+.ov-action-art { align-items: flex-start; padding-top: 6px; gap: 10px; }
+.ov-action { display: flex; align-items: baseline; gap: 2px; font-size: 20px; }
+.ov-action b { font-size: 12px; color: #e6e9ef; }
 .ov-locked { opacity: 0.55; }
 .ov-locked .ov-big { color: var(--muted); font-size: 16px; }
 
