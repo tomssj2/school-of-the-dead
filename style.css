@@ -1224,6 +1224,78 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
   75% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
   100% { opacity: 0; transform: translate(-20%, -50%) skewX(10deg); }
 }
+/* ----- expedition encounters ----- */
+.mission-card.enc-card { width: 720px; max-width: 94vw; border-top: 3px solid var(--team); }
+.enc-head { display: grid; grid-template-columns: 90px 1fr; gap: 14px; align-items: center; margin-bottom: 12px; }
+.enc-tile { position: relative; width: 90px; height: 78px; }
+.enc-tile .hex-tile { inset: 0; }
+.enc-team { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--team); }
+.enc-team .team-dot { margin: 0; }
+.enc-head h3 { margin: 4px 0; font-size: 18px; }
+.enc-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.enc-opt {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 10px; border-radius: 10px;
+  border: 1px solid var(--border); background: rgba(255, 255, 255, 0.03); color: var(--text); font: inherit; cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s, background 0.12s;
+}
+.enc-opt:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--role); background: color-mix(in srgb, var(--role) 14%, transparent); }
+.enc-fighter { --role: #d96b5b; }
+.enc-scout { --role: #5bbf7a; }
+.enc-support { --role: #6f9be8; }
+.enc-role { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--role); }
+.enc-verb { font-size: 14.5px; text-align: center; }
+.enc-who { display: flex; align-items: center; gap: 6px; min-height: 40px; font-size: 12px; }
+.enc-who small { display: block; color: var(--muted); font-size: 10.5px; }
+.enc-face { display: grid; place-items: center; width: 34px; height: 40px; overflow: hidden; }
+.enc-chance { font-size: 20px; font-weight: 900; }
+.enc-won { border-color: #4caf7d; background: rgba(76, 175, 125, 0.15); box-shadow: 0 0 16px rgba(76, 175, 125, 0.5); animation: enc-pop 0.4s ease-out; }
+.enc-lost { border-color: #d64545; background: rgba(214, 69, 69, 0.15); box-shadow: 0 0 16px rgba(214, 69, 69, 0.5); animation: nw-shake 0.35s ease-in-out; }
+.enc-faded { opacity: 0.35; }
+.enc-opt:disabled { cursor: default; }
+@keyframes enc-pop { 50% { transform: scale(1.06); } }
+.enc-result { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 13.5px; animation: enc-in 0.3s ease-out; }
+.enc-result-ok { background: rgba(76, 175, 125, 0.14); border: 1px solid rgba(76, 175, 125, 0.55); }
+.enc-result-ok b { color: #7fe0a8; }
+.enc-result-bad { background: rgba(214, 69, 69, 0.14); border: 1px solid rgba(214, 69, 69, 0.55); }
+.enc-result-bad b { color: #ff8a8a; }
+@keyframes enc-in { from { opacity: 0; transform: translateY(6px); } }
+.enc-next { display: block; width: 100%; margin-top: 10px; }
+
+/* ----- the expedition skirmish ----- */
+.sk-overlay { gap: 14px; }
+.sk-title { font-size: 20px; font-weight: 900; letter-spacing: 0.04em; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6); }
+.sk-rows { display: flex; flex-direction: column; gap: 12px; width: 980px; max-width: 94vw; }
+.exp-enc { margin-bottom: 4px; font-size: 12px; }
+.exp-enc-ok { color: #9ff0a9; }
+.exp-enc-bad { color: #ffb35c; }
+.sk-row { padding: 8px 12px 10px; border-radius: 10px; border: 1px solid var(--border); border-left: 4px solid var(--team); background: rgba(14, 18, 28, 0.92); }
+.sk-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.sk-label .team-dot { margin: 0; }
+.sk-label .muted { font-weight: 500; }
+.sk-outcome { margin-left: auto; font-weight: 900; animation: enc-pop 0.4s ease-out; }
+.sk-won { color: #7fe0a8; }
+.sk-lost { color: #ffb35c; }
+.sk-enc { margin-left: auto; font-size: 12px; }
+.sk-field { display: grid; grid-template-columns: 1fr 70px 1fr; align-items: end; min-height: 96px; }
+.sk-team, .sk-horde { position: relative; display: flex; align-items: flex-end; gap: 8px; }
+.sk-team { justify-content: flex-end; }
+.sk-vs { text-align: center; font-size: 24px; align-self: center; animation: enc-pop 0.4s ease-out; }
+.sk-enter .sk-team { animation: sk-in-left 0.6s ease-out; }
+.sk-enter .sk-horde { animation: sk-in-right 0.6s ease-out; }
+@keyframes sk-in-left { from { transform: translateX(-60px); opacity: 0; } }
+@keyframes sk-in-right { from { transform: translateX(60px); opacity: 0; } }
+.sk-m, .sk-z { position: relative; display: grid; place-items: end center; }
+.sk-strike svg { animation: nw-lunge 0.3s ease-out; }
+.sk-down svg { transform: rotate(80deg) translate(6px, -8px); filter: grayscale(1) brightness(0.55); }
+.sk-z svg { transform-origin: 50% 100%; animation: nw-shamble 0.7s ease-in-out infinite alternate; }
+.sk-dead { opacity: 0; transition: opacity 0.5s 0.2s; }
+.sk-dying svg { animation: nw-die 0.55s ease-in forwards; }
+.sk-retreat .sk-team { transform: translateX(-24px); opacity: 0.8; transition: transform 0.6s, opacity 0.6s; }
+.sk-pop { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); font-size: 14px; font-weight: 900; color: #ffd166; text-shadow: 0 0 3px #000; pointer-events: none; animation: nw-pop 0.8s ease-out forwards; }
+.sk-pop-bad { color: #ff7a7a; }
+.sk-slash { --c: 0; --r: 0; --px: 1; left: 50%; top: 40%; }
+.sk-burst { --c: 0; --r: 0; --px: 1; left: 50%; top: 60%; }
+
 /* ----- formations ----- */
 /* a defender's expedition role, bottom-left of them */
 .nw-xrole { position: absolute; bottom: 8px; left: -12px; font-size: 11px; line-height: 1; filter: drop-shadow(0 1px 1px #000); }

@@ -10,7 +10,7 @@ import {
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
-  RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
+  RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -19,7 +19,7 @@ import {
 import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, formationsFor, entranceFormations, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, formationsFor, entranceFormations, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -1716,6 +1716,97 @@ export function renderRaidFight(state, anim) {
   </div>`;
 }
 
+// On the way in: a team's encounter (EXPEDITION_ENCOUNTERS) — the place, the situation, and three
+// ways to handle it, one per role, each with who'd do it and their chance. Then how it went.
+export function renderEncounterModal(state, enc) {
+  const cur = enc.queue[enc.idx];
+  const e = EXPEDITION_ENCOUNTERS.find((x) => x.id === cur.id);
+  const loc = LOCATIONS.find((l) => l.id === state.teamLocations[cur.teamIndex]);
+  const last = enc.idx === enc.queue.length - 1;
+  const res = enc.result;
+  const options = Object.entries(e.options).map(([role, o]) => {
+    const { who, chance } = encounterOption(state, cur.teamIndex, role);
+    const r = EXPLORE_ROLES[role];
+    const picked = res?.role === role;
+    return `<button class="enc-opt enc-${role} ${picked ? (res.ok ? "enc-won" : "enc-lost") : ""} ${res && !picked ? "enc-faded" : ""}" ${res ? "disabled" : `data-action="encounter-pick" data-role="${role}"`}>
+      <span class="enc-role">${r.icon} ${r.name.slice(0, -1)}</span>
+      <b class="enc-verb">${o.verb}</b>
+      <span class="enc-who">${who ? `<span class="enc-face">${characterSprite(who, 34)}</span><span>${esc(shortName(who))}<small>⚔ ${memberPower(state, who)}</small></span>` : '<span class="muted">Nobody suited</span>'}</span>
+      <span class="enc-chance ${chance >= 0.6 ? "ms-good" : chance >= 0.35 ? "ms-ok" : "ms-bad"}">${Math.round(chance * 100)}%</span>
+    </button>`;
+  }).join("");
+  return `<div class="modal-overlay enc-overlay">
+    <div class="char-card mission-card enc-card" data-action="noop" style="--team:${TEAM_COLORS[cur.teamIndex]}">
+      <div class="enc-head">
+        <div class="enc-tile">${loc ? hexTile(hexTileKey(loc.hex.q, loc.hex.r)) : ""}</div>
+        <div>
+          <div class="enc-team"><i class="team-dot"></i>${teamLabel(cur.teamIndex)} → ${loc ? `${LOCATION_ICON[loc.id]} ${esc(loc.name)}` : ""}<span class="muted">${enc.queue.length > 1 ? ` · ${enc.idx + 1} of ${enc.queue.length}` : ""}</span></div>
+          <h3>${e.icon} ${esc(e.text)}</h3>
+          <div class="muted">Who handles it? A success makes the expedition ${Math.round(ENCOUNTER_EFFECT.good * 100)}% likelier to succeed; a failure, ${Math.round(-ENCOUNTER_EFFECT.bad * 100)}% less.</div>
+        </div>
+      </div>
+      <div class="enc-options">${options}</div>
+      ${res
+        ? `<div class="enc-result ${res.ok ? "enc-result-ok" : "enc-result-bad"}">
+            <span>${res.ok ? "✅" : "❌"} ${esc(res.text)}.</span>
+            <b>${res.ok ? `+${Math.round(ENCOUNTER_EFFECT.good * 100)}%` : `−${Math.round(-ENCOUNTER_EFFECT.bad * 100)}%`} odds</b>
+          </div>
+          <button class="btn btn-primary enc-next" data-action="encounter-next">${last ? "🧳 Head in" : "Next team →"}</button>`
+        : ""}
+    </div>
+  </div>`;
+}
+
+// The teams fighting their way in, a beat at a time (main.js runExpeditions): they face off with
+// the zombies (1 + the place's danger), strike (beat 1), take their hits (beat 2) — the real
+// injuries and losses — and clear the place or pull back (beat 3).
+export function renderExpeditionSkirmish(state, sk) {
+  const { beat } = sk;
+  const rows = sk.summary.teams.map((t, n) => {
+    const loc = LOCATIONS.find((l) => l.id === t.locationId);
+    const count = 1 + (t.danger || 2);
+    const killedAt = (i) => (t.success ? (i < Math.ceil(count / 2) ? 1 : 3) : i < Math.floor(count / 3) ? 1 : 99);
+    const zombieType = (i) => (i % 3 === 2 && (t.danger || 0) >= 3 ? "runner" : (t.danger || 0) >= 5 && i === 0 ? "brute" : "walker");
+    const zombies = Array.from({ length: count }, (_, i) => {
+      const dies = killedAt(i);
+      const dead = beat >= dies;
+      const hitNow = beat === dies || (beat === 1 && dies > 1);
+      const dmg = 6 + ((n * 7 + i * 11 + beat * 5) % 14);
+      return `<span class="sk-z ${dead ? "sk-dead" : ""} ${beat === dies ? "sk-dying" : ""} ${hitNow && !dead ? "nw-flash" : ""}">
+        ${hordeSprite(zombieType(i), 52)}
+        ${hitNow && beat >= 1 ? `<span class="sk-pop">-${dmg}</span><span class="nw-slash sk-slash" style="--rot:${(i * 53) % 90 - 45}deg"></span>` : ""}
+        ${beat === dies ? `<span class="nw-burst sk-burst">${Array.from({ length: 9 }, (_, k) => { const a = ((i * 40 + k * 40) * Math.PI) / 180; const d = 14 + ((k * 7) % 16); return `<i style="--dx:${Math.round(Math.cos(a) * d)}px;--dy:${Math.round(Math.sin(a) * d - 8)}px;--s:${2 + (k % 2)}px"></i>`; }).join("")}</span>` : ""}
+      </span>`;
+    }).join("");
+    const members = t.memberIds.map((id) => {
+      const c = state.characters.find((x) => x.id === id);
+      if (!c) return "";
+      const hurt = t.hurtIds[id];
+      const lost = t.lostIds.includes(id);
+      const hit = beat === 2 && (hurt || lost);
+      return `<span class="sk-m ${beat >= 1 ? "sk-strike" : ""} ${hit ? "nw-flash" : ""} ${beat >= 2 && lost ? "sk-down" : ""}">
+        ${characterSprite(c, 56)}
+        ${hit ? `<span class="sk-pop sk-pop-bad">${lost ? "💀" : `-${hurt}`}</span>` : ""}
+      </span>`;
+    }).join("");
+    const outcome = beat >= 3
+      ? `<span class="sk-outcome ${t.success ? "sk-won" : "sk-lost"}">${t.success ? "✅ Cleared!" : "⚠ Pulled back"}</span>`
+      : t.encounter ? `<span class="sk-enc ${t.encounter.ok ? "sk-enc-ok" : "sk-enc-bad"}">${t.encounter.ok ? "✅" : "❌"} ${esc(EXPEDITION_ENCOUNTERS.find((e) => e.id === t.encounter.id)?.icon || "")}</span>` : "";
+    return `<div class="sk-row ${beat >= 3 && !t.success ? "sk-retreat" : ""}" style="--team:${TEAM_COLORS[t.teamIndex]}">
+      <div class="sk-label"><i class="team-dot"></i>${teamLabel(t.teamIndex)}<span class="muted">${loc ? `${LOCATION_ICON[loc.id]} ${esc(loc.name)}` : ""}</span>${outcome}</div>
+      <div class="sk-field ${beat === 0 ? "sk-enter" : ""}">
+        <div class="sk-team">${members}</div>
+        <div class="sk-vs">${beat === 1 ? "💥" : beat === 2 ? "🩸" : "⚔"}</div>
+        <div class="sk-horde">${zombies}</div>
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="modal-overlay fight-overlay sk-overlay">
+    <div class="sk-title">🧳 The teams fight their way in</div>
+    <div class="sk-rows">${rows}</div>
+  </div>`;
+}
+
 // End of Turn 2: each team walks out to its target, then reports what happened.
 export function renderExpeditionReport(state, anim) {
   const { summary, phase } = anim;
@@ -1738,7 +1829,8 @@ export function renderExpeditionReport(state, anim) {
     const loc = LOCATIONS.find((l) => l.id === t.locationId);
     const leader = getChar(state, t.memberIds[0]);
     const tag = t.success ? `<span class="tag tag-ok">✅ Success</span>` : `<span class="tag tag-injured">⚠ Struggled</span>`;
-    const details = `<div class="exp-finds">${lootChips(t.loot)}${t.finds.map((f) => `<span class="exp-chip">${esc(f)}</span>`).join("")}${t.recruit ? `<span class="exp-chip exp-good">🙋 ${esc(t.recruit)} wants to join</span>` : ""}</div>
+    const details = `${t.encounter ? `<div class="exp-enc ${t.encounter.ok ? "exp-enc-ok" : "exp-enc-bad"}">${EXPEDITION_ENCOUNTERS.find((e) => e.id === t.encounter.id)?.icon || ""} ${esc(t.encounter.text)} (${t.encounter.ok ? `+${Math.round(ENCOUNTER_EFFECT.good * 100)}` : `−${Math.round(-ENCOUNTER_EFFECT.bad * 100)}`}% odds)</div>` : ""}
+      <div class="exp-finds">${lootChips(t.loot)}${t.finds.map((f) => `<span class="exp-chip">${esc(f)}</span>`).join("")}${t.recruit ? `<span class="exp-chip exp-good">🙋 ${esc(t.recruit)} wants to join</span>` : ""}</div>
       ${t.hurt.length ? `<div class="exp-hurt">🩹 ${t.hurt.map(esc).join(", ")}</div>` : ""}
       ${t.lost.length ? `<div class="exp-bad">☠ Lost: ${t.lost.map(esc).join(", ")}</div>` : ""}
       ${t.nearNest ? `<div class="muted">A zombie nest next door made it harder.</div>` : ""}`;

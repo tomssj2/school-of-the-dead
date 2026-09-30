@@ -796,6 +796,39 @@ export const EXPEDITION_NEED = { base: 630, perBlock: 120, perDifficulty: 30, ne
 export const EXPEDITION_ODDS_AT_NEED = 0.55;
 export const EXPEDITION_POWER_PER_PERCENT = 5;
 export const EXPEDITION_ODDS_RANGE = [0.05, 0.95];
+// On the way in, every team meets one of these, and the player picks who handles it — the team's
+// best of that role. `good` / `bad` finish "<name> …".
+export const EXPEDITION_ENCOUNTERS = [
+  { id: "shutter", icon: "🚪", text: "A metal shutter is down over the way in.", options: {
+    fighter: { verb: "Force it up", good: "wrenched the shutter up — the team is in", bad: "made a racket forcing it — the dead heard" },
+    scout: { verb: "Find another way in", good: "found an open window round the back", bad: "got lost in the alleys and wasted time" },
+    support: { verb: "Pick the lock", good: "had the lock open in a minute", bad: "snapped the pick in the lock" } } },
+  { id: "pack", icon: "🧟", text: "A pack of zombies is milling in the street outside.", options: {
+    fighter: { verb: "Charge through", good: "cut a path straight through them", bad: "got bogged down in the pack" },
+    scout: { verb: "Sneak around", good: "led everyone round them unseen", bad: "stepped on glass — they turned" },
+    support: { verb: "Set a distraction", good: "set off a car alarm a block away — they wandered off", bad: "threw the bottle short — they came straight at us" } } },
+  { id: "dark", icon: "🌑", text: "The power's out inside — it's pitch black.", options: {
+    fighter: { verb: "Push on anyway", good: "shouldered on through the dark", bad: "walked straight into something that bit" },
+    scout: { verb: "Feel the way", good: "found the way by the draughts and echoes", bad: "took a wrong turn in the dark" },
+    support: { verb: "Rig a light", good: "rigged a torch from a battery and a bulb", bad: "couldn't get the light to work" } } },
+  { id: "trap", icon: "🪤", text: "The doorway's booby-trapped — someone got here first.", options: {
+    fighter: { verb: "Smash through the wall", good: "knocked a hole right through the plasterboard", bad: "brought half the ceiling down" },
+    scout: { verb: "Spot the tripwire", good: "spotted the tripwire and stepped over it", bad: "missed the wire — it went off" },
+    support: { verb: "Disarm it", good: "took the trap apart — and kept the parts", bad: "set it off disarming it" } } },
+  { id: "rooftop", icon: "🙋", text: "Someone's shouting for help from a rooftop across the way.", options: {
+    fighter: { verb: "Fight through to them", good: "cleared the way and brought them down", bad: "couldn't get through the crowd around them" },
+    scout: { verb: "Climb up to them", good: "scaled the fire escape and brought them round", bad: "slipped on the fire escape" },
+    support: { verb: "Talk them down", good: "calmed them down — they showed us a way in", bad: "couldn't calm them — the shouting drew more dead" } } },
+  { id: "barricade", icon: "🚧", text: "A barricade of wrecked cars blocks the road.", options: {
+    fighter: { verb: "Shove a car aside", good: "shoved a car out of the way", bad: "put their back out on the bumper" },
+    scout: { verb: "Scout a way round", good: "found a gap through a backyard", bad: "found only dead ends" },
+    support: { verb: "Roll one clear", good: "let the handbrake off and rolled one clear", bad: "set a car alarm off" } } },
+];
+// A pick's chance: `base` plus `perPower` for each point of the handler's power in their role
+// (0-200), at most `max`; `noOne` when the team has nobody of that role. Its effect on the
+// expedition's odds: `good` when it works, `bad` when it doesn't.
+export const ENCOUNTER_CHANCE = { base: 0.25, perPower: 0.0035, max: 0.95, noOne: 0.15 };
+export const ENCOUNTER_EFFECT = { good: 0.15, bad: -0.1 };
 // Harder places pay better: supplies × (1 + every `perPower` needed over the nearest places'
 // base), never under `min` — ×1.25 / ×1.5 / ×1.75 at 4 / 5 / 6 blocks out. Gear: a place's gear
 // level (1-5) rises every `gearStep` power needed past `gearFrom`, raising the chance of gear

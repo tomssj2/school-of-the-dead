@@ -8,7 +8,7 @@ import {
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL,
-  STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
+  STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, EXPEDITION_ENCOUNTERS, ENCOUNTER_CHANCE, ENCOUNTER_EFFECT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
@@ -1361,6 +1361,30 @@ function rollExpeditionStock(state, location, success) {
   return found;
 }
 
+// ---------- expedition encounters ----------
+// On the way in, each team meets a situation (EXPEDITION_ENCOUNTERS) and the player picks who
+// handles it: the team's best of that role, with a chance from their role's stats (memberPower,
+// 0-200 → ENCOUNTER_CHANCE). It swings the expedition's odds (ENCOUNTER_EFFECT); the result is
+// kept in state.encounters until the teams go in.
+export const sentTeams = (state) => [0, 1, 2].filter((i) => state.teamLocations[i] && teamMembers(state, i).length);
+export const pickEncounter = () => pick(EXPEDITION_ENCOUNTERS).id;
+export function encounterOption(state, teamIndex, role) {
+  const who = teamMembers(state, teamIndex).filter((c) => exploreRole(c) === role).sort((a, b) => memberPower(state, b) - memberPower(state, a))[0] || null;
+  const { base, perPower, noOne, max } = ENCOUNTER_CHANCE;
+  return { who, chance: who ? Math.min(max, base + memberPower(state, who) * perPower) : noOne };
+}
+export function resolveEncounter(state, teamIndex, encounterId, role) {
+  const enc = EXPEDITION_ENCOUNTERS.find((e) => e.id === encounterId);
+  const { who, chance } = encounterOption(state, teamIndex, role);
+  const ok = Math.random() < chance;
+  const opt = enc.options[role];
+  const result = { id: encounterId, role, ok, whoId: who?.id || null, text: `${who ? who.name : "The team"} ${ok ? opt.good : opt.bad}` };
+  state.encounters = { ...(state.encounters || {}), [teamIndex]: result };
+  addLog(state, `${teamLabelFor(teamIndex)} on the way in: ${result.text}.`);
+  return result;
+}
+const teamLabelFor = (i) => `Team ${i + 1}`;
+
 export function resolveExploration(state) {
   let teamsSent = 0;
   let successes = 0;
@@ -1378,6 +1402,7 @@ export function resolveExploration(state) {
     const report = {
       teamIndex, locationId: location.id, memberIds: members.map((c) => c.id), nearNest,
       success: false, loot: {}, finds: [], hurt: [], lost: [], recruit: null,
+      hurtIds: {}, lostIds: [], danger: location.danger, encounter: (state.encounters || {})[teamIndex] || null, // for the skirmish replay
     };
     teams.push(report);
 
@@ -1389,7 +1414,9 @@ export function resolveExploration(state) {
     const cha = avg("SocialStudies");
 
     // the team's power against what the place needs (expeditionNeed: further out needs more)
-    const successChance = expeditionOdds(state, teamIndex, location);
+    // ...and how its encounter on the way in went (+ or − on the odds)
+    const encounterBonus = report.encounter ? (report.encounter.ok ? ENCOUNTER_EFFECT.good : ENCOUNTER_EFFECT.bad) : 0;
+    const successChance = clamp01(expeditionOdds(state, teamIndex, location) + encounterBonus);
     const success = Math.random() < successChance;
     report.success = success;
 
@@ -1456,12 +1483,14 @@ export function resolveExploration(state) {
         if (Math.random() < 0.25) {
           killCharacter(state, c);
           report.lost.push(c.name);
+          report.lostIds.push(c.id);
           addLog(state, `${c.name} was lost during the ${location.name} run.`);
         } else {
           const dmg = randInt(15, 40);
           c.hp = Math.max(1, c.hp - dmg);
           c.injured = c.hp < c.maxHp * 0.5;
           report.hurt.push(`${c.name} (-${dmg} HP)`);
+          report.hurtIds[c.id] = dmg;
           addLog(state, `${c.name} was injured at ${location.name} (-${dmg} HP).`);
         }
       } else {
@@ -1515,6 +1544,7 @@ export function resolveExploration(state) {
   }
 
   state.expeditionsSent = (state.expeditionsSent || 0) + teamsSent;
+  state.encounters = {}; // today's encounters are spent
   addLog(state, `Turn 2 (Exploration) resolved.`);
   return { teamsSent, successes, teams, raid, itemsFound, ingredientsFound, stockFound };
 }

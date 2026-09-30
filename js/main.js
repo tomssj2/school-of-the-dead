@@ -2,6 +2,7 @@ import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, tipFromText, setRoleTab,
+  renderEncounterModal, renderExpeditionSkirmish,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
@@ -550,6 +551,10 @@ function render() {
     ? renderRoomFight(state, roomFight)
     : raidFight
     ? renderRaidFight(state, raidFight)
+    : encounter
+    ? renderEncounterModal(state, encounter)
+    : skirmish
+    ? renderExpeditionSkirmish(state, skirmish)
     : expeditionReport
     ? renderExpeditionReport(state, expeditionReport)
     : battleAnimation
@@ -998,30 +1003,66 @@ function playNightBattle(afterResult) {
   battleTimer = setTimeout(step, 900);
 }
 
+// Turn 2, once the encounters are settled: the teams go in, fight it out (the skirmish, a beat
+// every SKIRMISH_BEAT_MS), then the report — or a raid's fight first, if a squad went raiding.
+let encounter = null; // { queue: [{ teamIndex, id }], idx, result }
+let skirmish = null; // { summary, beat }
+const SKIRMISH_BEAT_MS = 850;
+function runExpeditions() {
+  const summary = G.resolveExploration(state);
+  const report = () => {
+    expeditionReport = { summary, phase: "report" };
+    (summary.successes > 0 || summary.raid?.won ? playSuccess : playFail)();
+    render();
+  };
+  const showReport = () => {
+    if (!summary.teamsSent && !summary.raid) {
+      G.advanceTurn(state);
+      render();
+      return;
+    }
+    if (!summary.teamsSent) {
+      // only a raid: the old walk out, then the report
+      expeditionReport = { summary, phase: "travel" };
+      render();
+      setTimeout(() => expeditionReport && report(), 1700);
+      return;
+    }
+    // the teams fight their way in, a beat at a time
+    skirmish = { summary, beat: 0 };
+    render();
+    const beat = () => {
+      if (!skirmish) return;
+      skirmish.beat++;
+      const teams = summary.teams;
+      if (skirmish.beat === 1) { playSwing(); playShot(); }
+      if (skirmish.beat === 2 && teams.some((t) => Object.keys(t.hurtIds).length || t.lostIds.length)) playHit();
+      if (skirmish.beat === 3) (teams.some((t) => t.success) ? playKill : playFail)();
+      render();
+      if (skirmish.beat < 3) setTimeout(beat, SKIRMISH_BEAT_MS);
+      else setTimeout(() => { skirmish = null; report(); }, 1400);
+    };
+    setTimeout(beat, SKIRMISH_BEAT_MS);
+  };
+  if (summary.raid && !summary.raid.calledOff) playRaidFight(summary.raid, showReport);
+  else showReport();
+}
+
 function resolveCurrentTurn() {
   if (state.turn === 1) {
     G.resolveTraining(state);
     G.advanceTurn(state);
     render();
   } else if (state.turn === 2) {
-    const summary = G.resolveExploration(state);
-    const showReport = () => {
-      if (!summary.teamsSent && !summary.raid) {
-        G.advanceTurn(state);
-        render();
-        return;
-      }
-      expeditionReport = { summary, phase: "travel" };
+    // each team sent meets an encounter on the way in first (encounter-pick / encounter-next)
+    const sent = G.sentTeams(state);
+    if (sent.length) {
+      encounter = { queue: sent.map((teamIndex) => ({ teamIndex, id: G.pickEncounter() })), idx: 0, result: null };
+      playGrowl();
       render();
-      setTimeout(() => {
-        if (!expeditionReport) return;
-        expeditionReport.phase = "report";
-        (summary.successes > 0 || summary.raid?.won ? playSuccess : playFail)();
-        render();
-      }, 1700);
-    };
-    if (summary.raid && !summary.raid.calledOff) playRaidFight(summary.raid, showReport);
-    else showReport();
+      return;
+    }
+    runExpeditions();
   } else {
     playNightBattle(() => {
       // A won battle can roll a facility raid or an Assault opportunity that must be handled
@@ -1046,6 +1087,27 @@ root.addEventListener("click", (e) => {
   const action = el.dataset.action;
 
   switch (action) {
+    case "encounter-pick": {
+      // who handles the team's encounter: it's rolled at once
+      if (!encounter || encounter.result) break;
+      const cur = encounter.queue[encounter.idx];
+      encounter.result = G.resolveEncounter(state, cur.teamIndex, cur.id, el.dataset.role);
+      (encounter.result.ok ? playSuccess : playFail)();
+      render();
+      break;
+    }
+    case "encounter-next":
+      if (!encounter?.result) break;
+      if (encounter.idx < encounter.queue.length - 1) {
+        encounter.idx++;
+        encounter.result = null;
+        playGrowl();
+        render();
+      } else {
+        encounter = null;
+        runExpeditions();
+      }
+      break;
     case "open-missions":
       // the Headmaster's missions aren't in yet
       flash("📜 The Headmaster's missions are coming soon.");
