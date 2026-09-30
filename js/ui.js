@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
-  NIGHT_ACTIONS, NIGHT_CONDITIONS, DEFENDER_ROLES, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE,
+  NIGHT_ACTIONS, NIGHT_CONDITIONS, DEFENDER_ROLES, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
@@ -19,7 +19,7 @@ import {
 import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, formationsFor, entranceFormations, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -2032,11 +2032,14 @@ function renderGridBattle(state, anim) {
     units += `<div class="nw-unit nw-defender ${s.downed ? "nw-downed" : ""} ${struck.has(k) ? "nw-strike" : ""} ${hurt.has(k) ? "nw-flash" : ""} ${breakTime ? "" : "nw-static"} ${ready ? "nw-ready" : ""} ${s.inspired > 0 && !s.downed ? "nw-inspired" : ""}" ${at(s.row, s.col)} ${drag} ${breakTime ? `data-drop-cell="${k}"` : ""}
       ${ready ? `data-action="use-ability" data-id="${s.id}"` : ""} ${a && c ? tipAttr({ title: `${a.icon} ${a.name} — ${esc(shortName(c))}`, rows: [["Charge", `${Math.round(s.charge)}%`]], notes: [a.desc, ready ? "Click to use it now" : "Charges every turn — faster when they hit or get hurt"] }) : ""}>
       ${role ? `<span class="nw-role" title="${role.name}: ${role.desc}">${role.icon}</span>` : ""}
+      ${s.ability && !s.downed ? `<span class="nw-xrole">${EXPLORE_ROLES[s.ability].icon}</span>` : ""}
       ${ready ? `<span class="nw-ready-badge">${a.icon}</span>` : ""}
       ${c ? characterSprite(c, 40) : ""}${bar(s.hp, s.maxHp, "nw-hp-student")}
       ${s.downed || !a ? "" : `<span class="nw-charge ${s.charge >= ABILITY_CHARGE.full ? "nw-charge-full" : ""}"><i style="width:${Math.round(s.charge)}%"></i></span>`}
     </div>`;
   }
+  // the formations as they stand now
+  units += formationLinks(formationsFor(frame.students.filter((s) => !s.downed && s.ability).map((s) => ({ id: s.id, row: s.row, col: s.col, role: s.ability }))).links);
   const focusId = b?.focus?.id;
   for (const z of frame.zombies) {
     const p = prevZombies.get(z.id);
@@ -2445,6 +2448,15 @@ function renderNightWatchScreen(state) {
           <span>🛡 ${defenders.length} on watch</span>
           ${unarmed ? `<span class="plot-warn" title="Hand out weapons from each student's Inventory tab">👊 ${unarmed} unarmed</span>` : ""}
         </div>
+        ${(() => {
+          // the formations standing tonight, and how to make them
+          const { links } = entranceFormations(state);
+          const count = {};
+          for (const l of links) count[l.kind] = (count[l.kind] || 0) + 1;
+          const chips = Object.entries(FORMATIONS).map(([k, f]) => `<span class="nw-form-chip ${count[k] ? "on" : ""}" ${tipAttr({ title: `${f.icon} ${f.name}`, notes: [f.desc] })}>${f.icon} ${f.name}${count[k] ? ` ×${count[k]}` : ""}</span>`).join("");
+          return `<div class="mini-label">Formations ${infoDot({ title: "🛡 Formations", rows: Object.values(FORMATIONS).map((f) => [`${f.icon} ${f.name}`, f.armor ? `−${Math.round((1 - f.armor) * 100)}% damage` : `+${Math.round(f.crit * 100)}% crit`]), notes: [...Object.values(FORMATIONS).map((f) => f.desc), "Roles are the students' expedition roles (⚔️ 🏃 🧠 on the board)", "Behind = the row nearer the doors"] })}</div>
+          <div class="nw-formations">${chips}</div>`;
+        })()}
         <div class="mini-label">Defenders — drag onto the steps</div>
         <div class="nw-roster" data-drop-roster="1">${nightRoster(state) || '<p class="muted">Nobody available.</p>'}</div>
       </aside>
@@ -2889,12 +2901,15 @@ function nightDefender(state, c, row, col) {
   const reach = defenderReach(state, c);
   const role = defenderRole(state, c);
   const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean);
+  const x = EXPLORE_ROLES[exploreRole(c)];
+  const ab = BATTLE_ABILITIES[exploreRole(c)];
   return `<div class="nw-unit nw-defender" draggable="true" data-drag-student="${c.id}" data-reach="${row},${col},${reach.melee},${reach.ranged}" ${tipAttr({
     title: `${esc(c.name)} · ${role.icon} ${role.name}`,
-    rows: [["Melee", `${gear.find((w) => w.category === "melee")?.name || "Fists"} · reach ${reach.melee}`], ["Ranged", reach.ranged ? `${esc(eq.rangedWeapon.name)} · reach ${reach.ranged}` : "—"], ["HP", `${c.hp}/${c.maxHp}`]],
-    notes: [`${role.name}: ${role.desc}`, "Drag to move · drag back to the roster to take them off watch"],
+    rows: [["Melee", `${gear.find((w) => w.category === "melee")?.name || "Fists"} · reach ${reach.melee}`], ["Ranged", reach.ranged ? `${esc(eq.rangedWeapon.name)} · reach ${reach.ranged}` : "—"], ["HP", `${c.hp}/${c.maxHp}`], [`${x.icon} ${x.name.slice(0, -1)} ability`, `${ab.icon} ${ab.name}`]],
+    notes: [`${role.name}: ${role.desc}`, `${ab.name}: ${ab.desc}`, "Drag to move · drag back to the roster to take them off watch"],
   })}>
     <span class="nw-role">${role.icon}</span>
+    <span class="nw-xrole" title="${x.name.slice(0, -1)}">${x.icon}</span>
     ${characterSprite(c, 40)}
     <span class="nw-gear">${gear.length ? gear.map((w) => w.icon).join("") : "👊"}</span>
     <span class="nw-hp nw-hp-student"><i style="width:${Math.round((c.hp / c.maxHp) * 100)}%"></i></span>
@@ -2941,8 +2956,16 @@ function renderNightBoard(state) {
   const lamps = lampLanes(size);
   return `<div class="nw-board nw-cond-${nightCondition(state).id}" style="--size:${size};--lamp-a:${lamps[0]};--lamp-b:${lamps[1]};background-image:${courtyardBackground(size)}">
     <div class="nw-gate ${gateMax ? "" : "nw-gate-none"}" ${tipAttr({ title: "🚪 The gate", rows: [["Gate", `${gateMax} HP`]], notes: ["Zombies past the top row batter the doors — once they're down, they get in", "Fortification (the Crafting Room) makes the doors sturdier"] })}>🚪 ${gateMax ? `<b>${gateMax}</b> HP` : "No gate yet"}</div>
-    <div class="nw-cells">${cells}</div>
+    <div class="nw-cells">${cells}${formationLinks(entranceFormations(state).links)}</div>
   </div>`;
+}
+
+// The formations on the steps: a badge between each linked pair (FORMATIONS).
+function formationLinks(links) {
+  return links.map(({ kind, a, b }) => {
+    const f = FORMATIONS[kind];
+    return `<span class="nw-link nw-link-${kind}" style="--r0:${a[0]};--c0:${a[1]};--r1:${b[0]};--c1:${b[1]}" ${tipAttr({ title: `${f.icon} ${f.name}`, notes: [f.desc] })}>${f.icon}</span>`;
+  }).join("");
 }
 
 // The side panel's roster: every student who could stand watch tonight, draggable onto the steps

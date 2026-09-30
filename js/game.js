@@ -15,7 +15,7 @@ import {
   EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
   ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
-  NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, BATTLE_ABILITIES, ABILITY_CHARGE, DEFENDER_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
+  NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS, DEFENDER_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay,
   RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
@@ -1572,6 +1572,47 @@ function battleStats(state, c) {
 // ("break") so defenders can be moved; finishNightBattle applies the outcome to the school.
 // resolveDefense runs a whole night at once.
 
+// ----- formations (FORMATIONS) -----
+// Which defenders stand in a formation: `units` are { id, row, col, role } (role = expedition
+// role). Returns the links to draw ({ kind, a: [row, col], b: [row, col] }) and, by id, the
+// formations each defender gets the bonus of.
+export function formationsFor(units) {
+  const at = (row, col) => units.find((u) => u.row === row && u.col === col);
+  const links = [];
+  const buffs = {};
+  const add = (kind, a, b, bothGet) => {
+    links.push({ kind, a: [a.row, a.col], b: [b.row, b.col] });
+    for (const u of bothGet ? [a, b] : [a]) (buffs[u.id] ||= []).push(kind);
+  };
+  for (const u of units) {
+    if (u.role === "fighter" && at(u.row - 1, u.col)?.role === "support") add("guarded", u, at(u.row - 1, u.col), false);
+    const right = at(u.row, u.col + 1);
+    if (right && right.role === u.role && u.role === "fighter") add("shieldWall", u, right, true);
+    if (right && right.role === u.role && u.role === "scout") add("crossfire", u, right, true);
+  }
+  return { links, buffs };
+}
+// The formations on tonight's steps, as planned.
+export function entranceFormations(state) {
+  const units = Object.entries(state.entranceGrid.students)
+    .map(([key, id]) => ({ key, c: getChar(state, id) }))
+    .filter(({ c }) => c && c.alive)
+    .map(({ key, c }) => {
+      const [row, col] = key.split(",").map(Number);
+      return { id: c.id, row, col, role: exploreRole(c) };
+    });
+  return formationsFor(units);
+}
+// Sets each defender's formation bonuses from where they stand now (again after a move).
+function applyFormations(b) {
+  const { buffs } = formationsFor(b.students.filter((s) => !s.downed).map((s) => ({ id: s.id, row: s.row, col: s.col, role: s.ability })));
+  for (const s of b.students) {
+    s.formations = buffs[s.id] || [];
+    s.armorMult = s.baseArmorMult * s.formations.reduce((m, k) => m * (FORMATIONS[k].armor || 1), 1);
+    s.critChance = s.baseCritChance + s.formations.reduce((sum, k) => sum + (FORMATIONS[k].crit || 0), 0);
+  }
+}
+
 // A defender's role: their best stat (see DEFENDER_ROLES).
 export function defenderRole(state, c) {
   const best = Object.keys(DEFENDER_ROLES).reduce((b, s) => (effectiveGrade(state, c, s) > effectiveGrade(state, c, b) ? s : b), "PE");
@@ -1663,7 +1704,11 @@ export function startNightBattle(state) {
       return s;
     });
   const spotters = Math.min(2, roleCount.spotter || 0);
-  for (const s of students) s.hitChance = Math.min(0.95, s.hitChance + 0.05 * spotters);
+  for (const s of students) {
+    s.hitChance = Math.min(0.95, s.hitChance + 0.05 * spotters);
+    s.baseArmorMult = s.armorMult; // before formations (applyFormations)
+    s.baseCritChance = s.critChance;
+  }
   const squad = squadModifiers(state, students.map((s) => getChar(state, s.id)));
   const engineers = Math.min(2, roleCount.engineer || 0);
   squad.trapMult *= 1 + 0.2 * engineers;
@@ -1693,6 +1738,7 @@ export function startNightBattle(state) {
     rally: 0, focus: null, autoAbilities: false,
     tick: 0, frames: [], phase: "fight",
   };
+  applyFormations(b);
   b.frames.push(battleSnapshot(b, []));
   return b;
 }
@@ -2043,6 +2089,7 @@ export function battleMoveDefender(state, b, studentId, row, col) {
   if (other) [other.row, other.col] = [s.row, s.col];
   [s.row, s.col] = [row, col];
   moveEntranceStudent(state, `${row},${col}`, studentId); // keep them there for tomorrow too
+  applyFormations(b);
   b.frames.push(battleSnapshot(b, []));
   return true;
 }

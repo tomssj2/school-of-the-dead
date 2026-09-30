@@ -312,6 +312,13 @@ export const BATTLE_ABILITIES = {
   scout: { name: "Headshot", icon: "💢", mult: 2.5, desc: "A sure 2.5× critical hit on the toughest zombie in reach — it staggers and loses its next move" },
   support: { name: "Rally Cry", icon: "💚", heal: 0.3, turns: 2, desc: "Heals them and every defender next to them by 30% HP; they all hit 50% harder for 2 turns" },
 };
+// Formations on the steps, by expedition role (the front line is the row nearest the street,
+// "behind" is the row nearer the doors): the bonus each linked defender gets.
+export const FORMATIONS = {
+  guarded: { name: "Guarded", icon: "🛡", armor: 0.75, desc: "A Fighter with a Support right behind them takes 25% less damage" },
+  shieldWall: { name: "Shield Wall", icon: "🧱", armor: 0.85, desc: "Two Fighters side by side each take 15% less damage" },
+  crossfire: { name: "Crossfire", icon: "🎯", crit: 0.1, desc: "Two Scouts side by side each get +10% crit chance" },
+};
 export const ABILITY_CHARGE = { perTick: 14, perHit: 8, perHurt: 12, full: 100, perSkill: 0.15, inspired: 1.5 };
 // A defender's role is their best stat (the subject behind it).
 export const DEFENDER_ROLES = {

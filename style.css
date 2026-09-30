@@ -1224,6 +1224,21 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
   75% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); }
   100% { opacity: 0; transform: translate(-20%, -50%) skewX(10deg); }
 }
+/* ----- formations ----- */
+/* a defender's expedition role, bottom-left of them */
+.nw-xrole { position: absolute; bottom: 8px; left: -12px; font-size: 11px; line-height: 1; filter: drop-shadow(0 1px 1px #000); }
+/* a badge between two defenders in formation */
+.nw-link {
+  position: absolute; z-index: 16; display: grid; place-items: center; width: 20px; height: 20px; margin: -10px 0 0 -10px;
+  left: calc(((var(--c0) + var(--c1)) / 2 + 0.5) * 32px * var(--px)); top: calc(((var(--r0) + var(--r1)) / 2 + 0.55) * 20px * var(--px));
+  border-radius: 50%; font-size: 11px; background: rgba(10, 14, 24, 0.9); border: 2px solid #7fb0ff; box-shadow: 0 0 8px rgba(120, 170, 255, 0.8); cursor: help;
+}
+.nw-link-guarded { border-color: #5ae68c; box-shadow: 0 0 8px rgba(90, 230, 140, 0.8); }
+.nw-link-crossfire { border-color: #ffcf3a; box-shadow: 0 0 8px rgba(255, 200, 60, 0.8); }
+.nw-formations { display: flex; gap: 5px; flex-wrap: wrap; }
+.nw-form-chip { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.03); font-size: 11.5px; color: var(--muted); cursor: help; }
+.nw-form-chip.on { color: #cfe3ff; border-color: #7fb0ff; background: rgba(120, 170, 255, 0.12); font-weight: 700; }
+
 /* ----- smarter zombies ----- */
 .nw-pop em { display: block; font-style: normal; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
 .nw-tag-weak { color: #9ff0a9; }
