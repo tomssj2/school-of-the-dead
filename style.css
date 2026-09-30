@@ -1936,7 +1936,7 @@ body.nw-dragging .ex-rtab { border-style: dashed; border-bottom-style: solid; }
 .ex-rt-power::before { content: "⚔ "; font-size: 9px; color: var(--role); }
 .ex-rt-bar { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 .ex-rt-bar i { display: block; height: 100%; }
-.ex-rt-hp i { background: #d9534f; }
+.ex-rt-hp i { background: #4caf7d; }
 .ex-rt-stam i { background: #e0c341; }
 .ex-rt.ex-rt-onteam { border-color: var(--team); box-shadow: inset 0 0 0 1px var(--team); }
 .ex-rt.ex-rt-onteam::before { content: ""; position: absolute; top: 3px; left: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--team); }

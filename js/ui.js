@@ -1238,7 +1238,7 @@ function renderRoleWindows(state) {
     title: "🧭 Expedition roles",
     intro: ["Everyone free to explore today, sorted by their stats"],
     rows: Object.values(EXPLORE_ROLES).map((x) => [`${x.icon} ${x.name}`, statsOf(x)]),
-    notes: ["Score in a role = the average of its two stats", "Each student goes where they score highest", "Drop a student on another role's tab to move them", "Each portrait: power in this role, then HP (red) and stamina (yellow)"],
+    notes: ["Score in a role = the average of its two stats", "Each student goes where they score highest", "Drop a student on another role's tab to move them", "Each portrait: power in this role, then HP (green) and stamina (yellow)"],
   };
   const moved = free.some((c) => c.exploreRole);
   return `<div class="ex-roles-head"><span class="mini-label">Roles ${infoDot(how)}</span><span class="ex-rtabs">${tabs}</span></div>
