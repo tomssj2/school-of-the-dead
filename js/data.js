@@ -40,6 +40,17 @@ export const STAT_EFFECTS = {
   CHA: "Fights: the most charismatic defender leads — the whole team hits harder. Also: finding survivors and a daily lift to the school's mood. For teachers, recruiting.",
 };
 
+// The same, as a breakdown for the rooms' info dots: [what it does, where]. Keep in step with
+// STAT_EFFECTS and STAT_TUNING.
+export const STAT_GUIDE = {
+  STR: [["Melee damage", "⚔ Fights"], ["Holding melee weapons", "🗡 Gear"], ["Max HP", "+0.4 a point"], ["Team power (with DEX)", "🧭 Expeditions"], ["Food & scrap carried home", "🧭 Expeditions"], ["Farm & Scrapyard output", "+1 per 25"]],
+  DEX: [["Ranged damage & hit chance", "⚔ Fights"], ["Dodging hits", "⚔ Fights"], ["Holding ranged weapons", "🏹 Gear"], ["Max stamina", "+1.2 a point"], ["Stealth — fewer zombies & ambushes", "🧭 Scouting"], ["Team power (with STR)", "🧭 Expeditions"], ["Helping in the Crafting Room", "+1 🛡 per 25"]],
+  CON: [["Less damage taken", "⚔ Fights"], ["Surviving going down", "⚔ Fights"], ["Max HP", "+0.8 a point"], ["Healing overnight", "🌙 Every night"], ["Fewer casualties", "🧭 Expeditions"], ["A nurse heals more", "🏥 Teachers"]],
+  INT: [["Traps hit harder, walls hold longer", "⚔ Fights"], ["XP from everything", "+40% at 100"], ["Finding gear", "🧭 Expeditions"], ["Research", "🧠 Research Room"]],
+  WIS: [["Whole team takes less damage", "⚔ Best in squad"], ["Max stamina", "+0.8 a point"], ["Keeping the team safe", "🧭 Expeditions"], ["More loot", "🧭 Expeditions"]],
+  CHA: [["Whole team hits harder", "⚔ Best in squad"], ["Finding survivors", "🧭 Expeditions"], ["Recruit chance", "📻 Radio Station"], ["School mood each morning", "😊 Best student"]],
+};
+
 // How much each stat point is worth. "best" = the squad's highest, "avg" = its average.
 export const STAT_TUNING = {
   hpBase: 40,

@@ -789,6 +789,13 @@ html[data-gfx="low"] .staff-add { animation: none; }
 .tip-rows .tip-value.tip-total { color: #7fe0a8; }
 .tip-rows .tip-value.tip-neg { color: #ff8a8a; }
 .tip-dim { opacity: 0.55; }
+/* a room's info: what it is (intro lines), then what its stat does (label = effect, value = where) */
+.tip-intro { display: block; color: #e6e9ef; margin-bottom: 8px; max-width: 320px; }
+.tip-intro-line { display: block; margin: 2px 0; }
+.tip-intro b { color: #fff; }
+.tip-heading { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--turn-accent); margin: 2px 0 4px; }
+.tip-rows .tip-label.tip-where { color: #e6e9ef; }
+.tip-rows .tip-value.tip-where { color: #9aa3b2; font-weight: 500; }
 .tip-notes { display: block; margin: 7px 0 0; color: #c9ced8; }
 .tip-note { display: block; position: relative; margin: 2px 0; padding-left: 13px; }
 .tip-note::before { content: "•"; position: absolute; left: 2px; color: var(--turn-accent); }

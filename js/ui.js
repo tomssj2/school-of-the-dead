@@ -1,5 +1,5 @@
 import {
-  CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, TRAITS,
+  CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, STAT_GUIDE, TRAITS,
   CLASSROOM_CAPACITY, LOCATIONS,
   GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, CRAFT_HELP_DEX_PER_POINT, roomUpgradeCost,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
@@ -380,11 +380,14 @@ function tileGrid(tiles, freeSlots, pickerAttrs) {
 
 // Tooltip contents, built to scan rather than read: a title, an optional breakdown — rows of
 // [label, value, cls] and a total — and a few one-line notes. Never a paragraph.
-function tip({ title = "", rows = [], total = null, notes = [] } = {}) {
+// `intro`: short lines under the title (what a room is), `heading`: a small label over the rows.
+function tip({ title = "", intro = [], heading = "", rows = [], total = null, notes = [] } = {}) {
   const row = ([label, value, cls = ""]) =>
     `<span class="tip-label ${cls}">${label}</span><span class="tip-value ${cls} ${/^[−-]\d/.test(String(value)) ? "tip-neg" : ""}">${value}</span>`;
   // Only spans (styled as blocks), so a tooltip can sit inside a <p> or a heading.
   return (title ? `<span class="tip-title">${title}</span>` : "")
+    + (intro.length ? `<span class="tip-intro">${intro.map((l) => `<span class="tip-intro-line">${l}</span>`).join("")}</span>` : "")
+    + (heading ? `<span class="tip-heading">${heading}</span>` : "")
     + (rows.length ? `<span class="tip-rows">${rows.map(row).join("")}${total ? row([total[0], total[1], "tip-total"]) : ""}</span>` : "")
     + (notes.length ? `<span class="tip-notes">${notes.map((n) => `<span class="tip-note">${n}</span>`).join("")}</span>` : "");
 }
@@ -410,6 +413,15 @@ export function tipFromText(text) {
   if (dash > 0 && dash < 48) return tip({ title: esc(clean.slice(0, dash)), notes: sentences(clean.slice(dash + 3)) });
   const parts = sentences(clean);
   return parts.length > 1 ? tip({ notes: parts }) : `<span class="tip-plain">${esc(clean)}</span>`;
+}
+
+// A room's "i" by its name: what the room is (`intro` lines), and — for a room that raises or runs
+// on a stat — what that stat does and where it counts (STAT_GUIDE).
+function roomInfo(title, intro, stat = null, notes = []) {
+  return {
+    title, intro, notes,
+    ...(stat ? { heading: `What ${stat} (${STAT_LABEL[stat]}) does`, rows: STAT_GUIDE[stat].map(([what, where]) => [what, where, "tip-where"]) } : {}),
+  };
 }
 
 // Pixel-art banner for a room with everyone working in it standing on the floor — click one to
@@ -2302,7 +2314,11 @@ function renderTrainingRoom(state, side) {
   };
   return `<div class="room room-${info.roomKey}">
     ${roomScene(`${info.roomKey}@${level}`, [...teachers, ...students], `${info.room}${levelBadge(state, info.roomKey)}`,
-      "",
+      roomInfo(`${info.icon} ${info.room}`, [
+        `Students train here to raise <b>${info.gains}</b> a little every session`,
+        `Up to the coach's grade — ${NO_TEACHER_CAP} without a coach`,
+        `Training ${info.gains} also raises ${info.also}`,
+      ], info.gains),
       roomUpgradeButton(state, info.roomKey))}
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[side])} <span class="muted">+${teachingBonus(t.grades[side])}</span>`, `${t.name} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])}, adds +${teachingBonus(t.grades[side])} a session`),
@@ -2362,7 +2378,11 @@ export function renderFloor1(state) {
       ${renderTrainingRoom(state, "Gymnastics")}
       <div class="room room-cafeteria">
         ${roomScene(`cafeteria@${cafeLevel}`, [...cooks, ...resting], `Cafeteria${levelBadge(state, "cafeteria")}`,
-          "",
+          roomInfo("🍲 Cafeteria", [
+            "Cooks serve <b>dishes</b> — each buffs the whole school until tonight",
+            "Cooking also stretches the rations: more food",
+            "Tired students <b>rest</b> here to get stamina back",
+          ], null, ["Stamina is spent exploring, scouting and working the Farm and Scrapyard"]),
           roomUpgradeButton(state, "cafeteria"))}
         ${staffLine(state, "Cook", cooks, cafeRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
@@ -2384,7 +2404,10 @@ export function renderFloor1(state) {
       </div>
       <div class="room room-infirmary">
         ${roomScene(`infirmary@${roomLevel(state, "infirmary")}`, [...nurses, ...infected, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
-          "",
+          roomInfo("🏥 Nurse's Office", [
+            "Hurt students <b>heal</b> here — a treatment costs medicine, without it only bed rest",
+            "The infected are kept apart in <b>quarantine</b> — serum cures them",
+          ], null, ["A nurse's CON adds HP to every treatment", "Everyone also heals a little overnight (more with CON)"]),
           roomUpgradeButton(state, "infirmary"))}
         ${staffLine(state, "Nurse", nurses, infRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
@@ -2549,7 +2572,15 @@ function renderClassroom(state, roomId) {
       `${subject ? `classroom_${subject}` : "classroom_empty"}@${room.level || 1}`,
       [...teachers, ...room.seats.filter(Boolean).map((id) => getChar(state, id)).filter((c) => c && c.alive)],
       `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`}${levelBadge(state, post)}`,
-      "",
+      subject
+        ? roomInfo(`📚 ${SUBJECT_LABEL[subject]} class`, [
+            `Seated students learn <b>${STAT_OF_SUBJECT[subject]}</b> every day, up to the best teacher's grade`,
+            "The teacher posted here picked the subject — whatever they're best at",
+          ], STAT_OF_SUBJECT[subject])
+        : roomInfo("📚 Classroom", [
+            "Post a teacher and they teach their best subject here",
+            `Up to ${room.seats.length} seated students learn it every day`,
+          ]),
       roomUpgradeButton(state, post)
     )}
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
@@ -2588,6 +2619,7 @@ export function renderFloor3(state) {
   const placeholders = (n) => Array.from({ length: Math.max(0, n) }, () => `<div class="person-tile pt-slot"></div>`).join("");
   const officeHow = {
     title: "🎓 Headmaster's Office",
+    intro: ["Students who reach the top level can be <b>promoted</b> to teachers", "Survivors from the Radio and expeditions wait here to <b>join</b>"],
     rows: [["Teachers", `${teacherCount(state)}`], ["Ready to promote", `${ready.length}`], ["Recruits waiting", `${pool.length}/${recSlots}`]],
     notes: [`Students who reach level ${PROMOTE_LEVEL_THRESHOLD} (max) can become teachers — they teach their best subject`, "Students level up from experience: classes, training, work, scouting and fighting", `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`, "Expel someone from their character card"],
   };
@@ -2684,7 +2716,13 @@ export function renderFloor3(state) {
       ? state.rescue.evacuated ? "🚁 The helicopter has come and gone" : `🚁 Helicopter lands on <b>day ${state.rescue.day}</b> · 📻 ${pct(chance)}`
       : `📻 <b>${pct(chance)}</b> chance of a recruit a day`;
     return `<div class="room room-radio">
-      ${roomScene(`radio@${radioStage(state)}`, [...teachers, ...onAir], `Radio Station${levelBadge(state, "radio")}`, "", roomUpgradeButton(state, "radio"))}
+      ${roomScene(`radio@${radioStage(state)}`, [...teachers, ...onAir], `Radio Station${levelBadge(state, "radio")}`,
+        roomInfo("📻 Radio Station", [
+          "Broadcasts to survivors — each day there's a chance one asks to <b>join</b>",
+          "Everyone on the air adds their CHA to the chance",
+          "Level 5 calls a rescue <b>helicopter</b>",
+        ], "CHA"),
+        roomUpgradeButton(state, "radio"))}
       ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
         (t) => staffRow(t, `${gradeLetter(t.grades.SocialStudies)} <span class="muted">+${pct(radioCrewBonus(t))}</span>`, `${t.name} — CHA ${t.grades.SocialStudies}, adds ${pct(radioCrewBonus(t))} a day`),
         'data-action="open-picker" data-kind="utility" data-post="radio"')}
@@ -2709,7 +2747,10 @@ export function renderFloor3(state) {
       ${radio}
       ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
         ${roomScene(`research@${roomLevel(state, "research")}`, [...researchers, ...assistants], `Research Room${levelBadge(state, "research")}`,
-          "",
+          roomInfo("🧠 Research Room", [
+            "Teachers and assisting students turn their <b>INT</b> into research",
+            "Research buys the tech tree and the Radio Station's upgrades",
+          ], "INT"),
           roomUpgradeButton(state, "research"))}
         ${staffLine(state, "Teacher", researchers, researchSlots,
           (t) => staffRow(t, gradeLetter(t.grades.Physics), `${t.name} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)})`),
@@ -2721,7 +2762,10 @@ export function renderFloor3(state) {
           'data-action="open-picker" data-kind="research-student"'
         )}
       </div>`}
-      ${utilityRoom("crafting", "Crafting Room", "", "crafting", "DEX", "Gymnastics", craftingFooter)}
+      ${utilityRoom("crafting", "Crafting Room", roomInfo("🛠️ Crafting Room", [
+        "Teachers turn scrap into <b>fortification</b> — the gate's HP at the Night Watch (×2)",
+        "Students help with their DEX, no scrap needed",
+      ], "DEX"), "crafting", "DEX", "Gymnastics", craftingFooter)}
     </div>
   </div>`;
 }
@@ -2954,7 +2998,12 @@ function renderWorkSite(state, site) {
   const [left, right] = Object.keys(def.sides);
   return renderOutsideFacility(
     state, site, def.flag, def.name,
-    "",
+    roomInfo(site === "farm" ? "🌾 Farm" : "🔩 Scrapyard", site === "farm"
+      ? ["Fields grow wheat, potatoes and tomatoes — the barn keeps chickens, sheep and cows",
+        "When a plot is ready, send workers to collect <b>food and ingredients</b>"]
+      : ["Salvage piles give <b>scrap</b> (and maybe research or gear)",
+        "Workbenches turn scrap into weapons, armor and trap kits"],
+    "STR", [`Each worker covers ${PLOTS_PER_WORKER} ${site === "farm" ? "plots or animals" : "piles or benches"} and costs ${def.stamina} stamina a day`, "Workers stay home instead of exploring"]),
     `<div class="farm-split">${renderSiteSide(state, left)}${renderSiteSide(state, right)}</div>`,
     { crew: false, middle, label: `<span class="farm-cost"><b>−${def.stamina}</b> stamina per day</span>` }
   );
