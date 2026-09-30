@@ -1020,6 +1020,10 @@ root.addEventListener("click", (e) => {
   const action = el.dataset.action;
 
   switch (action) {
+    case "open-missions":
+      // the Headmaster's missions aren't in yet
+      flash("📜 The Headmaster's missions are coming soon.");
+      break;
     case "toggle-warn-menu":
       toggleWarnMenu();
       render();

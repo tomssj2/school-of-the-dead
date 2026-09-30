@@ -675,14 +675,30 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   left: calc(50% + (85 - 96) * var(--px)); top: calc(4 * var(--px));
   width: calc(17 * var(--px)); height: calc(19 * var(--px)); border-radius: 6px;
 }
-.hm-npc:hover { box-shadow: 0 0 0 2px rgba(244, 211, 94, 0.55); }
-.hm-bubble {
-  position: absolute; left: 100%; top: -4px; display: grid; place-items: center; width: 22px; height: 20px;
-  border-radius: 6px; background: #f4f6f8; border: 1px solid #c9a227; font-size: 12px; line-height: 1;
-  animation: hm-bob 1.6s ease-in-out infinite alternate;
+.hm-npc { cursor: pointer; }
+.hm-npc:hover { box-shadow: 0 0 0 2px rgba(244, 211, 94, 0.8), 0 0 14px rgba(244, 211, 94, 0.5); }
+/* a warm spotlight on him, gently pulsing, so he's easy to spot */
+.hm-glow {
+  position: absolute; z-index: 1; pointer-events: none;
+  left: calc(50% + (93 - 96) * var(--px, calc(130px / 48)) - 50px); top: -6px; width: 100px; height: 86px;
+  background: radial-gradient(ellipse at 50% 45%, rgba(255, 226, 130, 0.55), rgba(255, 210, 90, 0.18) 45%, transparent 70%);
+  mix-blend-mode: screen; animation: hm-glow 2.2s ease-in-out infinite alternate;
 }
-.hm-bubble::after { content: ""; position: absolute; left: -5px; bottom: 3px; border: 4px solid transparent; border-right-color: #f4f6f8; }
-@keyframes hm-bob { to { transform: translateY(-3px); } }
+@keyframes hm-glow { from { opacity: 0.55; } to { opacity: 1; } }
+.hm-bubble {
+  position: absolute; left: 100%; top: -8px; display: grid; place-items: center; width: 28px; height: 25px;
+  border-radius: 7px; background: #fffbe8; border: 2px solid #c9a227; font-size: 15px; line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45); animation: hm-bob 1.6s ease-in-out infinite alternate;
+}
+.hm-bubble::after { content: ""; position: absolute; left: -7px; bottom: 4px; border: 5px solid transparent; border-right-color: #c9a227; }
+@keyframes hm-bob { to { transform: translateY(-4px); } }
+/* the Missions button, top-right of the office banner */
+.hm-missions-btn {
+  position: absolute; z-index: 3; top: 7px; right: 8px; height: 28px; padding: 0 12px;
+  border-radius: 7px; border: 1px solid #c9a227; background: linear-gradient(180deg, #f4d35e, #c9a227); color: #2a1d06;
+  font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.hm-missions-btn:hover { filter: brightness(1.08); }
 .scene-plaque {
   position: absolute;
   top: 7px;
@@ -2706,6 +2722,7 @@ html[data-gfx="medium"] .fr-raider,
 html[data-gfx="medium"] .hex-nest .hex-tile::after,
 html[data-gfx="medium"] .exp-walker svg,
 html[data-gfx="medium"] .hm-bubble,
+html[data-gfx="medium"] .hm-glow,
 html[data-gfx="medium"] .upg-pip-next,
 html[data-gfx="medium"] .hud-stat.tb-infected { animation: none; }
 

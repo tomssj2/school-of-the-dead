@@ -2922,7 +2922,9 @@ export function renderFloor3(state) {
   const office = `<div class="room room-office">
     ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office", officeHow, "",
       // the Headmaster at his desk (drawn in the scene): he'll give out missions — not yet
-      `<span class="hm-npc" ${tipAttr({ title: "🎩 The Headmaster", notes: ["Hands out missions — coming soon", "Missions will come with their own rewards"] })}><span class="hm-bubble">📜</span></span>`)}
+      `<span class="hm-glow"></span>
+      <span class="hm-npc" data-action="open-missions" ${tipAttr({ title: "🎩 The Headmaster", notes: ["Hands out missions — coming soon", "Missions will come with their own rewards"] })}><span class="hm-bubble">📜</span></span>
+      <button class="hm-missions-btn" data-action="open-missions" title="The Headmaster's missions — coming soon">📜 Missions</button>`)}
     <div class="office-split">
       <div>
         ${statRow(`Promotions (${shownReady.length}/${promoSlots})${ready.length > promoSlots ? ` · +${ready.length - promoSlots} more` : ""}`, "", "stat-row-left")}
