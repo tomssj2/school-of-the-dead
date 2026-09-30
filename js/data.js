@@ -297,6 +297,15 @@ export const NIGHT_ACTIONS = {
 export const MOLOTOV_DAMAGE = 0.8; // of a walker's HP tonight
 // A defender's critical hit: `mult`× damage, `base` chance plus `perDex` for every DEX point.
 export const BATTLE_CRIT = { base: 0.05, perDex: 0.001, mult: 2 };
+// Each defender's active ability, by their expedition role (EXPLORE_ROLES). It charges up during
+// the fight (ABILITY_CHARGE) and fires when the player clicks them; every skill learned in the
+// role's two stats makes it `perSkill` stronger.
+export const BATTLE_ABILITIES = {
+  fighter: { name: "Cleave", icon: "🌀", reach: 2, mult: 1.5, desc: "Hits every zombie within 2 squares for 1.5× melee damage and knocks them back a row" },
+  scout: { name: "Headshot", icon: "💢", mult: 2.5, desc: "A sure 2.5× critical hit on the toughest zombie in reach — it staggers and loses its next move" },
+  support: { name: "Rally Cry", icon: "💚", heal: 0.3, turns: 2, desc: "Heals them and every defender next to them by 30% HP; they all hit 50% harder for 2 turns" },
+};
+export const ABILITY_CHARGE = { perTick: 14, perHit: 8, perHurt: 12, full: 100, perSkill: 0.15, inspired: 1.5 };
 // A defender's role is their best stat (the subject behind it).
 export const DEFENDER_ROLES = {
   PE: { id: "brawler", name: "Brawler", icon: "💪", desc: "+25% melee damage" },

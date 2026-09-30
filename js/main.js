@@ -1532,6 +1532,23 @@ root.addEventListener("click", (e) => {
       anim.resumeSoon();
       break;
     }
+    case "use-ability": {
+      // a charged defender's ability goes off; the fight carries on a moment later
+      const anim = battleAnimation;
+      if (!anim?.live || anim.phase !== "battle") break;
+      if (!G.battleUseAbility(state, anim.b, el.dataset.id)) {
+        flash("Nothing in reach for that yet.");
+        break;
+      }
+      anim.resumeSoon();
+      break;
+    }
+    case "toggle-auto-abilities":
+      if (battleAnimation?.live) {
+        G.setAutoAbilities(battleAnimation.b, !battleAnimation.b.autoAbilities);
+        render();
+      }
+      break;
     case "night-cancel":
       if (battleAnimation?.target) {
         battleAnimation.target = null;

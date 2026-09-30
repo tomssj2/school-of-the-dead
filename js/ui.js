@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
-  NIGHT_ACTIONS, NIGHT_CONDITIONS, DEFENDER_ROLES, NIGHT_STAR_REWARD,
+  NIGHT_ACTIONS, NIGHT_CONDITIONS, DEFENDER_ROLES, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
@@ -1926,8 +1926,8 @@ function renderGridBattle(state, anim) {
       if (e.hit) hurt.add(`${tr},${tc}`);
       if (e.crit) shake = Math.max(shake, 1);
       fx += e.crit
-        ? pop(tr, tc, "nw-pop-crit", `<small>CRIT!</small>-${e.dmg}`)
-        : pop(tr, tc, e.hit ? (e.dmg >= 20 ? "nw-pop-heavy" : "") : "nw-pop-miss", e.hit ? `-${e.dmg}` : "miss");
+        ? pop(tr, tc, "nw-pop-crit", `<small>${e.ability === "scout" ? "HEADSHOT!" : "CRIT!"}</small>-${e.dmg}`)
+        : pop(tr, tc, e.hit ? (e.dmg >= 20 || e.ability ? "nw-pop-heavy" : "") : "nw-pop-miss", e.hit ? `-${e.dmg}` : "miss");
     } else if (e.type === "bite" || e.type === "spit") {
       if (e.type === "spit") fx += `<span class="nw-shot nw-spit" style="--r0:${r0};--c0:${c0};--r1:${e.to[0]};--c1:${e.to[1]}"></span>`;
       if (e.hit) hurt.add(`${e.to[0]},${e.to[1]}`);
@@ -1949,8 +1949,19 @@ function renderGridBattle(state, anim) {
       fx += `<span class="nw-fire" ${at(e.at[0], e.at[1])}>🔥</span>`;
       shake = Math.max(shake, 1);
     } else if (e.type === "heal") {
-      fx += pop(e.at[0], e.at[1], "nw-pop-heal", `+${e.amount}`);
+      if (e.amount) fx += pop(e.at[0], e.at[1], "nw-pop-heal", `+${e.amount}`);
       fx += `<span class="nw-heal-ring" ${at(e.at[0], e.at[1])}></span>`;
+    } else if (e.type === "ability") {
+      const a = BATTLE_ABILITIES[e.ability];
+      fx += `<span class="nw-callout nw-callout-${e.ability}" ${at(e.at[0], e.at[1])}>${a.icon} ${a.name}!</span>`;
+      fx += `<span class="nw-ability-wave nw-ability-${e.ability}" ${at(e.at[0], e.at[1])}></span>`;
+      shake = Math.max(shake, e.ability === "support" ? 0 : 1);
+    } else if (e.type === "knock") {
+      fx += pop(e.at[0], e.at[1], "nw-pop-note", "knocked back");
+    } else if (e.type === "stagger") {
+      fx += pop(e.at[0], e.at[1], "nw-pop-note", "staggered");
+    } else if (e.type === "ready") {
+      fx += `<span class="nw-ready-pop" ${at(e.at[0], e.at[1])}>⚡ Ready</span>`;
     } else if (e.type === "focus") {
       fx += pop(e.at[0], e.at[1], "nw-pop-big", "🎯");
     } else if (e.type === "smash") {
@@ -1994,14 +2005,21 @@ function renderGridBattle(state, anim) {
       if (!taken.has(`${row},${col}`)) units += `<div class="nw-cell nw-top nw-empty" ${at(row, col)} data-drop-cell="${row},${col}"></div>`;
     }
   }
+  // a defender's ability is live when it's charged, mid-fight (not in the break, not while aiming)
+  const canUse = (s) => anim.phase === "battle" && b?.phase === "fight" && !anim.target && !s.downed && s.charge >= ABILITY_CHARGE.full;
   for (const s of frame.students) {
     const c = getChar(state, s.id);
     const k = `${s.row},${s.col}`;
     const role = Object.values(DEFENDER_ROLES).find((r) => r.id === s.role);
     const drag = breakTime && !s.downed ? `draggable="true" data-drag-student="${s.id}"` : "";
-    units += `<div class="nw-unit nw-defender ${s.downed ? "nw-downed" : ""} ${struck.has(k) ? "nw-strike" : ""} ${hurt.has(k) ? "nw-flash" : ""} ${breakTime ? "" : "nw-static"}" ${at(s.row, s.col)} ${drag} ${breakTime ? `data-drop-cell="${k}"` : ""}>
+    const ready = canUse(s);
+    const a = BATTLE_ABILITIES[s.ability];
+    units += `<div class="nw-unit nw-defender ${s.downed ? "nw-downed" : ""} ${struck.has(k) ? "nw-strike" : ""} ${hurt.has(k) ? "nw-flash" : ""} ${breakTime ? "" : "nw-static"} ${ready ? "nw-ready" : ""} ${s.inspired > 0 && !s.downed ? "nw-inspired" : ""}" ${at(s.row, s.col)} ${drag} ${breakTime ? `data-drop-cell="${k}"` : ""}
+      ${ready ? `data-action="use-ability" data-id="${s.id}"` : ""} ${a && c ? tipAttr({ title: `${a.icon} ${a.name} — ${esc(shortName(c))}`, rows: [["Charge", `${Math.round(s.charge)}%`]], notes: [a.desc, ready ? "Click to use it now" : "Charges every turn — faster when they hit or get hurt"] }) : ""}>
       ${role ? `<span class="nw-role" title="${role.name}: ${role.desc}">${role.icon}</span>` : ""}
+      ${ready ? `<span class="nw-ready-badge">${a.icon}</span>` : ""}
       ${c ? characterSprite(c, 40) : ""}${bar(s.hp, s.maxHp, "nw-hp-student")}
+      ${s.downed || !a ? "" : `<span class="nw-charge ${s.charge >= ABILITY_CHARGE.full ? "nw-charge-full" : ""}"><i style="width:${Math.round(s.charge)}%"></i></span>`}
     </div>`;
   }
   const focusId = b?.focus?.id;
@@ -2056,7 +2074,25 @@ function renderGridBattle(state, anim) {
     const aimHint = anim.target
       ? `<div class="nw-aim-hint">${NIGHT_ACTIONS[anim.target].icon} ${{ molotov: "Pick a square to throw it at", focus: "Pick a zombie", patch: "Pick a hurt defender" }[anim.target]} · <button class="btn btn-sm" data-action="night-cancel">Cancel</button></div>`
       : "";
-    footer = `${aimHint}<div class="nw-actions">${actions}</div>
+    // the defenders' abilities: a chip each, glowing and clickable when charged
+    const abilityChips = frame.students.filter((s) => !s.downed && s.ability).map((s) => {
+      const c = getChar(state, s.id);
+      const a = BATTLE_ABILITIES[s.ability];
+      const ready = canUse(s);
+      return `<button class="nw-ab ${ready ? "nw-ab-ready" : ""}" ${ready ? `data-action="use-ability" data-id="${s.id}"` : "disabled"} ${tipAttr({
+        title: `${a.icon} ${a.name} — ${c ? esc(c.name) : ""}`,
+        rows: [["Charge", `${Math.round(s.charge)}%`], ...(b ? [["Power", `×${(b.students.find((x) => x.id === s.id)?.abilityPower || 1).toFixed(2)}`]] : [])],
+        notes: [a.desc, "Skills in the role's two stats make it stronger", ready ? "Click to use it now" : "Charges every turn — faster when they hit or get hurt"],
+      })}><span class="nw-ab-face">${c ? characterSprite(c, 24) : ""}</span><span class="nw-ab-icon">${a.icon}</span><span class="nw-ab-bar"><i style="width:${Math.round(s.charge)}%"></i></span></button>`;
+    }).join("");
+    const auto = b?.autoAbilities;
+    footer = `${aimHint}
+      <div class="nw-abilities">
+        <span class="mini-label">Abilities</span>
+        <div class="nw-ab-list">${abilityChips}</div>
+        <button class="btn btn-sm nw-ab-auto ${auto ? "on" : ""}" data-action="toggle-auto-abilities" title="Let the defenders use their abilities by themselves">⚡ Auto ${auto ? "on" : "off"}</button>
+      </div>
+      <div class="nw-actions">${actions}</div>
       <button class="btn" data-action="skip-battle">⏩ Skip to the result</button>`;
   } else {
     const { won, routed, killed, spawned, breached, downedCount, bossName, bossKilled, stars = [], perfect } = summary;

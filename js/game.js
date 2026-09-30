@@ -15,7 +15,7 @@ import {
   EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
   ENTRANCE_GRID_SIZE, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
-  NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, DEFENDER_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
+  NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, BATTLE_ABILITIES, ABILITY_CHARGE, DEFENDER_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay,
   RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
@@ -1613,7 +1613,7 @@ function battleSnapshot(b, events) {
     tick: b.tick,
     events,
     zombies: b.zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp })),
-    students: b.students.map((s) => ({ id: s.id, row: s.row, col: s.col, hp: Math.max(0, s.hp), maxHp: s.maxHp, downed: s.downed, role: s.role })),
+    students: b.students.map((s) => ({ id: s.id, row: s.row, col: s.col, hp: Math.max(0, s.hp), maxHp: s.maxHp, downed: s.downed, role: s.role, ability: s.ability, charge: s.charge, inspired: s.inspired })),
     structures: Object.values(b.structures).map((st) => ({ key: st.key, id: st.def.id, hp: st.hp, maxHp: st.maxHp, destroyed: st.destroyed })),
     gate: { ...b.gate },
     killed: b.killed,
@@ -1651,7 +1651,10 @@ export function startNightBattle(state) {
       roleCount[role.id] = (roleCount[role.id] || 0) + 1;
       const s = { id: c.id, row, col, hp: c.hp, maxHp: c.maxHp, downed: false, kills: 0, usedMelee: false, usedRanged: false, role: role.id, ...battleStats(state, c),
         // a critical hit (double damage): 5%, plus 1% for every 10 DEX
-        critChance: BATTLE_CRIT.base + effectiveGrade(state, c, "Gymnastics") * BATTLE_CRIT.perDex };
+        critChance: BATTLE_CRIT.base + effectiveGrade(state, c, "Gymnastics") * BATTLE_CRIT.perDex,
+        // their ability (by expedition role), charging from 0; skills in the role's stats power it up
+        ability: exploreRole(c), charge: 0, inspired: 0,
+        abilityPower: 1 + ABILITY_CHARGE.perSkill * EXPLORE_ROLES[exploreRole(c)].stats.reduce((n, subj) => n + skillCount(c, subj), 0) };
       if (role.id === "brawler") s.meleeMult *= 1.25;
       if (role.id === "marksman" && s.ranged) s.ranged = { ...s.ranged, range: s.ranged.range + 1 };
       if (role.id === "tank") s.armorMult *= 0.75;
@@ -1687,7 +1690,7 @@ export function startNightBattle(state) {
     lastStand: techPerk(state, "lastStand") > 0,
     bossName: isBossNight(state.day) ? bossNameForDay(state.day) : null,
     uses: nightActionUses(state),
-    rally: 0, focus: null,
+    rally: 0, focus: null, autoAbilities: false,
     tick: 0, frames: [], phase: "fight",
   };
   b.frames.push(battleSnapshot(b, []));
@@ -1736,10 +1739,13 @@ export function battleTick(state, b) {
     b.waveSpawned++;
   }
 
-  // 2. defenders strike (at the focused zombie if they can reach it)
+  // 2. defenders strike (at the focused zombie if they can reach it) — first any abilities that
+  // go off by themselves (auto)
+  if (b.autoAbilities) autoUseAbilities(state, b, events);
   const rallied = b.rally > 0 ? 1.5 : 1;
   for (const s of b.students) {
     if (s.downed) continue;
+    const inspired = s.inspired > 0 ? ABILITY_CHARGE.inspired : 1;
     const live = b.zombies.filter((z) => z.alive);
     if (!live.length) break;
     const inMelee = live.filter((z) => chebyshev(s, z) <= s.melee.range);
@@ -1757,9 +1763,10 @@ export function battleTick(state, b) {
     const crit = hit && Math.random() < s.critChance;
     const desperate = b.lastStand && s.hp < s.maxHp * 0.25 ? 2 : 1;
     const dmg = hit
-      ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * desperate * rallied * b.squad.damageDealt * (0.85 + Math.random() * 0.3) * (crit ? BATTLE_CRIT.mult : 1)))
+      ? Math.max(1, Math.round(weapon.damage * (useMelee ? s.meleeMult : s.rangedMult) * desperate * rallied * inspired * b.squad.damageDealt * (0.85 + Math.random() * 0.3) * (crit ? BATTLE_CRIT.mult : 1)))
       : 0;
     target.hp -= dmg;
+    if (hit) chargeAbility(s, ABILITY_CHARGE.perHit, events);
     events.push({ type: "attack", from: [s.row, s.col], to: [target.row, target.col], zid: target.id, dmg, hit, crit, kind: useMelee ? "melee" : "ranged", icon: weapon.icon });
     if (target.hp <= 0) {
       s.kills++;
@@ -1775,6 +1782,7 @@ export function battleTick(state, b) {
     const dmg = hit ? Math.max(1, Math.round(dmgBase * s.armorMult * b.squad.damageTaken * (0.85 + Math.random() * 0.3))) : 0;
     s.hp -= dmg;
     events.push({ type, from: [z.row, z.col], to: [s.row, s.col], dmg, hit, dodged });
+    if (hit && s.hp > 0) chargeAbility(s, ABILITY_CHARGE.perHurt, events);
     if (s.hp <= 0) {
       s.downed = true;
       events.push({ type: "downed", at: [s.row, s.col], id: s.id });
@@ -1852,6 +1860,12 @@ export function battleTick(state, b) {
   }
 
   if (b.rally > 0) b.rally--;
+  // abilities charge a little every turn; inspiration wears off
+  for (const s of b.students) {
+    if (s.downed) continue;
+    if (s.inspired > 0) s.inspired--;
+    chargeAbility(s, ABILITY_CHARGE.perTick, events);
+  }
   if (b.focus && --b.focus.turns <= 0) b.focus = null;
   if (b.focus && !b.zombies.find((z) => z.id === b.focus.id && z.alive)) b.focus = null;
 
@@ -1872,6 +1886,97 @@ export function battleTick(state, b) {
   const frame = battleSnapshot(b, events);
   b.frames.push(frame);
   return frame;
+}
+
+// ----- abilities (BATTLE_ABILITIES) -----
+// Charges a defender's ability; a "ready" event when it fills up.
+function chargeAbility(s, amount, events) {
+  if (s.downed || s.charge >= ABILITY_CHARGE.full) return;
+  s.charge = Math.min(ABILITY_CHARGE.full, s.charge + amount);
+  if (s.charge >= ABILITY_CHARGE.full) events.push({ type: "ready", at: [s.row, s.col], id: s.id });
+}
+// Who a ready ability would work on right now (null: nothing to do — it isn't spent).
+function abilityTargets(b, s) {
+  const live = b.zombies.filter((z) => z.alive);
+  if (s.ability === "fighter") {
+    const hit = live.filter((z) => chebyshev(s, z) <= BATTLE_ABILITIES.fighter.reach);
+    return hit.length ? hit : null;
+  }
+  if (s.ability === "scout") {
+    const reach = s.ranged ? s.ranged.range + 2 : s.melee.range + 1;
+    const inReach = live.filter((z) => chebyshev(s, z) <= reach);
+    return inReach.length ? [inReach.sort((a, c) => c.hp - a.hp)[0]] : null;
+  }
+  const allies = b.students.filter((x) => !x.downed && chebyshev(s, x) <= 1);
+  return allies.some((x) => x.hp < x.maxHp) || live.length ? allies : null;
+}
+// Fires a defender's ability, if it's charged and has something to work on. Its events go in
+// `events` (or a frame of their own, when the player clicks it).
+function fireAbility(state, b, s, events) {
+  if (b.phase === "done" || s.downed || s.charge < ABILITY_CHARGE.full) return false;
+  const targets = abilityTargets(b, s);
+  if (!targets) return false;
+  const a = BATTLE_ABILITIES[s.ability];
+  s.charge = 0;
+  events.push({ type: "ability", ability: s.ability, at: [s.row, s.col], id: s.id });
+  const hitZombie = (z, dmg, kind, crit) => {
+    z.hp -= dmg;
+    z.windup = null; // a heavy blow breaks a wind-up
+    events.push({ type: "attack", from: [s.row, s.col], to: [z.row, z.col], zid: z.id, dmg, hit: true, crit, kind, ability: s.ability });
+    if (z.hp <= 0) {
+      s.kills++;
+      killZombie(b, z, events);
+    }
+  };
+  if (s.ability === "fighter") {
+    for (const z of targets) {
+      const dmg = Math.max(1, Math.round(s.melee.damage * s.meleeMult * a.mult * s.abilityPower * b.squad.damageDealt));
+      hitZombie(z, dmg, "melee", false);
+      // knocked back a row, if there's room behind it
+      if (z.alive && z.row + 1 < b.size && !zombieAt(b, z.row + 1, z.col) && !b.structures[`${z.row + 1},${z.col}`]?.def.blocks) {
+        z.row++;
+        events.push({ type: "knock", at: [z.row, z.col], zid: z.id });
+      }
+    }
+  } else if (s.ability === "scout") {
+    const z = targets[0];
+    const weapon = s.ranged || s.melee;
+    const dmg = Math.max(1, Math.round(weapon.damage * (s.ranged ? s.rangedMult : s.meleeMult) * a.mult * s.abilityPower * b.squad.damageDealt));
+    hitZombie(z, dmg, s.ranged ? "ranged" : "melee", true);
+    if (z.alive) {
+      z.snagged = true; // staggered: it loses its next move
+      events.push({ type: "stagger", at: [z.row, z.col] });
+    }
+  } else {
+    for (const x of targets) {
+      const heal = Math.min(x.maxHp - x.hp, Math.round(x.maxHp * a.heal * s.abilityPower));
+      x.hp += heal;
+      x.inspired = a.turns;
+      events.push({ type: "heal", at: [x.row, x.col], amount: heal, inspire: true });
+    }
+  }
+  return true;
+}
+// The player clicks a charged defender: their ability goes off at once, in a frame of its own.
+export function battleUseAbility(state, b, studentId) {
+  const s = b.students.find((x) => x.id === studentId);
+  if (!s || b.phase !== "fight") return false;
+  const events = [];
+  if (!fireAbility(state, b, s, events)) return false;
+  b.frames.push(battleSnapshot(b, events));
+  return true;
+}
+// Abilities going off by themselves (Auto, or a skipped fight): each charged defender uses theirs
+// once it has something to work on — a Rally Cry only once someone nearby is hurt.
+function autoUseAbilities(state, b, events) {
+  for (const s of b.students) {
+    if (s.downed || s.charge < ABILITY_CHARGE.full) continue;
+    if (s.ability === "support" && !b.students.some((x) => !x.downed && chebyshev(s, x) <= 1 && x.hp < x.maxHp * 0.75)) continue;
+    fireAbility(state, b, s, events);
+  }
+}
+export function setAutoAbilities(b, on) {
+  b.autoAbilities = !!on;
 }
 
 // The break's over: send in the next wave.
@@ -1928,8 +2033,10 @@ export function battleAction(state, b, actionId, row, col) {
   return true;
 }
 
-// Plays the rest of the night straight through (waves start on their own).
+// Plays the rest of the night straight through (waves start on their own, abilities go off by
+// themselves).
 export function runNightBattle(state, b) {
+  b.autoAbilities = true;
   while (b.phase !== "done") {
     if (b.phase === "break") startNextWave(b);
     battleTick(state, b);
