@@ -8,6 +8,16 @@
   --accent: #4caf7d;
   --accent-2: #d9534f;
   --warn: #e0a536;
+  /* Every bar in the game is one of three: HP (green), stamina (yellow), or anything else —
+     progress, growth, how full a room is (blue). The "lose" stripes show what a bar would drop by. */
+  --bar-hp: #4caf7d;
+  --bar-hp-hi: #6bd6a0;
+  --bar-stamina: #e0c341;
+  --bar-stamina-hi: #f4d86a;
+  --bar-other: #3fa7d6;
+  --bar-other-hi: #63bde0;
+  --bar-hp-lose: repeating-linear-gradient(45deg, rgba(76, 175, 125, 0.55) 0 3px, rgba(76, 175, 125, 0.18) 3px 6px);
+  --bar-stamina-lose: repeating-linear-gradient(45deg, rgba(224, 195, 65, 0.55) 0 3px, rgba(224, 195, 65, 0.18) 3px 6px);
   color-scheme: dark;
 }
 
@@ -221,8 +231,8 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
 .hud-rescue-ready .hud-val small { color: var(--accent); }
 .hud-rescue-bars { display: flex; gap: 2px; }
 .hud-rescue-bars i { width: 5px; height: 14px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); }
-.hud-rescue-bars i.on { background: var(--warn); box-shadow: 0 0 6px -1px var(--warn); }
-.hud-rescue-ready .hud-rescue-bars i.on { background: var(--accent); box-shadow: 0 0 6px -1px var(--accent); }
+.hud-rescue-bars i.on { background: var(--bar-other); box-shadow: 0 0 6px -1px var(--bar-other); }
+.hud-rescue-ready .hud-rescue-bars i.on { background: var(--bar-other-hi); box-shadow: 0 0 8px 0 var(--bar-other-hi); }
 
 .hud-menu {
   display: grid;
@@ -544,8 +554,8 @@ button.ov-chip { font: inherit; font-size: 12px; cursor: pointer; }
 .ov-big { padding: 0 12px; font-size: 23px; font-weight: 800; color: #7fe0a8; line-height: 1.1; }
 .ov-big small { font-size: 12px; font-weight: 600; color: var(--muted); }
 .ov-bar { display: block; margin: 0 12px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
-.ov-bar i { display: block; height: 100%; border-radius: 3px; background: var(--warn); }
-.ov-bar-full i { background: var(--accent); }
+.ov-bar i { display: block; height: 100%; border-radius: 3px; background: var(--bar-other); }
+.ov-bar-full i { background: var(--bar-other-hi); }
 .ov-meta { padding: 0 12px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the card's warnings, all in orange: problems (⚠) first, then things that could be done now */
 .ov-notes { display: flex; flex-direction: column; gap: 3px; padding: 2px 12px 0; }
@@ -596,7 +606,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .tech-locked { opacity: 0.55; }
 
 .rescue-progress { height: 10px; background: #10131a; border-radius: 5px; overflow: hidden; margin: 12px 0 6px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5); }
-.rescue-progress > span { display: block; height: 100%; background: linear-gradient(90deg, #e0a536, #4caf7d); transition: width 0.3s ease; }
+.rescue-progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--bar-other), var(--bar-other-hi)); transition: width 0.3s ease; }
 .rescue-stages { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 
 .boss-warning {
@@ -950,11 +960,11 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
 .nw-gear { position: absolute; top: -2px; right: -14px; font-size: 13px; line-height: 1; filter: drop-shadow(0 1px 1px #000); }
 .nw-hp { display: block; width: 38px; height: 4px; margin-top: 2px; border-radius: 2px; overflow: hidden; background: rgba(0, 0, 0, 0.65); }
 .nw-hp i { display: block; height: 100%; transition: width 0.3s ease; }
-.nw-hp-student i { background: #4caf7d; }
-.nw-hp-zombie i { background: #d64545; }
-.nw-hp-wall i { background: #e0a536; }
+.nw-hp-student i { background: var(--bar-hp); }
+.nw-hp-zombie i { background: var(--bar-hp); }
+.nw-hp-wall i { background: var(--bar-hp); }
 .nw-hp-gate { width: 90px; height: 6px; margin: 0; }
-.nw-hp-gate i { background: #f4d35e; }
+.nw-hp-gate i { background: var(--bar-hp); }
 .nw-structure { display: block; line-height: 0; margin-bottom: 4px; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6)); }
 .nw-cell > .nw-hp-wall { position: absolute; bottom: 3px; width: 50%; }
 .nw-rubble { opacity: 0.75; }
@@ -1303,7 +1313,7 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 /* A full bar: ready — gold until a worker covers it, then green. */
 .fslot-ready { border-color: #f4d35e; box-shadow: 0 0 8px rgba(244, 211, 94, 0.35); animation: fslot-ready 1.8s ease-in-out infinite; }
 .fslot-ready .fslot-status { color: #f4d35e; font-weight: 700; }
-.fslot-ready .plot-bar i { background: linear-gradient(90deg, #e0b84a, #f4d35e); }
+.fslot-ready .plot-bar i { background: var(--bar-other-hi); }
 .fslot-covered { border-color: rgba(76, 175, 125, 0.8); box-shadow: 0 0 8px rgba(76, 175, 125, 0.35); animation: none; }
 .fslot-covered .fslot-status { color: #7fe0a8; }
 @keyframes fslot-ready {
@@ -1326,8 +1336,8 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 .person-tile.pt-farm { width: 72px; height: 98px; }
 .pt-stam { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; margin-top: auto; }
 .pt-stam-bar { display: flex; width: 100%; height: 7px; border-radius: 3px; overflow: hidden; background: #10131a; }
-.pt-stam-keep { background: linear-gradient(180deg, #63bde0, #3fa7d6); }
-.pt-stam-lose { background: repeating-linear-gradient(135deg, #d64545 0 3px, #a83232 3px 6px); }
+.pt-stam-keep { background: linear-gradient(180deg, var(--bar-stamina-hi), var(--bar-stamina)); }
+.pt-stam-lose { background: var(--bar-stamina-lose); }
 .pt-stam-num { font-size: 10px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pt-stam-num b { color: #ff9a9a; }
 /* Scrapyard slots aren't clickable; a bench's scrap per piece is shown in red. */
@@ -1347,7 +1357,7 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 .plot-modal { max-width: 440px; }
 .plot-warn { color: var(--warn); }
 .plot-bar { height: 6px; border-radius: 3px; background: #10131a; overflow: hidden; }
-.plot-bar i { display: block; height: 100%; background: linear-gradient(90deg, #6fae6a, #a5d86a); }
+.plot-bar i { display: block; height: 100%; background: var(--bar-other); }
 .dish-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .dish-row { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 12.5px; }
 .dish-row .muted { font-size: 11.5px; margin-top: 2px; }
@@ -1408,9 +1418,7 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 
 .hpbar { position: relative; background: #10131a; border-radius: 4px; width: 96px; height: 18px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5); }
 .hpfill { height: 100%; transition: width 0.25s ease; }
-.hp-high { background: linear-gradient(180deg, #6bd6a0, var(--accent)); }
-.hp-mid { background: linear-gradient(180deg, #f0c168, var(--warn)); }
-.hp-low { background: linear-gradient(180deg, #e5726d, var(--accent-2)); }
+.hp-high, .hp-mid, .hp-low { background: linear-gradient(180deg, var(--bar-hp-hi), var(--bar-hp)); }
 /* The numbers on a bar: bold white with a dark outline, readable over any fill. */
 .hpbar span {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -1419,9 +1427,7 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 }
 
 .staminabar { display: block; }
-.stamina-ok { background: linear-gradient(180deg, #63bde0, #3fa7d6); }
-.stamina-low { background: linear-gradient(180deg, #f0c168, var(--warn)); }
-.stamina-empty { background: linear-gradient(180deg, #e5726d, var(--accent-2)); }
+.stamina-ok, .stamina-low, .stamina-empty { background: linear-gradient(180deg, var(--bar-stamina-hi), var(--bar-stamina)); }
 
 /* The Upgrade button in the banner's bottom-left corner, with the figures standing to its right. */
 .scene-bottom { position: absolute; left: 8px; right: 8px; bottom: 0; display: flex; align-items: flex-end; gap: 8px; pointer-events: none; }
@@ -1936,8 +1942,8 @@ body.nw-dragging .ex-rtab { border-style: dashed; border-bottom-style: solid; }
 .ex-rt-power::before { content: "⚔ "; font-size: 9px; color: var(--role); }
 .ex-rt-bar { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 .ex-rt-bar i { display: block; height: 100%; }
-.ex-rt-hp i { background: #4caf7d; }
-.ex-rt-stam i { background: #e0c341; }
+.ex-rt-hp i { background: var(--bar-hp); }
+.ex-rt-stam i { background: var(--bar-stamina); }
 .ex-rt.ex-rt-onteam { border-color: var(--team); box-shadow: inset 0 0 0 1px var(--team); }
 .ex-rt.ex-rt-onteam::before { content: ""; position: absolute; top: 3px; left: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--team); }
 .ex-rt.ex-rt-tired { opacity: 0.4; }
@@ -2010,9 +2016,10 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 .sc-risk { color: #ff8a8a; font-size: 10.5px; }
 .sc-bar { display: flex; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
 .sc-bar i { display: block; height: 100%; }
-.sc-bar-stam .sc-bar-keep { background: #e0c341; }
-.sc-bar-hp .sc-bar-keep { background: #4caf7d; }
-.sc-bar-lose { background: repeating-linear-gradient(45deg, rgba(255, 138, 138, 0.8) 0 3px, rgba(255, 138, 138, 0.3) 3px 6px); }
+.sc-bar-stam .sc-bar-keep { background: var(--bar-stamina); }
+.sc-bar-hp .sc-bar-keep { background: var(--bar-hp); }
+.sc-bar-stam .sc-bar-lose { background: var(--bar-stamina-lose); }
+.sc-bar-hp .sc-bar-lose { background: var(--bar-hp-lose); }
 .sc-odds { display: flex; flex-direction: column; align-items: center; font-size: 10.5px; }
 .sc-odds b { font-size: 13px; color: #fff; }
 .ex-role.nw-drop-over { background: color-mix(in srgb, var(--role) 18%, transparent); }
@@ -2288,7 +2295,7 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 .cc-hp-box .hpbar { width: 110px; }
 /* A student's experience toward their next level, under the Level number on their card. */
 .xp-bar { display: block; width: 100%; height: 4px; margin-top: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
-.xp-bar i { display: block; height: 100%; background: #f4d35e; }
+.xp-bar i { display: block; height: 100%; background: var(--bar-other); }
 
 .cc-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-top: 4px; border-top: 1px solid var(--border); padding-top: 8px; }
 .cc-talents-label { border-top: none; padding-top: 0; margin-top: 2px; text-align: center; }
@@ -2405,7 +2412,7 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
   border-radius: 4px;
   overflow: hidden;
 }
-.gr-bar-fill { height: 100%; background: var(--accent); }
+.gr-bar-fill { height: 100%; background: var(--bar-other); }
 .grade-row-v2-teacher .gr-teacher-bonus { color: var(--muted); font-variant-numeric: tabular-nums; }
 .grade-row-v2-teacher .gr-teacher-bonus b { color: var(--text); }
 
@@ -2501,7 +2508,7 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 .raid-member-down { opacity: 0.4; filter: grayscale(1); }
 .raid-member-hit svg { animation: raid-shake 0.35s; }
 .raid-hp { width: 40px; height: 4px; border-radius: 2px; background: #2a2d33; overflow: hidden; }
-.raid-hp div { height: 100%; background: #4caf7d; transition: width 0.3s; }
+.raid-hp div { height: 100%; background: var(--bar-hp); transition: width 0.3s; }
 .raid-name { font-size: 9.5px; color: var(--muted); }
 .raid-float {
   position: absolute;
@@ -2523,7 +2530,7 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 .raid-boss-dead svg { filter: grayscale(1) brightness(0.5); opacity: 0.7; }
 .raid-boss-name { font-size: 13px; font-weight: 700; color: #ff9a9a; }
 .raid-boss-bar { position: relative; width: 150px; height: 12px; border-radius: 6px; background: #2a1418; border: 1px solid #5a2430; overflow: hidden; }
-.raid-boss-bar div { height: 100%; background: linear-gradient(90deg, #d64545, #ff7a5a); transition: width 0.4s; }
+.raid-boss-bar div { height: 100%; background: linear-gradient(90deg, var(--bar-hp), var(--bar-hp-hi)); transition: width 0.4s; }
 .raid-boss-bar span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #fff; text-shadow: 0 0 2px #000; }
 .raid-log { min-height: 36px; margin-top: 10px; text-align: center; font-size: 13px; color: #d9dde6; }
 .raid-skip { position: absolute; top: 12px; right: 12px; }
@@ -2611,7 +2618,7 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 .room-arena { align-items: flex-end; }
 .room-zombies { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: flex-end; gap: 6px; max-width: 55%; }
 .room-zombie svg { filter: drop-shadow(0 0 8px rgba(214, 69, 69, 0.4)); }
-.room-zombie-hp div { background: #d64545; }
+.room-zombie-hp div { background: var(--bar-hp); }
 .fight-tip {
   margin-top: 8px;
   padding: 8px 12px;

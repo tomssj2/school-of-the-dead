@@ -3187,7 +3187,7 @@ const SIDE_INFO = {
   },
 };
 
-// Under a worker: their stamina bar, with the part today's work will use up marked in red, and
+// Under a worker: their stamina bar, with the part today's work will use up striped, and
 // "120 → 70".
 function workerStaminaLine(c, cost) {
   const after = Math.max(0, c.stamina - cost);
