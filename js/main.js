@@ -5,7 +5,7 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
   renderEncounterModal, renderExpeditionSkirmish,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings } from "./ui.js";
 import { recordRun } from "./score.js";
-import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
+import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
@@ -210,6 +210,8 @@ function migrateState(s) {
     // The Ranch was folded into the Farm: whoever worked it today works the Farm.
     if (c.ranchToday) c.farmToday = "animals";
     delete c.ranchToday;
+    // Names are at most 6 letters a part now: an older, longer one gets a fresh pick.
+    c.name = fitName(c.name, c.gender, c.role, { reroll: true });
     if (c.role === "teacher") {
       if (!/^(mr|mrs)\.\s/i.test(c.name)) c.name = withTeacherHonorific(c.name, c.gender);
       if (!c.teachSubject) {
@@ -1756,7 +1758,7 @@ root.addEventListener("click", (e) => {
     case "rename-char": {
       const c = G.getCharAnywhere(state, el.dataset.id);
       if (!c) break;
-      const name = prompt("Enter a new name (max 20 letters):", c.name);
+      const name = prompt("Enter a new name (first and last name, up to 6 letters each):", c.name);
       if (name !== null) {
         G.renameCharacter(state, el.dataset.id, name);
         render();

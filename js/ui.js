@@ -267,7 +267,7 @@ function shortName(c) {
   const parts = stripHonorific(c.name).split(" ");
   if (c.role !== "teacher") return parts[0];
   const title = c.name.match(/^(mr|mrs|ms|dr|miss)\.?(?=\s)/i)?.[0];
-  const surname = parts[parts.length - 1];
+  const surname = parts[1] || parts[0];
   return title ? `${title} ${surname}` : surname;
 }
 

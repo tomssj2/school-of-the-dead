@@ -28,11 +28,12 @@ import {
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
   OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING,
+  LEGENDARY_TITLES,
 } from "./data.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, capTeacherGrades, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
-  gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, teachingBonus,
+  gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, fitName, teachingBonus,
   bestClassroomSubjectFor, emptyEquipment, makeItem, makeLegendaryItem, maxStaminaFor, skillCount,
 } from "./characters.js";
 
@@ -195,15 +196,12 @@ export function renameCharacter(state, id, name) {
   if (!c) return false;
   const raw = (name || "").trim();
   if (!raw) return false;
-  if (c.role === "teacher") {
-    // Teachers always keep their gender-appropriate honorific — strip whatever the player
-    // typed (even an attempt to remove or swap it) and re-derive it, so it can't be dropped.
-    const bare = stripHonorific(raw);
-    if (!bare) return false;
-    c.name = withTeacherHonorific(bare, c.gender).slice(0, 20);
-  } else {
-    c.name = raw.slice(0, 20);
-  }
+  // First + last name, 6 letters each (fitName); teachers keep their honorific whatever was
+  // typed, and a legendary keeps their title.
+  const bare = stripHonorific(raw);
+  if (!bare) return false;
+  const title = LEGENDARY_TITLES.find((t) => c.name.endsWith(` ${t}`));
+  c.name = fitName(title ? `${bare} ${title}` : bare, c.gender, c.role);
   return true;
 }
 

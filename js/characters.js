@@ -2,7 +2,7 @@ import {
   SUBJECTS, MALE_NAMES, FEMALE_NAMES, LAST_NAMES, GRADE_TIERS, GRADE_RANGES,
   STUDENT_TIER_WEIGHTS, TEACHER_SECONDARY_TIERS, TEACHER_SECONDARY_WEIGHTS, TRAITS,
   STAT_OF_SUBJECT, TEACH_BONUS_BY_TIER, ITEM_TEMPLATES, STARTER_ARMORY_IDS, CLASSROOM_SUBJECTS,
-  LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING,
+  LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING, NAME_PART_MAX,
 } from "./data.js";
 
 let _idCounter = 1;
@@ -97,6 +97,19 @@ export function randomName(gender) {
   const first = gender === "M" ? pick(MALE_NAMES) : pick(FEMALE_NAMES);
   const last = pick(LAST_NAMES);
   return `${first} ${last}`;
+}
+
+// Keeps a character's name to "First Last", each at most NAME_PART_MAX letters (plus a teacher's
+// honorific and a legendary's title). `reroll`: a part that's too long gets a fresh name from the
+// pools (old saves) instead of being cut short (renames).
+export function fitName(name, gender, role, { reroll = false } = {}) {
+  const title = LEGENDARY_TITLES.find((t) => name.endsWith(` ${t}`));
+  const words = stripHonorific(title ? name.slice(0, -title.length - 1) : name).split(/\s+/).filter(Boolean);
+  const fit = (part, pool) => (!part ? pick(pool) : part.length <= NAME_PART_MAX ? part : reroll ? pick(pool) : part.slice(0, NAME_PART_MAX));
+  const first = fit(words[0], gender === "M" ? MALE_NAMES : FEMALE_NAMES);
+  const last = fit(words[1], LAST_NAMES);
+  const full = `${first} ${last}${title ? ` ${title}` : ""}`;
+  return role === "teacher" ? withTeacherHonorific(full, gender) : full;
 }
 
 // Teachers always carry a gender-appropriate honorific. It's re-derived on every name change

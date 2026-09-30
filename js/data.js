@@ -1188,16 +1188,18 @@ export const LANDMARKS = [
 ];
 
 // ===== Name pools =====
+// Rule: first names and surnames are at most NAME_PART_MAX letters each (characters.js fitName).
+export const NAME_PART_MAX = 6;
 export const MALE_NAMES = [
-  "James","John","Robert","Michael","David","Daniel","Matthew","Andrew","Joshua","Ryan",
+  "James","John","Robert","Mike","David","Daniel","Matt","Andrew","Josh","Ryan",
   "Ethan","Noah","Lucas","Mason","Logan","Jack","Owen","Caleb","Dylan","Nathan",
 ];
 export const FEMALE_NAMES = [
-  "Mary","Emma","Olivia","Sophia","Isabella","Ava","Mia","Emily","Grace","Chloe",
-  "Ella","Lily","Zoe","Hannah","Natalie","Victoria","Abigail","Samantha","Layla","Audrey",
+  "Mary","Emma","Olivia","Sophia","Bella","Ava","Mia","Emily","Grace","Chloe",
+  "Ella","Lily","Zoe","Hannah","Nora","Ruby","Abby","Sadie","Layla","Audrey",
 ];
 export const LAST_NAMES = [
-  "Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Rodriguez","Martinez",
-  "Hernandez","Lopez","Gonzalez","Wilson","Anderson","Thomas","Taylor","Moore","Jackson","Martin",
-  "Lee","Perez","Thompson","White","Harris","Sanchez","Clark","Ramirez","Lewis","Robinson",
+  "Smith","Jones","Brown","Garcia","Miller","Davis","Wilson","Moore","Taylor","Thomas",
+  "Martin","Lee","Perez","White","Harris","Clark","Lewis","Hall","Young","King",
+  "Wright","Lopez","Hill","Scott","Green","Adams","Baker","Nelson","Carter","Reed",
 ];
