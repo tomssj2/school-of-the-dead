@@ -70,6 +70,9 @@ let lastResources = null; // resources/happiness snapshot from the previous rend
 let lastHappiness = null;
 let lastPopulation = null;
 let lastDay = state.day; // for the day-rollover chime, however the advance happened
+// The screen each turn starts on: the Lobby (Turn 1), the City Map (Turn 2), the Night Watch (Turn 3).
+const TURN_HOME_TAB = { 1: "floor1", 2: "citymap", 3: "defense" };
+let lastTurnKey = null; // "day:turn" at the last render — a new one opens its home tab
 let lastRenderedTab = null;
 let floaties = [];
 let floatyClearTimer = null;
@@ -538,6 +541,14 @@ function render() {
     dayRecap = { day: lastDay, entries: state.log.filter((e) => e.day === lastDay) };
   }
   lastDay = state.day;
+
+  // Each turn opens on its main screen (TURN_HOME_TAB); its summary — the centre button — is for
+  // the end of the turn. A lost or won game goes straight to its ending.
+  const turnKey = `${state.day}:${state.turn}`;
+  if (turnKey !== lastTurnKey) {
+    activeTab = state.gameOver || state.victory ? "overview" : TURN_HOME_TAB[state.turn] || "overview";
+    lastTurnKey = turnKey;
+  }
 
   // (The objectives are switched off for now — the Headmaster will hand out missions instead.)
 
@@ -1146,7 +1157,7 @@ root.addEventListener("click", (e) => {
     case "reset-game":
       if (confirm("Start a brand new game? This will erase your current progress.")) {
         state = G.createInitialState();
-        activeTab = "overview";
+        lastTurnKey = null; // the new game opens on Turn 1's home tab
         render();
       }
       break;
