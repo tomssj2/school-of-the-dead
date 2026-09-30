@@ -61,7 +61,11 @@ const LOCATION_ICON = {
   stadium: "🏟",
   institute: "🧬",
 };
-const RESOURCE_ICON = { food: "🍞", materials: "🔧", medicine: "💊", research: "🧠", serum: "💉" };
+// Resources as small inline pixel icons (the same art as the HUD): ri("materials"), ri("food")…
+// Any pixelIcon name works too (ri("population"), ri("mood_happy")).
+const RES_PIXEL = { materials: "scrap" };
+const ri = (key, size = 14) => `<span class="ri">${pixelIcon(RES_PIXEL[key] || key, size)}</span>`;
+const RESOURCE_ICON = { food: ri("food"), materials: ri("materials"), medicine: ri("medicine"), research: ri("research"), serum: ri("serum") };
 
 // Expedition teams 1-3 and the raid squad each get a colour for their route, markers and chips.
 const TEAM_COLORS = ["#4caf7d", "#3fa7d6", "#e0a536", "#e0455f"];
@@ -516,7 +520,7 @@ export function renderClearRoomModal(state, clear) {
       <p class="muted">Pick up to ${ROOM_FIGHT_SQUAD} students (${ROOM_FIGHT_STAMINA} stamina each) to fight their way in. Win, and ${b.cost} scrap boards the broken windows back up — the room is yours. Lose, and they fall back with nothing spent. Nobody dies in here: anyone who goes down gets dragged out.</p>
       <div class="mini-label">Still inside</div>
       <div class="clear-zombies">${zombies}</div>
-      <div class="mission-stats-row"><span class="${afford ? "" : "plot-warn"}">🔧 ${state.resources.materials}/${b.cost} scrap</span></div>
+      <div class="mission-stats-row"><span class="${afford ? "" : "plot-warn"}">${ri("materials")} ${state.resources.materials}/${b.cost} scrap</span></div>
       ${squad.length ? `<div class="mission-success ${pct >= 70 ? "mission-good" : pct >= 40 ? "mission-ok" : "mission-bad"}">Chance to clear it: <b>${pct}%</b></div>` : ""}
       <div class="mini-label">Squad (${squad.length}/${ROOM_FIGHT_SQUAD})</div>
       <div class="check-list">${rows}</div>
@@ -610,14 +614,14 @@ function hudTips(state) {
   const pop = aliveChars(state).length;
   const teachers = teacherCount(state);
   return {
-    population: { title: "👥 People", rows: [["Students", `${pop - teachers}`], ["Teachers", `${teachers}`]], total: ["Everyone alive", `${pop}`] },
-    teachers: { title: "🎓 Teachers", rows: [["At the school", `${teachers}`]], notes: ["Found on expeditions or through the Radio Station", `Or promoted from students who reach level ${PROMOTE_LEVEL_THRESHOLD} (max)`] },
-    happiness: { title: "😊 Morale", rows: [["Now", `${state.happiness}`]], notes: ["Rises with won battles and new recruits", "Falls with failed missions and deaths", "Tilts random events toward good or bad"] },
-    food: { title: "🍞 Food", rows: [["On hand", `${r.food}`], ["Eaten tonight", `−${pop}`]], total: ["Left after tonight", `${r.food - pop}`], notes: ["Grown at the Farm, found on expeditions"] },
-    materials: { title: "⚙ Scrap", rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
-    medicine: { title: "💊 Medicine", rows: [["On hand", `${r.medicine}`]], notes: [`Treating a patient costs ${INFIRMARY_MEDICINE_PER_PATIENT}`, "Saving a defender who goes down costs 5 (automatic)", "Found on expeditions"] },
-    research: { title: "🧠 Research", rows: [["On hand", `${r.research}`], ["Made a day", `+${researchRoomYield(state)}`]], notes: ["Made by teachers in the Research Room", "Spent on the tech tree and the Radio Station"] },
-    serum: { title: "💉 Antiviral Serum", rows: [["On hand", `${r.serum}`]], notes: ["The only cure for an infection — one per person", "Hospital, Pharmacy and Fire Station; every raid boss drops some"] },
+    population: { title: `${ri("population")} Population`, rows: [["Students", `${pop - teachers}`], ["Teachers", `${teachers}`]], total: ["Everyone alive", `${pop}`],
+      notes: ["Found on expeditions or through the Radio Station", `Students who reach level ${PROMOTE_LEVEL_THRESHOLD} can be promoted to teachers`] },
+    happiness: { title: `<span class="ri">${moodIcon(state.happiness, 14)}</span> Morale`, rows: [["Now", `${state.happiness}`]], notes: ["Rises with won battles and new recruits", "Falls with failed missions and deaths", "Tilts random events toward good or bad"] },
+    food: { title: `${ri("food")} Food`, rows: [["On hand", `${r.food}`], ["Eaten tonight", `−${pop}`]], total: ["Left after tonight", `${r.food - pop}`], notes: ["Grown at the Farm, found on expeditions"] },
+    materials: { title: `${ri("materials")} Scrap`, rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
+    medicine: { title: `${ri("medicine")} Medicine`, rows: [["On hand", `${r.medicine}`]], notes: [`Treating a patient costs ${INFIRMARY_MEDICINE_PER_PATIENT}`, "Saving a defender who goes down costs 5 (automatic)", "Found on expeditions"] },
+    research: { title: `${ri("research")} Research`, rows: [["On hand", `${r.research}`], ["Made a day", `+${researchRoomYield(state)}`]], notes: ["Made by teachers in the Research Room", "Spent on the tech tree and the Radio Station"] },
+    serum: { title: `${ri("serum")} Antiviral Serum`, rows: [["On hand", `${r.serum}`]], notes: ["The only cure for an infection — one per person", "Hospital, Pharmacy and Fire Station; every raid boss drops some"] },
     infected: { title: "🦠 Infected", rows: [["In quarantine", `${infectedChars(state).length}`]], notes: ["Each needs a serum by the end of their fifth day, or they die", "Cure them from the Nurse's Office"] },
   };
 }
@@ -626,7 +630,7 @@ const DAY_STEPS = [["sun", "Classes"], ["dusk", "Explore"], ["moon", "Night"]];
 
 // Tile colour behind each HUD stat's pixel icon.
 const HUD_TILE = {
-  people: "#233a57", teacher: "#262f4f", mood: "#4a4121", food: "#4a3818", scrap: "#333a45",
+  population: "#233a57", mood: "#4a4121", food: "#4a3818", scrap: "#333a45",
   medicine: "#4d2226", research: "#34284d", serum: "#1d3f28", virus: "#2c4219", antenna: "#3a3020",
 };
 
@@ -685,8 +689,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
         </div>
       </details>
       <div class="hud-group">
-        ${hudStat(floaties, "population", pixelIcon("people", 20), HUD_TILE.people, pop, "People", tips.population)}
-        ${hudStat(floaties, null, pixelIcon("teacher", 20), HUD_TILE.teacher, teacherCount(state), "Teachers", tips.teachers)}
+        ${hudStat(floaties, "population", pixelIcon("population", 20), HUD_TILE.population, pop, "Population", tips.population)}
         ${hudStat(floaties, "happiness", moodIcon(state.happiness, 20), HUD_TILE.mood, state.happiness, "Morale", tips.happiness)}
       </div>
     </div>
@@ -907,7 +910,7 @@ const WARNING_KINDS = {
   freeSpots: "🛡 Free spots on the steps",
   build: "🧱 Scrap to build defenses",
   kits: "🧰 Defense kits to place",
-  noMedicine: "💊 No medicine for saves",
+  noMedicine: `${ri("medicine")} No medicine for saves`,
   gate: "🚪 No gate",
   boss: "☠ Boss nights",
   weather: "🌧 Bad weather",
@@ -990,7 +993,7 @@ function renderTurn1Overview(state) {
       return tip("upgrade", `⬆ Upgrade can be bought`);
     }
     const cost = roomUpgradeCostFor(state, key);
-    return cost !== null && state.resources.materials >= cost ? tip("upgrade", `⬆ Upgrade can be bought · 🔩 ${cost}`) : null;
+    return cost !== null && state.resources.materials >= cost ? tip("upgrade", `⬆ Upgrade can be bought · ${ri("materials")} ${cost}`) : null;
   };
   // what a classroom would teach a student today (0: nothing — no teacher, or at its limit)
   const wouldLearn = (c, lesson) => (lesson.subject ? Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[lesson.subject], 100 - c.grades[lesson.subject])) : 0);
@@ -1116,7 +1119,7 @@ function renderCityMapScreen(state) {
       ? `<button class="ex-team-buy" data-action="buy-team" ${state.resources.materials < nextCost ? "disabled" : ""} ${tipAttr({
           title: `🧭 ${teamLabel(teamCount(state))}`,
           notes: ["Another team of five to send out every afternoon", `Up to ${EXPLORE_TEAM_COSTS.length} teams`],
-        })}>＋ Unlock ${teamLabel(teamCount(state))} <span class="ex-team-buy-cost">🔩 ${nextCost}</span></button>`
+        })}>＋ Unlock ${teamLabel(teamCount(state))} <span class="ex-team-buy-cost">${ri("materials")} ${nextCost}</span></button>`
       : "");
   const raidLm = LANDMARKS.find((l) => l.id === state.raidTarget);
   const raidCount = state.characters.filter((c) => c.exploreTeam === RAID_TEAM && c.alive).length;
@@ -1161,7 +1164,7 @@ function renderTurn2Summary(state) {
   const tip = (kind, text) => { const n = ["tip", text, kind]; all.push(n); return n; };
   const upgradeNote = (key) => {
     const cost = roomUpgradeCostFor(state, key);
-    return cost !== null && state.resources.materials >= cost ? tip("upgrade", `⬆ Upgrade can be bought · 🔩 ${cost}`) : null;
+    return cost !== null && state.resources.materials >= cost ? tip("upgrade", `⬆ Upgrade can be bought · ${ri("materials")} ${cost}`) : null;
   };
   const cost = exploreStaminaCost(state);
   const students = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection);
@@ -1172,8 +1175,8 @@ function renderTurn2Summary(state) {
     if (i >= teamCount(state)) {
       const price = EXPLORE_TEAM_COSTS[i];
       const next = i === teamCount(state);
-      return overviewCard({ tab: "citymap", art: art([]), name: teamLabel(i), big: "Locked", locked: true, meta: `🔩 ${price} scrap to unlock${next ? "" : ` (after ${teamLabel(i - 1)})`}`,
-        notes: [next && state.resources.materials >= price ? tip("teamUnlock", `🔓 Can be unlocked · 🔩 ${price}`) : null] });
+      return overviewCard({ tab: "citymap", art: art([]), name: teamLabel(i), big: "Locked", locked: true, meta: `${ri("materials")} ${price} scrap to unlock${next ? "" : ` (after ${teamLabel(i - 1)})`}`,
+        notes: [next && state.resources.materials >= price ? tip("teamUnlock", `🔓 Can be unlocked · ${ri("materials")} ${price}`) : null] });
     }
     const members = teamMembers(state, i);
     const loc = state.teamLocations[i] && LOCATIONS.find((l) => l.id === state.teamLocations[i]);
@@ -1457,7 +1460,7 @@ function renderExplorationMap(state) {
       const rewards = lootLine(loc);
       cells += `<div class="cm-cell cm-place ${team !== undefined ? "cm-assigned" : ""}" data-action="open-mission" data-location="${loc.id}" style="${at(q, r)}${teamStyle}" ${tipAttr({
         title: `${LOCATION_ICON[loc.id]} ${esc(loc.name)}`,
-        rows: [["⚔ Power needed", `${expeditionNeed(loc)}`], ["📍 Distance", `${expeditionBlocks(loc)} blocks`], ["Danger", `${loc.danger}/5`], ["Loot (about)", rewards], ["Gear chance", `${Math.round(expeditionGearChance(loc) * 100)}%`], ...(loc.serumChance ? [["Rare", "💉 serum"]] : [])],
+        rows: [["⚔ Power needed", `${expeditionNeed(loc)}`], ["📍 Distance", `${expeditionBlocks(loc)} blocks`], ["Danger", `${loc.danger}/5`], ["Loot (about)", rewards], ["Gear chance", `${Math.round(expeditionGearChance(loc) * 100)}%`], ...(loc.serumChance ? [["Rare", `${ri("serum")} serum`]] : [])],
         notes: [esc(loc.desc), ...dangerNotes(state, q, r)],
       })}>${squad}<span class="cm-label">${LOCATION_ICON[loc.id]}<span class="cm-name"> ${esc(loc.name)}</span></span></div>`;
     } else if (lm) {
@@ -2222,7 +2225,7 @@ function renderGridBattle(state, anim) {
         <div class="fight-result-text">${text}</div>
         <div class="nw-stars">${stars.map((s) => `<span class="nw-star ${s.got ? "nw-star-on" : ""}" title="${s.label}">★</span>`).join("")}</div>
         <div class="nw-star-list">${stars.map((s) => `<span class="${s.got ? "nw-star-got" : ""}">${s.got ? "★" : "☆"} ${s.label}</span>`).join("")}</div>
-        ${perfect ? `<div class="nw-star-reward">A perfect night: +${NIGHT_STAR_REWARD.materials} 🔩 and a morale boost</div>` : ""}
+        ${perfect ? `<div class="nw-star-reward">A perfect night: +${NIGHT_STAR_REWARD.materials} ${ri("materials")} and a morale boost</div>` : ""}
         ${bossLine}
         <div class="gb-result-stats">💀 ${killed}/${spawned} put down · 🚨 ${breached} broke in · 🩸 ${downedCount} defender${downedCount === 1 ? "" : "s"} went down</div>
         <button class="btn btn-primary" data-action="finish-battle">Continue</button>
@@ -2369,7 +2372,7 @@ export function renderMissionModal(state, locationId) {
         <span>Danger ${loc.danger}/5</span>
         <span class="ms-loot" ${tipAttr(lootTip(loc))}>🎒 ${lootLine(loc)}</span>
         ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
-        ${loc.serumChance ? `<span ${tipAttr({ title: "💉 Antiviral Serum", notes: ["The only cure for an infection — one per person", "Rare: found here, at the Hospital, Pharmacy and Fire Station, and on raid bosses"] })}>💉 Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
+        ${loc.serumChance ? `<span ${tipAttr({ title: `${ri("serum")} Antiviral Serum`, notes: ["The only cure for an infection — one per person", "Rare: found here, at the Hospital, Pharmacy and Fire Station, and on raid bosses"] })}>${ri("serum")} Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
       </div>
       ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">${dangerNotes(state, loc.hex.q, loc.hex.r).join(" · ")}: lower odds and more injuries.</div>` : ""}
       <div class="mini-label ms-label">${sentIndex !== -1 ? "Heading here today" : "Send a team"} ${infoDot({ title: "🧭 Sending a team", notes: ["Build teams in the side panel — 2 fighters, a scout and 2 supports", "Odds: the team's power against the power this place needs", "Each team goes to one place a day"] })}</div>
@@ -2467,7 +2470,7 @@ function renderTurn3Summary(state) {
   const supplies = overviewCard({
     tab: "defense", name: "Supplies", style: "--team:#5a8a5a",
     art: `<span class="ov-team-art ov-action-art">${Object.entries(NIGHT_ACTIONS).map(([id, a]) => `<span class="ov-action">${a.icon}<b>×${uses[id]}</b></span>`).join("")}</span>`,
-    big: `${saves}`, unit: `💊 save${saves === 1 ? "" : "s"} for a downed defender`,
+    big: `${saves}`, unit: `${ri("medicine")} save${saves === 1 ? "" : "s"} for a downed defender`,
     meta: `${state.resources.medicine} medicine · ${stabilizeCost} a save`,
     notes: [saves || !defenders.length ? null : bad("noMedicine", "No medicine — a downed defender may not get up")],
   });
@@ -2537,7 +2540,7 @@ function renderNightWatchScreen(state) {
         <div class="mini-label">Night actions — use them during the fight</div>
         <div class="nw-action-preview">${Object.entries(NIGHT_ACTIONS).map(([id, a]) => `<span ${tipAttr({ title: `${a.icon} ${a.name}`, rows: [["Tonight", `×${uses[id]}`], ...(a.cost ? [["Costs", Object.entries(a.cost).map(([res, amt]) => `${amt} ${TECH_EFFECT_ICON[res] || res}`).join(" ")]] : [])], notes: [a.desc] })}>${a.icon}×${uses[id]}</span>`).join("")}</div>
         <div class="nw-facts">
-          <span ${tipAttr({ title: "💊 Medicine", notes: [`${stabilizeCost} patches up a defender who goes down — without it, they might not get back up`] })}>💊 ${saves} save${saves === 1 ? "" : "s"}</span>
+          <span ${tipAttr({ title: `${ri("medicine")} Medicine`, notes: [`${stabilizeCost} patches up a defender who goes down — without it, they might not get back up`] })}>${ri("medicine")} ${saves} save${saves === 1 ? "" : "s"}</span>
           <span>🛡 ${defenders.length} on watch</span>
           ${unarmed ? `<span class="plot-warn" title="Hand out weapons from each student's Inventory tab">👊 ${unarmed} unarmed</span>` : ""}
         </div>
@@ -2645,7 +2648,7 @@ export function renderAssaultModal(state, pick) {
         <span class="raid-boss-stats"><span>❤ ${leader.hp} HP</span><span>⚔ ${leader.damage} × ${leader.attacks} a round</span><span>⏱ ${RAID_MAX_ROUNDS} rounds</span></span>
       </div>
       <div class="raid-rewards">
-        <span>🍞 🔧 💊 ${ASSAULT_LOOT[0]}–${ASSAULT_LOOT[1]} each</span>
+        <span>${ri("food")} ${ri("materials")} ${ri("medicine")} ${ASSAULT_LOOT[0]}–${ASSAULT_LOOT[1]} each</span>
         <span class="legend-text">🙋 ${Math.round(LEGENDARY_CHANCE * 100)}% legendary survivor</span>
       </div>
       <div class="mini-label">The squad (${squad.length}) — tonight's defenders still standing</div>
@@ -3147,7 +3150,7 @@ export function renderFloor1(state) {
   const healHp = infirmaryHeal(state) + nurseBonus;
   const nurseParts = nurses.map((t) => `${nurseHpBonus(t)} (${shortName(t)}, CON ${gradeLetter(t.grades.Biology)})`);
   const nurseHow = {
-    title: `💊 Heal +${healHp} HP`,
+    title: `${ri("medicine")} Heal +${healHp} HP`,
     rows: [[`Room · level ${roomLevel(state, "infirmary")}`, `+${infirmaryHeal(state)}`],
       ...(nurses.length ? nurses.map((t) => [`${esc(shortName(t))} · CON ${gradeLetter(t.grades.Biology)}`, `+${nurseHpBonus(t)}`]) : [tipNone("No nurse yet", "+0")])],
     total: ["Per treatment", `+${healHp} HP`],
@@ -3201,7 +3204,7 @@ export function renderFloor1(state) {
         ${staffLine(state, "Nurse", nurses, infRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
           'data-action="open-picker" data-kind="infirmary-teacher"')}
-        ${statRow(`Healing today (${patients.length}/${infRoom.studentCapacity})`, `💊 Heal <b>+${healHp}</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`)}
+        ${statRow(`Healing today (${patients.length}/${infRoom.studentCapacity})`, `${ri("medicine")} Heal <b>+${healHp}</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`)}
         ${tileGrid(
           [
             ...patients.map((s) => {
@@ -3217,7 +3220,7 @@ export function renderFloor1(state) {
           bedsFree,
           'data-action="open-picker" data-kind="infirmary-student"'
         )}
-        <div class="mini-label">Quarantined (${infected.length}) · 💉 ${state.resources.serum} serum</div>
+        <div class="mini-label">Quarantined (${infected.length}) · ${ri("serum")} ${state.resources.serum} serum</div>
         <div class="menu-strip">
           <span class="quarantine-chips">${quarantineOrder(state, infected).slice(0, 3).map((c) => `<span class="quarantine-chip" title="${esc(c.name)} — infected: cure with antiviral serum by the end of day ${c.infection.dueDay}">${esc(shortName(c))} · ${daysLeftLabel(state, c, true)}</span>`).join("")}${infected.length > 3 ? `<span class="quarantine-chip" title="${infected.length - 3} more in quarantine">+${infected.length - 3}</span>` : ""}${infected.length ? "" : '<span class="muted">Nobody in quarantine</span>'}</span>
           ${infected.length ? '<button class="btn btn-sm btn-primary" data-action="open-quarantine">🦠 Quarantine…</button>' : ""}
@@ -3253,7 +3256,7 @@ export function renderQuarantineModal(state) {
         </div>
         ${statChips(c)}
       </div>
-      <button class="btn btn-sm btn-primary q-cure" data-action="cure-infection" data-id="${c.id}" ${serum ? "" : "disabled"} title="${serum ? "Cure with 1 antiviral serum" : "No antiviral serum — find it at medical locations or on raids"}">💉 Cure</button>
+      <button class="btn btn-sm btn-primary q-cure" data-action="cure-infection" data-id="${c.id}" ${serum ? "" : "disabled"} title="${serum ? "Cure with 1 antiviral serum" : "No antiviral serum — find it at medical locations or on raids"}">${ri("serum")} Cure</button>
     </div>`;
   }).join("");
   return `<div class="modal-overlay" data-action="close-quarantine">
@@ -3285,7 +3288,7 @@ export function renderMenuModal(state) {
     pantryGroup("scavenged", "Scavenged", "Extras that only turn up on expeditions.");
   const menu = DISHES.map((d) => {
     const served = state.dishesToday.includes(d.id);
-    const cost = Object.entries(d.ingredients).map(([id, n]) => `${INGREDIENTS[id].icon}${n > 1 ? `×${n}` : ""}`).join(" ") + ` 🍞${d.food}`;
+    const cost = Object.entries(d.ingredients).map(([id, n]) => `${INGREDIENTS[id].icon}${n > 1 ? `×${n}` : ""}`).join(" ") + ` ${ri("food")}${d.food}`;
     const recipe = Object.entries(d.ingredients).map(([id, n]) => `${n} ${INGREDIENTS[id].name}`).join(", ") + `, ${d.food} food`;
     const action = served
       ? `<span class="tag tag-ok">✓ Served</span>`
@@ -3444,12 +3447,12 @@ export function renderFloor3(state) {
   const researchLevelBonus = crew.length ? researchRoomYield(state) - Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) : 0;
   const researchHow = crew.length
     ? {
-        title: `🧠 +${researchRoomYield(state)} research a day`,
+        title: `${ri("research")} +${researchRoomYield(state)} research a day`,
         rows: [[`INT of the ${crew.length} working here`, `${totalInt}`], [`Research · 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT`, `+${Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT)}`], [`Room · level ${roomLevel(state, "research")}`, `+${researchLevelBonus}`]],
         total: ["Total", `+${researchRoomYield(state)}`],
         notes: ["Teachers and assisting students all add their INT", "Research buys the tech tree and the Radio Station's upgrades"],
       }
-    : { title: "🧠 No research yet", notes: [`Post a teacher or send a student: 1 research for every ${RESEARCH_ROOM_INT_PER_POINT} INT, plus a level bonus`] };
+    : { title: `${ri("research")} No research yet`, notes: [`Post a teacher or send a student: 1 research for every ${RESEARCH_ROOM_INT_PER_POINT} INT, plus a level bonus`] };
   const helpersOf = (postKey) => state.characters.filter((c) => c.alive && c[`${postKey}Today`]);
   // `footer(staff)` gives the room's headline: its daily result with a breakdown.
   const utilityRoom = (scene, title, desc, postKey, statLabel, statKey, footer) => {
@@ -3544,7 +3547,7 @@ export function renderFloor3(state) {
       ${radio}
       ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
         ${roomScene(`research@${roomLevel(state, "research")}`, [...researchers, ...assistants], `Research Room${levelBadge(state, "research")}`,
-          roomInfo("🧠 Research Room", [
+          roomInfo(`${ri("research")} Research Room`, [
             "Teachers and assisting students make <b>research</b> every day",
             "Research buys the tech tree and the Radio Station's upgrades",
           ], { works: { stat: "INT", who: "Students and teachers", rows: [["Everyone's INT added up", `+1 research per ${RESEARCH_ROOM_INT_PER_POINT} INT`]] } }),
@@ -3552,7 +3555,7 @@ export function renderFloor3(state) {
         ${staffLine(state, "Teacher", researchers, researchSlots,
           (t) => staffRow(t, gradeLetter(t.grades.Physics), `${t.name} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)})`),
           'data-action="open-picker" data-kind="utility" data-post="research"')}
-        ${statRow(`Assisting today (${assistants.length}/${state.rooms.research.studentCapacity})`, `🧠 <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`)}
+        ${statRow(`Assisting today (${assistants.length}/${state.rooms.research.studentCapacity})`, `${ri("research")} <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`)}
         ${tileGrid(
           assistants.map((s) => personTile(s, { remove: "remove-research", title: `${s.name} — adds INT ${s.grades.Physics} to the room`, extra: `<span class="pt-gain">INT <b>${s.grades.Physics}</b></span>` })),
           state.rooms.research.studentCapacity - assistants.length,
@@ -3571,8 +3574,8 @@ export function renderFloor3(state) {
 
 // Each facility's banner line: today's total from its workers, with a per-worker breakdown.
 const FACILITY_YIELD = {
-  farm: { icon: "🌾", unit: "food", base: FARM_YIELD_FOOD, str: true },
-  scrapyard: { icon: "🔩", unit: "scrap", base: SCRAPYARD_YIELD_MATERIALS, str: true },
+  farm: { icon: ri("food"), unit: "food", base: FARM_YIELD_FOOD, str: true },
+  scrapyard: { icon: ri("materials"), unit: "scrap", base: SCRAPYARD_YIELD_MATERIALS, str: true },
 };
 
 // `crew`: false when the page lays out its own worker slots (the Farm's two crews); `middle` puts
@@ -3695,7 +3698,7 @@ function groupPill(state, kind) {
     return `<span class="farm-group-stock ${have ? "" : "pantry-empty"}" title="${have === 1 ? p.stockName : p.stockPlural} ${SIDE_WORDS[sideOfKind(kind)].store}">${p.stockIcon} ${have}</span>`;
   }
   const job = YARD_JOBS[kind];
-  return job.cost ? `<span class="farm-group-stock farm-group-cost" title="Each finished piece uses up ${job.cost} scrap">−${job.cost} 🔩</span>` : "";
+  return job.cost ? `<span class="farm-group-stock farm-group-cost" title="Each finished piece uses up ${job.cost} scrap">−${job.cost} ${ri("materials")}</span>` : "";
 }
 
 // One half of a site: its crew (centred over it), a pill saying what's ready and how many workers
@@ -3831,7 +3834,7 @@ export function renderDefenseTab(state) {
       <span class="armory-icon nw-enemy-icon">${structureSprite(d.id, 40)}</span>
       <span class="armory-name">${esc(d.name)}</span>
       <span class="armory-bonus">${esc(d.desc)}</span>
-      <span class="weapon-stats">🔧 ${d.cost.materials}</span>
+      <span class="weapon-stats">${ri("materials")} ${d.cost.materials}</span>
     </div>`
   ).join("");
   // the Night Watch tab: the board to set up tonight, then what can be built and who's coming
@@ -3862,7 +3865,7 @@ export function renderAssaultTab(state) {
   <div class="card as-page">
     ${assaultBanner(state, `⚔ Assault ${infoDot({
       title: "⚔ Chasing the horde",
-      rows: [["After a night the entrance holds", `${Math.round(ASSAULT_CHANCE * 100)}% chance`], ["Loot from its trail", `🍞 🔧 💊 ${ASSAULT_LOOT[0]}–${ASSAULT_LOOT[1]} each`], ["Legendary survivor", `${Math.round(LEGENDARY_CHANCE * 100)}%`]],
+      rows: [["After a night the entrance holds", `${Math.round(ASSAULT_CHANCE * 100)}% chance`], ["Loot from its trail", `${ri("food")} ${ri("materials")} ${ri("medicine")} ${ASSAULT_LOOT[0]}–${ASSAULT_LOOT[1]} each`], ["Legendary survivor", `${Math.round(LEGENDARY_CHANCE * 100)}%`]],
       notes: ["Tonight's defenders still standing can run down its leader", "Anyone who goes down is dragged back — hurt, but alive"],
     })}`)}
     <div class="as-leader">
@@ -3890,7 +3893,7 @@ export function renderEventTab(state) {
 
 // ---------- research ----------
 
-const TECH_EFFECT_ICON = { food: "🍞", materials: "🔧", medicine: "💊", research: "🧠", fortification: "🛡", happiness: "🙂" };
+const TECH_EFFECT_ICON = { ...RESOURCE_ICON, fortification: "🛡", happiness: ri("mood_happy") };
 
 function renderTechNode(state, node, tier) {
   const owned = state.techUnlocked;
@@ -3901,7 +3904,7 @@ function renderTechNode(state, node, tier) {
   let action;
   if (isOwned) action = `<span class="tag tag-ok">✓ Active</span>`;
   else if (lockedBy) action = `<span class="tag tag-injured">🔒 ${node.cost}</span>`;
-  else action = `<button class="btn btn-sm btn-primary" data-action="buy-tech" data-id="${node.id}" ${affordable ? "" : "disabled"}>🧠 ${node.cost}</button>`;
+  else action = `<button class="btn btn-sm btn-primary" data-action="buy-tech" data-id="${node.id}" ${affordable ? "" : "disabled"}>${ri("research")} ${node.cost}</button>`;
 
   return `<div class="subcard tech-node ${isOwned ? "tech-owned" : lockedBy ? "tech-locked" : ""}" title="${lockedBy ? `Needs ${esc(lockedBy.name)} first` : ""}">
     <div class="tech-node-main">
@@ -3926,7 +3929,7 @@ export function renderResearch(state) {
 
   return `
   <div class="card">
-    <h2>🧠 Research</h2>
+    <h2>${ri("research", 18)} Research</h2>
     <p class="room-tagline">Permanent buffs for the whole school · each branch unlocks top to bottom ${infoDot("Research comes from the teachers posted in the Research Room (Floor 3).")}</p>
     <div class="summary-list">
       <div>Research banked: <b>${state.resources.research}</b></div>

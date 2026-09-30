@@ -222,6 +222,9 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
 }
 
 .px-icon { display: block; flex: none; }
+/* A resource's pixel icon inline in text (ui.js ri()). */
+.ri { display: inline-flex; vertical-align: -0.15em; }
+.ri .px-icon { filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35)); }
 
 /* Evacuation countdown, with a pip per antenna stage repaired. */
 .hud-rescue { cursor: pointer; border-color: rgba(224, 165, 54, 0.4); transition: background 0.12s, transform 0.12s; }

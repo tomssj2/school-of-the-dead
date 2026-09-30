@@ -1478,130 +1478,142 @@ export function sceneBackground(kind) {
 }
 
 // ---------- pixel icons ----------
-// 12x12, filled shapes only — the dark outline is added automatically, like the sprites.
+// 12x12 or 16x16 (the grid sets the size), filled shapes only — the dark outline is added
+// automatically, like the sprites. The 16x16 ones are shaded: light top-left, dark bottom-right.
 
 const IW = 12;
-const blank = () => Array.from({ length: IW }, () => Array(IW).fill(null));
+const blank = (n = IW) => Array.from({ length: n }, () => Array(n).fill(null));
 
 function ascii(rows, palette) {
-  const g = blank();
+  const g = blank(rows.length);
   rows.forEach((row, y) => [...row].forEach((ch, x) => {
     if (ch !== ".") g[y][x] = palette[ch];
   }));
   return g;
 }
 function disk(g, cx, cy, rad, color) {
-  for (let y = 0; y < IW; y++) for (let x = 0; x < IW; x++) {
+  for (let y = 0; y < g.length; y++) for (let x = 0; x < g.length; x++) {
     if ((x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= rad * rad) g[y][x] = color;
   }
   return g;
 }
-function face(mouth) {
-  const g = disk(blank(), 6, 6, 4.8, "#f4c542");
-  g[3][4] = "#fbe08a";
-  g[3][5] = "#fbe08a";
-  for (const [x, y] of [[4, 5], [7, 5]]) g[y][x] = "#3a2a1a";
-  for (const [x, y] of mouth) g[y][x] = "#8a3a1a";
+// A rod from (x0,y0) to (x1,y1), `rad` thick; paint(t, side) picks each pixel's colour from how
+// far along the rod it is (0..1) and which side of the middle line it's on (− is up-left).
+function rod(g, x0, y0, x1, y1, rad, paint) {
+  const dx = x1 - x0, dy = y1 - y0, len2 = dx * dx + dy * dy;
+  for (let y = 0; y < g.length; y++) for (let x = 0; x < g.length; x++) {
+    const px = x + 0.5 - x0, py = y + 0.5 - y0;
+    const t = Math.max(0, Math.min(1, (px * dx + py * dy) / len2));
+    const ox = px - t * dx, oy = py - t * dy;
+    if (ox * ox + oy * oy <= rad * rad) g[y][x] = typeof paint === "function" ? paint(t, (ox * dy - oy * dx) / Math.sqrt(len2)) : paint;
+  }
   return g;
 }
+// The round morale face: shaded yellow, then eyes/mouth/extras as [x, y, colour] pixels.
+const FACE = { base: "#f4c542", light: "#fbe08a", shine: "#fff4c8", dark: "#d99a22", ink: "#4a2a14", mouth: "#8a3a1a", tongue: "#e0605a", tear: "#7fc8f0", blush: "#f08a5a" };
+function face16(marks, base = FACE.base, dark = FACE.dark) {
+  const g = blank(16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
+    if (r > 6.9) continue;
+    g[y][x] = dx + dy > 4.2 && r > 4.6 ? dark : dx + dy < -4.6 && r > 3.8 ? FACE.light : base;
+  }
+  for (const [x, y] of [[4, 4], [5, 3], [4, 5]]) g[y][x] = FACE.shine;
+  for (const [x, y, c] of marks) g[y][x] = c;
+  return g;
+}
+const px = (c, ...pts) => pts.map(([x, y]) => [x, y, c]);
+const DOT_EYES = px(FACE.ink, [5, 6], [5, 7], [10, 6], [10, 7]);
 
 const ICONS = {
+  // ---- resources (16x16) ----
+  // Food: a tin of canned food — metal lid and rims, red label, yellow badge.
   food: () => ascii([
-    "............",
-    "............",
-    "....yyyy....",
-    "..yyYyyYyy..",
-    ".yyyyyyyyyy.",
-    ".yyYyyyYyyy.",
-    ".yyyyyyyyyy.",
-    ".bbbbbbbbbb.",
-    "............",
-    "............",
-    "............",
-    "............",
-  ], { y: "#e8b04a", Y: "#f6d58a", b: "#b77b34" }),
+    "................",
+    "................",
+    "....nnnnnnnn....",
+    "..nMMMMMMMMMMn..",
+    "..nmmmmmmmmmmn..",
+    "..nnnnnnnnnnnn..",
+    "..RRrrrrrrrrrq..",
+    "..Rrrrrrrrrrrq..",
+    "..RrrrYyyyrrrq..",
+    "..RrrYyyyyyrrq..",
+    "..Rrryyyyyzrrq..",
+    "..Rrrryzzzrrrq..",
+    "..RRrrrrrrrrqq..",
+    "..Mmmmmmmmmmmn..",
+    "...nnnnnnnnnn...",
+    "................",
+  ], { n: "#7c8590", m: "#b8c0c8", M: "#e4e9ee", r: "#c8423a", R: "#e8705e", q: "#8e2a26", y: "#f2c14e", Y: "#fbe08a", z: "#c9912e" }),
+  // Scrap: a shaded steel gear — the one scrap icon everywhere.
   scrap: () => {
-    const g = disk(blank(), 6, 6, 3.4, "#9aa3ad");
-    for (let a = 0; a < 8; a++) {
-      const x = Math.round(5.5 + Math.cos((a * Math.PI) / 4) * 4.4);
-      const y = Math.round(5.5 + Math.sin((a * Math.PI) / 4) * 4.4);
-      g[y][x] = "#9aa3ad";
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
+      const tooth = Math.cos(8 * Math.atan2(dy, dx) + Math.PI / 8) > 0.15;
+      if (r < 2.1 || r > (tooth ? 7.1 : 5.3)) continue;
+      g[y][x] = r < 3.1 ? "#6b7480" : dx + dy < -3 ? "#dde3e8" : dx + dy > 3.5 ? "#6f7985" : "#a3acb6";
     }
-    disk(g, 6, 6, 1.3, null);
-    g[4][4] = "#cfd6db";
-    g[3][5] = "#cfd6db";
     return g;
   },
-  medicine: () => ascii([
-    "............",
-    "............",
-    "............",
-    "............",
-    "..rrrrwwww..",
-    ".rRrrrwwwww.",
-    ".rrrrrwwwww.",
-    "..rrrrwwww..",
-    "............",
-    "............",
-    "............",
-    "............",
-  ], { r: "#d64545", R: "#ff9a9a", w: "#eef3f7" }),
-  serum: () => ascii([
-    "..........s.",
-    ".........s..",
-    "........ww..",
-    ".......wGgw.",
-    "......wGggw.",
-    ".....wGggw..",
-    "....wGggw...",
-    "...wgggw....",
-    "..pwwww.....",
-    ".pp.........",
-    "pp..........",
-    "............",
-  ], { s: "#c9ccd2", w: "#eef3f7", g: "#4fc46a", G: "#a8f0b0", p: "#6b7380" }),
+  // Medicine: a two-tone capsule, lying diagonally.
+  medicine: () => rod(blank(16), 3.6, 12.4, 12.4, 3.6, 3.3, (t, side) => {
+    const red = t < 0.5;
+    if (Math.abs(t - 0.5) < 0.04) return red ? "#9e2e2e" : "#b9c3cc";
+    return side < -1.6 ? (red ? "#ff9a8a" : "#ffffff") : side > 1.5 ? (red ? "#9e2e2e" : "#b9c3cc") : (red ? "#d64545" : "#e6ecf1");
+  }),
+  // Serum: a syringe of green antiviral.
+  serum: () => {
+    const g = blank(16);
+    rod(g, 1.5, 14.5, 4.2, 11.8, 0.5, "#c9ccd2");
+    rod(g, 4.6, 11.4, 10.6, 5.4, 2.3, (t, side) => t < 0.62
+      ? (side < -0.9 ? "#a8f0b0" : side > 1 ? "#2f9a4a" : "#4fc46a")
+      : (side < -0.9 ? "#ffffff" : side > 1 ? "#9fb4c0" : "#dfeef5"));
+    rod(g, 9.3, 2.7, 13.3, 6.7, 0.75, "#8a93a0");
+    rod(g, 11.6, 4.4, 13.2, 2.8, 0.6, "#b6bcc4");
+    rod(g, 12, 1.2, 14.8, 4, 0.75, "#8a93a0");
+    return g;
+  },
+  // Research: a lab flask of bubbling purple.
   research: () => ascii([
-    "............",
-    "....wwww....",
-    ".....ww.....",
-    ".....ww.....",
-    "....wwww....",
-    "...wwwwww...",
-    "..pppppppp..",
-    ".pppPppppPp.",
-    ".pppppppppp.",
-    ".ppppppPppp.",
-    "..pppppppp..",
-    "............",
-  ], { w: "#d9eef5", p: "#8a5ad6", P: "#c3a3f5" }),
-  people: () => ascii([
-    "............",
-    "..ss....ss..",
-    ".ssss..ssss.",
-    ".ssss..ssss.",
-    "..ss....ss..",
-    "............",
-    ".uuuu..cccc.",
-    "uuuuuucccccc",
-    "uuuuuucccccc",
-    "uuuuuucccccc",
-    "............",
-    "............",
-  ], { s: "#f2c9a0", u: "#3f7fd6", c: "#4caf7d" }),
-  teacher: () => ascii([
-    "............",
-    "............",
-    ".....nn.....",
-    "...nnnnnn...",
-    ".nnnnNnnnnn.",
-    "...nnnnnn.y.",
-    "....nnnn..y.",
-    "....nnnn..y.",
-    "..........yy",
-    "............",
-    "............",
-    "............",
-  ], { n: "#2c3e6b", N: "#5a73b5", y: "#e8c14a" }),
+    "................",
+    ".....kkkkkk.....",
+    "......gGgg......",
+    "......gGgg......",
+    "......gGgg......",
+    ".....gGgggg.....",
+    "....gGgggggg....",
+    "...gGppppppgg...",
+    "..gGpPpppppppg..",
+    ".gGppppppppppqg.",
+    ".gppbpppppppqqg.",
+    ".gpppppppbppqqg.",
+    ".gppppppppppqqg.",
+    "..gggggggggggg..",
+    "................",
+    "................",
+  ], { k: "#e6eef2", g: "#a9c6d2", G: "#f2fbff", p: "#8a5ad6", P: "#c3a3f5", q: "#6a3eb0", b: "#e3d3ff" }),
+  // Population: a teacher at the back with two students in front.
+  population: () => ascii([
+    "................",
+    "......hhhh......",
+    "......ssss......",
+    "......ssss......",
+    "......sssS......",
+    ".....NnwwnN.....",
+    "..HHHHNnnnGGGG..",
+    "..ssssNnnnssss..",
+    "..ssssNnnnssss..",
+    "..sssSNnnnsssS..",
+    ".UuuuuvNnCcccce.",
+    ".UuuuuvNnCcccce.",
+    ".UuuuuvNnCcccce.",
+    ".Uuuuuv..Ccccce.",
+    ".Uuuuuv..Ccccce.",
+    "................",
+  ], { h: "#6b4a3a", s: "#f2c9a0", S: "#d9a47a", N: "#56679e", n: "#34406b", w: "#eef3f7", H: "#8a5a3a", G: "#2c2c34",
+    U: "#7fb0f0", u: "#3f7fd6", v: "#2a5aa0", C: "#8ad8a8", c: "#4caf7d", e: "#2e7a52" }),
   // ---- tab and HUD icons ----
   menu: () => ascii([
     "............",
@@ -1795,9 +1807,22 @@ const ICONS = {
     for (const [x, y] of [[5, 5], [7, 6], [5, 7]]) g[y][x] = "#3e7a2a";
     return g;
   },
-  mood_happy: () => face([[3, 7], [8, 7], [4, 8], [5, 8], [6, 8], [7, 8]]),
-  mood_ok: () => face([[4, 8], [5, 8], [6, 8], [7, 8]]),
-  mood_sad: () => face([[4, 7], [5, 7], [6, 7], [7, 7], [3, 8], [8, 8]]),
+  // Morale, best to worst (moodIcon picks one).
+  mood_thrilled: () => face16([
+    ...px(FACE.ink, [5, 5], [4, 6], [6, 6], [10, 5], [9, 6], [11, 6]),
+    ...px(FACE.mouth, [4, 9], [5, 9], [6, 9], [7, 9], [8, 9], [9, 9], [10, 9], [11, 9], [5, 10], [10, 10], [6, 11], [9, 11]),
+    ...px("#ffffff", [5, 9], [6, 9], [7, 9], [8, 9], [9, 9], [10, 9]),
+    ...px(FACE.tongue, [6, 10], [7, 10], [8, 10], [9, 10], [7, 11], [8, 11]),
+    ...px(FACE.blush, [3, 8], [12, 8]),
+  ]),
+  mood_happy: () => face16([...DOT_EYES, ...px(FACE.mouth, [4, 9], [11, 9], [5, 10], [10, 10], [6, 11], [7, 11], [8, 11], [9, 11])]),
+  mood_ok: () => face16([...DOT_EYES, ...px(FACE.mouth, [5, 10], [6, 10], [7, 10], [8, 10], [9, 10], [10, 10])]),
+  mood_sad: () => face16([...DOT_EYES, ...px(FACE.mouth, [6, 10], [7, 10], [8, 10], [9, 10], [5, 11], [10, 11], [4, 12], [11, 12])]),
+  mood_miserable: () => face16([
+    ...px(FACE.ink, [4, 4], [5, 3], [11, 4], [10, 3], [5, 6], [5, 7], [10, 6], [10, 7]),
+    ...px(FACE.mouth, [6, 10], [7, 10], [8, 10], [9, 10], [5, 11], [10, 11], [4, 12], [11, 12]),
+    ...px(FACE.tear, [4, 8], [4, 9]), ...px("#4f9fd6", [4, 10]),
+  ], "#e0c05a", "#b88a2a"),
   sun: () => {
     const g = disk(blank(), 6, 6, 2.7, "#f4c542");
     for (let a = 0; a < 8; a++) {
@@ -1829,27 +1854,30 @@ const iconCache = new Map();
 export function pixelIcon(name, size = 16) {
   if (!iconCache.has(name)) {
     const g = ICONS[name]();
+    const n = g.length;
     const color = g.map((row) => [...row]);
-    for (let y = 0; y < IW; y++) for (let x = 0; x < IW; x++) {
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
       if (g[y][x]) continue;
       const touching = [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([dx, dy]) => g[y + dy]?.[x + dx]).find(Boolean);
       if (touching) color[y][x] = outlineOf(touching);
     }
     let rects = "";
-    for (let y = 0; y < IW; y++) {
-      for (let x = 0; x < IW; ) {
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; ) {
         const c = color[y][x];
         let run = 1;
-        while (c && x + run < IW && color[y][x + run] === c) run++;
+        while (c && x + run < n && color[y][x + run] === c) run++;
         if (c) rects += `<rect x="${x}" y="${y}" width="${run}" height="1" fill="${c}"/>`;
         x += run;
       }
     }
-    iconCache.set(name, rects);
+    iconCache.set(name, { n, rects });
   }
-  return `<svg class="px-icon" viewBox="0 0 ${IW} ${IW}" width="${size}" height="${size}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${iconCache.get(name)}</svg>`;
+  const { n, rects } = iconCache.get(name);
+  return `<svg class="px-icon" viewBox="0 0 ${n} ${n}" width="${size}" height="${size}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
 }
 
+export const MOOD_STEPS = [[80, "mood_thrilled"], [60, "mood_happy"], [40, "mood_ok"], [20, "mood_sad"], [-Infinity, "mood_miserable"]];
 export function moodIcon(happiness, size) {
-  return pixelIcon(happiness >= 65 ? "mood_happy" : happiness >= 35 ? "mood_ok" : "mood_sad", size);
+  return pixelIcon(MOOD_STEPS.find(([min]) => happiness >= min)[1], size);
 }
