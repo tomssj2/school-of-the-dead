@@ -2031,9 +2031,10 @@ function resolvePickerCandidates(state, picker) {
             const now = c.grades[lesson.subject];
             const gain = Math.max(0, Math.min(lesson.gain, lesson.ceiling - now, 100 - now));
             if (!gain) {
-              return now >= 100
-                ? { c, maxed: `${stat} — MAX`, maxedWhy: `${stat} is already 100` }
-                : { c, maxed: `${stat} — MAX here`, maxedWhy: `${stat} ${now} — this room's teacher can't take them past ${lesson.ceiling}` };
+              return {
+                c, maxed: `${stat}: MAX`,
+                maxedWhy: now >= 100 ? `${stat} is already 100` : `${stat} ${now} — this room's teacher can't take them past ${lesson.ceiling}`,
+              };
             }
             return { c, value: now, hint: `<span class="pk-gain" title="What they'd learn here today">${stat} ${now} → <b>${now + gain}</b></span>` };
           }),
