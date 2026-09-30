@@ -1,7 +1,8 @@
 import * as G from "./game.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, tipFromText, setRoleTab } from "./ui.js";
+  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, tipFromText, setRoleTab,
+  warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled } from "./sound.js";
@@ -1015,11 +1016,28 @@ function resolveCurrentTurn() {
 // ---------- event delegation ----------
 
 root.addEventListener("click", (e) => {
+  // the Turn 1 warnings drop-down closes on any click outside it
+  if (warnMenuIsOpen() && !e.target.closest(".ov-warn-dd")) {
+    toggleWarnMenu(false);
+    if (!e.target.closest("[data-action]")) render();
+  }
   const el = e.target.closest("[data-action]");
   if (!el) return;
   const action = el.dataset.action;
 
   switch (action) {
+    case "toggle-warn-menu":
+      toggleWarnMenu();
+      render();
+      break;
+    case "toggle-warning":
+      toggleWarningKind(el.dataset.kind);
+      render();
+      break;
+    case "show-all-warnings":
+      showAllWarnings();
+      render();
+      break;
     case "set-tab":
       activeTab = el.dataset.tab;
       render();
