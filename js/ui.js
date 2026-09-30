@@ -1,5 +1,5 @@
 import {
-  CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, STAT_GUIDE, TRAITS,
+  CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, STAT_GUIDE, STAT_TUNING, TRAITS,
   CLASSROOM_CAPACITY, LOCATIONS,
   GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, CRAFT_HELP_DEX_PER_POINT, roomUpgradeCost,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
@@ -415,13 +415,16 @@ export function tipFromText(text) {
   return parts.length > 1 ? tip({ notes: parts }) : `<span class="tip-plain">${esc(clean)}</span>`;
 }
 
-// A room's "i" by its name: what the room is (`intro` lines), and — for a room that raises or runs
-// on a stat — what that stat does and where it counts (STAT_GUIDE).
-function roomInfo(title, intro, stat = null, notes = []) {
-  return {
-    title, intro, notes,
-    ...(stat ? { heading: `What ${stat} (${STAT_LABEL[stat]}) does`, rows: STAT_GUIDE[stat].map(([what, where]) => [what, where, "tip-where"]) } : {}),
-  };
+// A room's "i" by its name: what the room is (`intro` lines), then either what the stat it
+// `trains` does everywhere (STAT_GUIDE — training rooms only), or, for a room that `works` on a
+// stat, who works best there and how that stat counts in this room.
+function roomInfo(title, intro, { trains = null, works = null, notes = [] } = {}) {
+  const section = trains
+    ? { heading: `What ${trains} (${STAT_LABEL[trains]}) does`, rows: STAT_GUIDE[trains].map(([what, where]) => [what, where, "tip-where"]) }
+    : works
+    ? { heading: `${works.who || "Students"} with high ${works.stat} work best here`, rows: works.rows.map(([what, how]) => [what, how, "tip-where"]) }
+    : {};
+  return { title, intro, notes, ...section };
 }
 
 // Pixel-art banner for a room with everyone working in it standing on the floor — click one to
@@ -2318,7 +2321,7 @@ function renderTrainingRoom(state, side) {
         `Students train here to raise <b>${info.gains}</b> a little every session`,
         `Up to the coach's grade — ${NO_TEACHER_CAP} without a coach`,
         `Training ${info.gains} also raises ${info.also}`,
-      ], info.gains),
+      ], { trains: info.gains }),
       roomUpgradeButton(state, info.roomKey))}
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[side])} <span class="muted">+${teachingBonus(t.grades[side])}</span>`, `${t.name} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])}, adds +${teachingBonus(t.grades[side])} a session`),
@@ -2382,7 +2385,7 @@ export function renderFloor1(state) {
             "Cooks serve <b>dishes</b> — each buffs the whole school until tonight",
             "Cooking also stretches the rations: more food",
             "Tired students <b>rest</b> here to get stamina back",
-          ], null, ["Stamina is spent exploring, scouting and working the Farm and Scrapyard"]),
+          ], { notes: ["Stamina is spent exploring, scouting and working the Farm and Scrapyard"] }),
           roomUpgradeButton(state, "cafeteria"))}
         ${staffLine(state, "Cook", cooks, cafeRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
@@ -2407,7 +2410,10 @@ export function renderFloor1(state) {
           roomInfo("🏥 Nurse's Office", [
             "Hurt students <b>heal</b> here — a treatment costs medicine, without it only bed rest",
             "The infected are kept apart in <b>quarantine</b> — serum cures them",
-          ], null, ["A nurse's CON adds HP to every treatment", "Everyone also heals a little overnight (more with CON)"]),
+          ], {
+            works: { stat: "CON", who: "Nurses", rows: [["HP added to every treatment", `+${INFIRMARY_NURSE_HP_PER_RANK} per CON rank`], ["D · C · B · A · S", `+${INFIRMARY_NURSE_HP_PER_RANK} … +${INFIRMARY_NURSE_HP_PER_RANK * 5}`]] },
+            notes: ["Everyone also heals a little overnight — more with CON"],
+          }),
           roomUpgradeButton(state, "infirmary"))}
         ${staffLine(state, "Nurse", nurses, infRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
@@ -2576,7 +2582,7 @@ function renderClassroom(state, roomId) {
         ? roomInfo(`📚 ${SUBJECT_LABEL[subject]} class`, [
             `Seated students learn <b>${STAT_OF_SUBJECT[subject]}</b> every day, up to the best teacher's grade`,
             "The teacher posted here picked the subject — whatever they're best at",
-          ], STAT_OF_SUBJECT[subject])
+          ], { trains: STAT_OF_SUBJECT[subject] })
         : roomInfo("📚 Classroom", [
             "Post a teacher and they teach their best subject here",
             `Up to ${room.seats.length} seated students learn it every day`,
@@ -2719,9 +2725,8 @@ export function renderFloor3(state) {
       ${roomScene(`radio@${radioStage(state)}`, [...teachers, ...onAir], `Radio Station${levelBadge(state, "radio")}`,
         roomInfo("📻 Radio Station", [
           "Broadcasts to survivors — each day there's a chance one asks to <b>join</b>",
-          "Everyone on the air adds their CHA to the chance",
           "Level 5 calls a rescue <b>helicopter</b>",
-        ], "CHA"),
+        ], { works: { stat: "CHA", who: "Students and teachers", rows: [["Each one on the air adds", `+1% per ${RADIO_CHA_PER_PERCENT} CHA`]] } }),
         roomUpgradeButton(state, "radio"))}
       ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
         (t) => staffRow(t, `${gradeLetter(t.grades.SocialStudies)} <span class="muted">+${pct(radioCrewBonus(t))}</span>`, `${t.name} — CHA ${t.grades.SocialStudies}, adds ${pct(radioCrewBonus(t))} a day`),
@@ -2748,9 +2753,9 @@ export function renderFloor3(state) {
       ${isBoarded(state, "research") ? renderBoardedRoom(state, "research", "research", "room-utility") : `<div class="room room-utility">
         ${roomScene(`research@${roomLevel(state, "research")}`, [...researchers, ...assistants], `Research Room${levelBadge(state, "research")}`,
           roomInfo("🧠 Research Room", [
-            "Teachers and assisting students turn their <b>INT</b> into research",
+            "Teachers and assisting students make <b>research</b> every day",
             "Research buys the tech tree and the Radio Station's upgrades",
-          ], "INT"),
+          ], { works: { stat: "INT", who: "Students and teachers", rows: [["Everyone's INT added up", `+1 research per ${RESEARCH_ROOM_INT_PER_POINT} INT`]] } }),
           roomUpgradeButton(state, "research"))}
         ${staffLine(state, "Teacher", researchers, researchSlots,
           (t) => staffRow(t, gradeLetter(t.grades.Physics), `${t.name} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)})`),
@@ -2763,9 +2768,9 @@ export function renderFloor3(state) {
         )}
       </div>`}
       ${utilityRoom("crafting", "Crafting Room", roomInfo("🛠️ Crafting Room", [
-        "Teachers turn scrap into <b>fortification</b> — the gate's HP at the Night Watch (×2)",
-        "Students help with their DEX, no scrap needed",
-      ], "DEX"), "crafting", "DEX", "Gymnastics", craftingFooter)}
+        "Teachers turn up to 4 scrap a day into <b>fortification</b> — the gate's HP at the Night Watch (×2)",
+        "Students help for free, no scrap needed",
+      ], { works: { stat: "DEX", who: "Students and teachers", rows: [["Each student helping", `+1 🛡 per ${CRAFT_HELP_DEX_PER_POINT} DEX`], ["Each teacher, on top of scrap", "+1 🛡 per 25 DEX"]] } }), "crafting", "DEX", "Gymnastics", craftingFooter)}
     </div>
   </div>`;
 }
@@ -3003,7 +3008,10 @@ function renderWorkSite(state, site) {
         "When a plot is ready, send workers to collect <b>food and ingredients</b>"]
       : ["Salvage piles give <b>scrap</b> (and maybe research or gear)",
         "Workbenches turn scrap into weapons, armor and trap kits"],
-    "STR", [`Each worker covers ${PLOTS_PER_WORKER} ${site === "farm" ? "plots or animals" : "piles or benches"} and costs ${def.stamina} stamina a day`, "Workers stay home instead of exploring"]),
+    {
+      works: { stat: "STR", rows: [[`${FACILITY_YIELD[site].unit === "food" ? "Food" : "Scrap"} each worker brings in`, `${FACILITY_YIELD[site].base}, +1 per ${STAT_TUNING.yieldStrStep} STR`]] },
+      notes: [`Each worker covers ${PLOTS_PER_WORKER} ${site === "farm" ? "plots or animals" : "piles or benches"} and costs ${def.stamina} stamina a day`, "Workers stay home instead of exploring"],
+    }),
     `<div class="farm-split">${renderSiteSide(state, left)}${renderSiteSide(state, right)}</div>`,
     { crew: false, middle, label: `<span class="farm-cost"><b>−${def.stamina}</b> stamina per day</span>` }
   );
