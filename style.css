@@ -1801,7 +1801,7 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 }
 
 /* The side panel: one row per team — where it's going and how full it is. */
-.explore-side { width: 240px; flex: none; display: flex; flex-direction: column; gap: 6px; }
+.explore-side { width: 330px; flex: none; display: flex; flex-direction: column; gap: 6px; }
 .explore-side .mini-label { margin: 0 0 2px; }
 .ex-team {
   display: grid;
@@ -1856,6 +1856,35 @@ button.ex-team:hover { border-color: var(--team); }
 .ex-key-raid { border-color: #e0455f; color: #ffc2c2; }
 .ex-key-drop { border-color: #f4d35e; }
 .explore-side .btn-big { margin-top: auto; }
+/* on a short screen the side panel scrolls (the map fills exactly the screen), keeping Launch in view */
+.explore-side { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; padding-right: 2px; }
+.explore-side > * { flex-shrink: 0; }
+.explore-side .btn-big { position: sticky; bottom: 0; z-index: 2; box-shadow: 0 -8px 12px var(--panel, #1a1f29); }
+
+/* The three expedition role windows: drag a portrait from one to another. */
+.ex-roles-head { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; min-height: 24px; }
+.ex-roles-head .mini-label { display: flex; align-items: center; gap: 4px; }
+.ex-role { border: 1px solid var(--border); border-left: 3px solid var(--role); border-radius: 7px; background: rgba(255, 255, 255, 0.025); padding: 5px 6px 6px; transition: background 0.12s; }
+.ex-role-fighter { --role: #d96b5b; }
+.ex-role-scout { --role: #5bbf7a; }
+.ex-role-support { --role: #6f9be8; }
+.ex-role-head { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 4px; }
+.ex-role-name { font-weight: 700; }
+.ex-role-stats { font-size: 10.5px; color: var(--muted); letter-spacing: 0.03em; }
+.ex-role-head b { min-width: 18px; text-align: right; color: var(--role); }
+.ex-role-chips { display: flex; flex-wrap: wrap; gap: 3px; min-height: 32px; max-height: 67px; overflow-y: auto; align-content: flex-start; scrollbar-width: thin; }
+.ex-role-empty { font-size: 11px; align-self: center; padding-left: 4px; }
+.ex-role-chip {
+  position: relative; display: grid; place-items: center; width: 28px; height: 32px; overflow: hidden;
+  border: 1px solid var(--border); border-radius: 5px; background: rgba(0, 0, 0, 0.25); cursor: grab;
+}
+.ex-role-chip:hover { border-color: var(--role); }
+.ex-role-chip.ex-role-onteam { border-color: var(--team); box-shadow: inset 0 -3px 0 var(--team); }
+.ex-role-chip.ex-role-tired { opacity: 0.4; }
+/* moved by hand: a small corner mark */
+.ex-role-chip.ex-role-moved::after { content: ""; position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; border-radius: 50%; background: #f4c430; }
+body.nw-dragging .ex-role { border-style: dashed; border-left-style: solid; }
+.ex-role.nw-drop-over { background: color-mix(in srgb, var(--role) 18%, transparent); }
 
 /* A map tile shown in a pop-up (scout reports, nests, expeditions): the hex's pixel art. */
 .hex-tile {

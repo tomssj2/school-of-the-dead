@@ -646,7 +646,7 @@ document.addEventListener("dragend", () => {
 });
 document.addEventListener("dragover", (e) => {
   if (!dragStudentId) return;
-  const target = e.target.closest?.("[data-drop-cell], [data-drop-roster]");
+  const target = e.target.closest?.("[data-drop-cell], [data-drop-roster], [data-drop-role]");
   document.querySelectorAll(".nw-drop-over").forEach((x) => x !== target && x.classList.remove("nw-drop-over"));
   if (!target) return;
   e.preventDefault();
@@ -656,11 +656,18 @@ document.addEventListener("drop", (e) => {
   if (!dragStudentId) return;
   const cell = e.target.closest?.("[data-drop-cell]");
   const roster = e.target.closest?.("[data-drop-roster]");
-  if (!cell && !roster) return;
+  const role = e.target.closest?.("[data-drop-role]");
+  if (!cell && !roster && !role) return;
   e.preventDefault();
   const id = dragStudentId;
   dragStudentId = null;
   document.body.classList.remove("nw-dragging");
+  if (role) {
+    // the Exploration tab's role windows
+    G.setExploreRole(state, id, role.dataset.dropRole);
+    render();
+    return;
+  }
   const live = battleAnimation?.live && battleAnimation.b.phase === "break" ? battleAnimation : null;
   if (cell && live) {
     // between waves: move a defender on the battle board
@@ -1555,6 +1562,10 @@ root.addEventListener("click", (e) => {
     }
     case "toggle-picker-sort-dir":
       pickerSortDir = pickerSortDir === "asc" ? "desc" : "asc";
+      render();
+      break;
+    case "reset-roles":
+      G.resetExploreRoles(state);
       render();
       break;
     case "set-picker-rec":

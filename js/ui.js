@@ -9,7 +9,7 @@ import {
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
-  LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE,
+  LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -18,7 +18,7 @@ import {
 import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -1013,10 +1013,52 @@ function renderTurn2Overview(state) {
           <span><b class="ex-key ex-key-drop">📦</b> Grab supplies</span>
           <span><b class="ex-key ex-key-nest">👣</b> The horde</span>
         </div>
+        ${renderRoleWindows(state)}
         <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 Launch Expeditions</button>
       </aside>
     </div>
   </div>`;
+}
+
+// The three expedition roles (EXPLORE_ROLES): every student free to explore today, each in the
+// role their stats point to (best first) — drag one onto another window to change it. Students
+// already on a team wear its colour; those too tired to go are dimmed.
+function renderRoleWindows(state) {
+  const cost = exploreStaminaCost(state);
+  const free = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.farmToday && !c.scrapyardToday);
+  const statsOf = (r) => r.stats.map((s) => STAT_OF_SUBJECT[s]).join(" + ");
+  const windows = Object.entries(EXPLORE_ROLES).map(([role, r]) => {
+    const members = free.filter((c) => exploreRole(c) === role).sort((a, b) => roleScores(b)[role] - roleScores(a)[role]);
+    const chips = members.map((c) => {
+      const scores = roleScores(c);
+      const team = c.exploreTeam;
+      const tired = team === null && c.stamina < cost;
+      return `<span class="ex-role-chip ${tired ? "ex-role-tired" : ""} ${c.exploreRole ? "ex-role-moved" : ""} ${team !== null ? "ex-role-onteam" : ""}"
+        draggable="true" data-drag-student="${c.id}" data-action="open-card" data-id="${c.id}" ${team !== null ? `style="--team:${TEAM_COLORS[team]}"` : ""} ${tipAttr({
+          title: `${esc(c.name)} · Lv ${overallLevel(c)}`,
+          rows: Object.entries(EXPLORE_ROLES).map(([k, x]) => [`${x.icon} ${x.name} · ${statsOf(x)}`, `${scores[k]}`, k === role ? "" : "tip-dim"]),
+          notes: [
+            ...(team !== null ? [`On ${teamLabel(team)}`] : []),
+            ...(tired ? [`Too tired to explore — needs ${cost} stamina`] : []),
+            ...(c.exploreRole ? [`Moved here by hand — their stats say ${EXPLORE_ROLES[autoRole(c)].name}`] : []),
+            "Drag to another role",
+          ],
+        })}>${characterSprite(c, 24)}</span>`;
+    }).join("");
+    return `<div class="ex-role ex-role-${role}" data-drop-role="${role}">
+      <div class="ex-role-head"><span class="ex-role-name">${r.icon} ${r.name}</span><span class="ex-role-stats">${statsOf(r)}</span><b>${members.length}</b></div>
+      <div class="ex-role-chips">${chips || '<span class="muted ex-role-empty">Drag students here</span>'}</div>
+    </div>`;
+  }).join("");
+  const how = {
+    title: "🧭 Expedition roles",
+    intro: ["Everyone free to explore today, sorted by their stats"],
+    rows: Object.values(EXPLORE_ROLES).map((r) => [`${r.icon} ${r.name}`, statsOf(r)]),
+    notes: ["Score in a role = the average of its two stats", "Each student goes where they score highest", "Drag a student to another window to change it"],
+  };
+  const moved = free.some((c) => c.exploreRole);
+  return `<div class="ex-roles-head"><span class="mini-label">Roles ${infoDot(how)}</span>${moved ? `<button class="btn btn-sm" data-action="reset-roles" title="Put everyone back in the role their stats point to">↺ By stats</button>` : ""}</div>
+    ${windows}`;
 }
 
 // Why a block is riskier than usual: a nest next door, the horde close by, or both.

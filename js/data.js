@@ -745,6 +745,15 @@ export const ROOM_LEVELS = {
 // posted to. Max stamina comes from DEX and WIS — see STAT_TUNING and maxStaminaFor() in characters.js.
 export const STAMINA_COST_EXPLORE = 20; // per expedition
 
+// Expedition roles (the Exploration tab's three windows). A student's score in a role is the
+// average of its two stats; they're put in the role they score best in (ties: fighter, then scout,
+// then support) unless the player drags them somewhere else (c.exploreRole).
+export const EXPLORE_ROLES = {
+  fighter: { name: "Fighters", icon: "⚔️", stats: ["PE", "Biology"], blurb: "Front line — they take the hits and hit back" },
+  scout: { name: "Scouts", icon: "🏃", stats: ["Gymnastics", "SocialStudies"], blurb: "Quick and quiet — they find the way and talk to survivors" },
+  support: { name: "Supports", icon: "🧠", stats: ["Physics", "History"], blurb: "The brains — they keep the team safe and spot the loot" },
+};
+
 // ===== Happiness =====
 // A school-wide mood meter that reacts to wins/losses/recruits/deaths and, in turn, skews
 // whether random events lean good or bad.

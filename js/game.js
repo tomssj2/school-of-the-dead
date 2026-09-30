@@ -8,7 +8,7 @@ import {
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL,
-  STAMINA_COST_EXPLORE, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
+  STAMINA_COST_EXPLORE, EXPLORE_ROLES, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
@@ -1044,6 +1044,30 @@ export function dishCapacity(state) {
 
 export function exploreStaminaCost(state) {
   return Math.round(STAMINA_COST_EXPLORE * (1 - techPerk(state, "exploreStaminaReduction")));
+}
+
+// ---------- expedition roles (EXPLORE_ROLES) ----------
+// A student's score in each role: the average of the role's two stats (their own grades, not gear).
+export function roleScores(c) {
+  return Object.fromEntries(Object.entries(EXPLORE_ROLES).map(([role, r]) => [role, Math.round((c.grades[r.stats[0]] + c.grades[r.stats[1]]) / 2)]));
+}
+// The role their stats point to: the best score (ties go to the earlier role).
+export function autoRole(c) {
+  const scores = roleScores(c);
+  return Object.keys(EXPLORE_ROLES).reduce((best, role) => (scores[role] > scores[best] ? role : best));
+}
+// Their role: where the player put them, or else where their stats point.
+export const exploreRole = (c) => (c.exploreRole && EXPLORE_ROLES[c.exploreRole] ? c.exploreRole : autoRole(c));
+// Moves a student to a role; moving them back to their stats' role clears the override.
+export function setExploreRole(state, studentId, role) {
+  const c = getChar(state, studentId);
+  if (!c || c.role !== "student" || !EXPLORE_ROLES[role]) return false;
+  c.exploreRole = role === autoRole(c) ? null : role;
+  return true;
+}
+// Everyone back in the role their stats point to.
+export function resetExploreRoles(state) {
+  for (const c of state.characters) c.exploreRole = null;
 }
 
 // One research point per RESEARCH_ROOM_INT_PER_POINT of the combined INT of the teachers posted there
