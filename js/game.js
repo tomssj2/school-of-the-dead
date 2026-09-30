@@ -574,6 +574,7 @@ export function setRestToday(state, studentId, value) {
   if (!c || c.role !== "student") return false;
   if (value) {
     if (c.infection || c.infirmaryToday) return false; // in quarantine, or already being healed
+    if (c.stamina >= c.maxStamina) return false; // already fully rested
     const count = state.characters.filter((x) => x.alive && x.restToday && x.id !== c.id).length;
     if (count >= state.rooms.cafeteria.studentCapacity) return false;
   }
@@ -588,10 +589,79 @@ export function setInfirmaryToday(state, studentId, mode) {
   if (mode === true) mode = "heal";
   if (mode) {
     if (c.infection || c.restToday) return false; // already there in quarantine, or resting in the Cafeteria
+    if (c.hp >= c.maxHp) return false; // nothing to heal — don't spend a bed or medicine on them
     if (infirmaryBedsUsed(state, c.id) >= state.rooms.infirmary.studentCapacity) return false;
   }
   c.infirmaryToday = mode ? "heal" : false;
   return true;
+}
+
+// ---------- staying in a room day after day ----------
+// A student keeps their Turn 1 room from one day to the next (each room's "📌 Stay" toggle, on by
+// default) until it has nothing left to give them: the stat it trains maxed out, stamina full in
+// the Cafeteria, HP full in the Nurse's Office. Research, Crafting and the Radio keep them until
+// they're moved. Every turn clears the day's jobs, so Turn 1's are remembered as it ends
+// (c.keepJobs) and handed back at dawn; whoever's done is listed in state.finishedJobs.
+export const staysInRoom = (state, roomKey) => !state.stayOff?.[roomKey];
+export function toggleStay(state, roomKey) {
+  state.stayOff = state.stayOff || {};
+  if (staysInRoom(state, roomKey)) state.stayOff[roomKey] = true;
+  else delete state.stayOff[roomKey];
+}
+// Each Turn 1 job: its room, how to put a student back, and why they'd be done (null: not yet).
+const STAY_JOBS = {
+  gymToday: { room: (side) => GYM_SIDES[side].roomKey, set: setGymToday,
+    done: (state, c, side) => (trainingGain(state, c, side) ? null : `${GYM_SIDES[side].gains} maxed`) },
+  restToday: { room: () => "cafeteria", set: setRestToday, done: (state, c) => (c.stamina >= c.maxStamina ? "stamina full" : null) },
+  infirmaryToday: { room: () => "infirmary", set: setInfirmaryToday, done: (state, c) => (c.hp >= c.maxHp ? "HP full" : null) },
+  researchToday: { room: () => "research", set: (...a) => setResearchToday(...a) }, // (declared further down)
+  craftingToday: { room: () => "crafting", set: (...a) => setCraftingToday(...a) },
+  radioToday: { room: () => "radio", set: setRadioToday },
+};
+// Called as Turn 1 ends (after the day's lessons, rest and healing).
+function keepTurnOneJobs(state) {
+  state.finishedJobs = [];
+  for (const c of state.characters) {
+    delete c.keepJobs;
+    if (c.role !== "student" || !c.alive) continue;
+    const keep = {};
+    for (const [flag, job] of Object.entries(STAY_JOBS)) {
+      const value = c[flag];
+      if (!value || !staysInRoom(state, job.room(value))) continue;
+      const why = job.done?.(state, c, value);
+      if (why) state.finishedJobs.push({ id: c.id, room: job.room(value), why });
+      else keep[flag] = value;
+    }
+    if (Object.keys(keep).length) c.keepJobs = keep;
+    // Classroom seats aren't cleared by the turn, so they only need letting go of.
+    if (c.seat) {
+      const room = `classroom:${c.seat.room}`;
+      const lesson = classroomLesson(state, c.seat.room);
+      if (!staysInRoom(state, room)) unseat(state, c.id);
+      else if (lesson.subject && !classGain(state, c)) {
+        state.finishedJobs.push({ id: c.id, room, why: `${STAT_OF_SUBJECT[lesson.subject]} maxed` });
+        unseat(state, c.id);
+      }
+    }
+  }
+}
+// Called at dawn: everyone goes back to the room they were kept in, unless the night finished
+// the job (a night's rest can fill a stamina bar) or they can't (hurt into quarantine, room full).
+function restoreTurnOneJobs(state) {
+  state.finishedJobs = state.finishedJobs || [];
+  for (const c of state.characters) {
+    const keep = c.keepJobs;
+    delete c.keepJobs;
+    if (!keep || !c.alive || c.infection) continue;
+    for (const [flag, value] of Object.entries(keep)) {
+      const job = STAY_JOBS[flag];
+      const why = job.done?.(state, c, value);
+      if (why) state.finishedJobs.push({ id: c.id, room: job.room(value), why });
+      else job.set(state, c.id, value);
+    }
+  }
+  const done = state.finishedJobs.filter((f) => getChar(state, f.id)?.alive);
+  if (done.length) addLog(state, `📌 Done in their rooms and free for something new: ${done.map((f) => `${getChar(state, f.id).name} (${f.why})`).join(", ")}.`);
 }
 
 
@@ -2566,6 +2636,7 @@ function resolveDayMilestones(state, nextDay) {
 
 export function advanceTurn(state) {
   state.turn++;
+  if (state.turn === 2) keepTurnOneJobs(state);
   if (state.turn > 3) {
     if (resolveDailyFoodUpkeep(state)) resolveOvernightRecovery(state); // end of the day that just finished
     resolveInfections(state);
@@ -2593,6 +2664,7 @@ export function advanceTurn(state) {
     c.exploreTeam = null;
     c.defending = false;
   }
+  if (state.turn === 1) restoreTurnOneJobs(state);
   state.entranceGrid.students = {}; // built defenses persist; daily placements don't
   state.teamLocations = [null, null, null];
   state.raidTarget = null;

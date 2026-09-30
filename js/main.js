@@ -1765,6 +1765,10 @@ root.addEventListener("click", (e) => {
       }
       break;
     }
+    case "toggle-stay":
+      G.toggleStay(state, el.dataset.room);
+      render();
+      break;
     case "reroll-portrait":
       G.rerollPortrait(state, el.dataset.id);
       render();

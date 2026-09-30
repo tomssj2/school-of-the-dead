@@ -17,7 +17,7 @@ import {
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
+  getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, formationsFor, entranceFormations, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
@@ -473,8 +473,19 @@ function roomScene(kind, people, title, info = "", actions = "", overlay = "") {
 
 // A room's headline number and info dot on the left, its section label (e.g. "Students (12/16)")
 // on the right, in one full-width pill under the teacher row, so the banner's art stays clear.
-function statRow(label, pill, cls = "") {
-  return `<div class="stat-row ${cls}">${pill ? `<span class="stat-pill">${pill}</span>` : ""}<span class="mini-label">${label}</span></div>`;
+function statRow(label, pill, cls = "", after = "") {
+  return `<div class="stat-row ${cls}">${pill ? `<span class="stat-pill">${pill}</span>` : ""}<span class="mini-label">${label}</span>${after}</div>`;
+}
+
+// A room's "📌 Stay" switch (game.js staysInRoom): on, its students come back every day until
+// `until` (the room has nothing left for them), or until they're moved.
+function stayToggle(state, roomKey, until = "") {
+  const on = staysInRoom(state, roomKey);
+  return `<button class="stay-toggle ${on ? "on" : ""}" data-action="toggle-stay" data-room="${roomKey}" ${tipAttr({
+    title: `📌 Stay · ${on ? "on" : "off"}`,
+    rows: [["On", until ? `back every day until ${until}` : "back every day"], ["Off", "everyone leaves at night"]],
+    notes: [until ? "Done students leave at dawn and show as lazy" : "They stay until you move them"],
+  })}>📌 Stay</button>`;
 }
 
 // A room still overrun from the first night: its scene boarded over, and the cost to clear it.
@@ -1002,7 +1013,8 @@ function renderTurn1Overview(state) {
   const unseated = students.filter((c) => !c.seat);
   // lazy: not in a class and not doing anything else today, though a classroom with a free seat would teach them
   const busyToday = (c) => c.gymToday || c.restToday || c.infirmaryToday || c.radioToday || c.researchToday || c.craftingToday;
-  const lazy = unseated.filter((c) => !busyToday(c) && Object.entries(lessons).some(([id, lesson]) => freeSeats(id) && wouldLearn(c, lesson) > 0));
+  const finished = Object.fromEntries((state.finishedJobs || []).map((f) => [f.id, f.why]));
+  const lazy = unseated.filter((c) => !busyToday(c) && (finished[c.id] || Object.entries(lessons).some(([id, lesson]) => freeSeats(id) && wouldLearn(c, lesson) > 0)));
 
   const locked = (key, scene, tab) => overviewCard({ tab, scene: `${scene}@1`, name: BOARDED_ROOMS[key].name, big: "Boarded up", locked: true, meta: `${BOARDED_ROOMS[key].cost} scrap to clear`,
     notes: [state.resources.materials >= BOARDED_ROOMS[key].cost ? tip("clear", "🔓 Enough scrap to clear it") : null] });
@@ -1068,7 +1080,7 @@ function renderTurn1Overview(state) {
   const slotOpen = posts.some((post) => roomState(state, postRoomKey(post)).teacherCapacity > posted(post));
   const lazyTeachers = slotOpen ? idleTeachers : [];
   const lazyCount = lazy.length + lazyTeachers.length;
-  const names = [...lazy.map((c) => `🎒 ${esc(c.name)}`), ...lazyTeachers.map((t) => `👩‍🏫 ${esc(t.name)}`)];
+  const names = [...lazy.map((c) => `🎒 ${esc(c.name)}${finished[c.id] ? ` · ✓ done (${finished[c.id]})` : ""}`), ...lazyTeachers.map((t) => `👩‍🏫 ${esc(t.name)}`)];
   const lazyPill = lazyCount
     ? `<button class="ov-chip ov-chip-bad" data-action="set-tab" data-tab="${lazy.length ? "floor2" : "floor1"}" ${tipAttr({
         title: `😴 ${lazyCount} lazy`,
@@ -3112,7 +3124,7 @@ function renderTrainingRoom(state, side) {
     ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
       (t) => staffRow(t, `${gradeLetter(t.grades[side])} <span class="muted">+${teachingBonus(t.grades[side])}</span>`, `${t.name} — ${STAT_OF_SUBJECT[side]} ${gradeLetter(t.grades[side])}, adds +${teachingBonus(t.grades[side])} a session`),
       `data-action="open-picker" data-kind="gym-teacher" data-post="${side}"`)}
-      ${statRow(`Training today (${students.length}/${room.studentCapacity})`, `${info.icon} <b>+${lesson.gain}</b> ${info.gains} · up to ${lesson.ceiling} ${infoDot(gainHow)}`)}
+      ${statRow(`Training today (${students.length}/${room.studentCapacity})`, `${info.icon} <b>+${lesson.gain}</b> ${info.gains} · up to ${lesson.ceiling} ${infoDot(gainHow)}`, "", stayToggle(state, info.roomKey, `${info.gains} is maxed`))}
       ${tileGrid(
         students.map((s) => personTile(s, {
           extra: gainLine(s.grades[side], s.grades[side] + trainingGain(state, s, side), "max"),
@@ -3176,7 +3188,7 @@ export function renderFloor1(state) {
         ${staffLine(state, "Cook", cooks, cafeRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
           'data-action="open-picker" data-kind="cafeteria-teacher"')}
-        ${statRow(`Resting today (${resting.length}/${cafeRoom.studentCapacity})`, `🍲 <b>${dishCapacity(state)}</b> dish${dishCapacity(state) === 1 ? "" : "es"} a day · 😴 <b>+${cafeteriaRest(state)}</b> stamina ${infoDot(cafeHow)}`)}
+        ${statRow(`Resting today (${resting.length}/${cafeRoom.studentCapacity})`, `🍲 <b>${dishCapacity(state)}</b> dish${dishCapacity(state) === 1 ? "" : "es"} a day · 😴 <b>+${cafeteriaRest(state)}</b> stamina ${infoDot(cafeHow)}`, "", stayToggle(state, "cafeteria", "stamina is full"))}
         ${tileGrid(
           resting.map((s) => {
             const to = Math.min(s.maxStamina, s.stamina + cafeteriaRest(state));
@@ -3204,7 +3216,7 @@ export function renderFloor1(state) {
         ${staffLine(state, "Nurse", nurses, infRoom.teacherCapacity,
           (t) => staffRow(t, gradeLetter(t.grades.Biology), `${t.name} — CON ${gradeLetter(t.grades.Biology)}`),
           'data-action="open-picker" data-kind="infirmary-teacher"')}
-        ${statRow(`Healing today (${patients.length}/${infRoom.studentCapacity})`, `${ri("medicine")} Heal <b>+${healHp}</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`)}
+        ${statRow(`Healing today (${patients.length}/${infRoom.studentCapacity})`, `${ri("medicine")} Heal <b>+${healHp}</b> HP · ${INFIRMARY_MEDICINE_PER_PATIENT} meds ${infoDot(nurseHow)}`, "", stayToggle(state, "infirmary", "HP is full"))}
         ${tileGrid(
           [
             ...patients.map((s) => {
@@ -3380,7 +3392,7 @@ function renderClassroom(state, roomId) {
       `data-action="open-picker" data-kind="classroom-teacher" data-room="${roomId}"`)}
     ${statRow(`Students (${count}/${room.seats.length})`, lesson.subject
       ? `📚 <b>+${lesson.gain}</b> ${STAT_OF_SUBJECT[subject]} a day · up to ${lesson.ceiling} ${infoDot(classHow)}`
-      : `📚 No subject yet ${infoDot({ title: "📚 No subject yet", notes: ["The first teacher posted here picks the subject — whatever they're best at", "No teacher, no class"] })}`)}
+      : `📚 No subject yet ${infoDot({ title: "📚 No subject yet", notes: ["The first teacher posted here picks the subject — whatever they're best at", "No teacher, no class"] })}`, "", stayToggle(state, post, subject ? `${STAT_OF_SUBJECT[subject]} is maxed` : "the class's stat is maxed"))}
     <div class="desk-tiles">${desks.join("")}</div>
   </div>`;
 }
@@ -3464,7 +3476,7 @@ export function renderFloor3(state) {
       ${staffLine(state, "Teacher", staff, slots,
         (t) => staffRow(t, gradeLetter(t.grades[statKey]), `${t.name} — ${statLabel} ${gradeLetter(t.grades[statKey])}`),
         `data-action="open-picker" data-kind="utility" data-post="${postKey}"`)}
-      ${statRow(`Helping today (${helpersOf(postKey).length}/${state.rooms[postKey].studentCapacity})`, footer(staff))}
+      ${statRow(`Helping today (${helpersOf(postKey).length}/${state.rooms[postKey].studentCapacity})`, footer(staff), "", stayToggle(state, postKey))}
       ${tileGrid(
         helpersOf(postKey).map((s) => personTile(s, { remove: `remove-${postKey}`, title: `${s.name} — DEX ${s.grades.Gymnastics}, adds +${craftHelpGain(s)} fortification`, extra: `<span class="pt-gain">+<b>${craftHelpGain(s)}</b> 🛡</span>` })),
         state.rooms[postKey].studentCapacity - helpersOf(postKey).length,
@@ -3526,7 +3538,7 @@ export function renderFloor3(state) {
       ${staffLine(state, "Teacher", teachers, room.teacherCapacity,
         (t) => staffRow(t, `${gradeLetter(t.grades.SocialStudies)} <span class="muted">+${pct(radioCrewBonus(t))}</span>`, `${t.name} — CHA ${t.grades.SocialStudies}, adds ${pct(radioCrewBonus(t))} a day`),
         'data-action="open-picker" data-kind="utility" data-post="radio"')}
-      ${statRow(`On the air today (${onAir.length}/${room.studentCapacity})`, `${pill} ${infoDot(how)}`)}
+      ${statRow(`On the air today (${onAir.length}/${room.studentCapacity})`, `${pill} ${infoDot(how)}`, "", stayToggle(state, "radio"))}
       ${tileGrid(
         onAir.map((s) => personTile(s, {
           remove: "remove-radio",
@@ -3555,7 +3567,7 @@ export function renderFloor3(state) {
         ${staffLine(state, "Teacher", researchers, researchSlots,
           (t) => staffRow(t, gradeLetter(t.grades.Physics), `${t.name} — INT ${t.grades.Physics} (${gradeLetter(t.grades.Physics)})`),
           'data-action="open-picker" data-kind="utility" data-post="research"')}
-        ${statRow(`Assisting today (${assistants.length}/${state.rooms.research.studentCapacity})`, `${ri("research")} <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`)}
+        ${statRow(`Assisting today (${assistants.length}/${state.rooms.research.studentCapacity})`, `${ri("research")} <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`, "", stayToggle(state, "research"))}
         ${tileGrid(
           assistants.map((s) => personTile(s, { remove: "remove-research", title: `${s.name} — adds INT ${s.grades.Physics} to the room`, extra: `<span class="pt-gain">INT <b>${s.grades.Physics}</b></span>` })),
           state.rooms.research.studentCapacity - assistants.length,
