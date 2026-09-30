@@ -1033,7 +1033,7 @@ root.addEventListener("click", (e) => {
       render();
       break;
     case "show-all-warnings":
-      showAllWarnings();
+      showAllWarnings(state.turn);
       render();
       break;
     case "set-tab":

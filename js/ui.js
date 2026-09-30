@@ -19,7 +19,7 @@ import {
 import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -710,7 +710,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
 // Each tab is [id, label, pixel icon].
 const LEFT_TABS_BY_TURN = {
   1: [["floor1", "Lobby", "lobby"], ["floor2", "Classrooms", "classrooms"], ["floor3", "Facilities", "facilities"]],
-  2: [["farm", "Farm", "farm"], ["scrapyard", "Scrapyard", "scrap"]],
+  2: [["citymap", "City Map", "explore"], ["farm", "Farm", "farm"], ["scrapyard", "Scrapyard", "scrap"]],
   3: [["defense", "Defense", "defense"], ["assault", "Assault", "assault"], ["event", "Event", "event"]],
 };
 const RIGHT_TABS = [["roster", "Roster", "roster"], ["armory", "Armory", "armory"], ["research", "Research", "research"]];
@@ -853,7 +853,7 @@ export function renderOverview(state) {
   if (state.gameOver) return renderGameOver(state);
   if (state.victory) return renderVictory(state);
   if (state.turn === 1) return renderTurn1Overview(state);
-  if (state.turn === 2) return renderTurn2Overview(state);
+  if (state.turn === 2) return renderTurn2Summary(state);
   return renderTurn3Overview(state);
 }
 
@@ -861,11 +861,13 @@ export function renderOverview(state) {
 // number that matters today, how full it is, a short line, and its warnings in orange — what's
 // wrong ("bad", ⚠, first), then what could be done right now ("tip"). Clicking it goes to the
 // room's floor.
-function overviewCard({ tab, scene, name, level = "", big, unit = "", used = null, cap = null, meta = "", notes = [], locked = false }) {
+// `art` replaces the room's pixel art with anything else (a team's portraits); `bg` sets the
+// banner's background-image directly.
+function overviewCard({ tab, scene, art = "", bg = "", name, level = "", big, unit = "", used = null, cap = null, meta = "", notes = [], locked = false, style = "" }) {
   const pct = cap ? Math.round((Math.min(used, cap) / cap) * 100) : 0;
   const shown = notes.filter((n) => n && !hiddenWarnings.has(n[2])).sort((a, b) => (a[0] === "bad" ? 0 : 1) - (b[0] === "bad" ? 0 : 1));
-  return `<button class="ov-card ${locked ? "ov-locked" : ""}" data-action="set-tab" data-tab="${tab}">
-    <span class="ov-banner" style="background-image:${sceneBackground(scene)}"><span class="ov-plaque">${locked ? "🔒 " : ""}${name}${level}</span></span>
+  return `<button class="ov-card ${locked ? "ov-locked" : ""}" data-action="set-tab" data-tab="${tab}" ${style ? `style="${style}"` : ""}>
+    <span class="ov-banner ${art ? "ov-banner-art" : ""} ${bg ? "ov-banner-bg" : ""}" ${art ? "" : `style="background-image:${bg || sceneBackground(scene)}"`}>${art}<span class="ov-plaque">${locked ? "🔒 " : ""}${name}${level}</span></span>
     <span class="ov-big">${big}${unit ? ` <small>${unit}</small>` : ""}</span>
     ${cap ? `<span class="ov-bar ${used >= cap ? "ov-bar-full" : used ? "" : "ov-bar-empty"}"><i style="width:${pct}%"></i></span>` : ""}
     ${meta ? `<span class="ov-meta">${meta}</span>` : ""}
@@ -887,6 +889,22 @@ const WARNING_KINDS = {
   promote: "🎓 Students can be promoted",
   recruits: "🙋 Recruits waiting",
   clear: "🔓 Boarded rooms can be cleared",
+  // the Exploration Summary (Turn 2)
+  teamIdle: "⚠ Teams not sent anywhere",
+  lowOdds: "🎲 Risky expeditions",
+  teamEmpty: "🧭 Team slots to fill",
+  teamUnlock: "🔓 A team can be unlocked",
+  scouts: "🏃 Scouts ready to scout",
+  drops: "📦 Supply drops on the map",
+  raid: "☠ Raid bosses to fight",
+  nests: "🧟 Zombie nests to burn out",
+  siteWorkers: "⚠ Farm & Scrapyard short of workers",
+  plant: "🌱 Seeds & animals to add",
+};
+// Which kinds each turn's summary can show (the counter's drop-down lists these).
+const TURN_WARNING_KINDS = {
+  1: ["noTeacher", "noCook", "quarantine", "teacherFree", "available", "rest", "heal", "dish", "upgrade", "promote", "recruits", "clear"],
+  2: ["teamIdle", "lowOdds", "teamEmpty", "teamUnlock", "scouts", "drops", "raid", "nests", "siteWorkers", "plant", "upgrade"],
 };
 const HIDDEN_WARNINGS_KEY = "sotd-hidden-warnings";
 let hiddenWarnings = (() => {
@@ -906,26 +924,28 @@ export function toggleWarningKind(kind) {
   else hiddenWarnings.add(kind);
   saveHiddenWarnings();
 }
-export function showAllWarnings() {
-  hiddenWarnings = new Set();
+// "Show all" in a turn's drop-down brings back that turn's kinds.
+export function showAllWarnings(turn = null) {
+  hiddenWarnings = turn ? new Set([...hiddenWarnings].filter((k) => !TURN_WARNING_KINDS[turn]?.includes(k))) : new Set();
   saveHiddenWarnings();
 }
 
 // The warnings counter at the top right: how many are showing, and a drop-down to choose which
 // kinds to show (with how many of each there are today).
-function renderWarningCounter(all) {
+function renderWarningCounter(all, turn = 1) {
   const shown = all.filter((n) => !hiddenWarnings.has(n[2])).length;
   const counts = {};
   for (const n of all) counts[n[2]] = (counts[n[2]] || 0) + 1;
-  const rows = Object.entries(WARNING_KINDS).map(([kind, label]) => {
+  const hiddenHere = TURN_WARNING_KINDS[turn].filter((kind) => hiddenWarnings.has(kind)).length;
+  const rows = TURN_WARNING_KINDS[turn].map((kind) => [kind, WARNING_KINDS[kind]]).map(([kind, label]) => {
     const off = hiddenWarnings.has(kind);
     return `<button class="ov-warn-opt ${off ? "off" : ""}" data-action="toggle-warning" data-kind="${kind}">
       <span class="ov-warn-check">${off ? "" : "✓"}</span><span class="ov-warn-label">${label}</span><b>${counts[kind] || ""}</b></button>`;
   }).join("");
   return `<div class="ov-warn-dd">
-    <button class="ov-warn-btn ${shown ? "has" : ""} ${warnMenuOpen ? "open" : ""}" data-action="toggle-warn-menu">⚠ <b>${shown}</b> warning${shown === 1 ? "" : "s"}${hiddenWarnings.size ? ` <span class="ov-warn-hidden">· ${hiddenWarnings.size} hidden</span>` : ""} ▾</button>
+    <button class="ov-warn-btn ${shown ? "has" : ""} ${warnMenuOpen ? "open" : ""}" data-action="toggle-warn-menu">⚠ <b>${shown}</b> warning${shown === 1 ? "" : "s"}${hiddenHere ? ` <span class="ov-warn-hidden">· ${hiddenHere} hidden</span>` : ""} ▾</button>
     ${warnMenuOpen ? `<div class="ov-warn-menu">
-      <div class="ov-warn-menu-head"><span class="mini-label">Show these warnings</span>${hiddenWarnings.size ? '<button class="btn btn-sm" data-action="show-all-warnings">Show all</button>' : ""}</div>
+      <div class="ov-warn-menu-head"><span class="mini-label">Show these warnings</span>${hiddenHere ? '<button class="btn btn-sm" data-action="show-all-warnings">Show all</button>' : ""}</div>
       ${rows}
     </div>` : ""}
   </div>`;
@@ -1048,7 +1068,7 @@ function renderTurn1Overview(state) {
     <div class="ov-head">
       <div class="ov-head-left">${lazyPill}</div>
       <h2>Classes Summary ${infoDot({ title: "📚 Turn 1 — Classes Summary", notes: ["Classrooms raise their subject every day, up to the teacher's grade", "The Gymnasium raises STR, Acrobatics DEX", "Resting and healing happen now too", "Orange: something needs you — ⚠ a problem, or something you could do now", "Choose which warnings to show from the counter on the right", "Click a room to go to it"] })}</h2>
-      <div class="ov-head-right">${renderWarningCounter(all)}</div>
+      <div class="ov-head-right">${renderWarningCounter(all, 1)}</div>
     </div>
     <div class="mini-label ov-section">Classrooms</div>
     <div class="ov-grid">${classrooms}</div>
@@ -1073,7 +1093,9 @@ function craftingToday(state) {
   return crafters + state.characters.filter((c) => c.craftingToday && c.alive && !c.infection).reduce((sum, c) => sum + craftHelpGain(c), 0);
 }
 
-function renderTurn2Overview(state) {
+// The City Map tab (Turn 2): the town with its fog and places, and the side panel of teams and
+// roles. The turn itself is launched from the Exploration Summary (the centre button).
+function renderCityMapScreen(state) {
   // The side panel: the expedition teams bought so far (and the next one to buy), then the raid
   // squad, each with where it's headed.
   const nextCost = nextTeamCost(state);
@@ -1100,7 +1122,7 @@ function renderTurn2Overview(state) {
     <div class="explore-layout">
       ${renderExplorationMap(state)}
       <aside class="explore-side">
-        <h2>Exploration ${infoDot({ title: "🗺 Turn 2 — Exploration", notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Scroll to zoom, drag to look around","Landmarks at the edge hold raid bosses and legendary gear", "Teachers stay at the school"] })}</h2>
+        <h2>City Map ${infoDot({ title: "🗺 City Map", notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Scroll to zoom, drag to look around", "Landmarks at the edge hold raid bosses and legendary gear", "Teachers stay at the school", "Launch the expeditions from the Exploration Summary (the centre button)"] })}</h2>
         <div class="mini-label">Teams</div>
         ${teamRows}${raidRow}
         <div class="ex-legend">
@@ -1112,9 +1134,126 @@ function renderTurn2Overview(state) {
           <span><b class="ex-key ex-key-nest">👣</b> The horde</span>
         </div>
         ${renderRoleWindows(state)}
-        <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 Launch Expeditions</button>
       </aside>
     </div>
+  </div>`;
+}
+
+// The Exploration Summary (Turn 2's centre button), laid out like the Classes Summary: a card per
+// expedition team, the City Map, the Farm and the Scrapyard, each with its warnings; lazy students
+// on the left, the warnings counter on the right, and the button that launches the expeditions.
+function renderTurn2Summary(state) {
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const all = [];
+  const bad = (kind, text) => { const n = ["bad", `⚠ ${text}`, kind]; all.push(n); return n; };
+  const tip = (kind, text) => { const n = ["tip", text, kind]; all.push(n); return n; };
+  const upgradeNote = (key) => {
+    const cost = roomUpgradeCostFor(state, key);
+    return cost !== null && state.resources.materials >= cost ? tip("upgrade", `⬆ Upgrade can be bought · 🔩 ${cost}`) : null;
+  };
+  const cost = exploreStaminaCost(state);
+  const students = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection);
+
+  // ----- the expedition teams: bought ones, then the locked ones -----
+  const teams = [0, 1, 2].map((i) => {
+    const art = (members) => `<span class="ov-team-art" style="--team:${TEAM_COLORS[i]}">${members.map((c) => `<span class="ov-team-face">${characterSprite(c, 30)}</span>`).join("") || '<span class="ov-team-none">No one yet</span>'}</span>`;
+    if (i >= teamCount(state)) {
+      const price = EXPLORE_TEAM_COSTS[i];
+      const next = i === teamCount(state);
+      return overviewCard({ tab: "citymap", art: art([]), name: teamLabel(i), big: "Locked", locked: true, meta: `🔩 ${price} scrap to unlock${next ? "" : ` (after ${teamLabel(i - 1)})`}`,
+        notes: [next && state.resources.materials >= price ? tip("teamUnlock", `🔓 Can be unlocked · 🔩 ${price}`) : null] });
+    }
+    const members = teamMembers(state, i);
+    const loc = state.teamLocations[i] && LOCATIONS.find((l) => l.id === state.teamLocations[i]);
+    const { power, rank } = teamPower(state, i);
+    const pct = loc && members.length ? Math.round(expeditionOdds(state, i, loc) * 100) : null;
+    return overviewCard({
+      tab: "citymap", art: art(members), name: teamLabel(i), style: `--team:${TEAM_COLORS[i]}`,
+      big: loc ? `${pct}%` : members.length ? `⚔ ${power}` : "—",
+      unit: loc ? `to succeed · ${LOCATION_ICON[loc.id]} ${esc(loc.name)}` : members.length ? `power · ${rank}` : "nobody yet",
+      used: members.length, cap: EXPLORE_TEAM_SLOTS.length, meta: `${members.length}/${EXPLORE_TEAM_SLOTS.length} members · ⚔ ${power} ${rank}`,
+      notes: [
+        members.length && !loc ? bad("teamIdle", "Not sent anywhere") : null,
+        pct !== null && pct < 35 ? bad("lowOdds", `Only ${pct}% to succeed`) : null,
+        members.length < EXPLORE_TEAM_SLOTS.length ? tip("teamEmpty", members.length ? `🧭 ${plural(EXPLORE_TEAM_SLOTS.length - members.length, "slot")} open` : "🧭 Empty — fill its slots") : null,
+      ],
+    });
+  }).join("");
+
+  // ----- the City Map: fog to scout, drops, raids, nests -----
+  const fog = hexesInRadius(HEX_RADIUS).filter(({ q, r }) => canScoutHex(state, q, r));
+  const cheapest = fog.length ? Math.min(...fog.map(({ q, r }) => scoutCost(q, r))) : null;
+  const scoutsReady = cheapest === null ? 0 : students.filter((c) => exploreRole(c) === "scout" && c.stamina >= cheapest).length;
+  const drops = state.mapDrops || [];
+  const soonest = drops.length ? Math.min(...drops.map((d) => d.expires - state.day + 1)) : 0;
+  const raids = LANDMARKS.filter((lm) => isHexExplored(state, lm.hex.q, lm.hex.r) && !raidCooldownLeft(state, lm.id)).length;
+  const nests = (state.nests || []).length;
+  const found = LOCATIONS.filter((l) => isHexExplored(state, l.hex.q, l.hex.r)).length;
+  const cityMap = overviewCard({
+    tab: "citymap", bg: `url(${cityBaseUrl()})`, name: "City Map",
+    big: `${found}`, unit: `of ${LOCATIONS.length} places found`,
+    meta: `${plural(fog.length, "block")} to scout · ${plural(drops.length, "drop")}`,
+    notes: [
+      scoutsReady ? tip("scouts", `🏃 ${plural(scoutsReady, "scout")} ready to scout`) : null,
+      drops.length ? tip("drops", `📦 ${plural(drops.length, "supply drop")} · gone in ${plural(soonest, "day")}`) : null,
+      raids && !state.raidTarget ? tip("raid", `☠ ${raids} raid boss${raids === 1 ? "" : "es"} to fight`) : null,
+      nests ? tip("nests", `🧟 ${plural(nests, "nest")} to burn out`) : null,
+    ],
+  });
+
+  // ----- the Farm and the Scrapyard -----
+  const site = (key) => {
+    const def = WORK_SITES[key];
+    const slots = siteWorkerSlots(state, key);
+    const sides = Object.keys(def.sides).map((side) => ({ ready: readySlots(state, side).length, needed: Math.min(slots, workersNeeded(state, side)), crew: siteCrew(state, side).length }));
+    const ready = sides.reduce((s, x) => s + x.ready, 0);
+    const needed = sides.reduce((s, x) => s + x.needed, 0);
+    const crew = sides.reduce((s, x) => s + x.crew, 0);
+    const missing = sides.reduce((s, x) => s + Math.max(0, x.needed - x.crew), 0);
+    let plantable = 0;
+    if (key === "farm") {
+      for (const kind of Object.keys(PRODUCERS)) {
+        const empty = (state.plots[kind] || []).filter((p) => !p.id).length;
+        plantable += Math.min(empty, state.stock[kind] || 0);
+      }
+    }
+    return overviewCard({
+      tab: key, scene: `${key}@${sceneLevel(state, key)}`, name: def.name, level: levelBadge(state, key),
+      big: `${ready}`, unit: "ready to collect", used: crew, cap: Math.max(needed, crew) || slots,
+      meta: `${crew}/${needed} workers · −${def.stamina} stamina each`,
+      notes: [missing ? bad("siteWorkers", `${plural(missing, "worker")} missing`) : null, plantable ? tip("plant", `🌱 ${plantable} to plant or add`) : null, upgradeNote(key)],
+    });
+  };
+
+  // lazy: free to go (not on a team, not working, enough stamina) and needed to fill an open slot
+  // of their role on a team not yet sent — no more of a role than there are slots for it (the
+  // strongest first)
+  const unsent = Array.from({ length: teamCount(state) }, (_, i) => i).filter((i) => !state.teamLocations[i]);
+  const openFor = (role) => unsent.reduce((sum, i) => sum + teamRoleSlots(role) - teamMembers(state, i).filter((c) => exploreRole(c) === role).length, 0);
+  const idle = students.filter((c) => c.exploreTeam === null && !c.farmToday && !c.scrapyardToday && c.stamina >= cost);
+  const lazy = Object.keys(EXPLORE_ROLES).flatMap((role) => idle.filter((c) => exploreRole(c) === role)
+    .sort((a, b) => memberPower(state, b) - memberPower(state, a)).slice(0, Math.max(0, openFor(role))));
+  const lazyPill = lazy.length
+    ? `<button class="ov-chip ov-chip-bad" data-action="set-tab" data-tab="citymap" ${tipAttr({
+        title: `😴 ${plural(lazy.length, "lazy student")}`,
+        notes: [...lazy.slice(0, 10).map((c) => `${EXPLORE_ROLES[exploreRole(c)].icon} ${esc(c.name)}`), ...(lazy.length > 10 ? [`…and ${lazy.length - 10} more`] : []),
+          "Not on a team or working today, with the stamina to go — and an open team slot of their role"],
+      })}>😴 <b>${lazy.length}</b> lazy · ${plural(lazy.length, "student")}</button>`
+    : `<span class="ov-chip ov-chip-ok">✓ Nobody's lazy</span>`;
+
+  const sent = state.teamLocations.filter(Boolean).length;
+  return `
+  <div class="card">
+    <div class="ov-head">
+      <div class="ov-head-left">${lazyPill}</div>
+      <h2>Exploration Summary ${infoDot({ title: "🧳 Turn 2 — Exploration Summary", notes: ["Teams you send head out when you launch", "Build teams and send them from the City Map", "Workers at the Farm and Scrapyard stay home", "Orange: something needs you — ⚠ a problem, or something you could do now", "Choose which warnings to show from the counter on the right", "Click a card to go to it"] })}</h2>
+      <div class="ov-head-right">${renderWarningCounter(all, 2)}</div>
+    </div>
+    <div class="mini-label ov-section">Expeditions</div>
+    <div class="ov-grid">${teams}${cityMap}</div>
+    <div class="mini-label ov-section">Outside</div>
+    <div class="ov-grid">${site("farm")}${site("scrapyard")}</div>
+    <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 ${sent ? `Launch ${plural(sent, "Expedition")} &amp;` : "No expeditions —"} Advance to Night</button>
   </div>`;
 }
 
@@ -3950,6 +4089,7 @@ export function renderApp(state, activeTab, rosterFilter = "student", floaties =
   if (activeTab === "floor1") content = renderFloor1(state);
   else if (activeTab === "floor2") content = renderFloor2(state);
   else if (activeTab === "floor3") content = renderFloor3(state);
+  else if (activeTab === "citymap" && state.turn === 2 && !state.gameOver && !state.victory) content = renderCityMapScreen(state);
   else if (activeTab === "farm") content = renderFarm(state);
   else if (activeTab === "scrapyard") content = renderScrapyard(state);
   else if (activeTab === "defense") content = renderDefenseTab(state);
