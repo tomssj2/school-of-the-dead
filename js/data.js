@@ -753,6 +753,10 @@ export const EXPLORE_ROLES = {
   scout: { name: "Scouts", icon: "🏃", stats: ["Gymnastics", "SocialStudies"], blurb: "Quick and quiet — they find the way and talk to survivors" },
   support: { name: "Supports", icon: "🧠", stats: ["Physics", "History"], blurb: "The brains — they keep the team safe and spot the loot" },
 };
+// Expedition teams: the school starts with one and buys the next with scrap (EXPLORE_TEAM_COSTS[i]
+// unlocks team i + 1), up to three. Every team has these five slots.
+export const EXPLORE_TEAM_COSTS = [0, 40, 80];
+export const EXPLORE_TEAM_SLOTS = ["fighter", "fighter", "scout", "support", "support"];
 
 // ===== Happiness =====
 // A school-wide mood meter that reacts to wins/losses/recruits/deaths and, in turn, skews

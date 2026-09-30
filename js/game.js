@@ -8,7 +8,7 @@ import {
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL,
-  STAMINA_COST_EXPLORE, EXPLORE_ROLES, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
+  STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
@@ -160,6 +160,7 @@ export function createInitialState() {
     log: [],
     gameOver: false,
     teamLocations: [null, null, null],
+    teamSlots: 1, // expedition teams bought so far (buyTeamSlot)
     armory: starterArmory(),
   };
 
@@ -1058,16 +1059,55 @@ export function autoRole(c) {
 }
 // Their role: where the player put them, or else where their stats point.
 export const exploreRole = (c) => (c.exploreRole && EXPLORE_ROLES[c.exploreRole] ? c.exploreRole : autoRole(c));
-// Moves a student to a role; moving them back to their stats' role clears the override.
+// Moves a student to a role; moving them back to their stats' role clears the override. On a team
+// with no free slot for the new role, they leave it.
 export function setExploreRole(state, studentId, role) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student" || !EXPLORE_ROLES[role]) return false;
   c.exploreRole = role === autoRole(c) ? null : role;
+  if (isExpeditionTeam(c.exploreTeam) && !teamHasRoom(state, c.exploreTeam, role, c.id)) c.exploreTeam = null;
   return true;
 }
-// Everyone back in the role their stats point to.
+// Everyone back in the role their stats point to (leaving their team if its slots don't fit).
 export function resetExploreRoles(state) {
-  for (const c of state.characters) c.exploreRole = null;
+  for (const c of state.characters) {
+    if (!c.exploreRole) continue;
+    c.exploreRole = null;
+    if (isExpeditionTeam(c.exploreTeam) && !teamHasRoom(state, c.exploreTeam, autoRole(c), c.id)) c.exploreTeam = null;
+  }
+}
+
+// ---------- expedition teams: bought with scrap, five slots each by role ----------
+const isExpeditionTeam = (i) => i !== null && i !== undefined && i >= 0 && i < EXPLORE_TEAM_COSTS.length;
+export const teamCount = (state) => Math.min(EXPLORE_TEAM_COSTS.length, state.teamSlots || 1);
+export const teamRoleSlots = (role) => EXPLORE_TEAM_SLOTS.filter((r) => r === role).length;
+export const teamMembers = (state, i) => state.characters.filter((c) => c.exploreTeam === i && c.alive);
+// A free slot for `role` on team `i` (not counting `exceptId`, who may be moving within it).
+export function teamHasRoom(state, i, role, exceptId = null) {
+  return teamMembers(state, i).filter((c) => c.id !== exceptId && exploreRole(c) === role).length < teamRoleSlots(role);
+}
+// What the next team costs, or null once all are bought.
+export const nextTeamCost = (state) => (teamCount(state) < EXPLORE_TEAM_COSTS.length ? EXPLORE_TEAM_COSTS[teamCount(state)] : null);
+export function buyTeamSlot(state) {
+  const cost = nextTeamCost(state);
+  if (cost === null || state.resources.materials < cost) return false;
+  state.resources.materials -= cost;
+  state.teamSlots = teamCount(state) + 1;
+  addLog(state, `🧭 A new expedition team is ready — Team ${state.teamSlots} (−${cost} scrap).`);
+  return true;
+}
+// A team's power: every member adds the two stats of their role (fighters STR + CON, scouts DEX +
+// CHA, supports INT + WIS), up to 200 each. Its rank is that as a grade (an empty slot counts 0).
+export function teamPower(state, i) {
+  const power = teamMembers(state, i).reduce((sum, c) => sum + roleScores(c)[exploreRole(c)] * 2, 0);
+  return { power, rank: gradeLetter(Math.round(power / (EXPLORE_TEAM_SLOTS.length * 2))) };
+}
+// Puts a student in one of a team's `role` slots (their role changes to it if needed).
+export function assignTeamSlot(state, studentId, teamIndex, role) {
+  const c = getChar(state, studentId);
+  if (!c || !EXPLORE_ROLES[role]) return false;
+  if (exploreRole(c) !== role) setExploreRole(state, studentId, role);
+  return setExploreTeam(state, studentId, teamIndex);
 }
 
 // One research point per RESEARCH_ROOM_INT_PER_POINT of the combined INT of the teachers posted there
@@ -2555,15 +2595,14 @@ export function setExploreTeam(state, charId, teamIndex) {
     c.exploreTeam = RAID_TEAM;
     return true;
   }
-  if (teamIndex < 0 || teamIndex > 2) return false;
-  const teammateCount = state.characters.filter((x) => x.exploreTeam === teamIndex && x.id !== c.id).length;
-  if (teammateCount >= 5) return false;
+  if (teamIndex < 0 || teamIndex >= teamCount(state)) return false; // not bought yet
+  if (!teamHasRoom(state, teamIndex, exploreRole(c), c.id)) return false; // their role's slots are full
   c.exploreTeam = teamIndex;
   return true;
 }
 
 export function setTeamLocation(state, teamIndex, locationId) {
-  if (teamIndex < 0 || teamIndex > 2) return false;
+  if (teamIndex < 0 || teamIndex >= teamCount(state)) return false;
   const usedElsewhere = state.teamLocations.some((l, i) => l === locationId && i !== teamIndex);
   if (locationId && usedElsewhere) return false;
   state.teamLocations[teamIndex] = locationId || null;
@@ -2613,16 +2652,23 @@ export function scoutEncounterChance(state, q, r, scout = null) {
   return clamp01((ringsOut * SCOUT_ENCOUNTER_CHANCE_PER_HEX + (nextToNest(state, q, r) ? NEST_SCOUT_DANGER : 0)) * stealth);
 }
 
+// A student's odds heading out to a block: running into a zombie (DEX sneaks past), beating it
+// (STR + DEX), and so getting ambushed — sent home with SCOUT_ENCOUNTER_HP_LOSS less HP.
+export function scoutOdds(state, c, q, r) {
+  const encounter = scoutEncounterChance(state, q, r, c);
+  const win = clamp01(0.5 + ((effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2 - 40) / 100);
+  return { encounter, win, ambush: encounter * (1 - win) };
+}
+
 // A student heads out to a block (to scout it, or to grab something there): pays the stamina, and
 // may run into a zombie on the way — beat it for a little loot, or get ambushed and flee home.
 function runOut(state, c, q, r, cost) {
   c.stamina -= cost;
   gainExp(state, c, LEVEL_XP.scout);
-  const encountered = Math.random() < scoutEncounterChance(state, q, r, c);
+  const { encounter, win } = scoutOdds(state, c, q, r);
+  const encountered = Math.random() < encounter;
   if (!encountered) return { ambushed: false, encountered: false };
-  const power = (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2;
-  const winChance = clamp01(0.5 + (power - 40) / 100);
-  if (Math.random() >= winChance) {
+  if (Math.random() >= win) {
     c.hp = Math.max(1, c.hp - SCOUT_ENCOUNTER_HP_LOSS);
     c.injured = c.hp < c.maxHp * 0.5;
     addLog(state, `${c.name} was ambushed by a zombie out in the city and fled back to the school (-${SCOUT_ENCOUNTER_HP_LOSS} HP).`);

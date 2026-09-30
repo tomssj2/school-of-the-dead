@@ -16,6 +16,7 @@ export function maxOutSchool(state) {
   state.resources.materials = scrap;
   // the Radio Station to level 4 — level 5 (satellite) would send for the helicopter
   buildRadio(state, 4);
+  state.teamSlots = 3; // every expedition team bought
 
   const hired = { teachers: 0, students: 0 };
   const hire = (role) => {

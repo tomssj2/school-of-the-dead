@@ -436,6 +436,8 @@ function migrateState(s) {
     if (oldKeys.some((k) => s.exploredHexes.includes(k)) && !s.exploredHexes.includes(newKey)) s.exploredHexes.push(newKey);
   }
   s.teamLocations = s.teamLocations.map((id) => LEGACY_LOCATION_IDS[id] || id);
+  // Expedition teams are bought now: an old save keeps as many as it has in use (at least one).
+  if (!s.teamSlots) s.teamSlots = Math.max(1, ...[0, 1, 2].filter((i) => s.teamLocations[i] || s.characters.some((c) => c.exploreTeam === i)).map((i) => i + 1));
   // ...and nothing is left on what are now the school grounds (its hex and the six around it).
   const onGrounds = (k) => {
     const [q, r] = k.split(",").map(Number);
@@ -480,13 +482,8 @@ function migrateClassroomRooms(s) {
   (s.recruitPool || []).forEach(fixup);
 }
 
-// Closing the mission modal without ever assigning a student shouldn't leave a phantom mission
-// occupying one of the 3 team slots.
+// A place's pop-up only sends a team when asked (send-team), so closing it leaves nothing behind.
 function closeMissionModal() {
-  const teamIndex = state.teamLocations.indexOf(openMissionLocationId);
-  if (teamIndex !== -1 && !state.characters.some((c) => c.exploreTeam === teamIndex)) {
-    G.setTeamLocation(state, teamIndex, null);
-  }
   openMissionLocationId = null;
 }
 
@@ -518,7 +515,6 @@ function render() {
   if (!openCardId) cardAsk = ""; // a closed card takes its question with it
   const card = openCardId ? G.getCharAnywhere(state, openCardId) : null;
   if (openCardId && !card) openCardId = null; // e.g. expelled while card was open
-  if (openMissionLocationId && !state.teamLocations.includes(openMissionLocationId)) openMissionLocationId = null;
   if (openScoutHex && (openScoutHex.drop ? !G.dropAt(state, openScoutHex.q, openScoutHex.r) : G.isHexExplored(state, openScoutHex.q, openScoutHex.r))) openScoutHex = null;
 
   const newFloaties = computeFloaties();
@@ -646,7 +642,7 @@ document.addEventListener("dragend", () => {
 });
 document.addEventListener("dragover", (e) => {
   if (!dragStudentId) return;
-  const target = e.target.closest?.("[data-drop-cell], [data-drop-roster], [data-drop-role]");
+  const target = e.target.closest?.("[data-drop-cell], [data-drop-roster], [data-drop-team], [data-drop-role]");
   document.querySelectorAll(".nw-drop-over").forEach((x) => x !== target && x.classList.remove("nw-drop-over"));
   if (!target) return;
   e.preventDefault();
@@ -657,11 +653,24 @@ document.addEventListener("drop", (e) => {
   const cell = e.target.closest?.("[data-drop-cell]");
   const roster = e.target.closest?.("[data-drop-roster]");
   const role = e.target.closest?.("[data-drop-role]");
-  if (!cell && !roster && !role) return;
+  const slot = e.target.closest?.("[data-drop-team]");
+  if (!cell && !roster && !role && !slot) return;
   e.preventDefault();
   const id = dragStudentId;
   dragStudentId = null;
   document.body.classList.remove("nw-dragging");
+  if (slot) {
+    // an expedition team's slot: onto someone swaps them out
+    const team = Number(slot.dataset.dropTeam);
+    const occupant = slot.dataset.occupant;
+    if (occupant && occupant !== id) G.setExploreTeam(state, occupant, null);
+    if (!G.assignTeamSlot(state, id, team, slot.dataset.slotRole)) {
+      if (occupant && occupant !== id) G.setExploreTeam(state, occupant, team);
+      flash("They can't join that team.");
+    }
+    render();
+    return;
+  }
   if (role) {
     // the Exploration tab's role windows
     G.setExploreRole(state, id, role.dataset.dropRole);
@@ -1231,16 +1240,8 @@ root.addEventListener("click", (e) => {
       render();
       break;
     case "open-mission": {
+      // the place's pop-up: send one of the free teams (built in the side panel), or recall it
       const locationId = el.dataset.location;
-      let teamIndex = state.teamLocations.indexOf(locationId);
-      if (teamIndex === -1) {
-        teamIndex = state.teamLocations.findIndex((l) => !l);
-        if (teamIndex === -1) {
-          flash("All 3 teams are already out on missions.");
-          break;
-        }
-        G.setTeamLocation(state, teamIndex, locationId);
-      }
       openCardId = null;
       openScoutHex = null;
       openPicker = null;
@@ -1554,6 +1555,7 @@ root.addEventListener("click", (e) => {
         case "farm": G.setFarmToday(state, id, postKey); break;
         case "scrapyard": G.setScrapyardToday(state, id, postKey); break;
         case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
+        case "team-slot": if (!G.assignTeamSlot(state, id, Number(roomId), postKey)) flash("They can't join that team."); break;
         default: break;
       }
       openPicker = null;
@@ -1578,13 +1580,27 @@ root.addEventListener("click", (e) => {
       render();
       break;
     case "clear-mission": {
-      const teamIndex = Number(el.dataset.team);
-      state.characters.filter((c) => c.exploreTeam === teamIndex).forEach((c) => G.setExploreTeam(state, c.id, null));
-      G.setTeamLocation(state, teamIndex, null);
+      // recall: the team stays together, it just isn't going anywhere
+      G.setTeamLocation(state, Number(el.dataset.team), null);
       openMissionLocationId = null;
       render();
       break;
     }
+    case "send-team": {
+      if (!openMissionLocationId) break;
+      if (!G.setTeamLocation(state, Number(el.dataset.team), openMissionLocationId)) flash("That team can't go there.");
+      openMissionLocationId = null;
+      render();
+      break;
+    }
+    case "buy-team":
+      if (!G.buyTeamSlot(state)) flash("Not enough scrap.");
+      render();
+      break;
+    case "team-remove":
+      G.setExploreTeam(state, el.dataset.id, null);
+      render();
+      break;
     case "set-card-tab":
       cardTab = el.dataset.tab;
       render();
@@ -1680,12 +1696,6 @@ root.addEventListener("change", (e) => {
       if (!openNest) break;
       const id = el.dataset.id;
       openNest.ids = el.checked ? [...openNest.ids, id].slice(0, 3) : openNest.ids.filter((x) => x !== id);
-      render();
-      break;
-    }
-    case "toggle-team-member": {
-      const teamIndex = Number(el.dataset.team);
-      G.setExploreTeam(state, el.dataset.id, el.checked ? teamIndex : null);
       render();
       break;
     }

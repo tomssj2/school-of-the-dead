@@ -9,7 +9,7 @@ import {
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
-  LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES,
+  LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, SCOUT_ENCOUNTER_HP_LOSS,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
@@ -18,7 +18,7 @@ import {
 import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, teamCount, nextTeamCost, teamPower, teamMembers, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, currentObjective, objectiveProgress, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
 } from "./game.js";
 import {
@@ -206,8 +206,8 @@ function levelTip(c) {
   };
 }
 
-// A student's six stats as chips (their best one highlighted); `focus` marks the stat a job
-// works on (e.g. a classroom's subject).
+// A student's six stats as chips (their best one highlighted); `focus` marks the stat (or stats)
+// a job works on (e.g. a classroom's subject).
 function statChips(c, focus = null) {
   if (c.role === "teacher") {
     return `<div class="stat-chips">
@@ -230,7 +230,7 @@ function statChips(c, focus = null) {
     ${studentStats
       .map(([label, title, val]) => {
         const top = val === best;
-        return `<span class="chip ${top ? "chip-specialty" : ""} ${label === focus ? "chip-focus" : ""}" title="${title}${top ? " (highest)" : ""}">${label} ${val}</span>`;
+        return `<span class="chip ${top ? "chip-specialty" : ""} ${[].concat(focus).includes(label) ? "chip-focus" : ""}" title="${title}${top ? " (highest)" : ""}">${label} ${val}</span>`;
       })
       .join("")}
   </div>`;
@@ -967,25 +967,16 @@ function craftingToday(state) {
 }
 
 function renderTurn2Overview(state) {
-  // The side panel: the three expedition teams and the raid squad, each with where it's headed.
-  const teamRows = [0, 1, 2]
-    .map((i) => {
-      const locId = state.teamLocations[i];
-      const loc = locId && LOCATIONS.find((l) => l.id === locId);
-      const memberCount = state.characters.filter((c) => c.exploreTeam === i && c.alive).length;
-      return loc
-        ? `<button class="ex-team" style="--team:${TEAM_COLORS[i]}" data-action="open-mission" data-location="${locId}">
-            <i class="team-dot"></i><span class="ex-team-name">${teamLabel(i)}</span>
-            <span class="ex-team-target">${LOCATION_ICON[locId]} ${esc(loc.name)}</span>
-            <span class="ex-team-count ${memberCount ? "" : "plot-warn"}">${memberCount}/5</span>
-            <span class="btn-x" data-action="clear-mission" data-team="${i}" title="Recall team">✕</span>
-          </button>`
-        : `<div class="ex-team ex-team-idle" style="--team:${TEAM_COLORS[i]}">
-            <i class="team-dot"></i><span class="ex-team-name">${teamLabel(i)}</span>
-            <span class="ex-team-target muted">Pick a place on the map</span>
-          </div>`;
-    })
-    .join("");
+  // The side panel: the expedition teams bought so far (and the next one to buy), then the raid
+  // squad, each with where it's headed.
+  const nextCost = nextTeamCost(state);
+  const teamRows = Array.from({ length: teamCount(state) }, (_, i) => renderTeamCard(state, i)).join("")
+    + (nextCost !== null
+      ? `<button class="ex-team-buy" data-action="buy-team" ${state.resources.materials < nextCost ? "disabled" : ""} ${tipAttr({
+          title: `🧭 ${teamLabel(teamCount(state))}`,
+          notes: ["Another team of five to send out every afternoon", `Up to ${EXPLORE_TEAM_COSTS.length} teams`],
+        })}>＋ Unlock ${teamLabel(teamCount(state))} <span class="ex-team-buy-cost">🔩 ${nextCost}</span></button>`
+      : "");
   const raidLm = LANDMARKS.find((l) => l.id === state.raidTarget);
   const raidCount = state.characters.filter((c) => c.exploreTeam === RAID_TEAM && c.alive).length;
   const raidRow = raidLm
@@ -1017,6 +1008,63 @@ function renderTurn2Overview(state) {
         <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 Launch Expeditions</button>
       </aside>
     </div>
+  </div>`;
+}
+
+// A team's power and rank as a chip, with its breakdown.
+function teamPowerChip(state, i) {
+  const { power, rank } = teamPower(state, i);
+  const members = teamMembers(state, i);
+  return `<span class="ex-power" ${tipAttr({
+    title: `⚔ Team power ${power}`,
+    rows: members.length
+      ? members.map((c) => { const r = EXPLORE_ROLES[exploreRole(c)]; return [`${r.icon} ${esc(shortName(c))} · ${r.stats.map((s) => STAT_OF_SUBJECT[s]).join("+")}`, `+${roleScores(c)[exploreRole(c)] * 2}`]; })
+      : [tipNone("Nobody yet", "+0")],
+    total: ["Power", `${power} · ${rank}`],
+    notes: ["Fighters add STR + CON, scouts DEX + CHA, supports INT + WIS", `Rank: the power out of ${EXPLORE_TEAM_SLOTS.length * 200} as a grade — an empty slot adds nothing`],
+  })}>⚔ ${power} <b class="grade-letter-${rank}">${rank}</b></span>`;
+}
+
+// An expedition team in the side panel: where it's going (or "not sent yet"), its power, and its
+// five slots by role — click an empty one to pick someone, or drag students in from the role
+// windows (onto someone swaps them).
+// A team's five slots in order, each { role, c } (c null when empty).
+function teamSlotList(state, i) {
+  const members = teamMembers(state, i);
+  const taken = {};
+  return EXPLORE_TEAM_SLOTS.map((role) => {
+    taken[role] = (taken[role] ?? -1) + 1;
+    return { role, c: members.filter((c) => exploreRole(c) === role)[taken[role]] || null };
+  });
+}
+
+function renderTeamCard(state, i) {
+  const locId = state.teamLocations[i];
+  const loc = locId && LOCATIONS.find((l) => l.id === locId);
+  const members = teamMembers(state, i);
+  const slots = teamSlotList(state, i).map(({ role, c }) => {
+    const r = EXPLORE_ROLES[role];
+    if (!c) {
+      return `<button class="ex-slot ex-slot-empty ex-role-${role}" data-action="open-picker" data-kind="team-slot" data-room="${i}" data-post="${role}"
+        data-drop-team="${i}" data-slot-role="${role}" title="${r.name.slice(0, -1)} slot — pick one, or drag one here">${r.icon}</button>`;
+    }
+    return `<span class="ex-slot ex-role-${role}" draggable="true" data-drag-student="${c.id}" data-action="open-card" data-id="${c.id}"
+      data-drop-team="${i}" data-slot-role="${role}" data-occupant="${c.id}" ${tipAttr({
+        title: `${esc(c.name)} · Lv ${overallLevel(c)}`,
+        rows: [[`${r.icon} ${r.name.slice(0, -1)} · ${r.stats.map((s) => STAT_OF_SUBJECT[s]).join(" + ")}`, `+${roleScores(c)[role] * 2}`], ["⚡ Stamina", `${c.stamina}/${c.maxStamina}`], ["❤ HP", `${c.hp}/${c.maxHp}`]],
+        notes: ["Drag to another slot or team", "✕ takes them off the team"],
+      })}>${characterSprite(c, 30)}<i class="ex-slot-x" data-action="team-remove" data-id="${c.id}" title="Take off the team">✕</i></span>`;
+  }).join("");
+  return `<div class="ex-team-card" style="--team:${TEAM_COLORS[i]}">
+    <div class="ex-tc-head">
+      <i class="team-dot"></i><span class="ex-team-name">${teamLabel(i)}</span>
+      ${loc
+        ? `<button class="ex-tc-target" data-action="open-mission" data-location="${locId}" title="Going to ${esc(loc.name)}">${LOCATION_ICON[locId]} ${esc(loc.name)}</button>`
+        : `<span class="ex-tc-target muted">${members.length ? "Pick a place on the map" : "Fill the slots"}</span>`}
+      ${teamPowerChip(state, i)}
+      ${loc ? `<span class="btn-x" data-action="clear-mission" data-team="${i}" title="Recall — the team stays together">✕</span>` : ""}
+    </div>
+    <div class="ex-tc-slots">${slots}</div>
   </div>`;
 }
 
@@ -1443,25 +1491,56 @@ export function renderExpeditionReport(state, anim) {
   </div>`;
 }
 
+// A bar from `from` down (or up) to `to` out of `max`: what's left solid, what goes striped.
+function changeBar(kind, from, to, max) {
+  const pct = (v) => Math.max(0, Math.min(100, Math.round((v / max) * 100)));
+  return `<span class="sc-bar sc-bar-${kind}"><i class="sc-bar-keep" style="width:${pct(Math.min(from, to))}%"></i><i class="sc-bar-lose" style="width:${pct(Math.abs(from - to))}%"></i></span>`;
+}
+
+// Sending someone out to a block: to scout the fog (scouts only) or grab a supply drop (anyone).
+// Each row shows their scouting stats, and their stamina and HP now and after the trip — HP only
+// drops if a zombie gets the better of them.
 export function renderScoutModal(state, q, r, isDrop = false) {
   const drop = isDrop ? dropAt(state, q, r) : null;
   const d = drop && MAP_DROPS[drop.kind];
   const cost = scoutCost(q, r);
   const danger = Math.round(scoutEncounterChance(state, q, r) * 100);
-  const eligible = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.stamina >= cost);
-  const canEverGo = state.characters.some((c) => c.role === "student" && c.alive && c.maxStamina >= cost);
-  const rows = eligible
-    .map(
-      (s) => `<div class="check-row scout-row">
-        <span class="assign-who">${nameTag(s)} ${statusTag(s)} <span class="muted" title="Their own chance of running into a zombie — high DEX sneaks past">🧟 ${Math.round(scoutEncounterChance(state, q, r, s) * 100)}%</span></span>${staminaBar(s)}
-        <button class="btn btn-sm btn-primary" data-action="confirm-scout" data-id="${s.id}" data-q="${q}" data-r="${r}">Send (−${cost} stamina)</button>
-      </div>`
-    )
-    .join("");
+  const people = state.characters
+    .filter((c) => c.role === "student" && c.alive && !c.infection && (d || exploreRole(c) === "scout"))
+    .map((c) => ({ c, odds: scoutOdds(state, c, q, r), ok: c.stamina >= cost }))
+    .sort((a, b) => b.ok - a.ok || a.odds.ambush - b.odds.ambush);
+  const pct = (v) => `${Math.round(v * 100)}%`;
+  const rows = people.map(({ c, odds, ok }) => {
+    const stamAfter = c.stamina - cost;
+    const hpHit = Math.max(1, c.hp - SCOUT_ENCOUNTER_HP_LOSS);
+    return `<div class="sc-row ${ok ? "" : "sc-row-off"}">
+      <span class="pk-portrait">${characterSprite(c, 34)}</span>
+      <div class="sc-who">
+        <div class="pk-name">${nameTag(c, { icon: false })}<span class="muted">Lv ${overallLevel(c)}</span>${c.exploreTeam !== null ? `<span class="sc-team" style="--team:${TEAM_COLORS[c.exploreTeam]}">${teamLabel(c.exploreTeam)}</span>` : ""}</div>
+        ${statChips(c, ["DEX", "CHA"])}
+      </div>
+      <div class="sc-vitals">
+        <div class="sc-vital" title="Stamina: now → after the trip"><span>⚡ <b>${c.stamina}</b> → <b class="${ok ? "" : "sc-neg"}">${ok ? stamAfter : "—"}</b><span class="muted">/${c.maxStamina}</span></span>${changeBar("stam", c.stamina, ok ? stamAfter : c.stamina, c.maxStamina)}</div>
+        <div class="sc-vital" title="HP: now → after the trip (lower only if a zombie wins)"><span>❤ <b>${c.hp}</b> → <b>${c.hp}</b><span class="sc-risk"> or ${hpHit}</span><span class="muted">/${c.maxHp}</span></span>${changeBar("hp", c.hp, hpHit, c.maxHp)}</div>
+      </div>
+      <div class="sc-odds" ${tipAttr({
+        title: `🧟 ${esc(shortName(c))}'s odds`,
+        rows: [["Meets a zombie", pct(odds.encounter)], ["Beats it", pct(odds.win)]],
+        total: ["Ambushed", pct(odds.ambush)],
+        notes: ["DEX sneaks past zombies; STR and DEX win the fight", `Ambushed: −${SCOUT_ENCOUNTER_HP_LOSS} HP and home with nothing`, "Beat it: a little salvage"],
+      })}><span class="muted">Ambush</span><b class="${odds.ambush >= 0.2 ? "sc-neg" : ""}">${pct(odds.ambush)}</b></div>
+      <div class="pk-action">${ok
+        ? `<button class="btn btn-sm btn-primary" data-action="confirm-scout" data-id="${c.id}" data-q="${q}" data-r="${r}">${d ? "🏃 Run" : "🧭 Scout"}</button>`
+        : `<button class="btn btn-sm btn-primary" disabled>${d ? "🏃 Run" : "🧭 Scout"}</button><span class="pk-gain pk-gain-max">Too tired</span>`}</div>
+    </div>`;
+  }).join("");
+  const none = d
+    ? "No students free to go."
+    : "No scouts yet — drag students into the Scouts window in the side panel.";
 
   return `
   <div class="modal-overlay" data-action="close-scout">
-    <div class="char-card mission-card" data-action="noop">
+    <div class="char-card mission-card sc-card" data-action="noop">
       <button class="cc-close" data-action="close-scout" title="Close">✕</button>
       ${d
         ? `<h3>${d.icon} ${d.name}</h3>
@@ -1470,7 +1549,7 @@ export function renderScoutModal(state, q, r, isDrop = false) {
       <p class="muted">Every block hides something — supplies, gear, seeds, animals, survivors, or a zombie nest. The further from the school, the more it costs to get there.</p>`}
       <div class="mission-stats-row"><span>⚡ ${cost} stamina</span><span class="${danger >= 40 ? "plot-warn" : ""}">🧟 up to ${danger}% chance of a zombie — less for a high-DEX ${d ? "runner" : "scout"}</span></div>
       <div class="mini-label">${d ? "Send a runner" : "Send a scout"}</div>
-      <div class="check-list">${rows || `<p class="muted">Nobody has the ${cost} stamina it takes to get this far out${canEverGo ? " right now — let someone rest first." : ". Raise a student's max stamina in Acrobatics to reach it."}</p>`}</div>
+      <div class="check-list picker-list sc-list">${rows || `<p class="muted">${none}</p>`}</div>
     </div>
   </div>`;
 }
@@ -1726,45 +1805,46 @@ export function renderBattleAnimation(state, anim) {
   return "";
 }
 
+// A place's pop-up: what's there, then the teams free to send (built in the side panel) with
+// their power and odds — or, once one is going, that team and a Recall.
 export function renderMissionModal(state, locationId) {
   const loc = LOCATIONS.find((l) => l.id === locationId);
-  const teamIndex = state.teamLocations.indexOf(locationId);
-  if (!loc || teamIndex === -1) return "";
+  if (!loc) return "";
+  const sentIndex = state.teamLocations.indexOf(locationId);
 
-  const members = state.characters.filter((c) => c.exploreTeam === teamIndex && c.alive);
-  const availableStudents = state.characters.filter(
-    (c) =>
-      c.role === "student" &&
-      c.alive &&
-      !c.infection &&
-      (c.exploreTeam === null || c.exploreTeam === teamIndex) &&
-      !c.farmToday && !c.scrapyardToday
-  );
-  const studentRows = availableStudents
-    .map((s) => {
-      const checked = s.exploreTeam === teamIndex ? "checked" : "";
-      const exhausted = s.stamina <= 0 && s.exploreTeam !== teamIndex;
-      const disabled = (members.length >= 5 && s.exploreTeam !== teamIndex) || exhausted ? "disabled" : "";
-      return `<label class="check-row ${exhausted ? "check-row-disabled" : ""}">
-        <input type="checkbox" data-action="toggle-team-member" data-team="${teamIndex}" data-id="${s.id}" ${checked} ${disabled}/>
-        <span class="assign-who">${nameTag(s)} — Lv${overallLevel(s)} ${statusTag(s)}${exhausted ? ' <span class="tag tag-injured">exhausted</span>' : ""}</span>${staminaBar(s)}
-      </label>`;
-    })
-    .join("");
-
-  let successHtml = `<p class="muted">Assign students to estimate the odds of success.</p>`;
-  if (members.length) {
+  // the odds, as resolveExploration rolls them (the team's average STR and DEX against the place)
+  const odds = (members) => {
+    if (!members.length) return null;
     const avg = (statKey) => members.reduce((sum, c) => sum + effectiveGrade(state, c, statKey), 0) / members.length;
-    const power = (avg("PE") + avg("Gymnastics")) / 2;
-    const requirement = loc.difficulty * 15;
-    const pct = Math.round(Math.max(0, Math.min(1, 0.3 + (power - requirement) / 100)) * 100);
-    const cls = pct >= 60 ? "mission-good" : pct >= 35 ? "mission-ok" : "mission-bad";
-    successHtml = `<div class="mission-success ${cls}">Estimated success: <b>${pct}%</b>${members.length < 5 ? " — a fuller team does better" : " — full team!"}</div>`;
-  }
+    return Math.round(Math.max(0, Math.min(1, 0.3 + ((avg("PE") + avg("Gymnastics")) / 2 - loc.difficulty * 15) / 100)) * 100);
+  };
+  const teamRow = (i) => {
+    const members = teamMembers(state, i);
+    const pct = odds(members);
+    const faces = teamSlotList(state, i).map(({ role, c }) => c
+      ? `<span class="ms-face ex-role-${role}" title="${esc(c.name)}">${characterSprite(c, 26)}</span>`
+      : `<span class="ms-face ms-face-empty ex-role-${role}">${EXPLORE_ROLES[role].icon}</span>`).join("");
+    const sent = i === sentIndex;
+    return `<div class="ms-team" style="--team:${TEAM_COLORS[i]}">
+      <div class="ms-team-name"><i class="team-dot"></i>${teamLabel(i)}</div>
+      <div class="ms-faces">${faces}</div>
+      ${teamPowerChip(state, i)}
+      <span class="ms-odds ${pct === null ? "muted" : pct >= 60 ? "ms-good" : pct >= 35 ? "ms-ok" : "ms-bad"}">${pct === null ? "Empty" : `${pct}%`}</span>
+      ${sent
+        ? `<button class="btn btn-danger btn-sm" data-action="clear-mission" data-team="${i}">Recall</button>`
+        : `<button class="btn btn-primary btn-sm" data-action="send-team" data-team="${i}" ${members.length ? "" : 'disabled title="Fill its slots in the side panel first"'}>🧭 Send</button>`}
+    </div>`;
+  };
+  const free = Array.from({ length: teamCount(state) }, (_, i) => i).filter((i) => !state.teamLocations[i]);
+  const teamsHtml = sentIndex !== -1
+    ? teamRow(sentIndex)
+    : free.length
+    ? free.map(teamRow).join("")
+    : `<p class="muted">Every team is already heading out today${nextTeamCost(state) !== null ? " — unlock another in the side panel" : ""}.</p>`;
 
   return `
   <div class="modal-overlay" data-action="close-mission">
-    <div class="char-card mission-card" data-action="noop">
+    <div class="char-card mission-card ms-card" data-action="noop">
       <button class="cc-close" data-action="close-mission" title="Close">✕</button>
       <h3>${LOCATION_ICON[locationId]} ${esc(loc.name)}</h3>
       <p class="muted">${esc(loc.desc)}</p>
@@ -1775,13 +1855,8 @@ export function renderMissionModal(state, locationId) {
         ${loc.serumChance ? `<span ${tipAttr({ title: "💉 Antiviral Serum", notes: ["The only cure for an infection — one per person", "Rare: found here, at the Hospital, Pharmacy and Fire Station, and on raid bosses"] })}>💉 Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
       </div>
       ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">${dangerNotes(state, loc.hex.q, loc.hex.r).join(" · ")}: lower odds and more injuries.</div>` : ""}
-      ${successHtml}
-      <div class="mini-label">Team (${members.length}/5)</div>
-      <div class="check-list">${studentRows || '<p class="muted">No available students.</p>'}</div>
-      <div class="row-actions">
-        <button class="btn btn-danger btn-sm" data-action="clear-mission" data-team="${teamIndex}">Recall Team</button>
-        <button class="btn btn-primary" data-action="close-mission">🗡️ Confirm Team &amp; Close</button>
-      </div>
+      <div class="mini-label ms-label">${sentIndex !== -1 ? "Heading here today" : "Send a team"} ${infoDot({ title: "🧭 Sending a team", notes: ["Build teams in the side panel — 2 fighters, a scout and 2 supports", "Odds: the team's average STR and DEX against the place's difficulty", "Each team goes to one place a day"] })}</div>
+      <div class="ms-teams">${teamsHtml}</div>
     </div>
   </div>`;
 }
@@ -2129,6 +2204,23 @@ function resolvePickerCandidates(state, picker) {
         role: "student", title: "Place a Student at the Entrance",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !placed.has(c.id))
           .map((c) => studentRow(c, "defending")),
+      };
+    }
+    case "team-slot": {
+      // an expedition team's empty slot: the students in that role, strongest in it first
+      const team = Number(roomId);
+      const r = EXPLORE_ROLES[postKey];
+      const cost = exploreStaminaCost(state);
+      return {
+        role: "student", title: `${r.icon} Add a ${r.name.slice(0, -1)} to ${teamLabel(team)}`,
+        recToggle: false, recLabel: `the strongest ${r.name.toLowerCase()}`,
+        focus: r.stats.map((s) => STAT_OF_SUBJECT[s]),
+        list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.farmToday && !c.scrapyardToday && exploreRole(c) === postKey && c.exploreTeam !== team)
+          .map((c) => {
+            const score = roleScores(c)[postKey] * 2;
+            const reason = c.exploreTeam !== null ? `On ${teamLabel(c.exploreTeam)}` : c.stamina < cost ? `Too tired (needs ${cost} stamina)` : null;
+            return reason ? { c, reason } : { c, value: -score, hint: `<span class="pk-gain" title="What they add to the team's power">⚔ +${score}</span>` };
+          }),
       };
     }
     case "farm":
