@@ -619,7 +619,6 @@ function fitCityMap() {
   if (over > 0 && height > 360) layout.style.height = `${(height = Math.max(360, height - over))}px`;
   placeCamera(map);
 }
-window.addEventListener("resize", fitCityMap);
 
 // ---------- the Night Watch board: drag defenders about, see what they reach ----------
 // Drag a student from the roster (or the board) onto a square of the steps — onto someone else
@@ -1736,9 +1735,13 @@ root.addEventListener("change", (e) => {
   }
 });
 
-// PC only: the UI Size setting and the fixed-height frame — see applyUiScale() in graphics.js.
+// PC only: laid out for a 1080p window and zoomed to fit the real one (plus the UI Size setting),
+// in a fixed-height frame — see applyUiScale() in graphics.js.
 applyUiScale();
-window.addEventListener("resize", applyUiScale);
+window.addEventListener("resize", () => {
+  applyUiScale(); // the zoom first, then the map refits under it
+  fitCityMap();
+});
 applyGraphics();
 
 // Test shortcuts, only when the game runs on this computer (the /max and /min project commands
