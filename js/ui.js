@@ -9,7 +9,7 @@ import {
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
-  LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, SCOUT_ENCOUNTER_HP_LOSS,
+  LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
   RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
 } from "./data.js";
 import {
@@ -1014,15 +1014,17 @@ function renderTurn2Overview(state) {
 
 // A team's power and rank as a chip, with its breakdown.
 function teamPowerChip(state, i) {
-  const { power, rank } = teamPower(state, i);
+  const { power, base, bonus, rank } = teamPower(state, i);
   const members = teamMembers(state, i);
+  const pctBonus = Math.round(EXPLORE_TEAMWORK_BONUS * 100);
   return `<span class="ex-power" ${tipAttr({
     title: `⚔ Team power ${power}`,
     rows: members.length
-      ? members.map((c) => { const r = EXPLORE_ROLES[exploreRole(c)]; return [`${r.icon} ${esc(shortName(c))} · ${r.stats.map((s) => STAT_OF_SUBJECT[s]).join("+")}`, `+${memberPower(state, c)}`]; })
+      ? [...members.map((c) => { const r = EXPLORE_ROLES[exploreRole(c)]; return [`${r.icon} ${esc(shortName(c))} · ${r.stats.map((s) => STAT_OF_SUBJECT[s]).join("+")}`, `+${memberPower(state, c)}`]; }),
+        bonus ? [`🤝 Teamwork · ${members.length} members +${Math.round(bonus * 100)}%`, `+${power - base}`] : tipNone(`🤝 Teamwork · needs 2+ members`, "+0")]
       : [tipNone("Nobody yet", "+0")],
     total: ["Power", `${power} · ${rank}`],
-    notes: ["Fighters add STR + CON, scouts DEX + CHA, supports INT + WIS — gear included", "Places further from the school need more power", `Rank: the power out of ${EXPLORE_TEAM_SLOTS.length * 200} as a grade — an empty slot adds nothing`],
+    notes: ["Fighters add STR + CON, scouts DEX + CHA, supports INT + WIS — gear included", `Teamwork: +${pctBonus}% for every member past the first (+${pctBonus * (EXPLORE_TEAM_SLOTS.length - 1)}% for a full team)`, "Places further from the school need more power", `Rank: the power out of ${EXPLORE_TEAM_SLOTS.length * 200} as a grade — an empty slot adds nothing`],
   })}>⚔ ${power} <b class="grade-letter-${rank}">${rank}</b></span>`;
 }
 

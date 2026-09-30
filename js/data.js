@@ -757,20 +757,23 @@ export const EXPLORE_ROLES = {
 // unlocks team i + 1), up to three. Every team has these five slots.
 export const EXPLORE_TEAM_COSTS = [0, 40, 80];
 export const EXPLORE_TEAM_SLOTS = ["fighter", "fighter", "scout", "support", "support"];
+// Teamwork: a team's power grows this much for every member past the first (+20% for a full five).
+export const EXPLORE_TEAMWORK_BONUS = 0.05;
 // How hard a place is: the team power it needs grows with every block from the school (the
 // nearest places are 3 out), give or take its own difficulty (1-5, around 3). A team with exactly
 // that power succeeds EXPEDITION_ODDS_AT_NEED of the time, ±1% per EXPEDITION_POWER_PER_PERCENT.
-// A new school's best five come to ~650 power: about 88% / 63% / 30% / 9% at 3 / 4 / 5 / 6 blocks
-// out (a careless five, far less); a maxed team (~1000) takes the far side of town at ~85%.
-export const EXPEDITION_NEED = { base: 525, perBlock: 100, perDifficulty: 25, nearest: 3 };
+// A new school's best five come to ~780 power with teamwork: about 88% / 63% / 30% / 9% at 3 / 4 /
+// 5 / 6 blocks out (a careless or short-handed team, far less); a maxed team (~1200) takes the far
+// side of town at ~85%.
+export const EXPEDITION_NEED = { base: 630, perBlock: 120, perDifficulty: 30, nearest: 3 };
 export const EXPEDITION_ODDS_AT_NEED = 0.55;
-export const EXPEDITION_POWER_PER_PERCENT = 4;
+export const EXPEDITION_POWER_PER_PERCENT = 5;
 export const EXPEDITION_ODDS_RANGE = [0.05, 0.95];
 // Harder places pay better: supplies × (1 + every `perPower` needed over the nearest places'
 // base), never under `min` — ×1.25 / ×1.5 / ×1.75 at 4 / 5 / 6 blocks out. Gear: a place's gear
 // level (1-5) rises every `gearStep` power needed past `gearFrom`, raising the chance of gear
 // (+8% a level) and the best tier it can be.
-export const EXPEDITION_LOOT = { perPower: 400, min: 0.75, gearFrom: 400, gearStep: 90 };
+export const EXPEDITION_LOOT = { perPower: 480, min: 0.75, gearFrom: 480, gearStep: 108 };
 
 // ===== Happiness =====
 // A school-wide mood meter that reacts to wins/losses/recruits/deaths and, in turn, skews

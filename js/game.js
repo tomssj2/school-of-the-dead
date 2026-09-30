@@ -8,7 +8,7 @@ import {
   GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, TEACHER_RECRUIT_CHANCE,
   ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
   CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL,
-  STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
+  STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
   HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
   HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
@@ -1101,10 +1101,15 @@ export function buyTeamSlot(state) {
 export function memberPower(state, c) {
   return EXPLORE_ROLES[exploreRole(c)].stats.reduce((sum, s) => sum + effectiveGrade(state, c, s), 0);
 }
-// A team's power: its members' added up. Its rank is that as a grade (an empty slot counts 0).
+// A team's power: its members' added up (`base`), plus teamwork — EXPLORE_TEAMWORK_BONUS for every
+// member past the first (`bonus`, +20% for a full team). Its rank is that as a grade (an empty slot
+// counts 0).
 export function teamPower(state, i) {
-  const power = teamMembers(state, i).reduce((sum, c) => sum + memberPower(state, c), 0);
-  return { power, rank: gradeLetter(Math.min(100, Math.round(power / (EXPLORE_TEAM_SLOTS.length * 2)))) };
+  const members = teamMembers(state, i);
+  const base = members.reduce((sum, c) => sum + memberPower(state, c), 0);
+  const bonus = Math.max(0, members.length - 1) * EXPLORE_TEAMWORK_BONUS;
+  const power = Math.round(base * (1 + bonus));
+  return { power, base, bonus, rank: gradeLetter(Math.min(100, Math.round(power / (EXPLORE_TEAM_SLOTS.length * 2)))) };
 }
 // The team power a place needs: more for every block further from the school, give or take its
 // own difficulty.
