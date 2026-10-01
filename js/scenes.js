@@ -2290,12 +2290,15 @@ export function sceneBackground(kind, floorRows = 0) {
       cells.set(k, cell);
     }
     for (const cell of cells.values()) if (cell.n >= 2) lights.push({ x: cell.x / cell.n, y: cell.y / cell.n, r: 10 + Math.min(10, cell.n), k: 0.35, c: SCREEN_LIGHTS[cell.c] });
-    // a deeper floor for a fight: the bottom 8 rows again and again
+    // a deeper floor for a fight: the bottom 8 rows again and again, each copy slid sideways (the
+    // scene wraps round) so the scuffs and planks don't line up in columns
     for (let y = h; y < h + floorRows; y++) {
+      const band = Math.floor((y - h) / 8) + 1;
       const src = (h - 8 + ((y - h) % 8)) * w;
       for (let x = 0; x < w; x++) {
-        p.col[y * w + x] = p.col[src + x];
-        p.glow[y * w + x] = p.glow[src + x];
+        const sx = (x + band * 61) % w;
+        p.col[y * w + x] = p.col[src + sx];
+        p.glow[y * w + x] = p.glow[src + sx];
       }
     }
     const ambient = (OUTDOOR_SCENES.has(name) ? AFTERNOON : INDOOR_AMBIENT)[lv - 1];

@@ -758,6 +758,25 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   animation: idle-bob 1.8s ease-in-out infinite;
 }
 .scene-person svg { display: block; }
+/* a shadow on the floor under their feet, which stays put (and shrinks) as they bob */
+.scene-person::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  width: 28px;
+  height: 6px;
+  margin-left: -14px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(10, 8, 16, 0.5), rgba(10, 8, 16, 0));
+  z-index: -1;
+  animation: idle-shadow 1.8s ease-in-out infinite;
+  animation-delay: inherit;
+}
+@keyframes idle-shadow {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(2px) scale(0.85); }
+}
 .scene-person:hover { z-index: 2; filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8)); }
 /* The back row of a full room: a step up and a little dimmer, behind the front row. */
 .scene-person.scene-back { bottom: 17px; z-index: 0; filter: brightness(0.8) drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35)); }
@@ -936,7 +955,7 @@ html[data-gfx="low"] .staff-add { animation: none; }
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tab-enter .content > *, .tab-enter .content .room, .scene-person, body::before, body::after { animation: none; }
+  .tab-enter .content > *, .tab-enter .content .room, .scene-person, .scene-person::before, body::before, body::after { animation: none; }
 }
 
 /* ===== The Night Watch board (nightwatch.js art; ui.js renderNightBoard / renderGridBattle) =====
@@ -3103,6 +3122,7 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 html[data-gfx="medium"] body::before,
 html[data-gfx="medium"] body::after,
 html[data-gfx="medium"] .scene-person,
+html[data-gfx="medium"] .scene-person::before,
 html[data-gfx="medium"] .cm-q,
 html[data-gfx="medium"] .cm-routes path,
 html[data-gfx="medium"] .cm-cell::before,

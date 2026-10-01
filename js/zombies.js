@@ -382,7 +382,8 @@ function build(lookId) {
   };
   if (L.suit) base.c = "#e8e4dc";
 
-  // Rim shading: light from the top-left, shadow on the bottom-right, as on the students.
+  // Rim shading: light from the top-left, shadow on the bottom-right, as on the students — and,
+  // like them, clothes and hair turning into the shadow over two pixels so they look round.
   const groupAt = (x, y) => GROUP[g.get(x, y)] || null;
   const color = Array.from({ length: H }, () => Array(W).fill(null));
   for (let y = 0; y < H; y++) {
@@ -395,6 +396,7 @@ function build(lookId) {
         if (k === "s" && groupAt(x, y - 1) === "hair") col = shadowOf(col);
         else if (groupAt(x + 1, y) !== grp || groupAt(x, y + 1) !== grp) col = shadowOf(col);
         else if (groupAt(x - 1, y) !== grp || groupAt(x, y - 1) !== grp) col = lightOf(col);
+        else if (k !== "s" && groupAt(x + 2, y) !== grp) col = mix(col, shadowOf(col), 0.5);
       }
       color[y][x] = col;
     }

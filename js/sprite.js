@@ -622,7 +622,9 @@ function build(c, injury) {
     t: "#ffe27a",
   };
 
-  // Rim shading: light from the top-left. Skin right under the fringe gets the hair's shadow.
+  // Rim shading: light from the top-left. Skin right under the fringe gets the hair's shadow; hair
+  // and clothes turn into shadow over two pixels on the right, so they look round, and the hair has
+  // a soft sheen across the crown.
   const groupAt = (x, y) => GROUP[g.get(x, y)] || null;
   const color = Array.from({ length: H }, () => Array(W).fill(null));
   for (let y = 0; y < H; y++) {
@@ -635,6 +637,8 @@ function build(c, injury) {
         if (k === "s" && groupAt(x, y - 1) === "hair") col = shadowOf(col);
         else if (groupAt(x + 1, y) !== grp || groupAt(x, y + 1) !== grp) col = shadowOf(col);
         else if (groupAt(x - 1, y) !== grp || groupAt(x, y - 1) !== grp) col = lightOf(col);
+        else if (k !== "s" && groupAt(x + 2, y) !== grp) col = mix(col, shadowOf(col), 0.5);
+        else if (k === "h" && y >= 2 && y <= 5 && x >= 12 && x <= 19 && Math.abs(x - 15.5 - (y - 3.5) * 1.5) < 2.2) col = mix(col, lightOf(col), 0.6);
       }
       color[y][x] = col;
     }

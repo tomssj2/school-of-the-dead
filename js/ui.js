@@ -740,7 +740,7 @@ export function renderRoomFight(state, anim) {
   return `<div class="modal-overlay raid-overlay room-fight-overlay">
     <div class="raid-stage">
       <div class="raid-title">🔨 Clearing ${esc(roomLabel(report.roomKey))}</div>
-      <div class="raid-arena room-arena raid-arena-art" style="background-image:linear-gradient(180deg, rgba(8, 10, 16, 0.15), rgba(8, 10, 16, 0.55)), ${sceneBackground(`${report.roomKey.startsWith("classroom:") ? "classroom_empty" : report.roomKey}@1`, 28)}">
+      <div class="raid-arena room-arena raid-arena-art" style="background-image:linear-gradient(180deg, rgba(8, 10, 16, 0.05), rgba(8, 10, 16, 0.4)), ${sceneBackground(`${report.roomKey.startsWith("classroom:") ? "classroom_empty" : report.roomKey}@1`, 28)}">
         ${members}
         ${zombies}
       </div>
