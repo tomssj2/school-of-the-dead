@@ -3,7 +3,7 @@
 import * as G from "./game.js";
 import { makeCharacter, makeLegendaryCharacter, makeItem } from "./characters.js";
 import { MAP_RADIUS } from "./map.js";
-import { CLASSROOM_IDS, PRODUCERS, YARD_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel } from "./data.js";
+import { CLASSROOM_IDS, PRODUCERS, YARD_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_STRUCTURES, DEFENSE_ROW0, STREET_ROW0 } from "./data.js";
 
 // Every room and facility to the top level, and every slot filled: teachers in every post,
 // every classroom seat, training, resting, beds, outside workers, plots and pens. Hires whoever is
@@ -155,7 +155,7 @@ export function setNight(state, day = 8) {
   state.pendingAssault = false;
   for (const key of Object.keys(state.entranceGrid.students)) G.clearEntranceStudentCell(state, key);
   const size = state.entranceGrid.size;
-  const third = Math.floor(size / 3);
+  const third = 3; // the defenders' rows (data.js ENTRANCE_ZONES.students)
   const fighters = state.characters
     .filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null)
     .sort((a, b) => (b.grades.PE + b.grades.Gymnastics) - (a.grades.PE + a.grades.Gymnastics))
@@ -164,6 +164,16 @@ export function setNight(state, day = 8) {
   state.resources.materials = Math.max(state.resources.materials, 30);
   state.resources.medicine = Math.max(state.resources.medicine, 20);
   return `Night ${day}: ${G.nightCondition(state).name}, ${fighters.length} on watch`;
+}
+
+// Fills the courtyard with defenses (free), each kind in turn — to see them on the board.
+export function fortifyEntrance(state) {
+  const grid = state.entranceGrid;
+  let n = 0;
+  for (let row = DEFENSE_ROW0; row < STREET_ROW0; row++) {
+    for (let col = 0; col < grid.size; col++) grid.defenses[`${row},${col}`] = DEFENSE_STRUCTURES[n++ % DEFENSE_STRUCTURES.length].id;
+  }
+  return `${n} defenses built`;
 }
 
 // Hands everyone on watch tonight a Fire Axe and a Recurve Bow (made on the spot, so the armory

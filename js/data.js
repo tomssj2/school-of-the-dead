@@ -243,11 +243,16 @@ export const LEGENDARY_ITEM_TEMPLATES = [
 export const LEGENDARY_TITLES = ["the Relentless", "the Unbroken", "the Last Stand", "the Ironclad", "the Undying", "the Reaper's Bane"];
 
 // ===== Main Entrance battle grid =====
-// The grid the player builds and fights on at the Main Entrance, split into 3 equal horizontal
-// thirds: students are placed in the top rows, defenses are built in the middle rows, and the
-// bottom rows are reserved for the horde. Starts at 6x6 — stored on state (not hardcoded) so a
-// later "expand the entrance" upgrade can just grow state.entranceGrid.size.
+// The grid the player builds and fights on at the Main Entrance: ENTRANCE_GRID_SIZE columns, and
+// rows top to bottom in three zones — the front steps where defenders stand, the courtyard where
+// defenses are built, and the street the horde comes up from. (state.entranceGrid.size is the
+// column count.)
 export const ENTRANCE_GRID_SIZE = 6;
+export const ENTRANCE_ZONES = { students: 3, defenses: 2, street: 2 };
+export const ENTRANCE_ROWS = ENTRANCE_ZONES.students + ENTRANCE_ZONES.defenses + ENTRANCE_ZONES.street;
+// The row each zone starts on.
+export const DEFENSE_ROW0 = ENTRANCE_ZONES.students;
+export const STREET_ROW0 = ENTRANCE_ZONES.students + ENTRANCE_ZONES.defenses;
 
 // `blocks` structures stop zombies until smashed (hp); destroyed ones are gone after the battle,
 // damaged ones are patched back up. `enterDamage` hits a zombie stepping onto the cell;

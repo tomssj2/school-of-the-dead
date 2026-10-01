@@ -943,7 +943,7 @@ html[data-gfx="low"] .staff-add { animation: none; }
 }
 
 /* ===== The Night Watch board (nightwatch.js art; ui.js renderNightBoard / renderGridBattle) =====
-   The art is --size squares of 32x20 under a 26-tall facade, scaled by --px. Squares and units
+   The art is --size columns by --rows of 32x20 squares under a 36-tall facade (nightwatch.js FACADE_H), scaled by --px. Squares and units
    are placed over it with --r / --c. */
 .nw-layout { display: flex; gap: 14px; align-items: stretch; }
 .nw-board {
@@ -951,7 +951,7 @@ html[data-gfx="low"] .staff-add { animation: none; }
   position: relative;
   flex: none;
   width: calc(var(--size) * 32px * var(--px));
-  height: calc((26px + var(--size) * 20px) * var(--px));
+  height: calc((36px + var(--rows, var(--size)) * 20px) * var(--px));
   margin: 0 auto;
   background-size: 100% 100%;
   image-rendering: pixelated;
@@ -969,7 +969,7 @@ html[data-gfx="low"] .staff-add { animation: none; }
   pointer-events: none;
   background: radial-gradient(ellipse at 50% 30%, transparent 45%, rgba(4, 6, 16, 0.6) 100%);
 }
-.nw-cells { position: absolute; left: 0; right: 0; bottom: 0; top: calc(26px * var(--px)); }
+.nw-cells { position: absolute; left: 0; right: 0; bottom: 0; top: calc(36px * var(--px)); }
 .nw-cell {
   position: absolute;
   left: calc(var(--c) * 32px * var(--px));

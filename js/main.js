@@ -10,7 +10,7 @@ import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeache
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
-import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp, armDefenders } from "./dev.js";
+import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp, armDefenders, fortifyEntrance } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
@@ -436,6 +436,17 @@ function migrateState(s) {
   if (s.horde === undefined) s.horde = null;
   if (s.raidTarget === undefined) s.raidTarget = null;
   if (!s.raidCooldowns) s.raidCooldowns = {};
+  // The front steps got a third row of defenders: the courtyard moved down a row, so an older
+  // save's defenses (rows 2-3) move with it (to rows 3-4).
+  if (s.entranceGrid && !s.entranceGrid.stepsV2) {
+    const moved = {};
+    for (const [key, id] of Object.entries(s.entranceGrid.defenses || {})) {
+      const [row, col] = key.split(",").map(Number);
+      moved[`${row >= 2 ? row + 1 : row},${col}`] = id;
+    }
+    s.entranceGrid.defenses = moved;
+    s.entranceGrid.stepsV2 = true;
+  }
   if (!s.raidKills) s.raidKills = {};
   // Locations moved apart by the no-touching map rule: a save that had explored the old spot sees
   // the new one too, and no nest is left sitting under a location.
@@ -1980,6 +1991,13 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       if (!beforeMax) beforeMax = JSON.stringify(state);
       const summary = setNight(state, day);
       activeTab = "overview";
+      render();
+      return summary;
+    },
+    // schoolDev.fortify(): a defense on every square of the courtyard, free.
+    fortify() {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      const summary = fortifyEntrance(state);
       render();
       return summary;
     },

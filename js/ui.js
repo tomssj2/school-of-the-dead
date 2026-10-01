@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
-  NIGHT_ACTIONS, NIGHT_CONDITIONS, DEFENDER_ROLES, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS,
+  NIGHT_ACTIONS, NIGHT_CONDITIONS, DEFENDER_ROLES, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
@@ -2152,7 +2152,7 @@ function renderGridBattle(state, anim) {
   const frame = summary.frames[anim.frameIndex];
   const prev = anim.frameIndex > 0 ? summary.frames[anim.frameIndex - 1] : null;
   const size = summary.size;
-  const third = Math.floor(size / 3);
+  const third = ENTRANCE_ZONES.students;
   const at = (row, col, extra = "") => `style="--r:${row};--c:${col};${extra}"`;
   const bar = (hp, max, cls) => `<span class="nw-hp ${cls}"><i style="width:${Math.max(0, Math.round((hp / max) * 100))}%"></i></span>`;
   const prevZombies = new Map((prev?.zombies || []).map((z) => [z.id, z]));
@@ -2429,7 +2429,7 @@ function renderGridBattle(state, anim) {
         ${b?.rally ? ` · <span class="nw-rallied">🔔 Rallied (${b.rally})</span>` : ""}
       </div>
     </div>
-    <div class="nw-board nw-battle nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--lamp-a:${lampLanes(size)[0]};--lamp-b:${lampLanes(size)[1]};background-image:${courtyardBackground(size)}">
+    <div class="nw-board nw-battle nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${ENTRANCE_ROWS};--lamp-a:${lampLanes(size)[0]};--lamp-b:${lampLanes(size)[1]};background-image:${courtyardBackground(size)}">
       ${gate}
       <div class="nw-cells">${units}${fx}${aimCells}</div>
       ${breakTime ? "" : banner}
@@ -2586,7 +2586,7 @@ function renderTurn3Summary(state) {
   const tip = (kind, text) => { const n = ["tip", text, kind]; all.push(n); return n; };
   const grid = state.entranceGrid;
   const size = grid.size;
-  const third = Math.floor(size / 3);
+  const third = ENTRANCE_ZONES.students;
 
   // ----- tonight's horde -----
   const zombies = zombieCountForDay(state.day);
@@ -2628,7 +2628,7 @@ function renderTurn3Summary(state) {
   // ----- the defenses in the courtyard -----
   let emptyCells = 0;
   const built = [];
-  for (let row = third; row < third * 2; row++) {
+  for (let row = DEFENSE_ROW0; row < STREET_ROW0; row++) {
     for (let col = 0; col < size; col++) {
       const id = grid.defenses[`${row},${col}`];
       if (id) built.push(id);
@@ -3200,13 +3200,13 @@ function nightDefender(state, c, row, col) {
 function renderNightBoard(state) {
   const grid = state.entranceGrid;
   const size = grid.size;
-  const third = Math.floor(size / 3);
+  const third = ENTRANCE_ZONES.students;
   const comp = hordeComposition(state.day);
   const horde = ["walker", "runner", "brute", "spitter"].flatMap((t) => Array(comp[t] || 0).fill(t));
   if (comp.boss) horde.push("boss");
   let cells = "";
   let ghost = 0;
-  for (let row = 0; row < size; row++) {
+  for (let row = 0; row < ENTRANCE_ROWS; row++) {
     for (let col = 0; col < size; col++) {
       const key = entranceCellKey(row, col);
       const at = `style="--r:${row};--c:${col}" data-row="${row}" data-col="${col}"`;
@@ -3218,7 +3218,7 @@ function renderNightBoard(state) {
               <button class="cell-remove" data-action="clear-entrance-student" data-cell="${key}" title="Take off watch">✕</button>
             </div>`
           : `<div class="nw-cell nw-top nw-empty" ${at} data-drop-cell="${key}" data-action="open-picker" data-kind="entrance-student" data-room="${key}" title="Post a defender here — or drag one in"><span class="nw-plus">+</span></div>`;
-      } else if (row < third * 2) {
+      } else if (row < STREET_ROW0) {
         const def = grid.defenses[key] ? DEFENSE_STRUCTURES.find((d) => d.id === grid.defenses[key]) : null;
         cells += def
           ? `<div class="nw-cell nw-mid nw-filled" ${at} ${tipAttr({ title: `${def.icon} ${esc(def.name)}`, notes: [esc(def.desc)] })}>
@@ -3235,7 +3235,7 @@ function renderNightBoard(state) {
   }
   const gateMax = gateHp(state);
   const lamps = lampLanes(size);
-  return `<div class="nw-board nw-cond-${nightCondition(state).id}" style="--size:${size};--lamp-a:${lamps[0]};--lamp-b:${lamps[1]};background-image:${courtyardBackground(size)}">
+  return `<div class="nw-board nw-cond-${nightCondition(state).id}" style="--size:${size};--rows:${ENTRANCE_ROWS};--lamp-a:${lamps[0]};--lamp-b:${lamps[1]};background-image:${courtyardBackground(size)}">
     <div class="nw-gate ${gateMax ? "" : "nw-gate-none"}" ${tipAttr({ title: "🚪 The gate", rows: [["Gate", `${gateMax} HP`]], notes: ["Zombies past the top row batter the doors — once they're down, they get in", "Fortification (the Crafting Room) makes the doors sturdier"] })}>🚪 ${gateMax ? `<b>${gateMax}</b> HP` : "No gate yet"}</div>
     <div class="nw-cells">${cells}${formationLinks(entranceFormations(state).links)}</div>
   </div>`;
