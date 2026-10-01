@@ -6,6 +6,7 @@
 import { MAP_RADIUS, isSchoolHex, hexTerrain, hexDistance, locationAt, tilePixels, hexTileKey, LAIR_W, LAIR_H } from "./map.js";
 import { LOCATIONS, LANDMARKS } from "./data.js";
 import { shadowOf, lightOf } from "./sprite.js";
+import { lightUp, DUSK } from "./lighting.js";
 
 // ---------- geometry: world pixels <-> hexes ----------
 
@@ -105,11 +106,24 @@ function col(hex) {
 
 function painter(w, h) {
   const buf = new Uint32Array(w * h);
+  const glow = new Uint8Array(w * h);
+  const lights = [];
   const set = (x, y, c) => {
     if (x >= 0 && y >= 0 && x < w && y < h) buf[y * w + x] = c;
   };
   return {
-    buf, w, h,
+    buf, w, h, glow, lights,
+    // a pixel that gives off its own light, and a light pool around it
+    glowDot(x, y, hex) {
+      x = Math.round(x);
+      y = Math.round(y);
+      if (x < 0 || y < 0 || x >= w || y >= h) return;
+      buf[y * w + x] = col(hex);
+      glow[y * w + x] = 1;
+    },
+    light(l) {
+      lights.push(l);
+    },
     rect(x0, y0, x1, y1, hex) {
       const c = col(hex);
       for (let y = Math.max(0, Math.round(y0)); y <= Math.min(h - 1, Math.round(y1)); y++)
@@ -336,9 +350,10 @@ const LOTS = {
     if (rnd() < 0.5) {
       const x = a.x1 - 5;
       const y = a.y0 + 5;
-      p.dot(x, y, "#f08a3a");
-      p.dot(x + 1, y - 1, "#f4d35e");
-      p.dot(x - 1, y - 1, "#f08a3a");
+      p.glowDot ? p.glowDot(x, y, "#f08a3a") : p.dot(x, y, "#f08a3a");
+      p.glowDot ? p.glowDot(x + 1, y - 1, "#f4d35e") : p.dot(x + 1, y - 1, "#f4d35e");
+      p.glowDot ? p.glowDot(x - 1, y - 1, "#f08a3a") : p.dot(x - 1, y - 1, "#f08a3a");
+      p.light?.({ x, y: y - 1, r: 13, k: 0.7, c: [1.0, 0.55, 0.22] });
     }
   },
   woods(p, a, rnd) {
@@ -428,6 +443,15 @@ export function cityBaseUrl() {
       segments.push({ v: false, k, y, x0: LX(i), x1: LX(i + 1) });
     }
   }
+  // the streetlights along the avenues, coming on at dusk
+  for (const s of segments) {
+    if (s.k !== 2) continue;
+    const at = s.v ? [s.x + 3, s.y0 + 9] : [s.x0 + 9, s.y + 3];
+    if (hash2(at[0], at[1], 31) < 0.3) continue; // a few have failed
+    p.dot(at[0], at[1] + 1, "#2a2e36");
+    p.glowDot(at[0], at[1], "#fff2c0");
+    p.light({ x: at[0], y: at[1], r: 12, k: 0.72, c: [1.0, 0.9, 0.62] });
+  }
   // lane markings on the avenues, and cars left where they stopped
   for (const s of segments) {
     const rnd = rngFor(hash2(s.v ? s.x : s.x0, s.v ? s.y0 : s.y, 9) * 4294967296);
@@ -513,7 +537,11 @@ export function cityBaseUrl() {
     p.dot(x, y + 1, "#3a4a3a");
   }
 
-  baseUrl = toDataUrl(p);
+  // the campus, the one place with the lights on
+  p.light({ x: CX, y: CY, r: 62, k: 0.4, c: [1.0, 0.88, 0.62] });
+  // lit like the rest of the game's scenes (lighting.js): the town at dusk — it's Turn 2 — the
+  // streetlights coming on, fires smouldering in the ruins, the campus glowing
+  baseUrl = lightUp({ w: p.w, h: p.h, glow: p.glow, rgbAt: (i) => { const v = p.buf[i]; return [v & 255, (v >>> 8) & 255, (v >>> 16) & 255]; } }, p.lights, { ambient: DUSK, mist: false });
   return baseUrl;
 }
 

@@ -67,10 +67,14 @@ export const bayer = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
 
 // The night's ambient (moonlight), the default.
 export const NIGHT = [0.34, 0.38, 0.6];
+// The town at dusk (Turn 2): the City Map's light, which map.js also grades its tiles with, so a
+// place looks the same in a pop-up as on the map.
+export const DUSK = [0.85, 0.75, 0.7];
 
 // Lights each pixel: the ambient plus every light — a pool ({ x, y, r, sy, k, c }) or a beam shining
 // straight down ({ x, y, len, w0, spread, k, c }) — in steps, so the light falls off in bands like
-// the rest of the pixel art. Then the mist at the bottom (`mist: false` for none).
+// the rest of the pixel art. Then the mist at the bottom (`mist: false` for none). A buffer may give
+// its pixels as rgbAt(i) -> [r, g, b] instead of col (the City Map's packed one does).
 export function lightUp(p, lights, { ambient = NIGHT, mist: misty = true } = {}) {
   const { w, h } = p;
   const cv = document.createElement("canvas");
@@ -83,7 +87,7 @@ export function lightUp(p, lights, { ambient = NIGHT, mist: misty = true } = {})
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
-      const base = rgb(p.col[i] || "#000000");
+      const base = p.rgbAt ? p.rgbAt(i) : rgb(p.col[i] || "#000000");
       let out;
       if (p.glow[i]) out = base.slice();
       else {

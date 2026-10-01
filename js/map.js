@@ -5,6 +5,13 @@
 
 import { LOCATIONS } from "./data.js";
 import { shadowOf, lightOf } from "./sprite.js";
+import { DUSK, rgb } from "./lighting.js";
+
+// A tile's colour under the City Map's dusk light (keeping any alpha).
+const atDusk = (c) => {
+  const hex = rgb(c).map((v, k) => Math.round(v * DUSK[k]).toString(16).padStart(2, "0")).join("");
+  return `#${hex}${c.length === 9 ? c.slice(7) : ""}`;
+};
 
 // ---------- terrain ----------
 
@@ -853,7 +860,7 @@ export function tileDataUri(key) {
         const c = k.g[y][x];
         let run = 1;
         while (x + run < w && k.g[y][x + run] === c) run++;
-        if (c) rects += `<rect x="${x}" y="${y}" width="${run}" height="1" fill="${c}"/>`;
+        if (c) rects += `<rect x="${x}" y="${y}" width="${run}" height="1" fill="${atDusk(c)}"/>`;
         x += run;
       }
     }

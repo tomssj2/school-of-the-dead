@@ -440,15 +440,19 @@ function street(w = AW, h = AH, depth = AH) {
   return toUrl(base, L, [0.3, 0.34, 0.55]);
 }
 
-// ===== a street at dusk behind each expedition team (SW x SH at 3x), varied by the place =====
+// ===== a street at dusk behind each expedition team (SW x SH at 3x), varied by the place: lit by
+// the low sun, a few windows and the first streetlights =====
 const SW = 327;
 const SH = 32;
 function duskStreet(seed) {
   const p = buffer(SW, SH);
+  const L = [];
+  // the sky and the low sun give off their own light, and so does the far skyline against it
   for (let y = 0; y < 16; y++) p.r(0, y, SW - 1, y, mix("#2a2450", "#d0785a", y / 15), 1);
   const sunX = 40 + Math.floor(hash(seed, 1) * 240);
   p.oval(sunX, 15, 5, 5, "#f4b060", 1);
-  // the far skyline
+  p.oval(sunX, 15, 3, 3, "#ffd890", 1);
+  L.push({ x: sunX, y: 15, r: 150, sy: 1.4, k: 0.42, c: [1.0, 0.7, 0.45] });
   for (let x = 0; x < SW; ) {
     const w = 8 + Math.floor(hash(x, seed + 2) * 16);
     const top = 5 + Math.floor(hash(x, seed + 3) * 9);
@@ -456,31 +460,41 @@ function duskStreet(seed) {
     for (let k = 0; k < 3; k++) if (hash(x + k, seed + 4) < 0.5) p.set(x + 2 + Math.floor(hash(x + k, seed + 5) * (w - 3)), top + 2 + Math.floor(hash(x + k, seed + 6) * (16 - top)), "#e8a858", 1);
     x += w;
   }
-  // the near street: facades, dark windows, storefronts
+  // the near street, lit by the sun going down, a few windows and the first streetlights
   for (let x = 0; x < SW; ) {
     const w = 18 + Math.floor(hash(x, seed + 7) * 24);
     const top = 9 + Math.floor(hash(x, seed + 8) * 6);
     const col = ["#7a5248", "#5a5e6a", "#6a5a4a", "#4a5a6a", "#6a4a5a"][Math.floor(hash(x, seed + 9) * 5)];
-    p.r(x, top, x + w - 1, 25, col, 1);
-    p.r(x, top, x + w - 1, top, mix(col, "#ffd0a0", 0.3), 1);
-    p.r(x + w - 1, top, x + w - 1, 25, mix(col, "#000000", 0.3), 1);
-    for (let wx = x + 2; wx + 2 < x + w - 1; wx += 5) for (let wy = top + 2; wy < 20; wy += 4) p.r(wx, wy, wx + 1, wy + 1, hash2(wx, wy, seed) < 0.15 ? "#e8a858" : "#2a2438", 1);
-    p.r(x + 1, 21, x + w - 2, 25, mix(col, "#1a1820", 0.5), 1);
+    p.r(x, top, x + w - 1, 25, col);
+    p.r(x, top, x + w - 1, top, mix(col, "#ffd0a0", 0.3));
+    p.r(x + w - 1, top, x + w - 1, 25, mix(col, "#000000", 0.3));
+    for (let wx = x + 2; wx + 2 < x + w - 1; wx += 5) for (let wy = top + 2; wy < 20; wy += 4) {
+      const lit = hash2(wx, wy, seed) < 0.15;
+      p.r(wx, wy, wx + 1, wy + 1, lit ? "#e8a858" : "#2a2438", lit ? 1 : 0);
+      if (lit) L.push({ x: wx + 0.5, y: wy + 0.5, r: 6, k: 0.45, c: WARM });
+    }
+    p.r(x + 1, 21, x + w - 2, 25, mix(col, "#1a1820", 0.5));
     x += w;
   }
-  p.r(0, 26, SW - 1, 27, "#9a8478", 1);
-  p.r(0, 28, SW - 1, 28, "#c8aa98", 1);
-  p.r(0, 29, SW - 1, SH - 1, "#4a4048", 1);
-  for (let x = 4; x < SW; x += 16) p.r(x, 30, x + 7, 30, "#c8a060", 1);
+  p.r(0, 26, SW - 1, 27, "#9a8478");
+  p.r(0, 28, SW - 1, 28, "#c8aa98");
+  p.r(0, 29, SW - 1, SH - 1, "#4a4048");
+  for (let x = 4; x < SW; x += 16) p.r(x, 30, x + 7, 30, "#c8a060");
+  for (let x = 40 + Math.floor(hash(seed, 12) * 40); x < SW - 4; x += 96) {
+    p.r(x, 14, x, 27, "#2a2630");
+    p.r(x, 14, x + 3, 14, "#2a2630");
+    p.r(x + 2, 15, x + 4, 15, "#fff2c0", 1);
+    L.push({ x: x + 3, y: 16, len: 16, w0: 2, spread: 0.5, k: 0.55, c: LAMP });
+  }
   // a couple of wrecks along the kerb
   for (let k = 0; k < 2; k++) {
     const cx = 30 + Math.floor(hash(k, seed + 10) * 260);
     const col = ["#8a3030", "#3a5a8a", "#c89a3a"][Math.floor(hash(k, seed + 11) * 3)];
-    p.r(cx, 25, cx + 13, 28, col, 1);
-    p.r(cx + 3, 23, cx + 10, 24, col, 1);
-    p.r(cx + 4, 23, cx + 9, 24, "#2a2438", 1);
+    p.r(cx, 25, cx + 13, 28, col);
+    p.r(cx + 3, 23, cx + 10, 24, col);
+    p.r(cx + 4, 23, cx + 9, 24, "#2a2438");
   }
-  return toUrl(p, [], [1, 1, 1]);
+  return toUrl(p, L, [0.72, 0.62, 0.66]);
 }
 
 // ---------- what the UI uses ----------
