@@ -645,6 +645,10 @@ function fitCityMap() {
   const box = content.getBoundingClientRect();
   const above = (layout.getBoundingClientRect().top - box.top) / zoom + content.scrollTop;
   let height = Math.max(360, Math.floor(box.height / zoom - above - 20));
+  // ...but never taller than the town itself at the map's width (plus the strips above and below
+  // it), so a tall window doesn't stretch it into a column with empty space top and bottom
+  const strips = [...layout.querySelectorAll(".cm-strip")].reduce((sum, el) => sum + el.offsetHeight + 8, 0);
+  height = Math.min(height, Math.max(360, Math.ceil((map.clientWidth * WORLD_H) / WORLD_W) + strips + 2));
   layout.style.height = `${height}px`;
   const over = content.scrollHeight - content.clientHeight; // the card's own padding below it
   if (over > 0 && height > 360) layout.style.height = `${(height = Math.max(360, height - over))}px`;
