@@ -1764,7 +1764,7 @@ root.addEventListener("click", (e) => {
       render();
       break;
     case "set-role-tab":
-      setRoleTab(el.dataset.role);
+      setRoleTab(el.dataset.role, el.dataset.where);
       render();
       break;
     case "reset-roles":

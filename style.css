@@ -1621,6 +1621,7 @@ body.nw-dragging .nw-roster { border-color: rgba(214, 69, 69, 0.45); }
 .nw-chip-gear { grid-column: 3; grid-row: 1 / 3; font-size: 13px; }
 .nw-chip-on { border-color: rgba(79, 163, 255, 0.7); background: rgba(79, 163, 255, 0.14); }
 .nw-chip-hurt .nw-chip-name { color: var(--warn); }
+.nw-roster-empty { grid-column: 1 / -1; margin: 6px 0; text-align: center; }
 .nw-side .btn-big { margin-top: auto; }
 .nw-enemy-icon { display: flex; align-items: center; justify-content: center; }
 .nw-enemy-icon svg { height: 28px; width: auto; }

@@ -1480,10 +1480,14 @@ function renderTeamCard(state, i) {
   </div>`;
 }
 
-// Which role the Exploration tab's role window shows (main.js flips it: set-role-tab).
+// Which role the Exploration tab's role window shows, and the Night Watch roster (main.js flips
+// them: set-role-tab, data-where="night" for the Night Watch).
 let roleTab = "fighter";
-export function setRoleTab(role) {
-  if (EXPLORE_ROLES[role]) roleTab = role;
+let nightRoleTab = "fighter";
+export function setRoleTab(role, where) {
+  if (!EXPLORE_ROLES[role]) return;
+  if (where === "night") nightRoleTab = role;
+  else roleTab = role;
 }
 
 // The expedition roles (EXPLORE_ROLES), one at a time: a tab per role next to "Roles" — drop a
@@ -2738,8 +2742,8 @@ function renderNightWatchScreen(state) {
           return `<div class="mini-label">Formations ${infoDot({ title: `${FORMATIONS.shieldWall.icon} Formations`, rows: Object.values(FORMATIONS).map((f) => [`${f.icon} ${f.name}`, f.armor ? `−${Math.round((1 - f.armor) * 100)}% damage` : `+${Math.round(f.crit * 100)}% crit`]), notes: [...Object.values(FORMATIONS).map((f) => f.desc), `Roles are the students' expedition roles (${Object.values(EXPLORE_ROLES).map((r) => r.icon).join(" ")} on the board)`, "Behind = the row nearer the doors"] })}</div>
           <div class="nw-formations">${chips}</div>`;
         })()}
-        <div class="mini-label">Defenders — drag onto the steps</div>
-        <div class="nw-roster" data-drop-roster="1">${nightRoster(state) || '<p class="muted">Nobody available.</p>'}</div>
+        ${nightRosterHead(state)}
+        <div class="nw-roster" data-drop-roster="1">${nightRoster(state) || `<p class="muted nw-roster-empty">No ${EXPLORE_ROLES[nightRoleTab].name.toLowerCase()} free tonight — drop students on this tab</p>`}</div>
       </aside>
     </div>
   </div>`;
@@ -3249,12 +3253,24 @@ function formationLinks(links) {
   }).join("");
 }
 
-// The side panel's roster: every student who could stand watch tonight, draggable onto the steps
-// (a click posts them to the first free square, or takes them off).
+// The side panel's roster: the students who could stand watch tonight, one expedition role at a
+// time (tabs, as on the City Map), draggable onto the steps (a click posts them to the first free
+// square, or takes them off). Those on watch first, then the strongest in the role.
+const nightAvailable = (state) => state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
+function nightRosterHead(state) {
+  const available = nightAvailable(state);
+  const tabs = Object.entries(EXPLORE_ROLES).map(([role, r]) => {
+    const list = available.filter((c) => exploreRole(c) === role);
+    const onWatch = list.filter((c) => c.defending).length;
+    return `<button class="ex-rtab ex-role-${role} ${role === nightRoleTab ? "active" : ""}" data-action="set-role-tab" data-where="night" data-role="${role}" data-drop-role="${role}"
+      title="${r.name}: ${list.length} free tonight, ${onWatch} on watch — drop a student here to make them one">${r.icon}<b>${list.length}</b></button>`;
+  }).join("");
+  return `<div class="ex-roles-head"><span class="mini-label">Defenders — drag onto the steps</span><span class="ex-rtabs">${tabs}</span></div>`;
+}
 function nightRoster(state) {
-  const available = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
-  return available
-    .sort((a, b) => (b.defending - a.defending) || overallLevel(b) - overallLevel(a))
+  return nightAvailable(state)
+    .filter((c) => exploreRole(c) === nightRoleTab)
+    .sort((a, b) => (b.defending - a.defending) || memberPower(state, b) - memberPower(state, a))
     .map((c) => {
       const eq = c.equipment || {};
       const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean).map(itemIcon).join("") || "👊";
