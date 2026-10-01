@@ -38,29 +38,9 @@ const TURN_NAMES = { 1: "Classes (Morning)", 2: "Exploration (Afternoon)", 3: "D
 
 // ---------- hex map (Turn 2) ----------
 
-const LOCATION_ICON = {
-  corner_store: "🏪",
-  pharmacy: "💊",
-  supermarket: "🛒",
-  hardware_store: "🔧",
-  hospital: "🏥",
-  police_station: "🚓",
-  mall: "🛍",
-  neighborhood: "🏘",
-  farmstead: "🚜",
-  gas_station: "⛽",
-  garden_center: "🌻",
-  fire_station: "🚒",
-  church: "⛪",
-  marina: "⚓",
-  warehouse: "📦",
-  library: "📚",
-  petting_zoo: "🐐",
-  army_surplus: "🎖",
-  checkpoint: "🪖",
-  stadium: "🏟",
-  institute: "🧬",
-};
+// Every map place's pixel icon (scenes.js ICONS, named after the place) — filled in below,
+// once pxe() exists.
+const LOCATION_ICON = {};
 // Resources as small inline pixel icons (the same art as the HUD): ri("materials"), ri("food")…
 // Any pixelIcon name works too (ri("population"), ri("mood_happy")).
 const RES_PIXEL = { materials: "scrap" };
@@ -82,6 +62,12 @@ const ICON_SWAPS = [
   [ZOMBIE_TYPES, "badge", { runner: "z_runner", brute: "z_brute", spitter: "z_spitter", boss: "z_boss" }],
 ];
 for (const [table, field, names] of ICON_SWAPS) for (const [key, name] of Object.entries(names)) if (table[key]) table[key][field] = pxe(name);
+for (const place of [...LOCATIONS, ...LANDMARKS]) LOCATION_ICON[place.id] = pxe(place.id);
+// A boss (raid bosses, boss nights, the horde's leader) wears the crown; a death is a skull.
+const BOSS_ICON = pxe("z_boss");
+const SKULL_ICON = pxe("skull");
+// The map's supply drops, drawn at render time — their emoji also go into saved log lines.
+const DROP_ICON = { crate: pxe("crate"), wreck: pxe("wreck"), survivor: pxe("survivor") };
 
 // Expedition teams 1-3 and the raid squad each get a colour for their route, markers and chips.
 const TEAM_COLORS = ["#4caf7d", "#3fa7d6", "#e0a536", "#e0455f"];
@@ -866,7 +852,7 @@ export function renderEvacuationModal(state) {
       <p>It followed the satellite signal to the roof and can fly all ${alive} survivor${alive === 1 ? "" : "s"} out right now — ending the run on <b>day ${state.day}</b>.</p>
       <p class="muted">Or send them away and keep holding the school. They'll come back on day ${back}, and your score is the last day the school stands — but the horde grows every night.${best ? ` Your best is day ${best.day}.` : ""}</p>
       <div class="row-actions">
-        <button class="btn" data-action="evac-delay">🏫 Hold out until day ${back}</button>
+        <button class="btn" data-action="evac-delay">${pxe("school")} Hold out until day ${back}</button>
         <button class="btn btn-primary" data-action="evac-go">🚁 Evacuate now</button>
       </div>
     </div>
@@ -913,7 +899,7 @@ function renderVictory(state) {
     </div>
     ${renderMemorial(fallen)}
     <button class="btn btn-primary btn-big" data-action="reset-game">🔄 Start a New Game</button>
-    <button class="btn btn-big" data-action="stay-after-rescue">🏫 Stay behind and keep holding the school (endless)</button>
+    <button class="btn btn-big" data-action="stay-after-rescue">${pxe("school")} Stay behind and keep holding the school (endless)</button>
   </div>`;
 }
 
@@ -964,7 +950,7 @@ const WARNING_KINDS = {
   teamUnlock: "🔓 A team can be unlocked",
   scouts: "🏃 Scouts ready to scout",
   drops: "📦 Supply drops on the map",
-  raid: "☠ Raid bosses to fight",
+  raid: `${BOSS_ICON} Raid bosses to fight`,
   nests: "🧟 Zombie nests to burn out",
   siteWorkers: "⚠ Farm & Scrapyard short of workers",
   plant: "🌱 Seeds & animals to add",
@@ -977,7 +963,7 @@ const WARNING_KINDS = {
   kits: "🧰 Defense kits to place",
   noMedicine: `${ri("medicine")} No medicine for saves`,
   gate: "🚪 No gate",
-  boss: "☠ Boss nights",
+  boss: `${BOSS_ICON} Boss nights`,
   weather: "🌧 Bad weather",
 };
 // Which kinds each turn's summary can show (the counter's drop-down lists these).
@@ -1226,7 +1212,7 @@ function renderCityMapScreen(state) {
   const raidRow = raidLm
     ? `<button class="ex-team" style="--team:${TEAM_COLORS[RAID_TEAM]}" data-action="open-raid" data-landmark="${raidLm.id}">
         <i class="team-dot"></i><span class="ex-team-name">${teamLabel(RAID_TEAM)}</span>
-        <span class="ex-team-target">☠ ${esc(raidLm.boss.name)}</span>
+        <span class="ex-team-target">${BOSS_ICON} ${esc(raidLm.boss.name)}</span>
         <span class="ex-team-count ${raidCount < raidLm.minTeam ? "plot-warn" : ""}">${raidCount}/${raidLm.minTeam}+</span>
         <span class="btn-x" data-action="clear-raid" title="Call off the raid">✕</span>
       </button>`
@@ -1237,16 +1223,16 @@ function renderCityMapScreen(state) {
     <div class="explore-layout">
       ${renderExplorationMap(state)}
       <aside class="explore-side">
-        <h2>City Map ${infoDot({ title: "🗺 City Map", notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Scroll to zoom, drag to look around", "Landmarks at the edge hold raid bosses and legendary gear", "Teachers stay at the school", "Launch the expeditions from the Exploration Summary (the centre button)"] })}</h2>
+        <h2>City Map ${infoDot({ title: `${pxe("map")} City Map`, notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Scroll to zoom, drag to look around", "Landmarks at the edge hold raid bosses and legendary gear", "Teachers stay at the school", "Launch the expeditions from the Exploration Summary (the centre button)"] })}</h2>
         <div class="mini-label">Teams</div>
         ${teamRows}${raidRow}
         <div class="ex-legend">
           <span><b class="ex-key ex-key-fog">?</b> Scout the fog</span>
-          <span><b class="ex-key">🏪</b> Send a team</span>
-          <span><b class="ex-key ex-key-nest">🧟</b> Zombie nest</span>
-          <span><b class="ex-key ex-key-raid">☠</b> Raid boss</span>
-          <span><b class="ex-key ex-key-drop">📦</b> Grab supplies</span>
-          <span><b class="ex-key ex-key-nest">👣</b> The horde</span>
+          <span><b class="ex-key">${LOCATION_ICON.corner_store}</b> Send a team</span>
+          <span><b class="ex-key ex-key-nest">${pxe("nest")}</b> Zombie nest</span>
+          <span><b class="ex-key ex-key-raid">${BOSS_ICON}</b> Raid boss</span>
+          <span><b class="ex-key ex-key-drop">${DROP_ICON.crate}</b> Grab supplies</span>
+          <span><b class="ex-key ex-key-nest">${pxe("horde")}</b> The horde</span>
         </div>
         ${renderRoleWindows(state)}
       </aside>
@@ -1311,7 +1297,7 @@ function renderTurn2Summary(state) {
     notes: [
       scoutsReady ? tip("scouts", `🏃 ${plural(scoutsReady, "scout")} ready to scout`) : null,
       drops.length ? tip("drops", `📦 ${plural(drops.length, "supply drop")} · gone in ${plural(soonest, "day")}`) : null,
-      raids && !state.raidTarget ? tip("raid", `☠ ${raids} raid boss${raids === 1 ? "" : "es"} to fight`) : null,
+      raids && !state.raidTarget ? tip("raid", `${BOSS_ICON} ${raids} raid boss${raids === 1 ? "" : "es"} to fight`) : null,
       nests ? tip("nests", `🧟 ${plural(nests, "nest")} to burn out`) : null,
     ],
   });
@@ -1567,15 +1553,15 @@ function renderExplorationMap(state) {
       const cooldown = raidCooldownLeft(state, lm.id);
       const boss = raidBoss(state, lm);
       cells += `<div class="cm-cell cm-place cm-landmark ${cooldown ? "cm-cleared" : ""} ${team !== undefined ? "cm-assigned" : ""}" data-action="open-raid" data-landmark="${lm.id}" style="${at(q, r)}${teamStyle}" ${tipAttr({
-        title: `☠ ${esc(lm.name)}`,
+        title: `${LOCATION_ICON[lm.id]} ${esc(lm.name)}`,
         rows: [["Boss", `${esc(boss.name)} · ${boss.hp} HP`], ["Squad", `${lm.minTeam}+ students, Lv ${lm.minLevel}+`]],
         notes: ["🌟 Legendary gear and survivors", ...(cooldown ? [`Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}`] : [])],
-      })}>${squad}<span class="cm-label cm-label-raid">${cooldown ? `💤 ${cooldown}d` : "☠"}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
+      })}>${squad}<span class="cm-label cm-label-raid">${cooldown ? `💤 ${cooldown}d` : BOSS_ICON}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
     } else if (isNest(state, q, r)) {
       cells += `<div class="cm-cell cm-nest" data-action="open-nest" data-q="${q}" data-r="${r}" style="${at(q, r)}" ${tipAttr({
-        title: "🧟 Zombie Nest",
+        title: `${pxe("nest")} Zombie Nest`,
         notes: ["Everything next to it is more dangerous", "Send a squad to burn it out"],
-      })}><span class="cm-badge">🧟</span></div>`;
+      })}><span class="cm-badge">${pxe("nest")}</span></div>`;
     }
   }
 
@@ -1585,15 +1571,15 @@ function renderExplorationMap(state) {
     const md = MAP_DROPS[d.kind];
     const left = d.expires - state.day + 1;
     cells += `<div class="cm-cell cm-drop" data-action="open-drop" data-q="${d.q}" data-r="${d.r}" style="${at(d.q, d.r)}" ${tipAttr({
-      title: `${md.icon} ${md.name}`,
+      title: `${DROP_ICON[d.kind]} ${md.name}`,
       rows: [["Runner", `⚡ ${scoutCost(d.q, d.r)} stamina`], ["Gone in", left <= 1 ? "1 day" : `${left} days`]],
       notes: ["Send a runner to grab it"],
-    })}><span class="cm-drop-icon">${md.icon}</span></div>`;
+    })}><span class="cm-drop-icon">${DROP_ICON[d.kind]}</span></div>`;
   }
   if (state.horde) {
     const { q, r } = state.horde;
     cells += `<div class="cm-cell cm-horde" style="${at(q, r)}"><span class="cm-horde-crowd" ${tipAttr({
-      title: "🧟 The Horde",
+      title: `${pxe("horde")} The Horde`,
       notes: ["Moves a block every day", "Scouting and runs on or next to it are more dangerous"],
     })}>${zombieSprite("walker", 18)}${zombieSprite("walker", 18)}${zombieSprite("walker", 18)}</span></div>`;
   }
@@ -1607,7 +1593,7 @@ function renderExplorationMap(state) {
       <svg class="cm-routes" width="${WORLD_W}" height="${WORLD_H}" viewBox="0 0 ${WORLD_W} ${WORLD_H}">${routes}</svg>
     </div>
     <button class="cm-reset" data-action="map-reset" title="Zoom back out">⤢ Whole map</button>
-    <div class="cm-cell cm-school" style="--x:${school.x};--y:${school.y + 34};"><span class="cm-label cm-label-school">🏫<span class="cm-name"> School</span></span></div>
+    <div class="cm-cell cm-school" style="--x:${school.x};--y:${school.y + 34};"><span class="cm-label cm-label-school">${pxe("school")}<span class="cm-name"> School</span></span></div>
     ${cells}
   </div>`;
 }
@@ -1619,7 +1605,7 @@ export function renderScoutReport(state, report) {
   let body;
   if (result.drop) {
     const d = MAP_DROPS[result.drop.kind];
-    title = `${d.icon} ${d.name}`;
+    title = `${DROP_ICON[result.drop.kind]} ${d.name}`;
     body = `${esc(scoutName)} made it there and back: ${esc(result.drop.text)}.`;
   } else if (result.location) {
     title = `Discovered: ${esc(result.location.name)}`;
@@ -1655,7 +1641,7 @@ export function renderNestModal(state, nest) {
     <div class="char-card mission-card sq-card" data-action="noop">
       <button class="cc-close" data-action="close-nest" title="Close">✕</button>
       <div class="scout-report-tile hex-nest">${hexTile(hexTileKey(q, r))}<span class="hex-badge hex-badge-nest">🧟 Nest</span></div>
-      <h3>🧟 Zombie Nest — ${TERRAIN_NAMES[hexTerrain(q, r)]}</h3>
+      <h3>${pxe("nest")} Zombie Nest — ${TERRAIN_NAMES[hexTerrain(q, r)]}</h3>
       <p class="muted">While it's here, scouting next to it is more dangerous and locations beside it are riskier to raid. Send up to ${NEST_CLEAR_MAX} students (${NEST_CLEAR_STAMINA} stamina each) to burn it out — win and there's scrap, maybe gear, in the pile.</p>
       ${squad.length ? `<div class="mission-success ${pct >= 60 ? "mission-good" : pct >= 35 ? "mission-ok" : "mission-bad"}">Chance to clear it: <b>${pct}%</b></div>` : ""}
       <div class="mini-label">Squad (${squad.length}/${NEST_CLEAR_MAX})</div>
@@ -1680,7 +1666,7 @@ export function renderRaidModal(state, landmarkId) {
     <div class="raid-intro">
       <div class="raid-intro-boss">${zombieSprite(lm.boss.look, 88)}</div>
       <div>
-        <h3>☠ ${esc(boss.name)}</h3>
+        <h3>${BOSS_ICON} ${esc(boss.name)}</h3>
         <div class="muted">${esc(lm.name)}${boss.kills ? ` · killed ${boss.kills}× — tougher each time` : ""}</div>
         <div class="raid-boss-stats"><span>❤ ${boss.hp} HP</span><span>⚔ ${boss.damage} × ${boss.attacks} a round</span><span>⏱ ${RAID_MAX_ROUNDS} rounds</span></div>
       </div>
@@ -1702,7 +1688,7 @@ export function renderRaidModal(state, landmarkId) {
   } else if (!planned) {
     body = `<div class="row-actions">
       <button class="btn btn-sm" data-action="close-raid">Not today</button>
-      <button class="btn btn-primary" data-action="plan-raid" data-landmark="${lm.id}">☠ Plan a raid</button>
+      <button class="btn btn-primary" data-action="plan-raid" data-landmark="${lm.id}">${BOSS_ICON} Plan a raid</button>
     </div>`;
   } else {
     const entries = state.characters
@@ -1731,7 +1717,7 @@ export function renderRaidModal(state, landmarkId) {
       <p class="muted">The raid launches with the day's expeditions. Anyone who goes down is patched up with ${MEDICINE_PER_STABILIZE} medicine if you have it — otherwise they might not make it.</p>
       <div class="row-actions">
         <button class="btn btn-danger btn-sm" data-action="clear-raid">Call off</button>
-        <button class="btn btn-primary" data-action="close-raid">☠ Confirm squad &amp; close</button>
+        <button class="btn btn-primary" data-action="close-raid">${BOSS_ICON} Confirm squad &amp; close</button>
       </div>`;
   }
   return `<div class="modal-overlay" data-action="close-raid">
@@ -1774,7 +1760,7 @@ export function renderRaidFight(state, anim) {
   ];
   return `<div class="modal-overlay raid-overlay">
     <div class="raid-stage ${chase ? "raid-chase" : ""}">
-      <div class="raid-title">${chase ? esc(report.title) : `☠ Raid — ${esc(lm.name)}`}</div>
+      <div class="raid-title">${chase ? esc(report.title) : `${BOSS_ICON} Raid — ${esc(lm.name)}`}</div>
       <div class="raid-arena ${frame.crits || (frame.bossHp <= 0 && frame.dealt) ? "nw-shake-big" : frame.hits.some((h) => h.dmg) ? "nw-shake" : ""}" ${chase ? `style="background-image:${courtyardBackground(ENTRANCE_GRID_SIZE)}"` : ""}>
         <div class="raid-squad">${members}</div>
         <div class="raid-boss ${frame.enraged ? "raid-boss-enraged" : ""} ${frame.dealt ? "raid-boss-hit" : ""} ${frame.bossHp <= 0 ? "raid-boss-dead" : ""}">
@@ -1916,7 +1902,7 @@ export function renderExpeditionReport(state, anim) {
     const details = `${t.encounter ? `<div class="exp-enc ${t.encounter.ok ? "exp-enc-ok" : "exp-enc-bad"}">${EXPEDITION_ENCOUNTERS.find((e) => e.id === t.encounter.id)?.icon || ""} ${esc(t.encounter.text)} (${t.encounter.ok ? `+${Math.round(ENCOUNTER_EFFECT.good * 100)}` : `−${Math.round(-ENCOUNTER_EFFECT.bad * 100)}`}% odds)</div>` : ""}
       <div class="exp-finds">${lootChips(t.loot)}${t.finds.map((f) => `<span class="exp-chip">${esc(f)}</span>`).join("")}${t.recruit ? `<span class="exp-chip exp-good">🙋 ${esc(t.recruit)} wants to join</span>` : ""}</div>
       ${t.hurt.length ? `<div class="exp-hurt">🩹 ${t.hurt.map(esc).join(", ")}</div>` : ""}
-      ${t.lost.length ? `<div class="exp-bad">☠ Lost: ${t.lost.map(esc).join(", ")}</div>` : ""}
+      ${t.lost.length ? `<div class="exp-bad">${SKULL_ICON} Lost: ${t.lost.map(esc).join(", ")}</div>` : ""}
       ${t.nearNest ? `<div class="muted">A zombie nest next door made it harder.</div>` : ""}`;
     return row(TEAM_COLORS[t.teamIndex], "school", loc.id, leader, `${teamLabel(t.teamIndex)} → ${esc(loc.name)}`, tag, details);
   });
@@ -1931,10 +1917,10 @@ export function renderExpeditionReport(state, anim) {
   } else if (summary.raid) {
     const rd = summary.raid;
     const lm = LANDMARKS.find((l) => l.id === rd.landmarkId);
-    const tag = rd.won ? `<span class="tag tag-ok">☠ Boss slain</span>` : `<span class="tag tag-injured">Retreated</span>`;
+    const tag = rd.won ? `<span class="tag tag-ok">${BOSS_ICON} Boss slain</span>` : `<span class="tag tag-injured">Retreated</span>`;
     const details = `<div class="exp-finds">${rd.items.map((it) => `<span class="exp-chip exp-legend">${it.icon} ${esc(it.name)}</span>`).join("")}${rd.recruit ? `<span class="exp-chip exp-legend">🙋 ${esc(rd.recruit)}</span>` : ""}${lootChips(rd.loot)}</div>
       ${rd.hurt.length ? `<div class="exp-hurt">🩹 ${rd.hurt.map(esc).join(", ")}</div>` : ""}
-      ${rd.lost.length ? `<div class="exp-bad">☠ Lost: ${rd.lost.map(esc).join(", ")}</div>` : ""}`;
+      ${rd.lost.length ? `<div class="exp-bad">${SKULL_ICON} Lost: ${rd.lost.map(esc).join(", ")}</div>` : ""}`;
     rows.push(row(TEAM_COLORS[RAID_TEAM], "school", lm.id, getChar(state, rd.memberIds[0]), `Raid squad → ${esc(lm.name)}`, tag, details));
   }
   return `<div class="modal-overlay">
@@ -1998,7 +1984,7 @@ export function renderScoutModal(state, q, r, isDrop = false) {
     <div class="char-card mission-card sc-card" data-action="noop">
       <button class="cc-close" data-action="close-scout" title="Close">✕</button>
       ${d
-        ? `<h3>${d.icon} ${d.name}</h3>
+        ? `<h3>${DROP_ICON[drop.kind]} ${d.name}</h3>
       <p class="muted">${{ crate: "Supplies someone left behind", wreck: "A car full of scrap", survivor: "Someone waving from a rooftop — they'd join the school" }[drop.kind]}. Gone ${drop.expires <= state.day ? "tomorrow" : `in ${drop.expires - state.day + 1} days`}.</p>`
         : `<h3>🌫 Unexplored Territory</h3>
       <p class="muted">Every block hides something — supplies, gear, seeds, animals, survivors, or a zombie nest. The further from the school, the more it costs to get there.</p>`}
@@ -2032,7 +2018,7 @@ export function renderFightAnimation(state, anim) {
   return `
   <div class="modal-overlay fight-overlay">
     <div class="fight-result ${won ? "fight-win" : "fight-lose"}">
-      <div class="fight-result-icon">${won ? "✅" : "☠"}</div>
+      <div class="fight-result-icon">${won ? "✅" : SKULL_ICON}</div>
       <div class="fight-result-text">${won ? "Fought them off!" : "Ambushed!"}</div>
     </div>
   </div>`;
@@ -2121,7 +2107,7 @@ function renderGridBattle(state, anim) {
     } else if (e.type === "interrupt") {
       fx += pop(e.at[0], e.at[1], "nw-pop-note nw-pop-interrupt", "interrupted!");
     } else if (e.type === "enrage") {
-      banner = `<div class="nw-banner nw-banner-boss">☠ ${esc(summary.bossName || "The boss")} goes berserk!</div>`;
+      banner = `<div class="nw-banner nw-banner-boss">${BOSS_ICON} ${esc(summary.bossName || "The boss")} goes berserk!</div>`;
       shake = 2;
     } else if (e.type === "summon") {
       fx += pop(e.at[0], e.at[1], "nw-pop-bad", "+🧟");
@@ -2132,7 +2118,7 @@ function renderGridBattle(state, anim) {
       if (e.boss) {
         fx += pop(e.at[0], e.at[1], "nw-pop-big", "👑💥");
         shake = 2;
-        banner = `<div class="nw-banner nw-banner-boss">☠ ${esc(summary.bossName || "The boss")} is down!</div>`;
+        banner = `<div class="nw-banner nw-banner-boss">${BOSS_ICON} ${esc(summary.bossName || "The boss")} is down!</div>`;
       }
     } else if (e.type === "trap" || e.type === "burn") {
       hurt.add(`${e.at[0]},${e.at[1]}`);
@@ -2170,7 +2156,7 @@ function renderGridBattle(state, anim) {
     } else if (e.type === "waveStart" && !banner) {
       banner = `<div class="nw-banner">Wave ${e.wave + 1}${(summary.waves?.length || 1) > 1 ? ` of ${summary.waves.length}` : ""}</div>`;
     } else if (e.type === "bossArrives") {
-      banner = `<div class="nw-banner nw-banner-boss">☠ ${esc(summary.bossName || "The boss")} arrives</div>`;
+      banner = `<div class="nw-banner nw-banner-boss">${BOSS_ICON} ${esc(summary.bossName || "The boss")} arrives</div>`;
       shake = Math.max(shake, 1);
     } else if (e.type === "cleared") {
       banner = `<div class="nw-banner nw-banner-clear">${e.last ? "Night survived!" : "Wave cleared!"}</div>`;
@@ -2317,7 +2303,7 @@ function renderGridBattle(state, anim) {
   return `
   <div class="modal-overlay fight-overlay gb-overlay">
     <div class="gb-header">
-      <div class="gb-title">🌙 Night ${state.day} — ${summary.bossName ? `☠ ${esc(summary.bossName)} leads the horde` : "the horde hits the entrance"}</div>
+      <div class="gb-title">🌙 Night ${state.day} — ${summary.bossName ? `${BOSS_ICON} ${esc(summary.bossName)} leads the horde` : "the horde hits the entrance"}</div>
       <div class="gb-counters">
         ${waves > 1 ? `<span class="nw-wave">Wave ${waveNow}/${waves}</span>` : ""}
         <span ${tipAttr({ title: `${condition.icon} ${condition.name}`, notes: [condition.desc] })}>${condition.icon} ${condition.name}</span>
@@ -2495,8 +2481,8 @@ function renderTurn3Summary(state) {
     tab: "defense", name: "Tonight's Horde", style: "--team:#8a3a3a",
     art: `<span class="ov-team-art">${kinds.slice(0, 4).map((t) => `<span class="ov-team-face ov-zombie">${hordeSprite(t, t === "boss" ? 34 : 28)}</span>`).join("")}</span>`,
     big: `${zombies}`, unit: `zombies · ${plural(waves, "wave")}`,
-    meta: `${condition.icon} ${condition.name}${boss ? " · ☠ boss night" : ""}`,
-    notes: [boss ? bad("boss", `☠ Boss night — ${esc(bossNameForDay(state.day))}`) : null,
+    meta: `${condition.icon} ${condition.name}${boss ? ` · ${BOSS_ICON} boss night` : ""}`,
+    notes: [boss ? bad("boss", `${BOSS_ICON} Boss night — ${esc(bossNameForDay(state.day))}`) : null,
       condition.id !== "clear" ? bad("weather", `${condition.icon} ${condition.name} tonight`) : null],
   });
 
@@ -2600,7 +2586,7 @@ function renderNightWatchScreen(state) {
       const name = t === "boss" ? esc(bossNameForDay(state.day)) : `${T.name}${comp[t] === 1 ? "" : "s"}`;
       return `<div class="nw-horde-row ${t === "boss" ? "nw-horde-boss" : ""}" ${tipAttr({ title: `${T.badge || "🧟"} ${T.name}`, rows: [["HP", `${hp}`], ["Hits for", `~${dmg}`]], notes: [esc(T.desc)] })}>
         <span class="nw-horde-sprite">${hordeSprite(t, 22)}</span>
-        <span>${t === "boss" ? "☠ " : ""}${name}</span>
+        <span>${t === "boss" ? `${BOSS_ICON} ` : ""}${name}</span>
         <b>×${comp[t]}</b>
       </div>`;
     })
@@ -2725,7 +2711,7 @@ export function renderAssaultModal(state, pick) {
     <div class="char-card mission-card as-card" data-action="noop">
       ${assaultBanner(state, "⚔ The horde is falling back")}
       <div class="as-leader">
-        <b>☠ ${esc(leader.name)}</b>
+        <b>${BOSS_ICON} ${esc(leader.name)}</b>
         <span class="raid-boss-stats"><span>❤ ${leader.hp} HP</span><span>⚔ ${leader.damage} × ${leader.attacks} a round</span><span>⏱ ${RAID_MAX_ROUNDS} rounds</span></span>
       </div>
       <div class="raid-rewards">
@@ -3950,7 +3936,7 @@ export function renderAssaultTab(state) {
       notes: ["Tonight's defenders still standing can run down its leader", "Anyone who goes down is dragged back — hurt, but alive"],
     })}`)}
     <div class="as-leader">
-      <b>☠ Tonight's leader: ${esc(leader.name)}</b>
+      <b>${BOSS_ICON} Tonight's leader: ${esc(leader.name)}</b>
       <span class="raid-boss-stats"><span>❤ ${leader.hp} HP</span><span>⚔ ${leader.damage} × ${leader.attacks} a round</span><span>⏱ ${RAID_MAX_ROUNDS} rounds</span></span>
     </div>
     <p class="muted as-note">${state.pendingAssault ? "The horde is falling back right now — pick the squad in the pop-up." : "If the entrance holds tonight, the horde may fall back — and you can chase it down."}</p>
