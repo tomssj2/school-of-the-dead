@@ -9,7 +9,7 @@ import {
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, RESEARCH_BONUS_BY_LEVEL, HELPER_SLOTS_BY_LEVEL, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
-  LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
+  LEGENDARY_CHANCE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
   RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
 } from "./data.js";
 import {
@@ -2820,12 +2820,13 @@ function renderFacilityRaidPanel(state) {
   </div>`;
 }
 
-// The street at night, the horde's stragglers shuffling off and their leader turning to face the
-// school — the banner of the chase pop-up and the Assault tab.
+// The street at night (backdrops.js, 65 rows at 2x for the 130-tall banner, wide enough for the
+// Assault tab), the horde's stragglers shuffling off and their leader turning to face the school —
+// the banner of the chase pop-up and the Assault tab.
 function assaultBanner(state, title) {
   const leader = assaultLeader(state);
   const stragglers = ["walker", "runner", "walker", "walker"].map((t, i) => `<span class="as-straggler" style="--i:${i}">${hordeSprite(t, 30)}</span>`).join("");
-  return `<div class="as-banner" style="background-image:${courtyardBackground(ENTRANCE_GRID_SIZE)}">
+  return `<div class="as-banner" style="background-image:${streetBackdrop(640, 65)}">
     <div class="as-stragglers">${stragglers}</div>
     <span class="as-leader-sprite">${zombieSprite(leader.look, 64)}</span>
     <div class="scene-plaque as-plaque">${title}</div>

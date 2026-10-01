@@ -356,71 +356,87 @@ function institute() {
   return toUrl(p, L, [0.24, 0.28, 0.38]);
 }
 
-// ===== a street at night: the chase, and the scouts' scraps out in town =====
-function street() {
-  const p = buffer(AW, AH);
+// ===== a street at night: the chase, the scouts' scraps out in town, the Assault banner =====
+// `w` x `h` art pixels: a wider street gets more buildings, streetlights and signs, a taller one more
+// sky over the rooftops — the scene itself keeps its AH rows at the bottom.
+function street(w = AW, h = AH) {
+  const base = buffer(w, h);
+  const dy = Math.max(0, h - AH);
+  base.r(0, 0, w - 1, 12 + dy, "#141c3c", 1);
+  stars(base, 0, w - 1, 10 + dy, 50);
+  // everything else is drawn for AH rows and sits at the bottom
+  const p = {
+    set: (x, y, c, e) => base.set(x, y + dy, c, e),
+    r: (x0, y0, x1, y1, c, e) => base.r(x0, y0 + dy, x1, y1 + dy, c, e),
+    oval: (cx, cy, rx, ry, c, e) => base.oval(cx, cy + dy, rx, ry, c, e),
+    line: (x0, y0, x1, y1, c, e) => base.line(x0, y0 + dy, x1, y1 + dy, c, e),
+  };
   const L = [];
-  p.r(0, 0, AW - 1, 12, "#141c3c", 1);
-  stars(p, 0, AW - 1, 10, 50);
-  p.oval(160, 3, 2.5, 2.5, "#e8ecff", 1);
-  p.oval(161, 2, 2.5, 2.5, "#141c3c", 1);
+  const light = (l) => L.push({ ...l, y: l.y + dy });
+  p.oval(w - 22, 3, 2.5, 2.5, "#e8ecff", 1);
+  p.oval(w - 21, 2, 2.5, 2.5, "#141c3c", 1);
   // a row of buildings, a few windows still lit
   let x = 0;
   let i = 0;
-  while (x < AW) {
-    const w = 26 + Math.floor(hash(i, 51) * 22);
+  while (x < w) {
+    const bw = 26 + Math.floor(hash(i, 51) * 22);
     const top = 3 + Math.floor(hash(i, 52) * 9);
     const col = ["#6a3a32", "#4a4e5a", "#5a4a3a", "#3a4a5a", "#5a3a4a"][i % 5];
-    p.r(x, top, x + w - 1, 37, col);
-    p.r(x, top, x + w - 1, top, mix(col, "#ffffff", 0.18));
-    p.r(x + w - 1, top, x + w - 1, 37, mix(col, "#000000", 0.3));
-    for (let wy = top + 3; wy < 27; wy += 6) for (let wx = x + 3; wx + 3 < x + w - 2; wx += 6) {
+    p.r(x, top, x + bw - 1, 37, col);
+    p.r(x, top, x + bw - 1, top, mix(col, "#ffffff", 0.18));
+    p.r(x + bw - 1, top, x + bw - 1, 37, mix(col, "#000000", 0.3));
+    for (let wy = top + 3; wy < 27; wy += 6) for (let wx = x + 3; wx + 3 < x + bw - 2; wx += 6) {
       const lit = hash2(wx, wy, 53) < 0.22;
       p.r(wx, wy, wx + 2, wy + 3, lit ? "#e8c35a" : "#1a2030", lit ? 1 : 0);
-      if (lit) L.push({ x: wx + 1, y: wy + 2, r: 9, k: 0.4, c: WARM });
+      if (lit) light({ x: wx + 1, y: wy + 2, r: 9, k: 0.4, c: WARM });
     }
     // a shop at street level
-    p.r(x + 2, 29, x + w - 3, 37, "#7a7e86");
-    for (let sy = 29; sy <= 37; sy += 2) p.r(x + 2, sy, x + w - 3, sy, "#62666e");
-    if (hash(i, 54) < 0.4) for (let k = 0; k < 6; k++) p.set(x + 4 + Math.floor(hash(k, i + 55) * (w - 8)), 31 + Math.floor(hash(k, i + 56) * 5), ["#d64545", "#4ff0ff", "#f4d35e"][k % 3]); // graffiti
-    x += w;
+    p.r(x + 2, 29, x + bw - 3, 37, "#7a7e86");
+    for (let sy = 29; sy <= 37; sy += 2) p.r(x + 2, sy, x + bw - 3, sy, "#62666e");
+    if (hash(i, 54) < 0.4) for (let k = 0; k < 6; k++) p.set(x + 4 + Math.floor(hash(k, i + 55) * (bw - 8)), 31 + Math.floor(hash(k, i + 56) * 5), ["#d64545", "#4ff0ff", "#f4d35e"][k % 3]); // graffiti
+    x += bw;
     i++;
   }
-  // a neon sign still buzzing
-  p.r(30, 22, 42, 25, "#2a2630");
-  for (let k = 31; k <= 41; k += 2) p.set(k, 23, "#ff4fa0", 1);
-  L.push({ x: 36, y: 24, r: 18, k: 0.5, c: [1.0, 0.35, 0.7] });
+  // neon signs still buzzing
+  for (let nx = 30; nx + 12 < w; nx += 210) {
+    p.r(nx, 22, nx + 12, 25, "#2a2630");
+    for (let k = nx + 1; k <= nx + 11; k += 2) p.set(k, 23, "#ff4fa0", 1);
+    light({ x: nx + 6, y: 24, r: 18, k: 0.5, c: [1.0, 0.35, 0.7] });
+  }
   // sidewalk, kerb, road
-  p.r(0, 38, AW - 1, 42, "#8a867c");
-  for (let sx = 6; sx < AW; sx += 12) p.r(sx, 38, sx, 42, "#76726a");
-  p.r(0, 43, AW - 1, 43, "#b0aca2");
-  p.r(0, 44, AW - 1, 44, "#22252b");
-  p.r(0, 45, AW - 1, AH - 1, "#3c4048");
-  speckle(p, 0, 45, AW - 1, AH - 1, ["#464a52", "#34383f"], 180, 57);
-  for (let sx = 2; sx < AW; sx += 18) p.r(sx, 50, sx + 9, 50, "#c8a838");
-  // a streetlight
-  p.r(70, 12, 71, 42, "#30343e");
-  p.r(70, 12, 79, 12, "#30343e");
-  p.r(76, 13, 80, 13, "#fff2c0", 1);
-  L.push({ x: 78, y: 14, len: 34, w0: 3, spread: 0.45, k: 0.8, c: LAMP });
-  // a wrecked car burning
-  p.r(122, 40, 156, 46, "#3a5a8a");
-  p.r(122, 40, 156, 40, "#5a7aaa");
-  p.r(130, 35, 148, 39, "#3a5a8a");
-  p.r(132, 36, 139, 39, "#1a2030", 1);
-  p.r(141, 36, 147, 39, "#1a2030", 1);
-  for (const wx of [128, 150]) {
+  p.r(0, 38, w - 1, 42, "#8a867c");
+  for (let sx = 6; sx < w; sx += 12) p.r(sx, 38, sx, 42, "#76726a");
+  p.r(0, 43, w - 1, 43, "#b0aca2");
+  p.r(0, 44, w - 1, 44, "#22252b");
+  p.r(0, 45, w - 1, AH - 1, "#3c4048");
+  speckle(p, 0, 45, w - 1, AH - 1, ["#464a52", "#34383f"], Math.round((180 * w) / AW), 57);
+  for (let sx = 2; sx < w; sx += 18) p.r(sx, 50, sx + 9, 50, "#c8a838");
+  // streetlights
+  for (let sx = 70; sx + 10 < w; sx += 130) {
+    p.r(sx, 12, sx + 1, 42, "#30343e");
+    p.r(sx, 12, sx + 9, 12, "#30343e");
+    p.r(sx + 6, 13, sx + 10, 13, "#fff2c0", 1);
+    light({ x: sx + 8, y: 14, len: 34, w0: 3, spread: 0.45, k: 0.8, c: LAMP });
+  }
+  // a wrecked car burning, two-thirds of the way along
+  const cx = Math.round(w * 0.67);
+  p.r(cx, 40, cx + 34, 46, "#3a5a8a");
+  p.r(cx, 40, cx + 34, 40, "#5a7aaa");
+  p.r(cx + 8, 35, cx + 26, 39, "#3a5a8a");
+  p.r(cx + 10, 36, cx + 17, 39, "#1a2030", 1);
+  p.r(cx + 19, 36, cx + 25, 39, "#1a2030", 1);
+  for (const wx of [cx + 6, cx + 28]) {
     p.oval(wx, 46, 2.2, 2.2, "#16181c");
     p.set(wx, 46, "#8a909a");
   }
-  for (let fx = 123; fx <= 131; fx++) {
-    const h = 3 + Math.round(hash(fx, 58) * 5);
-    for (let k = 0; k < h; k++) p.set(fx, 39 - k, k > h - 2 ? "#fff3b0" : k > h - 4 ? "#ffd36a" : "#f4943a", 1);
+  for (let fx = cx + 1; fx <= cx + 9; fx++) {
+    const fh = 3 + Math.round(hash(fx - cx + 123, 58) * 5);
+    for (let k = 0; k < fh; k++) p.set(fx, 39 - k, k > fh - 2 ? "#fff3b0" : k > fh - 4 ? "#ffd36a" : "#f4943a", 1);
   }
-  L.push({ x: 127, y: 37, r: 34, k: 0.95, c: FIRE });
-  bloodTrail(p, 20, 100, 53, 59);
-  speckle(p, 0, 45, AW - 1, AH - 1, ["#d8d8d0"], 10, 60);
-  return toUrl(p, L, [0.3, 0.34, 0.55]);
+  light({ x: cx + 5, y: 37, r: 34, k: 0.95, c: FIRE });
+  bloodTrail(p, 20, Math.round(w * 0.55), 53, 59);
+  speckle(p, 0, 45, w - 1, AH - 1, ["#d8d8d0"], Math.round((10 * w) / AW), 60);
+  return toUrl(base, L, [0.3, 0.34, 0.55]);
 }
 
 // ===== a street at dusk behind each expedition team (SW x SH at 3x), varied by the place =====
@@ -470,5 +486,5 @@ function duskStreet(seed) {
 
 const RAIDS = { mall, hospital, military_base: militaryBase, institute };
 export const raidBackdrop = (landmarkId) => cached(`raid:${landmarkId}`, () => (RAIDS[landmarkId] || street)());
-export const streetBackdrop = () => cached("street", street);
+export const streetBackdrop = (w = AW, h = AH) => cached(`street:${w}x${h}`, () => street(w, h));
 export const duskBackdrop = (placeId = "") => cached(`dusk:${placeId}`, () => duskStreet([...placeId].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 9973, 7)));
