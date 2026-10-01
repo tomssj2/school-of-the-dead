@@ -2727,7 +2727,7 @@ function renderNightWatchScreen(state) {
     <div class="nw-layout">
       ${renderNightBoard(state)}
       <aside class="nw-side">
-        <div class="mini-label">Tonight's horde · ${zombies}</div>
+        <div class="nw-horde-head"><span class="mini-label">Tonight's horde · ${zombies}</span><button class="btn btn-sm nw-enemy-btn" data-action="open-enemy-guide" title="Every kind of zombie, and how to beat it">${pxe("zombie")} Know your enemy</button></div>
         <div class="nw-horde">${hordeRows}</div>
         <div class="mini-label">Night actions — use them during the fight</div>
         <div class="nw-action-preview">${Object.entries(NIGHT_ACTIONS).map(([id, a]) => `<span ${tipAttr({ title: `${a.icon} ${a.name}`, rows: [["Tonight", `×${uses[id]}`], ...(a.cost ? [["Costs", Object.entries(a.cost).map(([res, amt]) => `${amt} ${TECH_EFFECT_ICON[res] || res}`).join(" ")]] : [])], notes: [a.desc] })}>${a.icon}×${uses[id]}</span>`).join("")}</div>
@@ -4066,17 +4066,33 @@ export function renderDefenseTab(state) {
     <p class="room-tagline">Fortification ${state.fortification} · gate <b>${gateHp(state)} HP</b></p>
     <div class="mini-label">What you can build</div>
     <div class="armory-list">${structures}</div>
-    <div class="mini-label">Know your enemy</div>
-    <div class="armory-list">${Object.entries(ZOMBIE_TYPES)
-      .map(
-        ([id, t]) => `<div class="armory-item">
-          <span class="armory-icon nw-enemy-icon">${hordeSprite(id, 26)}</span>
-          <span class="armory-name">${esc(t.name)}</span>
-          <span class="armory-bonus">${esc(t.desc)}</span>
-          <span class="weapon-stats">${t === ZOMBIE_TYPES.boss ? "every 5th night" : t.from > 1 ? `from day ${t.from}` : "always"}</span>
-        </div>`
-      )
-      .join("")}</div>
+  </div>`;
+}
+
+// "Know your enemy": every kind of zombie in a pop-up (from the Night Watch's horde list) — when it
+// starts showing up, how tough it is tonight, how many are coming, and how to beat it.
+export function renderEnemyGuideModal(state) {
+  const comp = hordeComposition(state.day);
+  const z = zombieStatsForDay(state.day);
+  const rows = Object.entries(ZOMBIE_TYPES).map(([id, t]) => {
+    const coming = comp[id] || 0;
+    const when = t === ZOMBIE_TYPES.boss ? "Every 5th night" : t.from > 1 ? `From night ${t.from}` : "Every night";
+    return `<div class="enemy-row ${coming ? "enemy-coming" : ""}">
+      <span class="enemy-sprite">${hordeSprite(id, 30)}</span>
+      <span class="enemy-text"><b>${id === "boss" && coming ? esc(bossNameForDay(state.day)) : esc(t.name)}</b><span class="enemy-desc">${esc(t.desc)}</span></span>
+      <span class="enemy-stats">
+        <span class="${coming ? "enemy-tonight" : "muted"}">${coming ? `×${coming} tonight` : when}</span>
+        <span>${ri("heart")} ${Math.round(z.hp * t.hpMult)} · hits ~${Math.max(1, Math.round(z.damage * t.dmgMult))}</span>
+      </span>
+    </div>`;
+  }).join("");
+  return `<div class="modal-overlay" data-action="close-enemy-guide">
+    <div class="char-card mission-card enemy-guide" data-action="noop">
+      <button class="cc-close" data-action="close-enemy-guide" title="Close">✕</button>
+      <h3>${pxe("zombie")} Know Your Enemy</h3>
+      <p class="muted">Night ${state.day}: HP and damage grow every night. The ones coming tonight are highlighted.</p>
+      <div class="enemy-list">${rows}</div>
+    </div>
   </div>`;
 }
 

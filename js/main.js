@@ -2,7 +2,7 @@ import * as G from "./game.js";
 import { WORLD_W, WORLD_H } from "./citymap.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, tipFromText, setRoleTab,
+  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionSkirmish,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
@@ -59,6 +59,7 @@ let expeditionReport = null; // { summary, phase: "travel" | "report" } at the e
 let openUpgrade = null; // room key whose Upgrade popup is open
 let openMenu = false; // the Cafeteria's menu pop-up
 let openQuarantine = false; // the Nurse's Office quarantine pop-up
+let openEnemyGuide = false; // the Night Watch's "Know your enemy" pop-up
 let assaultPick = null; // Set of ids picked to chase the retreating horde (all of tonight's defenders at first)
 let openPlot = null; // { kind: a crop or animal (PRODUCERS id), index } of the Farm slot being looked at
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
@@ -634,6 +635,8 @@ function render() {
     ? renderMenuModal(state)
     : openQuarantine
     ? renderQuarantineModal(state)
+    : openEnemyGuide
+    ? renderEnemyGuideModal(state)
     : openUpgrade
     ? renderRoomUpgradeModal(state, openUpgrade)
     : openPlot
@@ -1352,6 +1355,14 @@ root.addEventListener("click", (e) => {
       openQuarantine = false;
       render();
       break;
+    case "open-enemy-guide":
+      openEnemyGuide = true;
+      render();
+      break;
+    case "close-enemy-guide":
+      openEnemyGuide = false;
+      render();
+      break;
     case "open-upgrade":
       openUpgrade = el.dataset.room;
       render();
@@ -1853,11 +1864,12 @@ document.addEventListener("keydown", (e) => {
     battleAnimation.resume();
     return;
   }
-  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openMenu || openQuarantine || openRaid || openNest || scoutReport || clearRoom)) {
+  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openMenu || openQuarantine || openEnemyGuide || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
     openUpgrade = null;
     openMenu = false;
     openQuarantine = false;
+    openEnemyGuide = false;
     clearRoom = null;
     openPlot = null;
     openRaid = null;
