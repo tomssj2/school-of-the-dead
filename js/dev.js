@@ -3,7 +3,7 @@
 import * as G from "./game.js";
 import { makeCharacter, makeLegendaryCharacter, makeItem } from "./characters.js";
 import { MAP_RADIUS } from "./map.js";
-import { CLASSROOM_IDS, PRODUCERS, YARD_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_STRUCTURES, DEFENSE_ROW0, STREET_ROW0 } from "./data.js";
+import { CLASSROOM_IDS, PRODUCERS, YARD_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_ROW0, STREET_ROW0 } from "./data.js";
 
 // Every room and facility to the top level, and every slot filled: teachers in every post,
 // every classroom seat, training, resting, beds, outside workers, plots and pens. Hires whoever is
@@ -171,7 +171,7 @@ export function fortifyEntrance(state) {
   const grid = state.entranceGrid;
   let n = 0;
   for (let row = DEFENSE_ROW0; row < STREET_ROW0; row++) {
-    for (let col = 0; col < grid.size; col++) grid.defenses[`${row},${col}`] = DEFENSE_STRUCTURES[n++ % DEFENSE_STRUCTURES.length].id;
+    for (let col = 0; col < grid.size; col++) grid.defenses[`${row},${col}`] = G.buildableDefenses(state)[n++ % 2].id;
   }
   return `${n} defenses built`;
 }

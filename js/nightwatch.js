@@ -623,39 +623,30 @@ function sandbag(p, x, y, w = 8) {
   p.set(x + w - 3, y + 2, "#b39e70");
 }
 
-// A defense on the board, 32x20 like a square: a barricade, sandbags, spikes, razor wire — or,
-// once smashed, rubble.
+// A defense on the board, 32x20 like a square: sandbags, razor wire, and their upgrades — a
+// concrete barricade and an electric fence — or, once smashed, rubble.
 export function structureSprite(id, sizePx = 64) {
   const key = `st:${id}`;
   if (!cache.has(key)) {
     const p = buffer(32, 20);
     p.oval(16, 18, 14, 1.4, SHADOW);
-    if (id === "barricade") {
-      // two crossed sawhorse legs, two hazard-striped planks, a warning lamp
-      for (const lx of [6, 25]) {
-        p.line(lx - 3, 18, lx + 2, 5, "#5e3e22");
-        p.line(lx - 2, 18, lx + 3, 5, "#7a5230");
-        p.line(lx + 3, 18, lx - 2, 5, "#5e3e22");
-        p.line(lx + 2, 18, lx - 3, 5, "#7a5230");
-      }
-      for (const y0 of [6, 11]) {
-        for (let y = y0; y <= y0 + 3; y++) {
-          for (let x = 2; x <= 29; x++) {
-            const red = ((x + y - y0) >> 2) % 2 === 0;
-            let c = red ? "#c83a3a" : "#e8e4dc";
-            if (y === y0) c = red ? "#e05a5a" : "#ffffff";
-            if (y === y0 + 3) c = red ? "#8a2424" : "#a8a49c";
-            p.set(x, y, c);
-          }
-        }
-        p.r(2, y0, 2, y0 + 3, "#3a2a1e");
-        p.r(29, y0, 29, y0 + 3, "#3a2a1e");
-        for (const nx of [6, 25]) p.set(nx, y0 + 1, "#cfd4dc");
-        for (const [x, y] of [[11, y0 + 2], [18, y0 + 1], [22, y0 + 2]]) p.set(x, y, "#6a5a4a"); // chipped paint
-      }
-      p.r(3, 3, 5, 5, "#2a2e38");
-      p.r(3, 3, 5, 4, "#f4b030");
-      p.set(4, 3, "#fff0a0");
+    if (id === "concrete_barricade") {
+      // a jersey barrier: two concrete segments, a lit top, a sloped foot, a hazard band, reflectors
+      p.r(4, 5, 27, 6, "#d2d6dc");
+      p.r(4, 7, 27, 12, "#a8adb5");
+      p.r(2, 13, 29, 17, "#959aa3");
+      p.r(2, 13, 29, 13, "#b8bcc4");
+      p.r(2, 17, 29, 17, "#6b7080");
+      p.r(4, 7, 4, 12, "#c4c8ce");
+      p.r(27, 7, 27, 12, "#7e8490");
+      p.r(2, 14, 2, 16, "#aab0b8");
+      p.r(29, 14, 29, 16, "#7e8490");
+      for (let x = 4; x <= 27; x++) for (const y of [9, 10]) p.set(x, y, (x + y) % 6 < 3 ? "#f08a24" : "#f0f0ea");
+      p.r(15, 5, 16, 17, "#6b7080"); // the joint between the two segments
+      p.set(15, 5, "#8a909a");
+      for (const x of [8, 23]) p.r(x, 15, x + 1, 15, "#f4d35e");
+      for (const [x, y] of [[7, 7], [21, 11], [25, 8], [11, 16], [19, 14]]) p.set(x, y, "#8a8f98"); // chips and grime
+      p.line(22, 6, 24, 9, "#8a8f98");
     } else if (id === "sandbag_wall") {
       for (const x of [1, 8, 15, 22]) sandbag(p, x, 13);
       for (const x of [4, 11, 18]) sandbag(p, x, 9);
@@ -663,33 +654,24 @@ export function structureSprite(id, sizePx = 64) {
       sandbag(p, 22, 6, 6);
       for (const [x, y] of [[27, 17], [28, 18], [29, 17], [26, 18], [30, 18]]) p.set(x, y, "#b39e70"); // a split bag
       for (let x = 10; x < 22; x += 2) p.set(x, 6, "#efe2bc"); // stitching
-    } else if (id === "spike_trap") {
-      // a plank studded with steel spikes, two of them bloody
-      for (let i = 0; i < 7; i++) {
-        const sx = 4 + i * 4;
-        const tip = 5 + (i % 3);
-        for (let y = tip; y <= 13; y++) {
-          if (y >= 10) {
-            p.set(sx - 1, y, "#e4e8ee");
-            p.set(sx, y, "#aab2bc");
-            p.set(sx + 1, y, "#6a7280");
-          } else {
-            p.set(sx, y, y === tip ? "#ffffff" : "#c8d0da");
-            if (y > tip + 1) p.set(sx + 1, y, "#6a7280");
-          }
-        }
-        if (i === 1 || i === 4) {
-          p.set(sx, tip, "#c02a2a");
-          p.set(sx, tip + 1, "#a02020");
-          p.set(sx + 1, tip + 3, "#8a1c1c");
-        }
+    } else if (id === "electric_fence") {
+      // two posts with insulators, four live wires, a warning sign, sparks
+      for (const x of [3, 27]) {
+        p.r(x, 3, x + 1, 17, "#5a606c");
+        p.r(x, 3, x, 17, "#7e8490");
+        p.r(x - 1, 2, x + 2, 2, "#8a909a");
       }
-      p.r(2, 14, 29, 17, "#8a5f33");
-      p.r(2, 14, 29, 14, "#a8753f");
-      p.r(2, 17, 29, 17, "#5e3e22");
-      for (let x = 4; x < 29; x += 5) p.set(x, 16, "#74502a");
-      p.r(2, 14, 2, 17, "#5e3e22");
-      p.r(29, 14, 29, 17, "#5e3e22");
+      for (const y of [6, 9, 12, 15]) {
+        p.r(5, y, 26, y, "#b8bec8");
+        for (let x = 6; x < 26; x += 4) p.set(x, y, "#e8ecf0");
+        for (const x of [4, 26]) p.set(x, y, "#f0f0ea"); // insulators
+      }
+      p.r(13, 8, 18, 13, "#f4d35e");
+      p.r(13, 8, 18, 8, "#fff0a0");
+      p.r(13, 13, 18, 13, "#c8a830");
+      for (const [x, y] of [[16, 9], [15, 10], [16, 10], [15, 11], [14, 12]]) p.set(x, y, "#2a2a2a");
+      for (const [x, y] of [[8, 5], [9, 4], [7, 4], [22, 11], [23, 10], [21, 10], [10, 14], [24, 16]]) p.set(x, y, "#fff3a0");
+      for (const [x, y] of [[8, 4], [22, 10]]) p.set(x, y, "#ffffff");
     } else if (id === "razor_wire") {
       // a coil of concertina wire between two crossed posts
       for (const lx of [3, 28]) {

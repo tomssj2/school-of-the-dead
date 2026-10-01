@@ -5,7 +5,7 @@ import {
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
-  NIGHT_ACTIONS, NIGHT_CONDITIONS, DEFENDER_ROLES, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS,
+  NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_ROLES, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
@@ -17,7 +17,7 @@ import {
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
+  getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, formationsFor, entranceFormations, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM,
@@ -59,7 +59,7 @@ const ICON_SWAPS = [
   [BATTLE_ABILITIES, "icon", { fighter: "ab_cleave", scout: "ab_headshot", support: "ab_rally" }],
   [NIGHT_ACTIONS, "icon", { molotov: "na_molotov", focus: "na_focus", patch: "na_patch", rally: "na_rally" }],
   [FORMATIONS, "icon", { guarded: "form_guarded", shieldWall: "form_shieldWall", crossfire: "form_crossfire" }],
-  [DEFENDER_ROLES, "icon", { PE: "dr_brawler", Gymnastics: "dr_marksman", Biology: "dr_tank", Physics: "dr_engineer", History: "dr_spotter", SocialStudies: "dr_rallier" }],
+  [DEFENSE_STRUCTURES, "icon", { sandbag_wall: "def_sandbags", razor_wire: "wire", concrete_barricade: "def_concrete", electric_fence: "def_efence" }],
   [ZOMBIE_TYPES, "badge", { runner: "z_runner", brute: "z_brute", spitter: "z_spitter", screamer: "z_screamer", boss: "z_boss" }],
   [INGREDIENTS, "icon", { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "flour", eggs: "eggs", milk: "milk", mutton: "mutton", canned_meat: "canned_meat", spices: "spices", coffee: "coffee" }],
   [PRODUCERS, "icon", { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "wheat", chicken: "chicken", cow: "cow", sheep: "sheep" }],
@@ -1480,15 +1480,14 @@ function renderTeamCard(state, i) {
   </div>`;
 }
 
-// Which expedition role the Exploration tab's role window shows, and which defender role
-// (DEFENDER_ROLES id) the Night Watch roster shows (main.js flips them: set-role-tab, with
-// data-where="night" for the Night Watch).
+// Which role the Exploration tab's role window shows, and the Night Watch roster (main.js flips
+// them: set-role-tab, with data-where="night" for the Night Watch).
 let roleTab = "fighter";
-let nightRoleTab = "brawler";
+let nightRoleTab = "fighter";
 export function setRoleTab(role, where) {
-  if (where === "night") {
-    if (Object.values(DEFENDER_ROLES).some((r) => r.id === role)) nightRoleTab = role;
-  } else if (EXPLORE_ROLES[role]) roleTab = role;
+  if (!EXPLORE_ROLES[role]) return;
+  if (where === "night") nightRoleTab = role;
+  else roleTab = role;
 }
 
 // The expedition roles (EXPLORE_ROLES), one at a time: a tab per role next to "Roles" — drop a
@@ -2252,6 +2251,8 @@ function renderGridBattle(state, anim) {
     } else if (e.type === "heal") {
       if (e.amount) fx += pop(e.at[0], e.at[1], "nw-pop-heal", `+${e.amount}`);
       fx += `<span class="nw-heal-ring" ${at(e.at[0], e.at[1])}></span>`;
+    } else if (e.type === "mend") {
+      fx += pop(e.at[0], e.at[1], "nw-pop-heal", `+${e.amount}`);
     } else if (e.type === "ability") {
       const a = BATTLE_ABILITIES[e.ability];
       fx += `<span class="nw-callout nw-callout-${e.ability}" ${at(e.at[0], e.at[1])}>${a.icon} ${a.name}!</span>`;
@@ -2311,13 +2312,11 @@ function renderGridBattle(state, anim) {
   for (const s of frame.students) {
     const c = getChar(state, s.id);
     const k = `${s.row},${s.col}`;
-    const role = Object.values(DEFENDER_ROLES).find((r) => r.id === s.role);
     const drag = breakTime && !s.downed ? `draggable="true" data-drag-student="${s.id}"` : "";
     const ready = canUse(s);
     const a = BATTLE_ABILITIES[s.ability];
     units += `<div class="nw-unit nw-defender ${s.downed ? "nw-downed" : ""} ${struck.has(k) ? "nw-strike" : ""} ${hurt.has(k) ? "nw-flash" : ""} ${breakTime ? "" : "nw-static"} ${ready ? "nw-ready" : ""} ${s.inspired > 0 && !s.downed ? "nw-inspired" : ""}" ${at(s.row, s.col)} ${drag} ${breakTime ? `data-drop-cell="${k}"` : ""}
       ${ready ? `data-action="use-ability" data-id="${s.id}"` : ""} ${a && c ? tipAttr({ title: `${a.icon} ${a.name} — ${esc(shortName(c))}`, rows: [["Charge", `${Math.round(s.charge)}%`]], notes: [a.desc, ready ? "Click to use it now" : "Charges every turn — faster when they hit or get hurt"] }) : ""}>
-      ${role ? `<span class="nw-role" title="${role.name}: ${role.desc}">${role.icon}</span>` : ""}
       ${s.ability && !s.downed ? `<span class="nw-xrole">${EXPLORE_ROLES[s.ability].icon}</span>` : ""}
       ${ready ? `<span class="nw-ready-badge">${a.icon}</span>` : ""}
       ${c ? characterSprite(c, 40) : ""}${bar(s.hp, s.maxHp, "nw-hp-student")}
@@ -2640,7 +2639,7 @@ function renderTurn3Summary(state) {
       else emptyCells++;
     }
   }
-  const cheapest = Math.min(...DEFENSE_STRUCTURES.map((d) => d.cost.materials));
+  const cheapest = Math.min(...buildableDefenses(state).map((d) => d.cost.materials));
   const affordable = Math.min(emptyCells, Math.floor(state.resources.materials / cheapest));
   const kits = Object.values(state.defenseKits || {}).reduce((s, n) => s + n, 0);
   const defenses = overviewCard({
@@ -2670,7 +2669,7 @@ function renderTurn3Summary(state) {
   const lazyPill = lazy.length
     ? `<button class="ov-chip ov-chip-bad" data-action="set-tab" data-tab="defense" ${tipAttr({
         title: `😴 ${plural(lazy.length, "student")} could stand watch`,
-        notes: [...lazy.slice(0, 10).map((c) => `${defenderRole(state, c).icon} ${esc(c.name)}`), ...(lazy.length > 10 ? [`…and ${lazy.length - 10} more`] : []), "Not on the steps tonight, and there's a free spot for them"],
+        notes: [...lazy.slice(0, 10).map((c) => `${EXPLORE_ROLES[exploreRole(c)].icon} ${esc(c.name)}`), ...(lazy.length > 10 ? [`…and ${lazy.length - 10} more`] : []), "Not on the steps tonight, and there's a free spot for them"],
       })}>😴 <b>${lazy.length}</b> lazy · ${plural(lazy.length, "student")}</button>`
     : `<span class="ov-chip ov-chip-ok">✓ Nobody's lazy</span>`;
 
@@ -2809,7 +2808,7 @@ export function renderAssaultModal(state, pick) {
   const candidates = assaultCandidates(state);
   const squad = candidates.filter((c) => pick.has(c.id));
   const chips = candidates.map((c) => {
-    const role = defenderRole(state, c);
+    const role = EXPLORE_ROLES[exploreRole(c)];
     return `<button class="nw-chip ${pick.has(c.id) ? "nw-chip-on" : ""}" data-action="assault-toggle" data-id="${c.id}" title="${esc(c.name)} — HP ${c.hp}/${c.maxHp}${pick.has(c.id) ? " · click to leave them home" : " · click to take them"}">
       <span class="nw-chip-sprite">${characterSprite(c, 22)}</span>
       <span class="nw-chip-name">${role.icon} ${esc(shortName(c))}</span>
@@ -3142,7 +3141,15 @@ export function renderPickerModal(state, picker, sortKey, sortDir, recMode = "lo
 }
 
 export function renderDefenseBuildModal(state, cellKey) {
-  const options = DEFENSE_STRUCTURES.map((d) => {
+  const buildable = buildableDefenses(state);
+  const locked = DEFENSE_STRUCTURES.filter((d) => d.upgradeOf && !buildable.includes(d)).map((d) => {
+    const tech = TECH_TREE.find((t) => t.id === d.tech);
+    return `<div class="defense-build-option defense-build-locked">
+      <div class="defense-build-option-main"><span class="tech-icon">${d.icon}</span> <b>${esc(d.name)}</b> <span class="muted">🔒 Research ${esc(tech.name)}</span></div>
+      <p class="muted">${esc(d.desc)} Replaces the ${esc(DEFENSE_STRUCTURES.find((b) => b.id === d.upgradeOf).name.toLowerCase())}.</p>
+    </div>`;
+  }).join("");
+  const options = buildable.map((d) => {
     const kits = state.defenseKits?.[d.id] || 0; // from the Scrapyard's trap bench: a free build each
     const affordable = kits > 0 || Object.keys(d.cost).every((res) => (state.resources[res] || 0) >= d.cost[res]);
     const costLabel = kits
@@ -3159,7 +3166,7 @@ export function renderDefenseBuildModal(state, cellKey) {
     <div class="char-card mission-card" data-action="noop">
       <button class="cc-close" data-action="close-defense-build" title="Close">✕</button>
       <h3>Build a Defense</h3>
-      <div class="defense-build-list">${options}</div>
+      <div class="defense-build-list">${options}${locked}</div>
     </div>
   </div>`;
 }
@@ -3178,23 +3185,24 @@ function entranceCellKey(row, col) {
 // How far a defender reaches: their melee weapon (fists: 1) and ranged weapon, in squares.
 function defenderReach(state, c) {
   const eq = c.equipment || {};
-  return { melee: (eq.meleeWeapon || FIST_WEAPON).range, ranged: eq.rangedWeapon ? eq.rangedWeapon.range + techPerk(state, "rangedRange") : 0 };
+  const scout = exploreRole(c) === "scout" ? NIGHT_ROLES.scout.reach : 0;
+  return { melee: (eq.meleeWeapon || FIST_WEAPON).range, ranged: eq.rangedWeapon ? eq.rangedWeapon.range + techPerk(state, "rangedRange") + scout : 0 };
 }
 
 // A defender on the board (planning), draggable, with their weapons and HP.
 function nightDefender(state, c, row, col) {
   const eq = c.equipment || {};
   const reach = defenderReach(state, c);
-  const role = defenderRole(state, c);
   const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean);
-  const x = EXPLORE_ROLES[exploreRole(c)];
-  const ab = BATTLE_ABILITIES[exploreRole(c)];
+  const role = exploreRole(c);
+  const x = EXPLORE_ROLES[role];
+  const ab = BATTLE_ABILITIES[role];
+  const bonusHp = role === "fighter" ? Math.round(c.maxHp * NIGHT_ROLES.fighter.hpBonus) : 0;
   return `<div class="nw-unit nw-defender" draggable="true" data-drag-student="${c.id}" data-reach="${row},${col},${reach.melee},${reach.ranged}" ${tipAttr({
-    title: `${esc(c.name)} · ${role.icon} ${role.name}`,
-    rows: [["Melee", `${gear.find((w) => w.category === "melee")?.name || "Fists"} · reach ${reach.melee}`], ["Ranged", reach.ranged ? `${esc(eq.rangedWeapon.name)} · reach ${reach.ranged}` : "—"], ["HP", `${c.hp}/${c.maxHp}`], [`${x.icon} ${x.name.slice(0, -1)} ability`, `${ab.icon} ${ab.name}`]],
-    notes: [`${role.name}: ${role.desc}`, `${ab.name}: ${ab.desc}`, "Drag to move · drag back to the roster to take them off watch"],
+    title: `${esc(c.name)} · ${x.icon} ${x.name.slice(0, -1)}`,
+    rows: [["Melee", `${gear.find((w) => w.category === "melee")?.name || "Fists"} · reach ${reach.melee}`], ["Ranged", reach.ranged ? `${esc(eq.rangedWeapon.name)} · reach ${reach.ranged}` : "—"], ["HP", `${c.hp}/${c.maxHp}${bonusHp ? ` +${bonusHp}` : ""}`], ["Ability", `${ab.icon} ${ab.name}`]],
+    notes: [`${x.name.slice(0, -1)}: ${NIGHT_ROLES[role].desc}`, `${ab.name}: ${ab.desc}`, "Drag to move · drag back to the roster to take them off watch"],
   })}>
-    <span class="nw-role">${role.icon}</span>
     <span class="nw-xrole" title="${x.name.slice(0, -1)}">${x.icon}</span>
     ${characterSprite(c, 40)}
     <span class="nw-gear">${gear.length ? gear.map(itemIcon).join("") : "👊"}</span>
@@ -3254,38 +3262,41 @@ function formationLinks(links) {
   }).join("");
 }
 
-// The side panel's roster: the students who could stand watch tonight, one defender role at a
-// time (a tab per DEFENDER_ROLES role — Brawler, Marksman, Tank, …), draggable onto the steps (a
-// click posts them to the first free square, or takes them off). Those on watch first, then the
-// best at the role's subject.
+// The side panel's roster: the students who could stand watch tonight, one role at a time (the
+// expedition roles, tabs as on the City Map — drop a student on a tab to change their role),
+// draggable onto the steps (a click posts them to the first free square, or takes them off).
+// Those on watch first, then the strongest in the role.
 const nightAvailable = (state) => state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
-const nightRoleSubject = () => Object.keys(DEFENDER_ROLES).find((s) => DEFENDER_ROLES[s].id === nightRoleTab) || "PE";
 function nightRosterHead(state) {
   const available = nightAvailable(state);
-  const tabs = Object.entries(DEFENDER_ROLES).map(([subject, r]) => {
-    const list = available.filter((c) => defenderRole(state, c) === r);
+  const tabs = Object.entries(EXPLORE_ROLES).map(([role, r]) => {
+    const list = available.filter((c) => exploreRole(c) === role);
     const onWatch = list.filter((c) => c.defending).length;
-    return `<button class="ex-rtab nw-rtab nw-rtab-${r.id} ${r.id === nightRoleTab ? "active" : ""}" data-action="set-role-tab" data-where="night" data-role="${r.id}" ${tipAttr({
-      title: `${r.icon} ${r.name}s`, rows: [["Free tonight", `${list.length}`], ["On watch", `${onWatch}`]],
-      notes: [r.desc, `Students whose best subject is ${STAT_OF_SUBJECT[subject]}`],
+    return `<button class="ex-rtab ex-role-${role} ${role === nightRoleTab ? "active" : ""}" data-action="set-role-tab" data-where="night" data-role="${role}" data-drop-role="${role}" ${tipAttr({
+      title: `${r.icon} ${r.name}`, rows: [["Free tonight", `${list.length}`], ["On watch", `${onWatch}`]],
+      notes: [NIGHT_ROLES[role].desc, `Ability: ${BATTLE_ABILITIES[role].icon} ${BATTLE_ABILITIES[role].name}`, "Drop a student here to make them one"],
     })}>${r.icon}<b>${list.length}</b></button>`;
   }).join("");
-  return `<div class="mini-label">Defenders — drag onto the steps</div><div class="nw-rtabs">${tabs}</div>`;
+  const how = {
+    title: "🛡 Roles on watch",
+    rows: Object.entries(EXPLORE_ROLES).map(([role, r]) => [`${r.icon} ${r.name}`, NIGHT_ROLES[role].desc]),
+    notes: ["The same roles as on expeditions", "Drop a student on a tab to change their role"],
+  };
+  return `<div class="ex-roles-head"><span class="mini-label">Defenders ${infoDot(how)}</span><span class="ex-rtabs">${tabs}</span></div>`;
 }
 function nightRoster(state) {
-  const subject = nightRoleSubject();
   return nightAvailable(state)
-    .filter((c) => defenderRole(state, c).id === nightRoleTab)
-    .sort((a, b) => (b.defending - a.defending) || effectiveGrade(state, b, subject) - effectiveGrade(state, a, subject))
+    .filter((c) => exploreRole(c) === nightRoleTab)
+    .sort((a, b) => (b.defending - a.defending) || memberPower(state, b) - memberPower(state, a))
     .map((c) => {
       const eq = c.equipment || {};
       const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean).map(itemIcon).join("") || "👊";
-      const role = defenderRole(state, c);
+      const role = EXPLORE_ROLES[exploreRole(c)];
       return `<div class="nw-chip ${c.defending ? "nw-chip-on" : ""} ${c.injured ? "nw-chip-hurt" : ""}" draggable="true" data-drag-student="${c.id}" data-action="nw-quick" data-id="${c.id}"
-        title="${esc(c.name)}, ${role.name.toLowerCase()} (${role.desc}) — ${c.defending ? "on watch: click to take them off" : "click to post them, or drag onto the steps"}">
+        title="${esc(c.name)} — ${c.defending ? "on watch: click to take them off" : "click to post them, or drag onto the steps"}">
         <span class="nw-chip-sprite">${characterSprite(c, 22)}</span>
         <span class="nw-chip-name">${role.icon} ${esc(shortName(c))}</span>
-        <span class="nw-chip-stats">${subject === "PE" || subject === "Gymnastics" ? "" : `<b>${STAT_OF_SUBJECT[subject]} ${effectiveGrade(state, c, subject)}</b> `}💪${effectiveGrade(state, c, "PE")} 🤸${effectiveGrade(state, c, "Gymnastics")}</span>
+        <span class="nw-chip-stats">⚔ ${memberPower(state, c)} · ❤ ${c.hp}/${c.maxHp}</span>
         <span class="nw-chip-gear">${gear}</span>
       </div>`;
     })
@@ -4036,12 +4047,13 @@ export function renderDefenseTab(state) {
   if (state.pendingRaid) {
     return renderComingSoon("🛡", "Defense", `The ${FACILITY_LABEL[state.pendingRaid.facility]} is under attack right now — assign defenders from the Night Watch panel.`);
   }
-  const structures = DEFENSE_STRUCTURES.map(
-    (d) => `<div class="armory-item">
+  const buildable = buildableDefenses(state);
+  const structures = DEFENSE_STRUCTURES.filter((d) => buildable.includes(d) || d.upgradeOf).filter((d) => buildable.includes(d) || !buildable.some((b) => b.upgradeOf === d.upgradeOf && b !== d)).map(
+    (d) => `<div class="armory-item ${buildable.includes(d) ? "" : "armory-locked"}">
       <span class="armory-icon nw-enemy-icon">${structureSprite(d.id, 40)}</span>
       <span class="armory-name">${esc(d.name)}</span>
       <span class="armory-bonus">${esc(d.desc)}</span>
-      <span class="weapon-stats">${ri("materials")} ${d.cost.materials}</span>
+      <span class="weapon-stats">${buildable.includes(d) ? `${ri("materials")} ${d.cost.materials}` : `🔒 ${esc(TECH_TREE.find((t) => t.id === d.tech).name)}`}</span>
     </div>`
   ).join("");
   // the Night Watch tab: the board to set up tonight, then what can be built and who's coming

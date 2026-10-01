@@ -15,7 +15,7 @@ import {
   EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
   ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
-  NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS, DEFENDER_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
+  NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS, NIGHT_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay,
   RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
@@ -1030,7 +1030,7 @@ function resolveYard(state) {
       if (job.gearChance && Math.random() < job.gearChance) out.items.push(yardItem(null));
       if (job.makes === "weapon" || job.makes === "armor") out.items.push(yardItem(job.makes));
       if (job.makes === "defense") {
-        const kit = pick(DEFENSE_STRUCTURES);
+        const kit = pick(buildableDefenses(state));
         state.defenseKits[kit.id] = (state.defenseKits[kit.id] || 0) + 1;
         out.kits.push(kit);
       }
@@ -1607,7 +1607,7 @@ export function resolveExploration(state) {
       `${haul + yard.scrap} scrap`,
       ...(yard.research ? [`${yard.research} research`] : []),
       ...yard.items.map((it) => `${it.icon} ${it.name}`),
-      ...yard.kits.map((k) => `${k.icon} a ${k.name.toLowerCase()} kit`),
+      ...yard.kits.map((k) => `${k.emoji ?? k.icon} a ${k.name.toLowerCase()} kit`),
     ];
     addLog(state, `The Scrapyard brings in ${made.join(", ")} from ${scrapyardWorkers.length} student(s)${yard.short ? ` — ${yard.short} bench job(s) waited for scrap` : ""}.`);
   }
@@ -1712,11 +1712,6 @@ function applyFormations(b) {
   }
 }
 
-// A defender's role: their best stat (see DEFENDER_ROLES).
-export function defenderRole(state, c) {
-  const best = Object.keys(DEFENDER_ROLES).reduce((b, s) => (effectiveGrade(state, c, s) > effectiveGrade(state, c, b) ? s : b), "PE");
-  return DEFENDER_ROLES[best];
-}
 
 // Tonight's weather — fixed for each night of a run, so it can be shown while planning.
 export function nightCondition(state) {
@@ -1742,10 +1737,9 @@ export const nightWaveCount = (zombies) => (zombies <= 6 ? 1 : zombies <= 14 ? 2
 // The two lamp-lit lanes (a blackout doesn't reach them).
 export const lampLanes = (size) => [Math.round(size * 0.2), size - 1 - Math.round(size * 0.2)];
 
-// How many night actions tonight: the base, plus a Rally for each rallier on watch (up to two).
+// How many night actions tonight: the base, plus any extra Rallies from research.
 export function nightActionUses(state) {
-  const ralliers = state.characters.filter((c) => c.defending && c.alive && defenderRole(state, c).id === "rallier").length;
-  return Object.fromEntries(Object.entries(NIGHT_ACTIONS).map(([id, a]) => [id, a.uses + (id === "rally" ? Math.min(2, ralliers) : 0)]));
+  return Object.fromEntries(Object.entries(NIGHT_ACTIONS).map(([id, a]) => [id, a.uses + (id === "rally" ? techPerk(state, "rallyUses") : 0)]));
 }
 
 // A screamer's howl: a zombie within range of one (not itself) hits harder.
@@ -1791,37 +1785,36 @@ export function startNightBattle(state) {
   const condition = nightCondition(state);
   const lamps = lampLanes(size);
 
-  const roleCount = {};
   const students = Object.entries(grid.students)
     .map(([key, id]) => ({ key, c: getChar(state, id) }))
     .filter(({ c }) => c && c.alive)
     .map(({ key, c }) => {
       const [row, col] = key.split(",").map(Number);
-      const role = defenderRole(state, c);
-      roleCount[role.id] = (roleCount[role.id] || 0) + 1;
-      const s = { id: c.id, row, col, hp: c.hp, maxHp: c.maxHp, downed: false, kills: 0, usedMelee: false, usedRanged: false, role: role.id, ...battleStats(state, c),
+      const role = exploreRole(c);
+      const s = { id: c.id, row, col, hp: c.hp, maxHp: c.maxHp, bonusHp: 0, downed: false, kills: 0, usedMelee: false, usedRanged: false, role, ...battleStats(state, c),
         // a critical hit (double damage): 5%, plus 1% for every 10 DEX
         critChance: BATTLE_CRIT.base + effectiveGrade(state, c, "Gymnastics") * BATTLE_CRIT.perDex,
         // their ability (by expedition role), charging from 0; skills in the role's stats power it up
         ability: exploreRole(c), charge: 0, inspired: 0,
         abilityPower: 1 + ABILITY_CHARGE.perSkill * EXPLORE_ROLES[exploreRole(c)].stats.reduce((n, subj) => n + skillCount(c, subj), 0) };
-      if (role.id === "brawler") s.meleeMult *= 1.25;
-      if (role.id === "marksman" && s.ranged) s.ranged = { ...s.ranged, range: s.ranged.range + 1 };
-      if (role.id === "tank") s.armorMult *= 0.75;
+      // their role on the steps (NIGHT_ROLES): fighters get extra HP (lost first), scouts reach further
+      if (role === "fighter") {
+        s.bonusHp = Math.round(c.maxHp * NIGHT_ROLES.fighter.hpBonus);
+        s.hp += s.bonusHp;
+        s.maxHp += s.bonusHp;
+      }
+      if (role === "scout" && s.ranged) s.ranged = { ...s.ranged, range: s.ranged.range + NIGHT_ROLES.scout.reach };
       if (condition.id === "fog" && s.ranged) s.ranged = { ...s.ranged, range: Math.max(1, s.ranged.range - 2) };
       if (condition.id === "rain") s.rangedMult *= 0.7;
       return s;
     });
-  const spotters = Math.min(2, roleCount.spotter || 0);
   for (const s of students) {
-    s.hitChance = Math.min(0.95, s.hitChance + 0.05 * spotters);
+    s.hitChance = Math.min(0.95, s.hitChance + techPerk(state, "watchHit"));
     s.baseArmorMult = s.armorMult; // before formations (applyFormations)
     s.baseCritChance = s.critChance;
   }
   const squad = squadModifiers(state, students.map((s) => getChar(state, s.id)));
-  const engineers = Math.min(2, roleCount.engineer || 0);
-  squad.trapMult *= 1 + 0.2 * engineers;
-  squad.wallMult *= 1 + 0.2 * engineers;
+  squad.trapMult *= 1 + techPerk(state, "trapDamage");
 
   const structures = {};
   for (const [key, structureId] of Object.entries(grid.defenses)) {
@@ -2038,6 +2031,16 @@ export function battleTick(state, b) {
       if (step > 0 && adjacentTo().length) break; // closed the distance — it'll bite next turn
       if (!advance(z, T)) break;
     }
+  }
+
+  // supports patch up the defender in front of them (a row nearer the street)
+  for (const s of b.students) {
+    if (s.downed || s.ability !== "support") continue;
+    const p = studentAt(b, s.row + 1, s.col);
+    if (!p || p.hp >= p.maxHp) continue;
+    const heal = Math.min(p.maxHp - p.hp, Math.max(1, Math.round(p.maxHp * NIGHT_ROLES.support.mend)));
+    p.hp += heal;
+    events.push({ type: "mend", at: [p.row, p.col], from: [s.row, s.col], amount: heal });
   }
 
   if (b.rally > 0) b.rally--;
@@ -2302,7 +2305,7 @@ export function finishNightBattle(state, b) {
       }
       continue;
     }
-    c.hp = Math.max(1, Math.min(c.maxHp, s.hp));
+    c.hp = Math.max(1, Math.min(c.maxHp, s.hp - (s.bonusHp || 0))); // a fighter's extra HP goes first
     c.injured = c.hp < c.maxHp * 0.5;
     gainExp(state, c, LEVEL_XP.defend);
     const killBonus = Math.min(3, s.kills);
@@ -2775,6 +2778,16 @@ export function buyTech(state, techId) {
   state.resources.research -= node.cost;
   state.techUnlocked.push(techId);
   addLog(state, `Research complete: ${node.name} — ${node.desc} (-${node.cost} research).`);
+  // a defense upgrade replaces what's already built (and any kits for it)
+  for (const up of DEFENSE_STRUCTURES.filter((d) => d.tech === techId)) {
+    const grid = state.entranceGrid;
+    for (const [key, id] of Object.entries(grid.defenses)) if (id === up.upgradeOf) grid.defenses[key] = up.id;
+    const kits = state.defenseKits?.[up.upgradeOf];
+    if (kits) {
+      state.defenseKits[up.id] = (state.defenseKits[up.id] || 0) + kits;
+      delete state.defenseKits[up.upgradeOf];
+    }
+  }
   return true;
 }
 
@@ -3534,9 +3547,14 @@ export function clearEntranceStudentCell(state, cellKey) {
   return true;
 }
 
+// What can be built at the entrance now: each kind, or its upgrade once it's been researched.
+export function buildableDefenses(state) {
+  return DEFENSE_STRUCTURES.filter((d) => !d.upgradeOf).map((d) => DEFENSE_STRUCTURES.find((u) => u.upgradeOf === d.id && state.techUnlocked.includes(u.tech)) || d);
+}
+
 export function buildDefense(state, cellKey, structureId) {
   if (state.entranceGrid.defenses[cellKey]) return false;
-  const def = DEFENSE_STRUCTURES.find((d) => d.id === structureId);
+  const def = buildableDefenses(state).find((d) => d.id === structureId);
   if (!def) return false;
   // a kit from the Scrapyard's trap bench builds one for free
   if (state.defenseKits?.[structureId] > 0) {

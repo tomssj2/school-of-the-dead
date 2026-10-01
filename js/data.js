@@ -258,11 +258,14 @@ export const STREET_ROW0 = ENTRANCE_ZONES.students + ENTRANCE_ZONES.defenses;
 // damaged ones are patched back up. `enterDamage` hits a zombie stepping onto the cell;
 // `slows` holds it there an extra tick.
 export const DEFENSE_STRUCTURES = [
-  { id: "barricade", name: "Barricade", icon: "🚧", cost: { materials: 12 }, blocks: true, hp: 40, desc: "Blocks a lane until the horde smashes through (40 HP)." },
-  { id: "sandbag_wall", name: "Sandbag Wall", icon: "🧱", cost: { materials: 18 }, blocks: true, hp: 80, desc: "A heavier wall — takes twice the beating (80 HP)." },
-  { id: "spike_trap", name: "Spike Trap", icon: "🔺", cost: { materials: 15 }, enterDamage: 14, desc: "Deals 14 damage to every zombie that steps on it." },
+  { id: "sandbag_wall", name: "Sandbag Wall", icon: "🧱", cost: { materials: 15 }, blocks: true, hp: 80, desc: "Blocks a lane until the horde smashes through (80 HP)." },
   { id: "razor_wire", name: "Razor Wire", icon: "🔗", cost: { materials: 20 }, enterDamage: 6, slows: true, desc: "Cuts for 6 and snags zombies in place for an extra turn." },
+  // upgrades, unlocked by research (`tech`): they replace the kind they upgrade, built ones too
+  { id: "concrete_barricade", name: "Concrete Barricade", icon: "🚧", cost: { materials: 15 }, blocks: true, hp: 160, upgradeOf: "sandbag_wall", tech: "concrete_barricades", desc: "Blocks a lane and takes twice a sandbag wall's beating (160 HP)." },
+  { id: "electric_fence", name: "Electric Fence", icon: "⚡", cost: { materials: 20 }, enterDamage: 18, slows: true, upgradeOf: "razor_wire", tech: "electric_fence", desc: "Shocks for 18 and holds zombies in place for an extra turn." },
 ];
+// Defenses from before the upgrades existed, and what they became.
+export const LEGACY_DEFENSE_IDS = { barricade: "sandbag_wall", spike_trap: "razor_wire" };
 
 // ===== Night battle tuning =====
 export const ZOMBIE_HIT_CHANCE = 0.65;
@@ -327,13 +330,11 @@ export const FORMATIONS = {
 };
 export const ABILITY_CHARGE = { perTick: 14, perHit: 8, perHurt: 12, full: 100, perSkill: 0.15, inspired: 1.5 };
 // A defender's role is their best stat (the subject behind it).
-export const DEFENDER_ROLES = {
-  PE: { id: "brawler", name: "Brawler", icon: "💪", desc: "+25% melee damage" },
-  Gymnastics: { id: "marksman", name: "Marksman", icon: "🏹", desc: "+1 ranged reach" },
-  Biology: { id: "tank", name: "Tank", icon: "🛡️", desc: "Takes 25% less damage" },
-  Physics: { id: "engineer", name: "Engineer", icon: "🔧", desc: "Traps hit 20% harder and walls hold 20% more (two engineers at most)" },
-  History: { id: "spotter", name: "Spotter", icon: "👁️", desc: "The whole watch hits 5% more often (two spotters at most)" },
-  SocialStudies: { id: "rallier", name: "Rallier", icon: "📣", desc: "One more Rally tonight (two ralliers at most)" },
+// What each expedition role (EXPLORE_ROLES) does on the Night Watch steps.
+export const NIGHT_ROLES = {
+  fighter: { hpBonus: 0.5, desc: "+50% HP on watch" },
+  scout: { reach: 2, desc: "Ranged weapons reach 2 squares further" },
+  support: { mend: 0.05, desc: "Heals the defender in front of them (a row nearer the street) by 5% of their HP every turn" },
 };
 // Tonight's weather: rolled for each night (always clear on the first).
 export const NIGHT_CONDITIONS = {
@@ -892,6 +893,7 @@ export const TECH_BRANCHES = [
   { id: "combat", name: "⚔ Night Watch", desc: "Hold the entrance." },
   { id: "scavenging", name: "🧭 Scavenging", desc: "Bring more home, lose fewer people." },
   { id: "school", name: "🏫 School Life", desc: "Grow faster, recover better." },
+  { id: "defenses", name: "🛡 Defenses", desc: "Better walls and traps at the entrance." },
 ];
 export const TECH_TREE = [
   // ⚔ Night Watch
@@ -912,6 +914,12 @@ export const TECH_TREE = [
   { id: "school_spirit", branch: "school", name: "School Spirit", icon: "🎉", cost: 50, requires: "power_naps", perk: { happinessLossReduction: 0.5 }, desc: "Happiness losses are halved." },
   { id: "home_economics", branch: "school", name: "Home Economics", icon: "🍳", cost: 75, requires: "school_spirit", perk: { extraDishesPerCook: 1 }, desc: "Each cook can serve two dishes a day instead of one." },
   { id: "honor_roll", branch: "school", name: "Honor Roll", icon: "🏅", cost: 110, requires: "home_economics", perk: { xp: 0.25 }, desc: "Every action earns 25% more XP." },
+  // 🛡 Defenses (the two upgrades replace sandbag walls and razor wire — see DEFENSE_STRUCTURES)
+  { id: "concrete_barricades", branch: "defenses", name: "Concrete Barricades", icon: "🚧", cost: 20, requires: null, perk: {}, desc: "Sandbag walls become concrete barricades (160 HP) — the ones already built too." },
+  { id: "trap_engineering", branch: "defenses", name: "Trap Engineering", icon: "🔧", cost: 35, requires: "concrete_barricades", perk: { trapDamage: 0.25, wallHp: 0.25 }, desc: "Traps hit 25% harder and walls hold 25% more." },
+  { id: "electric_fence", branch: "defenses", name: "Electric Fence", icon: "⚡", cost: 55, requires: "trap_engineering", perk: {}, desc: "Razor wire becomes an electric fence (shocks for 18) — what's already built too." },
+  { id: "lookouts", branch: "defenses", name: "Lookouts", icon: "👁", cost: 80, requires: "electric_fence", perk: { watchHit: 0.1 }, desc: "The whole watch hits 10% more often." },
+  { id: "rally_drills", branch: "defenses", name: "Rally Drills", icon: "📣", cost: 110, requires: "lookouts", perk: { rallyUses: 1 }, desc: "One more Rally every night." },
 ];
 
 // ===== Exploration locations =====

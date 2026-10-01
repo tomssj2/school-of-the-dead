@@ -4586,6 +4586,50 @@ const ICONS = {
     "................",
     "................",
   ], { o: "#f08a24", w: "#f4f4f4", k: "#6b7380" }),
+  // the entrance's defenses (DEFENSE_STRUCTURES; razor wire is "wire")
+  def_sandbags: () => {
+    const g = blank(16);
+    const bag = (x0, y0, w) => {
+      for (let y = y0; y < y0 + 4; y++) for (let x = x0; x < x0 + w; x++) {
+        if ((y === y0 || y === y0 + 3) && (x === x0 || x === x0 + w - 1)) continue;
+        g[y][x] = y === y0 ? "#e2d2a4" : y === y0 + 3 ? "#8f7a52" : x === x0 + w - 1 ? "#a8935f" : "#c8b282";
+      }
+      g[y0 + 1][x0 + Math.floor(w / 2)] = "#a8935f";
+    };
+    bag(1, 10, 7);
+    bag(8, 10, 7);
+    bag(4, 6, 8);
+    return g;
+  },
+  def_concrete: () => {
+    const g = blank(16);
+    for (let y = 5; y <= 13; y++) {
+      const inset = y < 8 ? 3 : Math.max(0, 10 - y);
+      for (let x = 1 + inset; x <= 14 - inset; x++) {
+        let c = y === 5 ? "#d4d6da" : y === 13 ? "#6b7080" : "#a8adb5";
+        if (y > 5 && y < 13 && x === 1 + inset) c = "#c4c8ce";
+        if (y > 5 && y < 13 && x === 14 - inset) c = "#7e8490";
+        if (y === 10 || y === 11) c = (x + y) % 4 < 2 ? "#f08a24" : "#f4f4f4";
+        g[y][x] = c;
+      }
+    }
+    return g;
+  },
+  def_efence: () => {
+    const g = blank(16);
+    for (const x of [2, 13]) for (let y = 3; y <= 14; y++) g[y][x] = y === 3 ? "#c8ccd4" : "#5a606c";
+    for (const y of [5, 8, 11]) for (let x = 3; x <= 12; x++) g[y][x] = "#b8bec8";
+    for (const [x, y] of [[9, 2], [8, 3], [8, 4], [7, 5], [8, 5], [9, 5], [9, 6], [8, 7], [8, 8], [7, 9]]) g[y][x] = "#f4d35e";
+    for (const [x, y] of [[8, 4], [8, 7]]) g[y][x] = "#fff6b0";
+    for (const [x, y] of [[4, 7], [11, 10], [5, 12]]) g[y][x] = "#f4d35e";
+    return g;
+  },
+  // the Defenses research branch (TECH_TREE icons are named by tech id)
+  concrete_barricades: () => ICONS.def_concrete(),
+  trap_engineering: () => ICONS.dr_engineer(),
+  electric_fence: () => ICONS.def_efence(),
+  lookouts: () => ICONS.dr_spotter(),
+  rally_drills: () => ICONS.dr_rallier(),
   spikes: () => ascii([
     "................",
     "................",

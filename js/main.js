@@ -15,7 +15,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES, LEGACY_DEFENSE_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -381,6 +381,13 @@ function migrateState(s) {
     delete s.rooms.farm.pens;
   }
   if (!s.defenseKits) s.defenseKits = {};
+  // barricades and spike traps are gone: they became sandbag walls and razor wire
+  if (s.entranceGrid) for (const [key, id] of Object.entries(s.entranceGrid.defenses || {})) if (LEGACY_DEFENSE_IDS[id]) s.entranceGrid.defenses[key] = LEGACY_DEFENSE_IDS[id];
+  for (const [id, n] of Object.entries(s.defenseKits)) {
+    if (!LEGACY_DEFENSE_IDS[id]) continue;
+    s.defenseKits[LEGACY_DEFENSE_IDS[id]] = (s.defenseKits[LEGACY_DEFENSE_IDS[id]] || 0) + n;
+    delete s.defenseKits[id];
+  }
   for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key); // (also sets up the Scrapyard's piles and benches)
   // The Farm and the Scrapyard each have two crews: anyone working one from before joins its first
   // crew (the second once that's full), and whoever doesn't fit goes back to being free.
