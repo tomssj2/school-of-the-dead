@@ -267,6 +267,34 @@ function renderRadioUpgradeModal(state) {
   </div>`;
 }
 
+// The Radio Station's road to the rescue, along the bottom of its card: the five upgrades as linked
+// stages (built ones lit, the next one pulsing), and the next upgrade with its cost and a Build
+// button — or, once the satellite is up, when the helicopter lands.
+const RADIO_STAGE_ICON = { power: "antenna", range1: "signal", range2: "signal", range3: "signal", satellite: "satellite" };
+function radioTrack(state) {
+  const level = radioStage(state);
+  const costLabel = (cost) => Object.entries(cost || {}).map(([res, amt]) => `${TECH_EFFECT_ICON[res]}${amt}`).join(" ");
+  const stages = RADIO_UPGRADES.map((up, i) => {
+    const status = i < level ? "done" : i === level ? "next" : "locked";
+    const tip = tipAttr({
+      title: `${up.icon} ${esc(up.name)}`,
+      rows: [["Level", `${i + 1}`], ...(up.id === "satellite" ? [] : [["Recruit chance", `${Math.round(up.baseChance * 100)}% a day`]]), ...(up.cost ? [["Cost", costLabel(up.cost)]] : [])],
+      notes: [esc(up.desc), status === "done" ? "✓ Built" : status === "next" ? "Next up" : "🔒 After the one before it"],
+    });
+    return `${i ? `<i class="rt-link ${i < level ? "lit" : ""}"></i>` : ""}<span class="rt-stage rt-${status}" ${tip}>${pixelIcon(RADIO_STAGE_ICON[up.id], 16)}</span>`;
+  }).join("");
+  let next;
+  if (state.rescue) next = `<span class="rt-next-text"><span>🚁 ${state.rescue.evacuated ? "The helicopter has come and gone" : `Helicopter lands on <b>day ${state.rescue.day}</b>`}</span></span>`;
+  else if (level >= RADIO_UPGRADES.length) next = `<span class="rt-next-text"><span>🛰 <b>Satellite online</b></span></span>`;
+  else {
+    const up = RADIO_UPGRADES[level];
+    const affordable = Object.entries(up.cost || {}).every(([res, amt]) => (state.resources[res] || 0) >= amt);
+    next = `<span class="rt-next-text"><span>Next: <b>${esc(up.name.replace("Increase range", "Range").replace("Satellite communications", "Satellite"))}</b></span><small>${up.id === "satellite" ? "Calls the helicopter" : `${Math.round(up.baseChance * 100)}% a day · +1 on-air slot`}</small></span>
+      <button class="btn btn-sm btn-primary rt-build" data-action="radio-upgrade" ${affordable ? "" : "disabled"} title="${affordable ? "Build it now" : "Not enough yet"}">${costLabel(up.cost)}</button>`;
+  }
+  return `<div class="radio-track"><span class="rt-stages">${stages}</span><span class="rt-info">${next}</span></div>`;
+}
+
 // A student's level tooltip: experience toward the next level, and how it's earned.
 function levelTip(c) {
   const lv = overallLevel(c);
@@ -3759,6 +3787,7 @@ export function renderFloor3(state) {
         room.studentCapacity - onAir.length,
         'data-action="open-picker" data-kind="radio-student"'
       )}
+      ${radioTrack(state)}
     </div>`;
   })();
 

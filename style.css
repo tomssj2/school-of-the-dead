@@ -595,7 +595,32 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 
 .floor-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 .floor1-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.floor3-grid { margin-top: 10px; align-items: start; }
+.floor3-grid { margin-top: 10px; align-items: stretch; }
+/* the Radio Station's road to the rescue, pinned to the bottom of its card so it lines up with the
+   office next to it. A flex column doesn't merge margins, so the gaps are set to what they'd be in
+   the other rooms: 10 under the banner, 8, 6, and at least 6 above the strip. */
+.room-radio { display: flex; flex-direction: column; }
+.room-radio > .staff-row { margin-top: 0; }
+.room-radio > .stat-row { margin-top: 2px; }
+.room-radio > .person-tiles { margin-top: 0; }
+.room-radio > .radio-track { margin-top: auto; }
+.radio-track {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; box-sizing: border-box; height: 44px;
+  padding: 6px 8px 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: rgba(0, 0, 0, 0.18);
+}
+.rt-stages { display: flex; align-items: center; }
+.rt-stage { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #3a4153; background: #1a1e26; line-height: 0; cursor: help; }
+.rt-link { display: block; width: 10px; height: 2px; background: #3a4153; }
+.rt-link.lit { background: var(--bar-other); }
+.rt-done { border-color: var(--bar-other); background: color-mix(in srgb, var(--bar-other) 22%, #1a1e26); box-shadow: 0 0 6px color-mix(in srgb, var(--bar-other) 50%, transparent); }
+.rt-stage.rt-next { border-style: dashed; border-color: var(--bar-other); animation: tt-pulse 1.8s ease-in-out infinite; --path: var(--bar-other); }
+.rt-locked { opacity: 0.45; }
+.rt-locked svg { filter: grayscale(1); }
+.rt-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rt-next-text { display: flex; flex-direction: column; font-size: 12px; line-height: 1.25; text-align: right; white-space: nowrap; }
+.rt-next-text small { color: var(--muted); font-size: 11px; }
+.rt-build { flex: none; display: inline-flex; align-items: center; gap: 3px; }
+.rt-build .ri svg { width: 14px; height: 14px; }
 .floor2-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
 @container app (max-width: 800px) {
