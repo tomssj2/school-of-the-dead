@@ -66,6 +66,22 @@ const LOCATION_ICON = {
 const RES_PIXEL = { materials: "scrap" };
 const ri = (key, size = 14) => `<span class="ri">${pixelIcon(RES_PIXEL[key] || key, size)}</span>`;
 const RESOURCE_ICON = { food: ri("food"), materials: ri("materials"), medicine: ri("medicine"), research: ri("research"), serum: ri("serum") };
+// An icon that sizes with the text around it, like the emoji it replaces.
+// At least 16px, so a 16x16 icon never loses pixels (style.css .ri-em).
+const pxe = (name) => `<span class="ri ri-em">${pixelIcon(name, 16)}</span>`;
+
+// Combat pixel icons (scenes.js ICONS) in place of the data's emoji — roles, abilities, night
+// actions, formations, defender roles and zombie types — so every template that prints .icon /
+// .badge shows the pixel art. (Only the UI reads these; nothing is saved with them.)
+const ICON_SWAPS = [
+  [EXPLORE_ROLES, "icon", { fighter: "role_fighter", scout: "role_scout", support: "role_support" }],
+  [BATTLE_ABILITIES, "icon", { fighter: "ab_cleave", scout: "ab_headshot", support: "ab_rally" }],
+  [NIGHT_ACTIONS, "icon", { molotov: "na_molotov", focus: "na_focus", patch: "na_patch", rally: "na_rally" }],
+  [FORMATIONS, "icon", { guarded: "form_guarded", shieldWall: "form_shieldWall", crossfire: "form_crossfire" }],
+  [DEFENDER_ROLES, "icon", { PE: "dr_brawler", Gymnastics: "dr_marksman", Biology: "dr_tank", Physics: "dr_engineer", History: "dr_spotter", SocialStudies: "dr_rallier" }],
+  [ZOMBIE_TYPES, "badge", { runner: "z_runner", brute: "z_brute", spitter: "z_spitter", boss: "z_boss" }],
+];
+for (const [table, field, names] of ICON_SWAPS) for (const [key, name] of Object.entries(names)) if (table[key]) table[key][field] = pxe(name);
 
 // Expedition teams 1-3 and the raid squad each get a colour for their route, markers and chips.
 const TEAM_COLORS = ["#4caf7d", "#3fa7d6", "#e0a536", "#e0455f"];
@@ -2614,7 +2630,7 @@ function renderNightWatchScreen(state) {
           const count = {};
           for (const l of links) count[l.kind] = (count[l.kind] || 0) + 1;
           const chips = Object.entries(FORMATIONS).map(([k, f]) => `<span class="nw-form-chip ${count[k] ? "on" : ""}" ${tipAttr({ title: `${f.icon} ${f.name}`, notes: [f.desc] })}>${f.icon} ${f.name}${count[k] ? ` ×${count[k]}` : ""}</span>`).join("");
-          return `<div class="mini-label">Formations ${infoDot({ title: "🛡 Formations", rows: Object.values(FORMATIONS).map((f) => [`${f.icon} ${f.name}`, f.armor ? `−${Math.round((1 - f.armor) * 100)}% damage` : `+${Math.round(f.crit * 100)}% crit`]), notes: [...Object.values(FORMATIONS).map((f) => f.desc), "Roles are the students' expedition roles (⚔️ 🏃 🧠 on the board)", "Behind = the row nearer the doors"] })}</div>
+          return `<div class="mini-label">Formations ${infoDot({ title: `${FORMATIONS.shieldWall.icon} Formations`, rows: Object.values(FORMATIONS).map((f) => [`${f.icon} ${f.name}`, f.armor ? `−${Math.round((1 - f.armor) * 100)}% damage` : `+${Math.round(f.crit * 100)}% crit`]), notes: [...Object.values(FORMATIONS).map((f) => f.desc), `Roles are the students' expedition roles (${Object.values(EXPLORE_ROLES).map((r) => r.icon).join(" ")} on the board)`, "Behind = the row nearer the doors"] })}</div>
           <div class="nw-formations">${chips}</div>`;
         })()}
         <div class="mini-label">Defenders — drag onto the steps</div>

@@ -1614,6 +1614,338 @@ const ICONS = {
     "................",
   ], { h: "#6b4a3a", s: "#f2c9a0", S: "#d9a47a", N: "#56679e", n: "#34406b", w: "#eef3f7", H: "#8a5a3a", G: "#2c2c34",
     U: "#7fb0f0", u: "#3f7fd6", v: "#2a5aa0", C: "#8ad8a8", c: "#4caf7d", e: "#2e7a52" }),
+  // ---- combat (16x16): expedition roles, abilities, night actions, formations, defender roles,
+  // zombie types — ui.js swaps them in for the data's emoji ----
+  // Fighter: a sword.
+  role_fighter: () => {
+    const g = blank(16);
+    rod(g, 5.6, 10.4, 13.4, 2.6, 1.25, (t, side) => (side < -0.2 ? "#f4f6f8" : "#a9b1ba"));
+    rod(g, 1.9, 14.1, 4.6, 11.4, 0.8, "#8a5a3a");
+    rod(g, 3.2, 9.0, 7.0, 12.8, 0.85, "#e8c14a");
+    disk(g, 1.7, 14.3, 1.05, "#e8c14a");
+    return g;
+  },
+  // Scout: binoculars.
+  role_scout: () => {
+    const g = blank(16);
+    for (let y = 3; y <= 6; y++) for (const x of [3, 4, 5, 6, 9, 10, 11, 12]) g[y][x] = "#4a4f5a";
+    for (let y = 6; y <= 9; y++) for (const x of [7, 8]) g[y][x] = "#3a3f48";
+    disk(g, 5, 10, 3.4, "#5b616d");
+    disk(g, 11, 10, 3.4, "#5b616d");
+    disk(g, 5, 10, 2.1, "#3f8fd0");
+    disk(g, 11, 10, 2.1, "#3f8fd0");
+    for (const [x, y] of [[4, 9], [10, 9], [3, 4], [9, 4]]) g[y][x] = "#cfeaff";
+    return g;
+  },
+  // Support: a lightbulb — the brains of the team.
+  role_support: () => ascii([
+    "................",
+    "................",
+    "......yyyy......",
+    ".....yYYyyy.....",
+    "....yYyyyyyy....",
+    "....yYyyyyyy....",
+    "....yyyyyyyz....",
+    ".....yyyyyz.....",
+    "......yyyz......",
+    "......yyyz......",
+    "......gggg......",
+    "......Gggg......",
+    "......gggg......",
+    ".......gg.......",
+    "................",
+    "................",
+  ], { y: "#f4d03f", Y: "#fff3b0", z: "#d4a017", g: "#9aa3ad", G: "#d0d6dc" }),
+  // Cleave: a sweeping slash.
+  ab_cleave: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const a = Math.hypot(x + 0.5 - 8, y + 0.5 - 8), b = Math.hypot(x + 0.5 - 10.2, y + 0.5 - 10.2);
+      if (a <= 6.9 && b > 6.1) g[y][x] = b < 7.1 ? "#ffffff" : "#8fc1f5";
+    }
+    return g;
+  },
+  // Headshot: a scope's crosshair.
+  ab_headshot: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x - 7, dy = y - 7, r = Math.hypot(dx, dy); // pixel (7, 7) is the middle
+      const ring = r >= 4.6 && r <= 5.7;
+      const line = (Math.abs(dx) < 0.5 && Math.abs(dy) >= 2 && Math.abs(dy) <= 7) || (Math.abs(dy) < 0.5 && Math.abs(dx) >= 2 && Math.abs(dx) <= 7);
+      if (ring || line) g[y][x] = "#e04848";
+    }
+    g[7][7] = "#ff9a9a";
+    return g;
+  },
+  // Rally Cry: a green heart with a plus.
+  ab_rally: () => ascii([
+    "................",
+    "................",
+    "...ggg....ggg...",
+    "..gGGgg..ggggg..",
+    ".gGGggggggggggg.",
+    ".gGggggwwgggggd.",
+    ".ggggggwwggggdd.",
+    "..gggwwwwwwgdd..",
+    "...ggwwwwwwdd...",
+    "....gggwwgdd....",
+    ".....ggwwdd.....",
+    "......gggd......",
+    ".......gd.......",
+    "................",
+    "................",
+    "................",
+  ], { g: "#4cc46a", G: "#a8f0b0", d: "#2e8a48", w: "#ffffff" }),
+  // Molotov: a bottle with a burning rag.
+  na_molotov: () => ascii([
+    "................",
+    ".......F........",
+    "......FfF.......",
+    "......fYfF......",
+    ".....FfYYf......",
+    "......fYYf......",
+    ".......ww.......",
+    ".......gG.......",
+    ".......gG.......",
+    "......gGgg......",
+    ".....gGaaag.....",
+    ".....gaAaag.....",
+    ".....gaaaaq.....",
+    ".....gaaaaq.....",
+    "......gqqq......",
+    "................",
+  ], { F: "#f08a24", f: "#ffb347", Y: "#fff1a8", w: "#e8dcc0", g: "#4f8a5a", G: "#9fd8a8", a: "#c98a2e", A: "#f1c27d", q: "#2f5a3a" }),
+  // Focus Fire: a bullseye.
+  na_focus: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const r = Math.hypot(x + 0.5 - 8, y + 0.5 - 8);
+      if (r <= 6.8) g[y][x] = r <= 1.6 ? "#d64545" : r <= 3.3 ? "#f4f4f4" : r <= 5.1 ? "#d64545" : "#f4f4f4";
+    }
+    return g;
+  },
+  // Patch Up: a sticking plaster.
+  na_patch: () => rod(blank(16), 3.4, 12.6, 12.6, 3.4, 2.7, (t, side) => {
+    const pad = t > 0.36 && t < 0.64;
+    if (pad) return side < -1 ? "#ffffff" : "#f6ead6";
+    return side < -1.2 ? "#f6d9b0" : side > 1.3 ? "#c99a66" : "#e6bd88";
+  }),
+  // Rally: a brass bell.
+  na_rally: () => ascii([
+    "................",
+    "................",
+    ".......yy.......",
+    "......yYyy......",
+    ".....yYyyyy.....",
+    ".....yYyyyy.....",
+    "....yYyyyyyy....",
+    "....yYyyyyyy....",
+    "....yyyyyyyz....",
+    "...yyyyyyyyyz...",
+    "..yyyyyyyyyyyz..",
+    "..zzzzzzzzzzzz..",
+    ".......kk.......",
+    "................",
+    "................",
+    "................",
+  ], { y: "#f2c14e", Y: "#fff0a8", z: "#b8862a", k: "#7a5a2a" }),
+  // Guarded: a blue shield with a white cross.
+  form_guarded: () => ascii([
+    "................",
+    "................",
+    "..ssssssssssss..",
+    "..sBBBBwwbbbbs..",
+    "..sBBBBwwbbbbs..",
+    "..swwwwwwwwwws..",
+    "..swwwwwwwwwws..",
+    "..sBBBBwwbbbbs..",
+    "..sBBBBwwbbbbs..",
+    "...sBBBwwbbbs...",
+    "....sBBwwbbs....",
+    ".....sBwwbs.....",
+    "......swws......",
+    ".......ss.......",
+    "................",
+    "................",
+  ], { s: "#c9ccd2", B: "#5f8fe0", b: "#3a64b0", w: "#f4f6f8" }),
+  // Shield Wall: two round shields side by side.
+  form_shieldWall: () => {
+    const g = blank(16);
+    for (const cx of [5.3, 10.7]) {
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const dx = x + 0.5 - cx, dy = y + 0.5 - 8.5, r = Math.hypot(dx, dy);
+        if (r > 4.5) continue;
+        g[y][x] = r < 1.4 ? (dx + dy < 0 ? "#eef1f4" : "#9aa3ad") : r > 3.5 ? "#6e4a2c" : dx + dy < -1.5 ? "#c99a5e" : "#a8743f";
+      }
+    }
+    return g;
+  },
+  // Crossfire: two crossed arrows.
+  form_crossfire: () => {
+    const g = blank(16);
+    for (const flip of [false, true]) {
+      const X = (x) => (flip ? 16 - x : x);
+      rod(g, X(2.6), 13.4, X(12.4), 3.6, 0.55, "#c99a5e");
+      rod(g, X(1.9), 14.1, X(3.8), 12.2, 1.0, "#d64545");
+      rod(g, X(11.4), 4.6, X(13.4), 2.6, 1.15, "#d0d6dc");
+    }
+    return g;
+  },
+  // Brawler: a clenched fist.
+  dr_brawler: () => ascii([
+    "................",
+    "................",
+    "................",
+    "...ssssssss.....",
+    "..sSSsSSsSSs....",
+    "..sSSsSSsSSss...",
+    "..ssssssssssd...",
+    "..sSSsSSsSSsd...",
+    "..sssssssssssd..",
+    "..ssssssSSSssd..",
+    "...ssssssssssd..",
+    "....sssssssdd...",
+    ".....bbbbbb.....",
+    ".....bBbbbb.....",
+    "................",
+    "................",
+  ], { s: "#e8b48a", S: "#f6d2b0", d: "#b9805a", b: "#3f6fb5", B: "#7fa8e8" }),
+  // Marksman: a drawn bow and arrow.
+  dr_marksman: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 12.5, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
+      if (r >= 6.4 && r <= 7.5 && dx < -3.2) g[y][x] = dy < 0 ? "#c99a5e" : "#a8743f";
+    }
+    rod(g, 8.6, 2.2, 8.6, 13.8, 0.4, "#e6e9ef");
+    rod(g, 3.5, 8, 12.2, 8, 0.5, "#d8b07a");
+    rod(g, 12.4, 8, 14.2, 8, 1.0, "#d0d6dc");
+    rod(g, 2.2, 8, 3.8, 8, 1.0, "#d64545");
+    return g;
+  },
+  // Tank: an army helmet.
+  dr_tank: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    ".....hhhhhh.....",
+    "....hHHhhhhh....",
+    "...hHhhhhhhhh...",
+    "...hHhhhhhhhh...",
+    "..hHhhhhhhhhhd..",
+    "..hhhhhhhhhhhd..",
+    ".bbbbbbbbbbbbbb.",
+    ".dddddddddddddd.",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { h: "#6f7f4a", H: "#a3b47a", d: "#4a5632", b: "#5d6b3e" }),
+  // Engineer: a spanner.
+  dr_engineer: () => {
+    const g = blank(16);
+    rod(g, 4.2, 11.8, 11, 5, 1.15, (t, side) => (side < -0.2 ? "#dde3e8" : "#9aa3ad"));
+    disk(g, 11.6, 4.4, 2.9, "#b6bcc4");
+    disk(g, 13.2, 2.8, 1.6, null);
+    disk(g, 3.4, 12.6, 2.1, "#b6bcc4");
+    disk(g, 3.4, 12.6, 0.9, null);
+    g[3][10] = "#eef2f5";
+    return g;
+  },
+  // Spotter: a watchful eye.
+  dr_spotter: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8;
+      if (Math.abs(dy) < 4.6 * (1 - (dx / 7.3) ** 2)) g[y][x] = "#f4f4f4";
+    }
+    disk(g, 8, 8, 3, "#3f7fd6");
+    disk(g, 8, 8, 1.4, "#14182a");
+    g[6][6] = "#ffffff";
+    return g;
+  },
+  // Rallier: a megaphone.
+  dr_rallier: () => {
+    const g = blank(16);
+    for (let x = 4; x <= 13; x++) {
+      const h = 1.3 + (x - 4) * 0.45;
+      for (let y = 0; y < 16; y++) {
+        const dy = y + 0.5 - 7.5;
+        if (Math.abs(dy) <= h) g[y][x] = x >= 12 ? "#eef1f4" : dy < -h + 1.2 ? "#ff8a7a" : "#d64545";
+      }
+    }
+    for (let y = 6; y <= 8; y++) for (const x of [2, 3]) g[y][x] = "#6b7380";
+    for (let y = 9; y <= 12; y++) g[y][6] = "#4a4f5a";
+    g[12][7] = "#4a4f5a";
+    return g;
+  },
+  // Zombie types: Runner (speed lines), Brute (a green flexed arm), Spitter (a drop of acid), Boss (a crown).
+  z_runner: () => ascii([
+    "................",
+    "................",
+    "................",
+    "......wwwwwwww..",
+    "................",
+    "...ggggggggggg..",
+    "................",
+    ".wwwwwwwwwwwww..",
+    "................",
+    "....gggggggggg..",
+    "................",
+    "......wwwwwwww..",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { w: "#e6efe2", g: "#8ad13a" }),
+  z_brute: () => ascii([
+    "................",
+    "................",
+    "..ggg...........",
+    ".gGGgg..........",
+    ".gGggg..........",
+    ".ggggd..........",
+    "..ggd...........",
+    "..ggd.....ggg...",
+    "..ggd...gGGggg..",
+    "..gggg.gGgggggd.",
+    "..gGgggggggggd..",
+    "...ggxgxgggggd..",
+    "....ggggggggd...",
+    "......dddddd....",
+    "................",
+    "................",
+  ], { g: "#7fae4a", G: "#b8dc8a", d: "#4f7a2a", x: "#8a3a3a" }),
+  z_spitter: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 10;
+      const inDrop = Math.hypot(dx, dy) <= 4.2 || (y >= 2 && y <= 8 && Math.abs(dx) <= (y - 1.5) * 0.62);
+      if (inDrop) g[y][x] = dx + dy < -2.5 ? "#d2f59a" : dx + dy > 3 ? "#4f8a1e" : "#8ad13a";
+    }
+    g[13][2] = "#8ad13a";
+    g[12][13] = "#8ad13a";
+    return g;
+  },
+  z_boss: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "..y....yy....y..",
+    "..yy...yy...yy..",
+    "..yyy.yyyy.yyy..",
+    "..yyyyyyyyyyyy..",
+    "..yYyyyyyyyyyy..",
+    "..yyrryBByrryy..",
+    "..yyrryBByrryy..",
+    "..yyyyyyyyyyyy..",
+    "..zzzzzzzzzzzz..",
+    "................",
+    "................",
+    "................",
+  ], { y: "#f2c14e", Y: "#fff0a8", z: "#b8862a", r: "#d64545", B: "#5f8fe0" }),
   // ---- tab and HUD icons ----
   menu: () => ascii([
     "............",
