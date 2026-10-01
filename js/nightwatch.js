@@ -7,6 +7,7 @@
 
 import { shadowOf, lightOf, mix } from "./sprite.js";
 import { ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0 } from "./data.js";
+import { lampLanes } from "./game.js";
 
 // Art pixels: each square is CELL_W x CELL_H, under a facade FACADE_H tall.
 export const CELL_W = 32;
@@ -80,6 +81,7 @@ const bayer = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
 const AMBIENT = [0.34, 0.38, 0.6];
 const WARM = [1.0, 0.74, 0.42];
 const FIRE = [1.0, 0.52, 0.2];
+const FLOOD = [1.0, 0.97, 0.86];
 const BEAM = [0.82, 0.88, 0.95];
 
 // Lights each pixel: the ambient plus every light's pool, in steps so the light falls off in
@@ -102,9 +104,20 @@ function lightUp(p, lights) {
       else {
         const L = AMBIENT.slice();
         for (const l of lights) {
-          const dist = Math.hypot(x - l.x, (y - l.y) * (l.sy || 1)) / l.r;
-          if (dist >= 1) continue;
-          const v = (1 - dist) ** 1.35 * l.k * 5;
+          let v;
+          if (l.len) {
+            // a beam: straight down from (x, y), widening, fading with distance, a crisp edge
+            const dy = y - l.y;
+            if (dy < 0 || dy > l.len) continue;
+            const half = l.w0 + dy * l.spread;
+            const dx = Math.abs(x - l.x);
+            if (dx > half) continue;
+            v = (1 - dy / l.len) ** 0.8 * (1 - (dx / half) ** 4) * l.k * 5;
+          } else {
+            const dist = Math.hypot(x - l.x, (y - l.y) * (l.sy || 1)) / l.r;
+            if (dist >= 1) continue;
+            v = (1 - dist) ** 1.35 * l.k * 5;
+          }
           const f = (Math.floor(v) + (v % 1 > 0.72 && (x + y) % 2 ? 1 : 0)) / 5; // a checkered seam between bands
           if (f > 0) for (let k = 0; k < 3; k++) L[k] += l.c[k] * f;
         }
@@ -192,9 +205,10 @@ function facadeWindow(p, x, y0, kind, lights) {
 
 const cache = new Map();
 
-// The whole board as a CSS url(): `cols` squares wide, the entrance's rows tall.
-export function courtyardBackground(cols) {
-  const key = `yard${cols}`;
+// The whole board as a CSS url(): `cols` squares wide, the entrance's rows tall. On a blackout
+// night (`floodlights`) two floodlights on the facade shine down the lamp-lit lanes.
+export function courtyardBackground(cols, floodlights = false) {
+  const key = `yard${cols}${floodlights ? "f" : ""}`;
   if (cache.has(key)) return cache.get(key);
   const W = cols * CELL_W;
   const H = FACADE_H + ENTRANCE_ROWS * CELL_H;
@@ -231,6 +245,20 @@ export function courtyardBackground(cols) {
       p.r(px + 2, 8, px + 2, 30, mix(WALL, WALL_DK, 0.6));
     });
     xs.forEach((x, i) => facadeWindow(p, x, 10, kinds[i % kinds.length], lights));
+  }
+  // blackout: floodlights between the windows, one over each lit lane
+  if (floodlights) {
+    for (const lane of lampLanes(cols)) {
+      const lx = Math.round((lane + 0.5) * CELL_W) - 2; // 4 wide, centred on the lane
+      p.r(lx + 1, 11, lx + 2, 11, IRON); // the bracket
+      p.r(lx, 12, lx + 3, 14, "#3a3f4a");
+      p.r(lx, 12, lx + 3, 12, "#5a606c");
+      p.r(lx + 3, 13, lx + 3, 14, "#2a2e36");
+      p.r(lx, 15, lx + 3, 15, "#fff4d0", 1); // the lens, facing down
+      p.r(lx + 1, 15, lx + 2, 15, "#ffffff", 1);
+      lights.push({ x: lx + 1.5, y: 15, r: 9, k: 0.7, c: FLOOD });
+      lights.push({ x: lx + 1.5, y: 15, len: 140, w0: 2, spread: 0.115, k: 1.1, c: FLOOD });
+    }
   }
   // corner quoins
   for (let y = 8; y <= 30; y += 4) {

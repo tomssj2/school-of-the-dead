@@ -2429,7 +2429,7 @@ function renderGridBattle(state, anim) {
         ${b?.rally ? ` · <span class="nw-rallied">🔔 Rallied (${b.rally})</span>` : ""}
       </div>
     </div>
-    <div class="nw-board nw-battle nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${ENTRANCE_ROWS};--lamp-a:${lampLanes(size)[0]};--lamp-b:${lampLanes(size)[1]};background-image:${courtyardBackground(size)}">
+    <div class="nw-board nw-battle nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${ENTRANCE_ROWS};--lamp-a:${lampLanes(size)[0]};--lamp-b:${lampLanes(size)[1]};background-image:${courtyardBackground(size, condition.id === "blackout")}">
       ${gate}
       <div class="nw-cells">${units}${fx}${aimCells}</div>
       ${breakTime ? "" : banner}
@@ -3235,7 +3235,7 @@ function renderNightBoard(state) {
   }
   const gateMax = gateHp(state);
   const lamps = lampLanes(size);
-  return `<div class="nw-board nw-cond-${nightCondition(state).id}" style="--size:${size};--rows:${ENTRANCE_ROWS};--lamp-a:${lamps[0]};--lamp-b:${lamps[1]};background-image:${courtyardBackground(size)}">
+  return `<div class="nw-board nw-cond-${nightCondition(state).id}" style="--size:${size};--rows:${ENTRANCE_ROWS};--lamp-a:${lamps[0]};--lamp-b:${lamps[1]};background-image:${courtyardBackground(size, nightCondition(state).id === "blackout")}">
     <div class="nw-gate ${gateMax ? "" : "nw-gate-none"}" ${tipAttr({ title: "🚪 The gate", rows: [["Gate", `${gateMax} HP`]], notes: ["Zombies past the top row batter the doors — once they're down, they get in", "Fortification (the Crafting Room) makes the doors sturdier"] })}>🚪 ${gateMax ? `<b>${gateMax}</b> HP` : "No gate yet"}</div>
     <div class="nw-cells">${cells}${formationLinks(entranceFormations(state).links)}</div>
   </div>`;
