@@ -28,6 +28,7 @@ import {
 import { hexToWorld, viewBox, cityBaseUrl, fogUrl, WORLD_W, WORLD_H } from "./citymap.js";
 import { zombieSprite, hordeSprite } from "./zombies.js";
 import { courtyardBackground, structureSprite } from "./nightwatch.js";
+import { raidBackdrop, streetBackdrop, duskBackdrop } from "./backdrops.js";
 import { characterSprite } from "./sprite.js";
 import { getBest, isBestRun } from "./score.js";
 import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZE } from "./graphics.js";
@@ -719,7 +720,7 @@ export function renderRoomFight(state, anim) {
   return `<div class="modal-overlay raid-overlay room-fight-overlay">
     <div class="raid-stage">
       <div class="raid-title">🔨 Clearing ${esc(roomLabel(report.roomKey))}</div>
-      <div class="raid-arena room-arena">
+      <div class="raid-arena room-arena raid-arena-art" style="background-image:linear-gradient(180deg, rgba(8, 10, 16, 0.2), rgba(8, 10, 16, 0.62)), ${sceneBackground(`${report.roomKey.startsWith("classroom:") ? "classroom_empty" : report.roomKey}@1`)}">
         <div class="raid-squad">${members}</div>
         <div class="room-zombies">${zombies}</div>
       </div>
@@ -1914,7 +1915,7 @@ export function renderRaidFight(state, anim) {
   return `<div class="modal-overlay raid-overlay">
     <div class="raid-stage ${chase ? "raid-chase" : ""}">
       <div class="raid-title">${chase ? esc(report.title) : `${BOSS_ICON} Raid — ${esc(lm.name)}`}</div>
-      <div class="raid-arena ${frame.crits || (frame.bossHp <= 0 && frame.dealt) ? "nw-shake-big" : frame.hits.some((h) => h.dmg) ? "nw-shake" : ""}" ${chase ? `style="background-image:${courtyardBackground(ENTRANCE_GRID_SIZE)}"` : ""}>
+      <div class="raid-arena raid-arena-art ${frame.crits || (frame.bossHp <= 0 && frame.dealt) ? "nw-shake-big" : frame.hits.some((h) => h.dmg) ? "nw-shake" : ""}" style="background-image:${chase ? streetBackdrop() : raidBackdrop(lm?.id)}">
         <div class="raid-squad">${members}</div>
         <div class="raid-boss ${frame.enraged ? "raid-boss-enraged" : ""} ${frame.dealt ? "raid-boss-hit" : ""} ${frame.bossHp <= 0 ? "raid-boss-dead" : ""}">
           ${frame.dealt ? `<span class="raid-float raid-float-good ${frame.crits ? "raid-float-crit" : ""}">${frame.crits ? `<small>CRIT${frame.crits > 1 ? ` ×${frame.crits}` : ""}!</small>` : ""}-${frame.dealt}</span>` : ""}
@@ -2017,7 +2018,7 @@ export function renderExpeditionSkirmish(state, sk) {
       : t.encounter ? `<span class="sk-enc ${t.encounter.ok ? "sk-enc-ok" : "sk-enc-bad"}">${t.encounter.ok ? "✅" : "❌"} ${esc(EXPEDITION_ENCOUNTERS.find((e) => e.id === t.encounter.id)?.icon || "")}</span>` : "";
     return `<div class="sk-row ${beat >= 3 && !t.success ? "sk-retreat" : ""}" style="--team:${TEAM_COLORS[t.teamIndex]}">
       <div class="sk-label"><i class="team-dot"></i>${teamLabel(t.teamIndex)}<span class="muted">${loc ? `${LOCATION_ICON[loc.id]} ${esc(loc.name)}` : ""}</span>${outcome}</div>
-      <div class="sk-field ${beat === 0 ? "sk-enter" : ""}">
+      <div class="sk-field sk-art ${beat === 0 ? "sk-enter" : ""}" style="background-image:${duskBackdrop(t.locationId || "")}">
         <div class="sk-team">${members}</div>
         <div class="sk-vs">${beat === 1 ? "💥" : beat === 2 ? "🩸" : "⚔"}</div>
         <div class="sk-horde">${zombies}</div>
@@ -2158,7 +2159,7 @@ export function renderFightAnimation(state, anim) {
   if (anim.phase === "clash") {
     return `
     <div class="modal-overlay fight-overlay">
-      <div class="fight-scene">
+      <div class="fight-scene fight-scene-art" style="background-image:${streetBackdrop()}">
         <div class="fight-combatant fight-scout">${sprite}</div>
         <div class="fight-impact">💥</div>
         <div class="fight-combatant fight-zombie">${zombieSprite("walker", 80)}</div>

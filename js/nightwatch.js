@@ -14,14 +14,14 @@ export const CELL_W = 32;
 export const CELL_H = 20;
 export const FACADE_H = 36;
 
-function hash(i, s) {
+export function hash(i, s) {
   let x = Math.imul(i + 17, 2654435761) ^ Math.imul(s + 3, 40503);
   x ^= x >>> 15;
   x = Math.imul(x, 2246822519);
   x ^= x >>> 13;
   return (x >>> 0) / 4294967296;
 }
-const hash2 = (x, y, s) => hash(x * 977 + y * 131, s);
+export const hash2 = (x, y, s) => hash(x * 977 + y * 131, s);
 
 const rgbCache = new Map();
 function rgb(hex) {
@@ -36,7 +36,7 @@ function rgb(hex) {
 
 // A pixel buffer: colours plus an "emissive" flag for things that give off their own light (lit
 // glass, bulbs, flames, the dark sky), which the lighting pass leaves as drawn.
-function buffer(w, h) {
+export function buffer(w, h) {
   const col = new Array(w * h).fill(null);
   const glow = new Uint8Array(w * h);
   const set = (x, y, c, e = 0) => {
@@ -85,8 +85,9 @@ const FLOOD = [1.0, 0.97, 0.86];
 const BEAM = [0.82, 0.88, 0.95];
 
 // Lights each pixel: the ambient plus every light's pool, in steps so the light falls off in
-// bands like the rest of the pixel art. Then the mist at the bottom.
-function lightUp(p, lights) {
+// bands like the rest of the pixel art. Then the mist at the bottom (`mist: false` for none).
+// Returns a PNG data: URL. (backdrops.js lights the fight scenes the same way.)
+export function lightUp(p, lights, { ambient = AMBIENT, mist: misty = true } = {}) {
   const { w, h } = p;
   const cv = document.createElement("canvas");
   cv.width = w;
@@ -102,7 +103,7 @@ function lightUp(p, lights) {
       let out;
       if (p.glow[i]) out = base.slice();
       else {
-        const L = AMBIENT.slice();
+        const L = ambient.slice();
         for (const l of lights) {
           let v;
           if (l.len) {
@@ -124,7 +125,7 @@ function lightUp(p, lights) {
         out = base.map((v, k) => v * L[k]);
       }
       const mt = (y - (h - 20)) / 20;
-      if (mt > 0) {
+      if (misty && mt > 0) {
         const a = Math.floor((mt * mt * 0.6 + Math.sin(x / 9 + y * 0.8) * 0.06) * 6 + bayer(x, y)) / 6;
         if (a > 0) out = out.map((v, k) => v + (mist[k] - v) * Math.min(0.7, a));
       }
