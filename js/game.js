@@ -27,10 +27,10 @@ import {
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
   OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
-  MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING,
+  MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, LEGENDARY_ITEM_TEMPLATES,
   LEGENDARY_TITLES,
 } from "./data.js";
-import { hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
+import { hexTerrain, TERRAIN_NAMES, locationAt, raidApproachAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, capTeacherGrades, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, fitName, teachingBonus,
@@ -3054,15 +3054,14 @@ export function scoutHex(state, studentId, q, r) {
 
   state.exploredHexes.push(hexKey(q, r));
   const location = locationAt(q, r);
-  const landmark = landmarkAt(q, r);
+  const landmark = raidApproachAt(q, r); // the road to a raid comes in here
   let find = null;
   if (location) {
     addLog(state, `${c.name} discovered ${location.name} while scouting.`);
-  } else if (landmark) {
-    addLog(state, `${c.name} spotted the ${landmark.name} at the edge of town — ${landmark.boss.name} is inside. Taking it on will need a raid squad.`);
   } else {
     find = rollHexFind(state, c, q, r);
   }
+  if (landmark) addLog(state, `${c.name} found the road out to the ${landmark.name} — ${landmark.boss.name} is inside. Taking it on will need a raid squad.`);
   return { ambushed: false, encountered, location, landmark, find };
 }
 
@@ -3165,7 +3164,7 @@ export function rollMapDrop(state, force = false) {
   if (state.mapDrops.length >= MAP_DROP_MAX || (!force && Math.random() >= MAP_DROP_CHANCE)) return;
   const spots = state.exploredHexes
     .map((k) => k.split(",").map(Number))
-    .filter(([q, r]) => !locationAt(q, r) && !landmarkAt(q, r) && !isNest(state, q, r) && !nearHorde(state, q, r) && !dropAt(state, q, r));
+    .filter(([q, r]) => !locationAt(q, r) && !isNest(state, q, r) && !nearHorde(state, q, r) && !dropAt(state, q, r));
   if (!spots.length) return;
   const [q, r] = pick(spots);
   const kind = weightedPick(Object.fromEntries(Object.entries(MAP_DROPS).map(([k, d]) => [k, d.weight])));
@@ -3255,6 +3254,9 @@ export function clearNest(state, q, r, ids) {
   return { won: false, loot: null, hurt };
 }
 
+// A raid opens once a scout has reached the edge block where its road comes in.
+export const raidUnlocked = (state, landmark) => isHexExplored(state, landmark.approach.q, landmark.approach.r);
+
 export function raidCooldownLeft(state, landmarkId) {
   return Math.max(0, (state.raidCooldowns[landmarkId] || 0) - state.day);
 }
@@ -3267,7 +3269,8 @@ export function raidBoss(state, landmark) {
 
 // Picks (or with null, calls off) today's raid. Switching targets sends the old squad home.
 export function setRaidTarget(state, landmarkId) {
-  if (landmarkId && raidCooldownLeft(state, landmarkId) > 0) return false;
+  const landmark = landmarkId && LANDMARKS.find((l) => l.id === landmarkId);
+  if (landmarkId && (!landmark || !raidUnlocked(state, landmark) || raidCooldownLeft(state, landmarkId) > 0)) return false;
   if (landmarkId !== state.raidTarget) {
     for (const c of state.characters) if (c.exploreTeam === RAID_TEAM) c.exploreTeam = null;
   }
@@ -3345,7 +3348,7 @@ function simulateBossFight(state, boss, squad) {
 // Runs today's raid, if a big enough squad was sent. Returns the report the raid screen replays.
 function resolveRaid(state) {
   const landmark = LANDMARKS.find((l) => l.id === state.raidTarget);
-  if (!landmark) return null;
+  if (!landmark || !raidUnlocked(state, landmark)) return null; // (its road not scouted yet)
   const squad = state.characters.filter((c) => c.exploreTeam === RAID_TEAM && c.alive);
   if (squad.length < landmark.minTeam) {
     if (!squad.length) return null;
@@ -3388,8 +3391,15 @@ function resolveRaid(state) {
       state.resources[key] += amt;
       report.loot[key] = amt;
     }
+    const legendaryPool = LEGENDARY_ITEM_TEMPLATES.filter((t) => !landmark.legendarySlot || t.slot === landmark.legendarySlot);
     for (let i = 0; i < landmark.legendaryItems; i++) {
-      const item = makeLegendaryItem();
+      const item = makeLegendaryItem(pick(legendaryPool));
+      state.armory.push(item);
+      report.items.push(item);
+    }
+    const gearPool = ITEM_TEMPLATES.filter((t) => (landmark.gearSlots || []).includes(t.slot));
+    for (let i = 0; i < (landmark.extraGear || 0) && gearPool.length; i++) {
+      const item = makeItem(pick(gearPool).id);
       state.armory.push(item);
       report.items.push(item);
     }
@@ -3397,7 +3407,7 @@ function resolveRaid(state) {
     state.raidKills[landmark.id] = (state.raidKills[landmark.id] || 0) + 1;
     state.raidCooldowns[landmark.id] = state.day + landmark.respawnDays;
     adjustHappiness(state, HAPPINESS_GAIN_WIN * 2);
-    addLog(state, `☠ Raid on the ${landmark.name}: ${sim.boss.name} is dead! Legendary loot: ${report.items.map((i) => `${i.icon} ${i.name}`).join(", ")}.${report.recruit ? ` ${report.recruit} was freed and wants to join.` : ""}`);
+    addLog(state, `☠ Raid on the ${landmark.name}: ${sim.boss.name} is dead! Loot: ${report.items.map((i) => `${i.icon} ${i.name}`).join(", ")}.${report.recruit ? ` ${report.recruit} was freed and wants to join.` : ""}`);
   } else {
     adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL * 2);
     addLog(state, `☠ Raid on the ${landmark.name}: the squad couldn't bring ${sim.boss.name} down and fell back.`);

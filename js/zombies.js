@@ -12,6 +12,10 @@ const LOOKS = {
   soldier: { shirt: "#5a6a3a", pants: "#4a5a30", hair: null, eyes: "#ff3b3b", skin: "#8fae7a", helmet: "#465533" },
   jersey: { shirt: "#b03030", pants: "#c9ccd2", hair: "#2a2020", eyes: "#f4d35e", skin: "#87a672", pads: true },
   labcoat: { shirt: "#6b8fb0", pants: "#3a3f48", hair: null, eyes: "#c07fff", skin: "#a9b89a", coat: "#e4eaec" },
+  // the raid bosses: the City Mall's security chief (navy uniform, cap, gold tie-clip badge) and
+  // the General Hospital's head surgeon (green scrubs, surgical cap, a bloodied gown)
+  guard: { shirt: "#2c3e6b", pants: "#23252f", hair: null, eyes: "#ff3b3b", skin: "#8fae7a", helmet: "#1e2a4a", tie: "#f2c14e" },
+  surgeon: { shirt: "#4a9a8a", pants: "#3a7a6a", hair: null, eyes: "#ff5a3a", skin: "#a3b88e", helmet: "#5ab0a0", coat: "#8ac8b8" },
   // the Night Watch's horde: a runner in a tracksuit, a bloated spitter, and the boss in a suit
   runner: { shirt: "#3f6fb5", pants: "#2a3a6a", hair: "#6b4a2f", eyes: "#ff5a3a", skin: "#93b27e", stripe: "#f4f4f4" },
   spitter: { shirt: "#6a8a3a", pants: "#4a5a30", hair: null, eyes: "#d0ff40", skin: "#b0bf5a", drool: "#c8f050" },

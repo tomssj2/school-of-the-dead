@@ -20,10 +20,10 @@ import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, formationsFor, entranceFormations, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
-  gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, RAID_TEAM,
+  gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, RAID_TEAM,
 } from "./game.js";
 import {
-  hexTileKey, tileBackground, hexTerrain, TERRAIN_NAMES, locationAt, landmarkAt, MAP_RADIUS, isSchoolHex,
+  hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, MAP_RADIUS, isSchoolHex,
 } from "./map.js";
 import { hexToWorld, viewBox, cityBaseUrl, fogUrl, WORLD_W, WORLD_H } from "./citymap.js";
 import { zombieSprite, hordeSprite } from "./zombies.js";
@@ -736,7 +736,7 @@ function hudTips(state) {
     materials: { title: `${ri("materials")} Scrap`, rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
     medicine: { title: `${ri("medicine")} Medicine`, rows: [["On hand", `${r.medicine}`]], notes: [`Treating a patient costs ${INFIRMARY_MEDICINE_PER_PATIENT}`, "Saving a defender who goes down costs 5 (automatic)", "Found on expeditions"] },
     research: { title: `${ri("research")} Research`, rows: [["On hand", `${r.research}`], ["Made a day", `+${researchRoomYield(state)}`]], notes: ["Made by teachers in the Research Room", "Spent on the tech tree and the Radio Station"] },
-    serum: { title: `${ri("serum")} Antiviral Serum`, rows: [["On hand", `${r.serum}`]], notes: ["The only cure for an infection — one per person", "Hospital, Pharmacy and Fire Station; every raid boss drops some"] },
+    serum: { title: `${ri("serum")} Antiviral Serum`, rows: [["On hand", `${r.serum}`]], notes: ["The only cure for an infection — one per person", "Pharmacy, Urgent Care and Fire Station now and then", "The General Hospital and Research Institute raids pay out the most"] },
     infected: { title: "🦠 Infected", rows: [["In quarantine", `${infectedChars(state).length}`]], notes: ["Each needs a serum by the end of their fifth day, or they die", "Cure them from the Nurse's Office"] },
   };
 }
@@ -1288,7 +1288,7 @@ function renderCityMapScreen(state) {
     <div class="explore-layout">
       ${renderExplorationMap(state)}
       <aside class="explore-side">
-        <h2>City Map ${infoDot({ title: `${pxe("map")} City Map`, notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Scroll to zoom, drag to look around", "Landmarks at the edge hold raid bosses and legendary gear", "Teachers stay at the school", "Launch the expeditions from the Exploration Summary (the centre button)"] })}</h2>
+        <h2>City Map ${infoDot({ title: `${pxe("map")} City Map`, notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Scroll to zoom, drag to look around", "The four corners hold the raids — each best for its own loot", "A raid opens once a scout reaches the edge block where its road comes in", "⤢ Whole map pulls back to show them", "Teachers stay at the school", "Launch the expeditions from the Exploration Summary (the centre button)"] })}</h2>
         <div class="mini-label">Teams</div>
         ${teamRows}${raidRow}
         <div class="ex-legend">
@@ -1352,7 +1352,7 @@ function renderTurn2Summary(state) {
   const scoutsReady = cheapest === null ? 0 : students.filter((c) => exploreRole(c) === "scout" && c.stamina >= cheapest).length;
   const drops = state.mapDrops || [];
   const soonest = drops.length ? Math.min(...drops.map((d) => d.expires - state.day + 1)) : 0;
-  const raids = LANDMARKS.filter((lm) => isHexExplored(state, lm.hex.q, lm.hex.r) && !raidCooldownLeft(state, lm.id)).length;
+  const raids = LANDMARKS.filter((lm) => raidUnlocked(state, lm) && !raidCooldownLeft(state, lm.id)).length;
   const nests = (state.nests || []).length;
   const found = LOCATIONS.filter((l) => isHexExplored(state, l.hex.q, l.hex.r)).length;
   const cityMap = overviewCard({
@@ -1408,6 +1408,8 @@ function renderTurn2Summary(state) {
     : `<span class="ov-chip ov-chip-ok">✓ Nobody's lazy</span>`;
 
   const sent = state.teamLocations.filter(Boolean).length;
+  const raidGoing = state.raidTarget && state.characters.some((c) => c.alive && c.exploreTeam === RAID_TEAM);
+  const launch = [sent ? plural(sent, "Expedition") : "", raidGoing ? "the Raid" : ""].filter(Boolean).join(" &amp; ");
   return `
   <div class="card">
     <div class="ov-head">
@@ -1419,7 +1421,7 @@ function renderTurn2Summary(state) {
     <div class="ov-grid">${teams}${cityMap}</div>
     <div class="mini-label ov-section">Outside</div>
     <div class="ov-grid">${site("farm")}${site("scrapyard")}</div>
-    <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 ${sent ? `Launch ${plural(sent, "Expedition")} &amp;` : "No expeditions —"} Advance to Night</button>
+    <button class="btn btn-primary btn-big" data-action="resolve-turn">🧳 ${launch ? `Launch ${launch} &amp;` : "No expeditions —"} Advance to Night</button>
   </div>`;
 }
 
@@ -1589,8 +1591,7 @@ function renderExplorationMap(state) {
     }
     shown.push({ q, r });
     const loc = locationAt(q, r);
-    const lm = landmarkAt(q, r);
-    const place = loc || lm;
+    const place = loc;
     const team = place ? teamAt[place.id] : undefined;
     const teamStyle = team !== undefined ? `--team:${TEAM_COLORS[team]};` : "";
     let squad = "";
@@ -1614,14 +1615,6 @@ function renderExplorationMap(state) {
         rows: [["⚔ Power needed", `${expeditionNeed(loc)}`], ["📍 Distance", `${expeditionBlocks(loc)} blocks`], ["Danger", `${loc.danger}/5`], ["Loot (about)", rewards], ["Gear chance", `${Math.round(expeditionGearChance(loc) * 100)}%`], ...(loc.serumChance ? [["Rare", `${ri("serum")} serum`]] : [])],
         notes: [esc(loc.desc), ...dangerNotes(state, q, r)],
       })}>${squad}<span class="cm-label">${LOCATION_ICON[loc.id]}<span class="cm-name"> ${esc(loc.name)}</span></span></div>`;
-    } else if (lm) {
-      const cooldown = raidCooldownLeft(state, lm.id);
-      const boss = raidBoss(state, lm);
-      cells += `<div class="cm-cell cm-place cm-landmark ${cooldown ? "cm-cleared" : ""} ${team !== undefined ? "cm-assigned" : ""}" data-action="open-raid" data-landmark="${lm.id}" style="${at(q, r)}${teamStyle}" ${tipAttr({
-        title: `${LOCATION_ICON[lm.id]} ${esc(lm.name)}`,
-        rows: [["Boss", `${esc(boss.name)} · ${boss.hp} HP`], ["Squad", `${lm.minTeam}+ students, Lv ${lm.minLevel}+`]],
-        notes: ["🌟 Legendary gear and survivors", ...(cooldown ? [`Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}`] : [])],
-      })}>${squad}<span class="cm-label cm-label-raid">${cooldown ? `💤 ${cooldown}d` : BOSS_ICON}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
     } else if (isNest(state, q, r)) {
       cells += `<div class="cm-cell cm-nest" data-action="open-nest" data-q="${q}" data-r="${r}" style="${at(q, r)}" ${tipAttr({
         title: `${pxe("nest")} Zombie Nest`,
@@ -1647,6 +1640,29 @@ function renderExplorationMap(state) {
       title: `${pxe("horde")} The Horde`,
       notes: ["Moves a block every day", "Scouting and runs on or next to it are more dangerous"],
     })}>${zombieSprite("walker", 18)}${zombieSprite("walker", 18)}${zombieSprite("walker", 18)}</span></div>`;
+  }
+
+  // The raids: big lairs in the corners past the edge of the map, each with a road in from the
+  // edge block that unlocks it. Visible from the start; locked (dimmed, a padlock) until scouted.
+  for (const lm of LANDMARKS) {
+    const open = raidUnlocked(state, lm);
+    const cooldown = raidCooldownLeft(state, lm.id);
+    const boss = raidBoss(state, lm);
+    const team = teamAt[lm.id];
+    const gate = hexToWorld(lm.approach.q, lm.approach.r);
+    routes += `<path class="cm-raid-road ${open ? "open" : ""}" d="M${gate.x.toFixed(1)},${gate.y.toFixed(1)} L${lm.at.x},${lm.at.y}"/>`;
+    let squad = "";
+    if (team !== undefined) {
+      const members = state.characters.filter((c) => c.exploreTeam === team && c.alive);
+      squad = `<span class="cm-squad">${members.slice(0, 3).map((c) => characterSprite(c, 16)).join("")}${members.length > 3 ? `<b>+${members.length - 3}</b>` : members.length ? "" : "<b>0</b>"}</span>`;
+    }
+    const mark = !open ? pxe("lock") : cooldown ? `💤 ${cooldown}d` : BOSS_ICON;
+    cells += `<div class="cm-lair ${open ? "" : "cm-lair-locked"} ${cooldown ? "cm-cleared" : ""} ${team !== undefined ? "cm-assigned" : ""}" data-action="open-raid" data-landmark="${lm.id}"
+      style="--x:${lm.at.x};--y:${lm.at.y};${team !== undefined ? `--team:${TEAM_COLORS[team]};` : ""}" ${tipAttr({
+        title: `${LOCATION_ICON[lm.id]} ${esc(lm.name)} · tier ${lm.tier}`,
+        rows: [["Best for", lm.focus], ["Boss", `${esc(boss.name)} · ${boss.hp} HP`], ["Squad", `${lm.minTeam}+ students, Lv ${lm.minLevel}+`]],
+        notes: [!open ? "Locked — scout the edge block where its road comes in" : cooldown ? `Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}` : "Click to plan a raid"],
+      })}><img class="cm-lair-art" src="${tileDataUri(`lair:${lm.id}`)}" alt="" draggable="false">${squad}<span class="cm-label cm-label-raid">${mark}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
   }
 
   const [vx, vy, vw, vh] = viewBox(shown);
@@ -1676,8 +1692,8 @@ export function renderScoutReport(state, report) {
     title = `Discovered: ${esc(result.location.name)}`;
     body = `${esc(scoutName)} found the ${esc(result.location.name)}. ${esc(result.location.desc)} Send a team there any day.`;
   } else if (result.landmark) {
-    title = `Landmark: ${esc(result.landmark.name)}`;
-    body = `${esc(scoutName)} spotted the ${esc(result.landmark.name)} at the edge of town. ${esc(result.landmark.boss.name)} is inside — a raid needs ${result.landmark.minTeam}+ students at Lv${result.landmark.minLevel} or higher, but it's guarding legendary gear.`;
+    title = `${LOCATION_ICON[result.landmark.id]} The road to the ${esc(result.landmark.name)}`;
+    body = `${esc(scoutName)} found the road out to the ${esc(result.landmark.name)} — the raid is open. ${esc(result.landmark.boss.name)} is inside; a raid needs ${result.landmark.minTeam}+ students at Lv${result.landmark.minLevel} or higher. Best for: ${result.landmark.focus.toLowerCase()}.${result.find ? ` On the way they also found ${esc(result.find.text)}.` : ""}`;
   } else {
     title = TERRAIN_NAMES[result.find.terrain];
     body = `${esc(scoutName)} scouted the ${TERRAIN_NAMES[result.find.terrain].toLowerCase()} and found ${esc(result.find.text)}.`;
@@ -1728,11 +1744,14 @@ export function renderRaidModal(state, landmarkId) {
   const squad = state.characters.filter((c) => c.exploreTeam === RAID_TEAM && c.alive);
   const rewards = Object.entries(lm.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ${v}`).join(" ");
   const header = `
+    <div class="raid-lair-banner" style="background-image:url('${tileDataUri(`lair:${lm.id}`)}')">
+      <span class="scene-plaque">${LOCATION_ICON[lm.id]} ${esc(lm.name)} · tier ${lm.tier} of 4</span>
+    </div>
     <div class="raid-intro">
       <div class="raid-intro-boss">${zombieSprite(lm.boss.look, 88)}</div>
       <div>
         <h3>${BOSS_ICON} ${esc(boss.name)}</h3>
-        <div class="muted">${esc(lm.name)}${boss.kills ? ` · killed ${boss.kills}× — tougher each time` : ""}</div>
+        <div class="muted">Best for: ${lm.focus.toLowerCase()}${boss.kills ? ` · killed ${boss.kills}× — tougher each time` : ""}</div>
         <div class="raid-boss-stats"><span>❤ ${boss.hp} HP</span><span>⚔ ${boss.damage} × ${boss.attacks} a round</span><span>⏱ ${RAID_MAX_ROUNDS} rounds</span></div>
       </div>
     </div>
@@ -1742,13 +1761,16 @@ export function renderRaidModal(state, landmarkId) {
       <span class="raid-req raid-req-ok">⭐ Lv${lm.minLevel}+ each</span>
     </div>
     <div class="raid-rewards">
-      <span class="legend-text">🌟 ${lm.legendaryItems} legendary item${lm.legendaryItems > 1 ? "s" : ""}</span>
+      <span class="legend-text">🌟 ${lm.legendaryItems} legendary ${lm.legendarySlot ? { weapon: "weapon", armor: "armour", accessory: "accessory" }[lm.legendarySlot] : "item"}${lm.legendaryItems > 1 ? "s" : ""}</span>
+      ${lm.extraGear ? `<span class="legend-text">🧰 +${lm.extraGear} more ${lm.gearSlots.map((g) => ({ weapon: "weapons", armor: "armour", accessory: "accessories" }[g])).join(" / ")}</span>` : ""}
       <span class="legend-text">🙋 ${Math.round(lm.legendaryRecruitChance * 100)}% legendary survivor</span>
       <span>${rewards}</span>
     </div>`;
 
   let body;
-  if (cooldown) {
+  if (!raidUnlocked(state, lm)) {
+    body = `<div class="mission-success mission-bad">${pxe("lock")} Locked — scout the block at the edge of the map where its road comes in (${["north", "south"][lm.corner[0] === "n" ? 0 : 1]}-${lm.corner[1] === "w" ? "west" : "east"}).</div>`;
+  } else if (cooldown) {
     body = `<div class="mission-success mission-ok">${esc(boss.name)} is dead — for now. Something takes its place in ${cooldown} day${cooldown === 1 ? "" : "s"}.</div>`;
   } else if (!planned) {
     body = `<div class="row-actions">
@@ -1986,7 +2008,7 @@ export function renderExpeditionReport(state, anim) {
     const details = `<div class="exp-finds">${rd.items.map((it) => `<span class="exp-chip exp-legend">${itemIcon(it)} ${esc(it.name)}</span>`).join("")}${rd.recruit ? `<span class="exp-chip exp-legend">🙋 ${esc(rd.recruit)}</span>` : ""}${lootChips(rd.loot)}</div>
       ${rd.hurt.length ? `<div class="exp-hurt">🩹 ${rd.hurt.map(esc).join(", ")}</div>` : ""}
       ${rd.lost.length ? `<div class="exp-bad">${SKULL_ICON} Lost: ${rd.lost.map(esc).join(", ")}</div>` : ""}`;
-    rows.push(row(TEAM_COLORS[RAID_TEAM], "school", lm.id, getChar(state, rd.memberIds[0]), `Raid squad → ${esc(lm.name)}`, tag, details));
+    rows.push(row(TEAM_COLORS[RAID_TEAM], "school", `lair:${lm.id}`, getChar(state, rd.memberIds[0]), `Raid squad → ${esc(lm.name)}`, tag, details));
   }
   return `<div class="modal-overlay">
     <div class="char-card mission-card exp-report" data-action="noop">
@@ -2504,7 +2526,7 @@ export function renderMissionModal(state, locationId) {
         <span>Danger ${loc.danger}/5</span>
         <span class="ms-loot" ${tipAttr(lootTip(loc))}>🎒 ${lootLine(loc)}</span>
         ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
-        ${loc.serumChance ? `<span ${tipAttr({ title: `${ri("serum")} Antiviral Serum`, notes: ["The only cure for an infection — one per person", "Rare: found here, at the Hospital, Pharmacy and Fire Station, and on raid bosses"] })}>${ri("serum")} Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
+        ${loc.serumChance ? `<span ${tipAttr({ title: `${ri("serum")} Antiviral Serum`, notes: ["The only cure for an infection — one per person", "Rare: found here, at the Pharmacy, Urgent Care and Fire Station", "Most of it comes from the General Hospital and Research Institute raids"] })}>${ri("serum")} Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
       </div>
       ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">${dangerNotes(state, loc.hex.q, loc.hex.r).join(" · ")}: lower odds and more injuries.</div>` : ""}
       <div class="mini-label ms-label">${sentIndex !== -1 ? "Heading here today" : "Send a team"} ${infoDot({ title: "🧭 Sending a team", notes: ["Build teams in the side panel — 2 fighters, a scout and 2 supports", "Odds: the team's power against the power this place needs", "Each team goes to one place a day"] })}</div>

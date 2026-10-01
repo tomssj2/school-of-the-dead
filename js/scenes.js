@@ -2359,37 +2359,63 @@ const ICONS = {
     "................",
     "................",
   ], { r: "#d64545", w: "#f4f4f4", b: "#3f6fb5", y: "#e8c14a", Y: "#fff0a8", z: "#b8862a" }),
-  // Landmarks: an army roadblock, a stadium, a research institute.
-  checkpoint: () => ascii([
+  // The new places: an Urgent Care clinic (its ambulance) and an Electronics Store (a monitor).
+  urgent_care: () => ascii([
     "................",
     "................",
     "................",
-    "..k..........k..",
-    ".rrwwrrwwrrwwrr.",
-    ".rrwwrrwwrrwwrr.",
-    "..k..........k..",
-    "..k..........k..",
-    "..k..........k..",
-    "..k..........k..",
-    "..cccc....cccc..",
-    ".cCcccc..cCcccc.",
-    ".cccccc..cccccc.",
+    "........rb......",
+    "..wwwwwwwwww....",
+    "..wwwwwwwgggw...",
+    "..wwrwwwwgggww..",
+    "..wrrrwwwwwwwww.",
+    "..wwrwwwwwwwwww.",
+    "..rrrrrrrrrrrrr.",
+    "..wwwwwwwwwwwww.",
+    "...oo......oo...",
+    "...oo......oo...",
     "................",
     "................",
     "................",
-  ], { k: "#6b7380", r: "#d64545", w: "#f4f4f4", c: "#9aa3ad", C: "#c9ced4" }),
-  stadium: () => {
-    const g = blank(16);
-    for (const x of [2, 13]) for (let y = 3; y <= 8; y++) g[y][x] = "#6b7380";
-    for (const [x, y] of [[1, 2], [2, 2], [3, 2], [12, 2], [13, 2], [14, 2]]) g[y][x] = "#fff0a8";
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const ex = (x + 0.5 - 8) / 7, ey = (y + 0.5 - 10) / 3.8, e = ex * ex + ey * ey;
-      const fx = (x + 0.5 - 8) / 4.4, fy = (y + 0.5 - 10) / 1.9, f = fx * fx + fy * fy;
-      if (f <= 1) g[y][x] = "#4caf50";
-      else if (e <= 1) g[y][x] = y % 2 ? "#b6bcc4" : "#d64545";
-    }
-    return g;
-  },
+  ], { w: "#f4f6f8", r: "#d64545", b: "#4a8aff", g: "#7fc8f0", o: "#1a1a22" }),
+  electronics_store: () => ascii([
+    "................",
+    "................",
+    "..kkkkkkkkkkkk..",
+    "..kbbbbbbbbbbk..",
+    "..kbBBbbbbbbbk..",
+    "..kbBbbbpbbbbk..",
+    "..kbbbbppbbbbk..",
+    "..kbbbbbbbbbbk..",
+    "..kbbbbbbbbbbk..",
+    "..kkkkkkkkkkkk..",
+    "......kkkk......",
+    ".......kk.......",
+    ".....ssssss.....",
+    "................",
+    "................",
+    "................",
+  ], { k: "#2c2c34", b: "#3f8fd0", B: "#bfe3f5", p: "#e0e8ff", s: "#6b7380" }),
+  // The raids: the City Mall and General Hospital reuse their place icons (mall, hospital); the
+  // Military Base is an army tent under a star flag, the Research Institute a DNA helix.
+  military_base: () => ascii([
+    "................",
+    "...k............",
+    "...kyyyy........",
+    "...kyYyy........",
+    "...kyyyy........",
+    "...k............",
+    "...k...gg.......",
+    "...k..gGgg......",
+    "...k.gGgggg.....",
+    "...kgGgggggg....",
+    "...gGggddgggg...",
+    "..gGgggddggggg..",
+    ".gggggddddggggg.",
+    "dddddddddddddddd",
+    "................",
+    "................",
+  ], { k: "#6b7380", y: "#e8c14a", Y: "#fff0a8", g: "#6f7f4a", G: "#93a86a", d: "#3a4a28" }),
   institute: () => {
     const g = blank(16);
     for (let y = 1; y <= 14; y++) {

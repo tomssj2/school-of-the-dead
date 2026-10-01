@@ -913,10 +913,11 @@ export const TECH_TREE = [
 // Every earlier spot of a location that has moved (the no-touching rule, the bigger school grounds
 // and the bigger map), so saves that had explored one of them still know where it is.
 // Locations that were replaced by another in the same spot, for teams already sent there.
-export const LEGACY_LOCATION_IDS = { radio_station: "library" };
+// (The General Hospital and the Shopping Mall became raids; a clinic and an electronics store took
+// their blocks.)
+export const LEGACY_LOCATION_IDS = { radio_station: "library", hospital: "urgent_care", mall: "electronics_store" };
 export const LEGACY_POI_HEXES = {
   corner_store: ["1,0", "1,1"], pharmacy: ["2,0", "2,-2"], neighborhood: ["-1,-1"],
-  checkpoint: ["5,-2", "5,-3"], stadium: ["-5,5"], institute: ["0,-5"],
 };
 export const LOCATIONS = [
   {
@@ -963,15 +964,15 @@ export const LOCATIONS = [
     hex: { q: -3, r: 1 }, // distance 3
   },
   {
-    id: "hospital",
-    name: "General Hospital",
-    desc: "The mother lode of medicine, but also the mother lode of the infected.",
-    difficulty: 5,
-    danger: 5,
-    rewards: { food: 4, materials: 8, medicine: 30 },
-    serumChance: 0.2,
+    id: "urgent_care",
+    name: "Urgent Care Clinic",
+    desc: "A walk-in clinic with its ambulance still in the bay. A taste of what the General Hospital holds.",
+    difficulty: 4,
+    danger: 3,
+    rewards: { food: 2, materials: 6, medicine: 20 },
+    serumChance: 0.12,
     lootBias: "armor",
-    hex: { q: -2, r: -3 }, // distance 5 — clear across town
+    hex: { q: -2, r: -3 }, // distance 5
   },
   {
     id: "police_station",
@@ -984,13 +985,12 @@ export const LOCATIONS = [
     hex: { q: 5, r: 0 }, // distance 5 — clear across town
   },
   {
-    id: "mall",
-    name: "Shopping Mall",
-    desc: "Sprawling and dangerous, but rich with survivors to recruit.",
-    difficulty: 4,
-    danger: 4,
-    rewards: { food: 14, materials: 10, medicine: 6 },
-    recruitBonus: 2,
+    id: "electronics_store",
+    name: "Electronics Store",
+    desc: "Smashed screens up front, but the stockroom is full of parts, gadgets and manuals.",
+    difficulty: 3,
+    danger: 3,
+    rewards: { food: 2, materials: 16, medicine: 2, research: 10 },
     lootBias: "accessory",
     hex: { q: 4, r: -1 }, // distance 4
   },
@@ -1155,37 +1155,53 @@ export const MAP_DROP_DAYS = 3;
 // next to it is as dangerous as being next to a nest.
 export const HORDE_START_RING = 5;
 
-// ===== Raid landmarks =====
-// Hidden at the very edge of the map (distance 7) until scouted. Each holds a raid boss that needs a bigger,
-// higher-level team than an expedition (a separate raid squad of up to RAID_MAX_TEAM, launched
-// with the day's expeditions). Beating it drops legendary gear and can free a legendary survivor;
-// it comes back `respawnDays` later, 25% tougher for every time it's been killed.
+// ===== Raids =====
+// Four big places in the corners of the map, past its edge — the last tier of difficulty, each the
+// best source of its own resources. They loom from day 1 but stay locked until a scout reaches the
+// `approach` block at the map's edge where their road comes in. Each holds a raid boss that needs a
+// bigger, higher-level squad (up to RAID_MAX_TEAM, launched with the day's expeditions). Beating it
+// pays its `rewards`, `legendaryItems` from its `legendarySlot` (any slot if null), `extraGear`
+// common items from `gearSlots`, and can free a legendary survivor; it comes back `respawnDays`
+// later, 25% tougher for every time it's been killed. `at` is where it's drawn (world pixels).
 export const RAID_MAX_TEAM = 8;
 export const RAID_MAX_ROUNDS = 15;
 export const RAID_BOSS_SCALING = 0.25;
 export const LANDMARKS = [
   {
-    id: "checkpoint", name: "Military Checkpoint", hex: { q: 7, r: -3 },
-    desc: "An army roadblock that fell on the first night. Something in there still wears the sergeant's stripes.",
-    boss: { name: "Sergeant Rot", look: "soldier", hp: 650, damage: 22, attacks: 2 },
-    minTeam: 6, minLevel: 4, legendaryItems: 1, legendaryRecruitChance: 0.35,
-    rewards: { food: 25, materials: 45, medicine: 20, serum: 2 }, respawnDays: 4,
+    id: "mall", name: "City Mall", tier: 1, corner: "nw", at: { x: 72, y: 62 }, approach: { q: -5, r: -2 },
+    focus: "Food, scrap and accessories",
+    desc: "Three floors of shops and a food court the dead never left. Mall security still walks the rounds.",
+    boss: { name: "The Security Chief", look: "guard", hp: 520, damage: 18, attacks: 2 },
+    minTeam: 5, minLevel: 3, legendaryItems: 1, legendarySlot: "accessory", extraGear: 2, gearSlots: ["accessory"], legendaryRecruitChance: 0.5,
+    rewards: { food: 60, materials: 25, medicine: 5 }, respawnDays: 4,
   },
   {
-    id: "stadium", name: "City Stadium", hex: { q: -7, r: 7 },
-    desc: "The evacuation shelter that became a feeding ground. Its king still wears the team jersey.",
-    boss: { name: "The Linebacker", look: "jersey", hp: 1080, damage: 23, attacks: 3 },
-    minTeam: 7, minLevel: 5, legendaryItems: 1, legendaryRecruitChance: 0.5,
-    rewards: { food: 40, materials: 40, medicine: 30, serum: 1 }, respawnDays: 5,
+    id: "hospital", name: "General Hospital", tier: 2, corner: "ne", at: { x: 344, y: 62 }, approach: { q: 5, r: -7 },
+    focus: "Medicine and serum",
+    desc: "The mother lode of medicine — and of the infected. The head surgeon is still on call.",
+    boss: { name: "The Head Surgeon", look: "surgeon", hp: 760, damage: 22, attacks: 2 },
+    minTeam: 6, minLevel: 4, legendaryItems: 1, legendarySlot: "armor", extraGear: 1, gearSlots: ["armor"], legendaryRecruitChance: 0.4,
+    rewards: { food: 5, materials: 10, medicine: 60, serum: 2 }, respawnDays: 5,
   },
   {
-    id: "institute", name: "Research Institute", hex: { q: 0, r: -7 },
-    desc: "Where the outbreak may have started. Patient zero never left the building.",
+    id: "military_base", name: "Military Base", tier: 3, corner: "se", at: { x: 344, y: 402 }, approach: { q: 5, r: 2 },
+    focus: "Scrap, weapons and armour",
+    desc: "The army's staging base, overrun on the first night. Something in there still wears the sergeant's stripes.",
+    boss: { name: "Sergeant Rot", look: "soldier", hp: 1080, damage: 24, attacks: 3 },
+    minTeam: 7, minLevel: 5, legendaryItems: 1, legendarySlot: "weapon", extraGear: 3, gearSlots: ["weapon", "armor"], legendaryRecruitChance: 0.4,
+    rewards: { food: 15, materials: 70, medicine: 10 }, respawnDays: 5,
+  },
+  {
+    id: "institute", name: "Research Institute", tier: 4, corner: "sw", at: { x: 72, y: 402 }, approach: { q: -5, r: 7 },
+    focus: "Research and serum",
+    desc: "Where the outbreak started. Patient zero never left the building.",
     boss: { name: "Subject Zero", look: "labcoat", hp: 1520, damage: 28, attacks: 3 },
-    minTeam: 8, minLevel: 6, legendaryItems: 2, legendaryRecruitChance: 0.7,
-    rewards: { food: 30, materials: 50, medicine: 50, research: 40, serum: 3 }, respawnDays: 6,
+    minTeam: 8, minLevel: 6, legendaryItems: 2, legendarySlot: null, extraGear: 0, gearSlots: [], legendaryRecruitChance: 0.7,
+    rewards: { food: 10, materials: 15, medicine: 20, research: 60, serum: 3 }, respawnDays: 6,
   },
 ];
+// Raids that were renamed (the Military Checkpoint is the Military Base now; the City Stadium is gone).
+export const LEGACY_RAID_IDS = { checkpoint: "military_base", stadium: null };
 
 // ===== Name pools =====
 // Rule: first names and surnames are at most NAME_PART_MAX letters each (characters.js fitName).

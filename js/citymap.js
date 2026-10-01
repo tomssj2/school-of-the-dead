@@ -3,8 +3,8 @@
 // in code like the room scenes. Underneath it's still the hex grid from map.js (every hex is a
 // "block" a scout can reveal, with the same terrain, places and rules), but the grid is never drawn.
 
-import { MAP_RADIUS, isSchoolHex, hexTerrain, hexDistance, locationAt, landmarkAt, tilePixels, hexTileKey } from "./map.js";
-import { LOCATIONS, LANDMARKS } from "./data.js";
+import { MAP_RADIUS, isSchoolHex, hexTerrain, hexDistance, locationAt, tilePixels, hexTileKey } from "./map.js";
+import { LOCATIONS } from "./data.js";
 import { shadowOf, lightOf } from "./sprite.js";
 
 // ---------- geometry: world pixels <-> hexes ----------
@@ -441,7 +441,7 @@ export function cityBaseUrl() {
   }
 
   // 4. places: the buildings from the map tiles, on their own lots
-  for (const place of [...LOCATIONS, ...LANDMARKS]) {
+  for (const place of LOCATIONS) {
     const { x, y } = hexToWorld(place.hex.q, place.hex.r);
     const t = tilePixels(hexTileKey(place.hex.q, place.hex.r));
     const x0 = Math.round(x - t.w / 2);

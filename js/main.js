@@ -1,4 +1,5 @@
 import * as G from "./game.js";
+import { WORLD_W, WORLD_H } from "./citymap.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, tipFromText, setRoleTab,
@@ -14,7 +15,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -440,10 +441,23 @@ function migrateState(s) {
   // the new one too, and no nest is left sitting under a location.
   const poiKey = (p) => `${p.hex.q},${p.hex.r}`;
   for (const [id, oldKeys] of Object.entries(LEGACY_POI_HEXES)) {
-    const newKey = poiKey([...LOCATIONS, ...LANDMARKS].find((p) => p.id === id));
+    const newKey = poiKey(LOCATIONS.find((p) => p.id === id));
     if (oldKeys.some((k) => s.exploredHexes.includes(k)) && !s.exploredHexes.includes(newKey)) s.exploredHexes.push(newKey);
   }
   s.teamLocations = s.teamLocations.map((id) => LEGACY_LOCATION_IDS[id] || id);
+  // The raids moved to the map's corners and were reworked: the Checkpoint is the Military Base
+  // now (keeping its kills and cooldown) and the Stadium is gone (its raid squad goes home).
+  for (const [oldId, newId] of Object.entries(LEGACY_RAID_IDS)) {
+    for (const table of [s.raidCooldowns, s.raidKills]) {
+      if (table[oldId] === undefined) continue;
+      if (newId && table[newId] === undefined) table[newId] = table[oldId];
+      delete table[oldId];
+    }
+    if (s.raidTarget === oldId) s.raidTarget = newId;
+  }
+  const raidLm = LANDMARKS.find((l) => l.id === s.raidTarget);
+  if (s.raidTarget && (!raidLm || !G.raidUnlocked(s, raidLm))) s.raidTarget = null; // gone, or its road not scouted yet
+  if (!s.raidTarget) for (const c of s.characters) if (c.exploreTeam === G.RAID_TEAM) c.exploreTeam = null;
   // Expedition teams are bought now: an old save keeps as many as it has in use (at least one).
   if (!s.teamSlots) s.teamSlots = Math.max(1, ...[0, 1, 2].filter((i) => s.teamLocations[i] || s.characters.some((c) => c.exploreTeam === i)).map((i) => i + 1));
   // ...and nothing is left on what are now the school grounds (its hex and the six around it).
@@ -451,7 +465,7 @@ function migrateState(s) {
     const [q, r] = k.split(",").map(Number);
     return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2 <= 1;
   };
-  s.nests = s.nests.filter((k) => !onGrounds(k) && ![...LOCATIONS, ...LANDMARKS].some((p) => poiKey(p) === k));
+  s.nests = s.nests.filter((k) => !onGrounds(k) && !LOCATIONS.some((p) => poiKey(p) === k));
 }
 
 // Classrooms used to be permanently keyed by subject ("Biology", "Physics", ...). They're now
@@ -730,24 +744,33 @@ function mapFit(map) {
   const [vx, vy, vw, vh] = map.dataset.view.split(",").map(Number);
   const cw = map.clientWidth;
   const ch = map.clientHeight;
-  return { vx, vy, vw, vh, cw, ch, s: Math.min(cw / vw, ch / vh, 3.5) };
+  const s = Math.min(cw / vw, ch / vh, 3.5);
+  // zoom 1 is the part worth showing; it can pull back to the whole map (the raids in its corners)
+  const zMin = Math.min(1, Math.min(cw / WORLD_W, ch / WORLD_H) / s);
+  return { vx, vy, vw, vh, cw, ch, s, zMin };
 }
 
 function placeCamera(map) {
   const f = mapFit(map);
   const zMax = Math.max(1, MAP_MAX_SCALE / f.s);
-  mapCam.z = Math.min(Math.max(1, mapCam.z), zMax);
+  mapCam.z = Math.min(Math.max(f.zMin, mapCam.z), zMax);
   const s = f.s * mapCam.z;
   // Zoomed in, the centre can move anywhere that keeps the view box's edge on screen.
   const halfW = f.cw / 2 / s;
   const halfH = f.ch / 2 / s;
   const clampTo = (v, lo, hi) => (lo > hi ? (lo + hi) / 2 : Math.min(Math.max(v, lo), hi));
-  if (mapCam.z <= 1 || mapCam.x === null) {
+  if (mapCam.z === 1 || mapCam.x === null) {
     mapCam.x = f.vx + f.vw / 2;
     mapCam.y = f.vy + f.vh / 2;
   }
-  mapCam.x = clampTo(mapCam.x, f.vx + halfW, f.vx + f.vw - halfW);
-  mapCam.y = clampTo(mapCam.y, f.vy + halfH, f.vy + f.vh - halfH);
+  if (mapCam.z < 1) {
+    // pulled back past the view box: keep the whole map in frame
+    mapCam.x = clampTo(mapCam.x, halfW, WORLD_W - halfW);
+    mapCam.y = clampTo(mapCam.y, halfH, WORLD_H - halfH);
+  } else {
+    mapCam.x = clampTo(mapCam.x, f.vx + halfW, f.vx + f.vw - halfW);
+    mapCam.y = clampTo(mapCam.y, f.vy + halfH, f.vy + f.vh - halfH);
+  }
   // Zoomed far out (a small screen, the whole town explored), names shrink to their icon.
   map.classList.toggle("cm-compact", s < 1.35);
   map.classList.toggle("cm-zoomed", mapCam.z > 1.001);
@@ -771,7 +794,7 @@ document.addEventListener("wheel", (e) => {
   const oy = f.ch / 2 - mapCam.y * s;
   const wx = (mx - ox) / s; // the world point under the cursor stays put
   const wy = (my - oy) / s;
-  mapCam.z = Math.min(Math.max(1, mapCam.z * Math.exp(-e.deltaY * 0.0015)), Math.max(1, MAP_MAX_SCALE / f.s));
+  mapCam.z = Math.min(Math.max(f.zMin, mapCam.z * Math.exp(-e.deltaY * 0.0015)), Math.max(1, MAP_MAX_SCALE / f.s));
   const s2 = f.s * mapCam.z;
   mapCam.x = wx - (mx - f.cw / 2) / s2;
   mapCam.y = wy - (my - f.ch / 2) / s2;
@@ -1409,8 +1432,9 @@ root.addEventListener("click", (e) => {
       break;
     }
     case "map-reset": {
-      mapCam = { z: 1, x: null, y: null };
+      // the whole map, out to the raids in its corners
       const map = root.querySelector(".citymap");
+      mapCam = { z: map ? mapFit(map).zMin : 1, x: WORLD_W / 2, y: WORLD_H / 2 };
       if (map) placeCamera(map);
       break;
     }

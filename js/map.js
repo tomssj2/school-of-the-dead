@@ -37,9 +37,9 @@ export function hexDistance(q, r) {
   return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
 }
 
-// The map rule from data.js: no two points of interest touch (and none touches the school
-// grounds). Flags a mistake while editing the data.
-const POIS = [...LOCATIONS, ...LANDMARKS];
+// The map rule from data.js: no two locations touch (and none touches the school grounds). Flags
+// a mistake while editing the data. (Raids sit in the corners, off the hex grid.)
+const POIS = LOCATIONS;
 POIS.forEach((a, i) => {
   if (hexDistance(a.hex.q, a.hex.r) <= SCHOOL_RADIUS + 1) console.warn(`Map rule broken: ${a.id} touches the school grounds.`);
   if (hexDistance(a.hex.q, a.hex.r) > MAP_RADIUS) console.warn(`Map rule broken: ${a.id} is off the map.`);
@@ -65,11 +65,12 @@ export const TERRAIN_NAMES = {
 };
 
 export const locationAt = (q, r) => LOCATIONS.find((l) => l.hex.q === q && l.hex.r === r) || null;
-export const landmarkAt = (q, r) => LANDMARKS.find((l) => l.hex.q === q && l.hex.r === r) || null;
+// The raid whose road comes in at this edge block (scouting it opens the raid), if any.
+export const raidApproachAt = (q, r) => LANDMARKS.find((l) => l.approach.q === q && l.approach.r === r) || null;
 
-// What a hex's tile shows: a location/landmark building, or its terrain (with one of two looks).
+// What a hex's tile shows: a location's building, or its terrain (with one of two looks).
 export function hexTileKey(q, r) {
-  const place = locationAt(q, r) || landmarkAt(q, r);
+  const place = locationAt(q, r);
   if (place) return place.id;
   return `${hexTerrain(q, r)}:${hexHash(q, r, 7) < 0.5 ? 0 : 1}`;
 }
@@ -455,16 +456,23 @@ const TILES = {
     k.r(17, 14, 21, 23, "#5a3b24");
     for (let i = 0; i < 4; i++) k.r(26 + i, 13 + i, 27 + i, 23, "#c49a64");
   },
-  hospital(k) {
+  urgent_care(k) {
     k.r(0, 0, 31, 27, "#3b3f47");
     k.r(0, 24, 31, 27, "#8a8e96");
-    k.r(5, 2, 26, 24, "#eef2f5");
-    k.r(26, 2, 26, 24, shadowOf("#eef2f5"));
-    for (let y = 11; y <= 17; y += 3) for (let x = 7; x <= 23; x += 4) k.r(x, y, x + 1, y + 1, "#9fc7e8");
-    k.r(14, 3, 17, 9, "#d64545");
-    k.r(12, 5, 19, 7, "#d64545");
-    k.r(11, 19, 20, 19, "#d64545");
-    k.r(12, 20, 19, 24, "#9fc7e8");
+    k.r(3, 7, 22, 23, "#eef2f5");
+    k.r(22, 7, 22, 23, shadowOf("#eef2f5"));
+    k.r(3, 5, 22, 7, "#3f8f6a");
+    for (let x = 5; x <= 19; x += 5) k.r(x, 11, x + 2, 13, "#9fc7e8");
+    k.r(10, 16, 15, 23, "#9fc7e8");
+    k.r(12, 1, 13, 4, "#d64545");
+    k.r(11, 2, 14, 3, "#d64545");
+    // the ambulance in its bay
+    k.r(23, 15, 31, 22, "#f4f4f4");
+    k.r(23, 18, 31, 18, "#d64545");
+    k.r(28, 16, 30, 17, "#9fc7e8");
+    k.r(25, 13, 26, 14, "#4a8aff");
+    k.r(24, 22, 25, 23, "#222");
+    k.r(29, 22, 30, 23, "#222");
   },
   police_station(k) {
     k.r(0, 0, 31, 27, "#3b3f47");
@@ -478,16 +486,19 @@ const TILES = {
     for (const x of [7, 21]) k.r(x, 12, x + 3, 16, "#9fc7e8");
     k.r(13, 17, 18, 23, "#2a3348");
   },
-  mall(k) {
+  electronics_store(k) {
     k.r(0, 0, 31, 27, "#3b3f47");
     k.r(0, 24, 31, 27, "#8a8e96");
-    k.r(2, 10, 29, 24, "#d98fb0");
-    k.r(2, 10, 29, 11, lightOf("#d98fb0"));
-    k.ellipse(15.5, 10, 7, 6, "#7fd4d0");
-    k.r(0, 10, 31, 10, "#d98fb0");
-    k.r(11, 14, 20, 24, "#9fe0dc");
-    for (let x = 11; x <= 20; x += 3) k.r(x, 14, x, 24, "#d98fb0");
-    for (const x of [4, 24]) k.r(x, 14, x + 3, 19, "#9fe0dc");
+    k.r(2, 8, 29, 24, "#5a6478");
+    k.r(2, 8, 29, 9, lightOf("#5a6478"));
+    k.r(4, 4, 27, 7, "#1e2a4a");
+    for (let x = 6; x <= 24; x += 3) k.r(x, 5, x + 1, 6, "#7fe0ff");
+    for (const x of [4, 17]) {
+      k.r(x, 12, x + 10, 20, "#14181f");
+      k.r(x + 1, 13, x + 9, 19, x === 4 ? "#3f8fd0" : "#7a5ad6");
+      k.r(x + 2, 14, x + 4, 15, "#bfe3f5");
+    }
+    k.r(14, 18, 17, 24, "#9fc7e8");
   },
   neighborhood(k) {
     k.r(0, 0, 31, 27, "#5f9e5a");
@@ -666,49 +677,112 @@ const TILES = {
     }
   },
 
-  // --- raid landmarks ---
-  checkpoint(k) {
-    k.r(0, 0, 31, 27, "#6a6a4a");
-    k.speckle("#5a5a3e", 40);
-    k.r(4, 8, 4, 19, "#6b4a2f");
-    k.r(10, 8, 10, 19, "#6b4a2f");
-    k.r(3, 6, 11, 8, "#8a5f33");
-    k.r(2, 3, 12, 5, "#4a5a3a");
-    gable(k, 15, 29, 16, "#5a6a3a");
-    k.r(21, 12, 23, 16, "#2a3020");
-    striped(k, 11, 30, 18, 18, "#d64545", "#f4f4f4");
-    k.r(11, 17, 11, 20, "#3a3a3a");
-    for (const y of [21, 24]) for (let x = (y === 21 ? 1 : 3); x < 30; x += 4) {
+  // --- raid lairs, drawn big in the map's corners: tilePixels("lair:<raid id>") ---
+  lair(k, id) {
+    LAIRS[id](k);
+  },
+};
+
+// 64 x 52: each raid's whole compound, with its own ground, sitting past the edge of the map.
+export const LAIR_W = 64;
+export const LAIR_H = 52;
+const LAIRS = {
+  // The City Mall: pink stores around a glass dome, a sign and a parking lot full of dead cars.
+  mall(k) {
+    k.r(0, 0, 63, 51, "#3b3f47");
+    for (let x = 4; x < 62; x += 6) k.r(x, 40, x, 49, "#c9ccd2");
+    for (const [x, c] of [[6, "#d64545"], [19, "#3f6fb5"], [37, "#e8c14a"], [50, "#4caf7d"]]) {
+      k.r(x, 42, x + 4, 46, c);
+      k.r(x + 1, 43, x + 3, 44, "#9fc7e8");
+    }
+    k.r(3, 12, 60, 36, "#d98fb0");
+    k.r(3, 12, 60, 13, lightOf("#d98fb0"));
+    k.r(3, 35, 60, 36, shadowOf("#d98fb0"));
+    k.ellipse(31.5, 13, 11, 8, "#7fd4d0");
+    k.ellipse(31.5, 13, 8, 5, "#bff0ec");
+    for (let x = 23; x <= 40; x += 4) k.r(x, 8, x, 18, "#5fb4b0");
+    k.r(19, 4, 44, 7, "#e8c14a");
+    k.r(21, 5, 42, 6, "#fff0a8");
+    k.r(24, 24, 39, 36, "#9fe0dc");
+    for (let x = 24; x <= 39; x += 3) k.r(x, 24, x, 36, "#5fb4b0");
+    for (const x of [6, 14, 46, 54]) {
+      k.r(x, 22, x + 4, 30, "#9fe0dc");
+      k.r(x, 26, x + 4, 26, "#d98fb0");
+    }
+  },
+  // The General Hospital: a tall white block with a red cross, a helipad on the roof and an
+  // ambulance bay out front.
+  hospital(k) {
+    k.r(0, 0, 63, 51, "#4a5a48");
+    k.speckle("#566a53", 40);
+    k.r(0, 44, 63, 51, "#8a8e96");
+    k.r(8, 6, 47, 43, "#eef2f5");
+    k.r(47, 6, 47, 43, shadowOf("#eef2f5"));
+    k.r(48, 18, 59, 43, "#dfe6ea");
+    k.r(8, 3, 47, 6, "#9aa0a8");
+    k.disc(15, 4.5, 2.5, "#5b616d");
+    k.r(14, 3, 14, 6, "#f4d35e");
+    k.r(16, 3, 16, 6, "#f4d35e");
+    k.r(15, 4, 15, 4, "#f4d35e");
+    for (let y = 18; y <= 36; y += 5) for (let x = 11; x <= 44; x += 5) k.r(x, y, x + 2, y + 2, "#9fc7e8");
+    for (let y = 22; y <= 36; y += 5) for (let x = 50; x <= 56; x += 4) k.r(x, y, x + 1, y + 2, "#9fc7e8");
+    k.r(25, 8, 30, 16, "#d64545");
+    k.r(22, 10, 33, 14, "#d64545");
+    k.r(20, 38, 35, 43, "#9fc7e8");
+    k.r(18, 36, 37, 37, "#d64545");
+    k.r(40, 45, 51, 50, "#f4f4f4");
+    k.r(40, 47, 51, 47, "#d64545");
+    k.r(48, 45, 50, 46, "#9fc7e8");
+  },
+  // The Military Base: a fenced compound with a watchtower, tents, a barracks and a tank.
+  military_base(k) {
+    k.r(0, 0, 63, 51, "#6a6a4a");
+    k.speckle("#5a5a3e", 70);
+    for (let x = 1; x < 63; x += 2) { k.px(x, 1, "#9aa0a8"); k.px(x, 50, "#9aa0a8"); }
+    for (let y = 1; y < 51; y += 2) { k.px(1, y, "#9aa0a8"); k.px(62, y, "#9aa0a8"); }
+    k.r(26, 48, 37, 51, "#5b574f");
+    striped(k, 26, 37, 46, 46, "#d64545", "#f4f4f4");
+    k.r(6, 6, 33, 17, "#5a6a3a");
+    k.r(6, 4, 33, 6, "#465533");
+    for (let x = 9; x <= 30; x += 4) k.r(x, 10, x + 1, 12, "#2a3020");
+    gable(k, 40, 52, 16, "#5a6a3a");
+    gable(k, 46, 58, 28, "#4a5a30");
+    k.r(4, 22, 4, 36, "#6b4a2f");
+    k.r(11, 22, 11, 36, "#6b4a2f");
+    k.r(3, 18, 12, 22, "#8a5f33");
+    k.r(4, 16, 11, 18, "#465533");
+    k.r(19, 30, 36, 38, "#4a5a30");
+    k.r(19, 30, 36, 31, "#5a6a3a");
+    k.r(23, 26, 31, 30, "#3a4a28");
+    k.r(31, 27, 42, 28, "#3a4a28");
+    for (let x = 20; x <= 35; x += 3) k.r(x, 38, x + 1, 39, "#222");
+    k.r(56, 4, 56, 14, "#6b6f78");
+    k.r(57, 4, 61, 7, "#d64545");
+    for (const y of [41, 44]) for (let x = (y === 41 ? 4 : 6); x < 22; x += 4) {
       k.r(x, y, x + 2, y + 1, "#c9b58c");
       k.r(x, y + 1, x + 2, y + 1, "#a8946a");
     }
   },
-  stadium(k) {
-    k.r(0, 0, 31, 27, "#3b3f47");
-    k.ellipse(15.5, 14, 14, 11, "#8a8e96");
-    for (let i = 0; i < 3; i++) k.ellipse(15.5, 14, 13 - i * 1.3, 10 - i * 1, i % 2 ? "#9aa0a8" : "#b6bbc3");
-    k.ellipse(15.5, 14, 9, 6, "#4caf7d");
-    k.r(15, 9, 15, 19, "#f4f4f4");
-    k.disc(15.5, 14, 1.5, "#f4f4f4");
-    k.disc(15.5, 14, 0.6, "#4caf7d");
-    for (const [x, y] of [[1, 1], [29, 1], [1, 22], [29, 22]]) {
-      k.r(x + 1, y + 1, x + 1, y + 5, "#6b6f78");
-      k.r(x, y, x + 2, y + 1, "#f4d35e");
-    }
-  },
+  // The Research Institute: a dark glass tower with glowing lab windows, a biohazard sign and a
+  // fence of warning tape — and something green seeping out of the door.
   institute(k) {
-    k.r(0, 0, 31, 27, "#3a3f48");
-    k.r(0, 24, 31, 27, "#8a8e96");
-    k.r(8, 1, 23, 24, "#4a6a8a");
-    k.r(8, 1, 8, 24, lightOf("#4a6a8a"));
-    k.r(23, 1, 23, 24, shadowOf("#4a6a8a"));
-    for (let y = 3; y <= 16; y += 3) for (let x = 10; x <= 21; x += 3) k.r(x, y, x + 1, y + 1, k.rng() < 0.2 ? "#b07fe0" : "#7fa8d0");
-    k.r(15, 0, 16, 1, "#d0d4da");
-    k.r(12, 19, 19, 24, "#9fc7e8");
-    k.r(3, 16, 6, 19, "#f4d35e");
-    k.px(4, 17, "#222");
-    k.px(5, 18, "#222");
-    k.r(4, 20, 5, 24, "#6b6f78");
+    k.r(0, 0, 63, 51, "#3a3f48");
+    k.r(0, 44, 63, 51, "#8a8e96");
+    k.r(14, 2, 49, 43, "#4a6a8a");
+    k.r(14, 2, 14, 43, lightOf("#4a6a8a"));
+    k.r(49, 2, 49, 43, shadowOf("#4a6a8a"));
+    k.r(5, 20, 14, 43, "#3f5a78");
+    k.r(49, 24, 58, 43, "#3f5a78");
+    for (let y = 5; y <= 34; y += 4) for (let x = 17; x <= 45; x += 4) k.r(x, y, x + 1, y + 1, k.rng() < 0.25 ? "#b07fe0" : "#7fa8d0");
+    k.r(30, 0, 33, 2, "#d0d4da");
+    k.r(26, 36, 37, 43, "#9fc7e8");
+    k.ellipse(31.5, 46, 7, 2.2, "#7fd13a");
+    k.r(30, 43, 33, 45, "#7fd13a");
+    k.r(6, 24, 12, 30, "#f4d35e");
+    k.px(8, 26, "#222");
+    k.px(10, 26, "#222");
+    k.px(9, 28, "#222");
+    striped(k, 0, 63, 49, 49, "#f4d35e", "#2a2a2a");
   },
 };
 
@@ -720,10 +794,10 @@ const tileCache = new Map();
 // A tile's pixels: { w, h, g } with g[y][x] a colour (or null), for a key from hexTileKey().
 export function tilePixels(key) {
   const [kind, variant = "0"] = key.split(":");
-  const [w, h] = kind === "campus" ? [CAMPUS_W, CAMPUS_H] : [32, 28];
+  const [w, h] = kind === "campus" ? [CAMPUS_W, CAMPUS_H] : kind === "lair" ? [LAIR_W, LAIR_H] : [32, 28];
   const seed = [...key].reduce((acc, ch) => Math.imul(acc ^ ch.charCodeAt(0), 16777619), 2166136261);
   const k = canvas(seed, w, h);
-  TILES[kind](k, Number(variant));
+  TILES[kind](k, kind === "lair" ? variant : Number(variant));
   return { w, h, g: k.g };
 }
 
