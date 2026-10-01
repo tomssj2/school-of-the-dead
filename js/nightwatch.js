@@ -1,6 +1,6 @@
 // The Night Watch board's art: the school's front at night, drawn in code as pixel art in the
-// campus colours (cream walls, blue trim, the red sign), then lit — moonlight everywhere, warm
-// light spilling from the doors, the windows, the courtyard lamps and a fire barrel — and small
+// campus colours (cream walls, blue trim, the red sign), then lit — moonlight everywhere, a warm
+// glow from the lit windows and a fire barrel, a car's headlight — and small
 // pixel sprites for the defenses built on it. The board is the entrance grid: the school's doors —
 // the gate — across the top, the front steps where defenders stand (rows 0-2), the courtyard where
 // defenses go (rows 3-4) and the street the horde comes up from (rows 5-6).
@@ -79,7 +79,6 @@ const bayer = (x, y) => BAYER[(y & 3) * 4 + (x & 3)];
 // Light colours (multipliers) and the night's ambient.
 const AMBIENT = [0.34, 0.38, 0.6];
 const WARM = [1.0, 0.74, 0.42];
-const LAMP = [1.0, 0.9, 0.66];
 const FIRE = [1.0, 0.52, 0.2];
 const BEAM = [0.82, 0.88, 0.95];
 
@@ -285,17 +284,6 @@ export function courtyardBackground(cols) {
   p.set(mid - 1, 30, "#7a5a1a");
   for (let i = 0; i < 3; i++) p.line(d0 + 4 + i * 2, 33, d0 + 7 + i * 2, 30, "#2e4058"); // claw marks
   for (const [x, y] of [[d1 - 5, 30], [d1 - 4, 31], [d1 - 5, 32], [d1 - 4, 33], [d1 - 6, 31], [d1 - 4, 34]]) p.set(x, y, BLOOD);
-  lights.push({ x: mid, y: 33, r: 72, sy: 1.3, k: 0.8, c: WARM }); // light spilling out over the steps
-  lights.push({ x: mid, y: 19, r: 16, k: 0.5, c: WARM });
-  // porch lamps either side of the doors
-  for (const lx of [d0 - 6, d1 + 4]) {
-    p.r(lx, 18, lx + 2, 18, IRON);
-    p.r(lx, 19, lx + 2, 21, "#fff4c0", 1);
-    p.set(lx + 1, 20, "#ffffff", 1);
-    p.r(lx, 22, lx + 2, 22, IRON);
-    p.set(lx + 1, 23, IRON);
-    lights.push({ x: lx + 1, y: 21, r: 26, k: 0.75, c: WARM });
-  }
   // ivy up the corners
   for (let y = 9; y <= 35; y++) {
     const reach = Math.round(((y - 9) / 26) * 7);
@@ -430,22 +418,6 @@ export function courtyardBackground(cols) {
   p.r(fx - 2, fenceY - 3, fx + 2, fenceY - 1, STONE_DK);
   for (let y = 0; y < 6; y++) p.r(fx + 1, yardTop + 9 + y, fx + 7 - (y % 2) - (y > 3 ? 2 : 0), yardTop + 9 + y, y < 2 ? lightOf("#d64545") : "#d64545");
   p.set(fx, yardTop + 5, "#f4d35e");
-  // lamp posts in the two lamp-lit lanes (game.js lampLanes)
-  const lanes = [Math.round(cols * 0.2), cols - 1 - Math.round(cols * 0.2)];
-  for (const lane of lanes) {
-    const lx = Math.round((lane + 0.5) * CELL_W) - 1;
-    p.r(lx, yardTop + 9, lx + 1, fenceY - 1, "#30343e");
-    p.r(lx, yardTop + 9, lx, fenceY - 1, IRON_LT);
-    p.r(lx - 2, fenceY - 4, lx + 3, fenceY - 1, "#30343e");
-    p.r(lx - 2, fenceY - 4, lx + 3, fenceY - 4, IRON_LT);
-    p.r(lx, yardTop + 1, lx + 1, yardTop + 1, IRON);
-    p.r(lx - 2, yardTop + 2, lx + 3, yardTop + 3, "#262a33");
-    p.r(lx - 1, yardTop + 4, lx + 2, yardTop + 7, "#fff2c0", 1);
-    p.r(lx, yardTop + 5, lx + 1, yardTop + 6, "#ffffff", 1);
-    p.r(lx - 2, yardTop + 8, lx + 3, yardTop + 8, "#262a33");
-    lights.push({ x: lx + 1, y: yardTop + 6, r: 20, k: 0.6, c: LAMP });
-    lights.push({ x: lx + 1, y: fenceY - 6, r: 44, sy: 1.5, k: 0.8, c: LAMP });
-  }
 
   // ===== the fence: a low wall with iron railings, the gate torn open =====
   const gapA = pa;
@@ -527,10 +499,8 @@ export function courtyardBackground(cols) {
   p.r(59, H - 6, 65, H - 6, "#33363d");
   p.oval(36, H - 4, 7, 1.8, "#1e2a48", 1);
   p.r(32, H - 5, 34, H - 5, "#4a5e8e", 1);
-  const lampX = Math.round((lanes[0] + 0.5) * CELL_W);
-  p.oval(lampX + 4, roadTop + 4, 6, 1.8, "#1e2a48", 1);
-  p.r(lampX + 3, roadTop + 4, lampX + 5, roadTop + 4, "#d8b060", 1);
-  p.set(lampX + 4, roadTop + 3, "#f4d890", 1);
+  p.oval(52, roadTop + 4, 6, 1.8, "#1e2a48", 1);
+  p.r(50, roadTop + 4, 52, roadTop + 4, "#4a5e8e", 1);
   p.r(70, roadTop + 3, 75, roadTop + 4, "#e07030");
   p.r(72, roadTop + 3, 73, roadTop + 4, "#f0f0e8");
   p.r(76, roadTop + 2, 77, roadTop + 5, "#c05a20");
