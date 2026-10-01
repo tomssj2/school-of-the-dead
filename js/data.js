@@ -290,6 +290,7 @@ export const ZOMBIE_TYPES = {
   runner: { name: "Runner", badge: "💨", hpMult: 0.6, dmgMult: 0.8, speed: 2, meleeEvade: 0.3, from: 4, desc: "Covers two rows a turn and slips 30% of melee blows — shoot it." },
   brute: { name: "Brute", badge: "💪", hpMult: 2, dmgMult: 1.5, wallMult: 2, rangedMult: 0.6, heavy: true, from: 7, desc: "Armoured: ranged hits do 40% less — get up close. Winds up heavy smashes and breaks walls fast." },
   spitter: { name: "Spitter", badge: "🤮", hpMult: 0.8, dmgMult: 0.7, spitRange: 3, rangedMult: 1.5, from: 10, desc: "Spits acid up to 3 squares away, but ranged hits do 50% more." },
+  screamer: { name: "Screamer", badge: "📢", hpMult: 0.7, dmgMult: 0.5, howl: { range: 2, mult: 1.3 }, from: 13, desc: "Its howl makes every zombie within 2 squares hit 30% harder — take it down first." },
   boss: { name: "Boss", badge: "👑", hpMult: 5, dmgMult: 2, wallMult: 3, unsnaggable: true, rangedMult: 0.8, heavy: true, enrages: true, from: 5, desc: "Leads the horde every 5th night. Winds up smashes; at half health goes berserk and calls for help." },
 };
 // A heavy zombie next to a defender may wind up (`chance` a turn): the square is marked, and next
@@ -359,7 +360,8 @@ export function hordeComposition(day) {
   const runner = day >= ZOMBIE_TYPES.runner.from ? Math.floor(count * 0.25) : 0;
   const brute = day >= ZOMBIE_TYPES.brute.from ? Math.max(1, Math.floor(count * 0.15)) : 0;
   const spitter = day >= ZOMBIE_TYPES.spitter.from ? Math.max(1, Math.floor(count * 0.15)) : 0;
-  return { walker: count - runner - brute - spitter, runner, brute, spitter, boss: isBossNight(day) ? 1 : 0 };
+  const screamer = day >= ZOMBIE_TYPES.screamer.from ? Math.max(1, Math.floor(count * 0.08)) : 0;
+  return { walker: count - runner - brute - spitter - screamer, runner, brute, spitter, screamer, boss: isBossNight(day) ? 1 : 0 };
 }
 
 // ===== The Radio Station and the rescue (the run's goal) =====

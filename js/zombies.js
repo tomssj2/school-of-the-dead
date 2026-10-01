@@ -19,6 +19,8 @@ const LOOKS = {
   // the Night Watch's horde: a runner in a tracksuit, a bloated spitter, and the boss in a suit
   runner: { shirt: "#3f6fb5", pants: "#2a3a6a", hair: "#6b4a2f", eyes: "#ff5a3a", skin: "#93b27e", stripe: "#f4f4f4" },
   spitter: { shirt: "#6a8a3a", pants: "#4a5a30", hair: null, eyes: "#d0ff40", skin: "#b0bf5a", drool: "#c8f050" },
+  // a screamer: a girl in a torn purple hoodie, long grey hair, white eyes, mouth wide open
+  screamer: { shirt: "#7a4a8a", pants: "#34343f", hair: "#c8c2b4", eyes: "#ffffff", skin: "#b4bfa6", scream: true },
   boss: { shirt: "#2e3140", pants: "#23252f", hair: "#1a1a1a", eyes: "#ff2a2a", skin: "#7f9e6c", tie: "#b02030" },
 };
 
@@ -28,6 +30,7 @@ export const HORDE_LOOK = {
   runner: { look: "runner", scale: 0.9 },
   brute: { look: "jersey", scale: 1.25 },
   spitter: { look: "spitter", scale: 1 },
+  screamer: { look: "screamer", scale: 0.95 },
   boss: { look: "boss", scale: 1.4 },
 };
 export const hordeSprite = (type, sizePx) => {
@@ -130,6 +133,21 @@ function build(look) {
     r(13, 13, 15, 16, L.drool);
     g[17][14] = L.drool;
     g[19][13] = L.drool;
+  }
+  if (L.scream) {
+    // long hair down both sides, a hood behind, the jaw hanging wide open
+    r(10, 4, 11, 17, L.hair);
+    r(19, 4, 21, 16, shadowOf(L.hair));
+    r(11, 3, 19, 4, L.hair);
+    r(9, 15, 22, 17, shadowOf(L.shirt));
+    r(12, 11, 16, 15, "#2a0808");
+    r(13, 12, 15, 14, "#5a1010");
+    g[11][13] = "#e8e2c0";
+    g[11][15] = "#e8e2c0";
+    g[15][14] = "#e8e2c0";
+    r(15, 20, 16, 24, "#d8d0e0"); // hoodie strings
+    g[22][12] = "#5a3a6a";
+    g[25][19] = "#5a3a6a";
   }
   if (L.tie) {
     // a suit and tie, a principal's badge

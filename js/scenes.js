@@ -2002,6 +2002,24 @@ const ICONS = {
     g[12][13] = "#8ad13a";
     return g;
   },
+  z_screamer: () => ascii([
+    "................",
+    "...GGGGGG.......",
+    "..GggggggG......",
+    ".Ggggggggggd....",
+    ".Gxxggggxxgd..w.",
+    ".Gxrggggxrgd.w..",
+    ".ggggggggggd.w.w",
+    ".gggmmmmgggd.w.w",
+    ".ggmtmmtmggdw..w",
+    ".ggmmmmmmggdw..w",
+    ".ggmmmmmmggd.w.w",
+    ".gggmmmmgggd.w.w",
+    "..gggmmgggd..w..",
+    "...gggggdd....w.",
+    "....dddd........",
+    "................",
+  ], { g: "#a3b88e", G: "#cfe0b8", d: "#5e7a48", x: "#2a1a1a", r: "#ffffff", m: "#3a1010", t: "#e8e2c0", w: "#f4d35e" }),
   z_boss: () => ascii([
     "................",
     "................",

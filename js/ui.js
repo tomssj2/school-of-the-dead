@@ -60,7 +60,7 @@ const ICON_SWAPS = [
   [NIGHT_ACTIONS, "icon", { molotov: "na_molotov", focus: "na_focus", patch: "na_patch", rally: "na_rally" }],
   [FORMATIONS, "icon", { guarded: "form_guarded", shieldWall: "form_shieldWall", crossfire: "form_crossfire" }],
   [DEFENDER_ROLES, "icon", { PE: "dr_brawler", Gymnastics: "dr_marksman", Biology: "dr_tank", Physics: "dr_engineer", History: "dr_spotter", SocialStudies: "dr_rallier" }],
-  [ZOMBIE_TYPES, "badge", { runner: "z_runner", brute: "z_brute", spitter: "z_spitter", boss: "z_boss" }],
+  [ZOMBIE_TYPES, "badge", { runner: "z_runner", brute: "z_brute", spitter: "z_spitter", screamer: "z_screamer", boss: "z_boss" }],
   [INGREDIENTS, "icon", { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "flour", eggs: "eggs", milk: "milk", mutton: "mutton", canned_meat: "canned_meat", spices: "spices", coffee: "coffee" }],
   [PRODUCERS, "icon", { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "wheat", chicken: "chicken", cow: "cow", sheep: "sheep" }],
   [DISHES, "icon", { shepherds_stew: "shepherds_stew", fresh_bread: "fresh_bread", firehouse_chili: "firehouse_chili", scholars_breakfast: "scholars_breakfast" }],
@@ -93,7 +93,7 @@ const SYMBOL_NAMES = {
   "👑": "z_boss", "🚨": "siren", "🌾": "wheat", "💪": "arm", "🤸": "acrobat", "🚫": "forbidden", "🎯": "na_focus",
   "📖": "classes", "🏆": "it_trophy", "🧱": "fortified_works", "🤝": "handshake", "🌫": "fog", "🩸": "blood", "🩹": "na_patch",
   "🐄": "cow", "🗡": "armory", "📏": "ruler", "🔧": "dr_engineer", "💡": "role_support", "💾": "floppy", "🔍": "magnifier",
-  "🎨": "palette", "🔊": "speaker", "🌧": "rain", "👥": "population", "🤮": "z_spitter", "💨": "z_runner", "🔔": "na_rally",
+  "🎨": "palette", "🔊": "speaker", "🌧": "rain", "👥": "population", "🤮": "z_spitter", "📢": "z_screamer", "💨": "z_runner", "🔔": "na_rally",
   "😬": "face_grimace", "⚖": "scales", "🏠": "neighborhood", "🏥": "hospital", "🎩": "tophat", "📈": "trend_up",
   "📉": "trend_down", "🏹": "dr_marksman", "💍": "it_class_ring", "📰": "newspaper", "📊": "chart", "🌳": "tree", "✏": "pencil",
   "🛏": "bed", "🧠": "research", "🌑": "blackout", "🚧": "barricade", "🔺": "spikes", "🔗": "wire", "📶": "signal",
@@ -2325,9 +2325,9 @@ function renderGridBattle(state, anim) {
   for (const z of frame.zombies) {
     const p = prevZombies.get(z.id);
     const T = ZOMBIE_TYPES[z.type] || ZOMBIE_TYPES.walker;
-    units += `<div class="nw-unit nw-zombie nw-z-${z.type} ${hurt.has(`${z.row},${z.col}`) ? "nw-flash" : ""} ${z.id === focusId ? "nw-focused" : ""} ${z.windup ? "nw-winding" : ""} ${z.enraged ? "nw-enraged" : ""}" ${at(z.row, z.col, `--pr:${p ? p.row : z.row + 1};--pc:${p ? p.col : z.col};`)} ${tipAttr({
+    units += `<div class="nw-unit nw-zombie nw-z-${z.type} ${hurt.has(`${z.row},${z.col}`) ? "nw-flash" : ""} ${z.id === focusId ? "nw-focused" : ""} ${z.windup ? "nw-winding" : ""} ${z.enraged ? "nw-enraged" : ""} ${z.howled ? "nw-howled" : ""}" ${at(z.row, z.col, `--pr:${p ? p.row : z.row + 1};--pc:${p ? p.col : z.col};`)} ${tipAttr({
       title: `${T.badge || "🧟"} ${T.name}${z.enraged ? " · berserk" : ""}`, rows: [["HP", `${Math.max(0, z.hp)}/${z.maxHp}`]],
-      notes: [esc(T.desc), ...(z.windup ? ["⚠ Winding up a smash — hit it with an ability, a crit or fire to break it"] : [])],
+      notes: [esc(T.desc), ...(z.howled ? ["📢 A screamer's howl: hits 30% harder"] : []), ...(z.windup ? ["⚠ Winding up a smash — hit it with an ability, a crit or fire to break it"] : [])],
     })}>
       ${hordeSprite(z.type, 36)}${bar(z.hp, z.maxHp, "nw-hp-zombie")}
     </div>`;
@@ -2594,7 +2594,7 @@ function renderTurn3Summary(state) {
   const condition = nightCondition(state);
   const boss = isBossNight(state.day);
   const comp = hordeComposition(state.day);
-  const kinds = ["boss", "brute", "spitter", "runner", "walker"].filter((t) => comp[t]);
+  const kinds = ["boss", "brute", "screamer", "spitter", "runner", "walker"].filter((t) => comp[t]);
   const horde = overviewCard({
     tab: "defense", name: "Tonight's Horde", style: "--team:#8a3a3a",
     art: `<span class="ov-team-art">${kinds.slice(0, 4).map((t) => `<span class="ov-team-face ov-zombie">${hordeSprite(t, t === "boss" ? 34 : 28)}</span>`).join("")}</span>`,
@@ -2695,16 +2695,16 @@ function renderNightWatchScreen(state) {
   const condition = nightCondition(state);
   const waves = nightWaveCount(zombies);
   const uses = nightActionUses(state);
-  const hordeRows = ["walker", "runner", "brute", "spitter", "boss"]
+  const hordeRows = ["walker", "runner", "brute", "spitter", "screamer", "boss"]
     .filter((t) => comp[t])
     .map((t) => {
       const T = ZOMBIE_TYPES[t];
       const hp = Math.round(z.hp * T.hpMult);
       const dmg = Math.max(1, Math.round(z.damage * T.dmgMult));
       const name = t === "boss" ? esc(bossNameForDay(state.day)) : `${T.name}${comp[t] === 1 ? "" : "s"}`;
-      return `<div class="nw-horde-row ${t === "boss" ? "nw-horde-boss" : ""}" ${tipAttr({ title: `${T.badge || "🧟"} ${T.name}`, rows: [["HP", `${hp}`], ["Hits for", `~${dmg}`]], notes: [esc(T.desc)] })}>
+      return `<div class="nw-horde-tile ${t === "boss" ? "nw-horde-boss" : ""}" ${tipAttr({ title: `${T.badge || "🧟"} ${t === "boss" ? name : T.name}`, rows: [["HP", `${hp}`], ["Hits for", `~${dmg}`]], notes: [esc(T.desc)] })}>
         <span class="nw-horde-sprite">${hordeSprite(t, 22)}</span>
-        <span>${t === "boss" ? `${BOSS_ICON} ` : ""}${name}</span>
+        <span class="nw-horde-name">${name}</span>
         <b>×${comp[t]}</b>
       </div>`;
     })
@@ -2712,14 +2712,14 @@ function renderNightWatchScreen(state) {
 
   return `
   <div class="card nw-card">
+    <div class="ov-head floor-head nw-head">
+      <div class="ov-head-left"><span class="nw-cond" ${tipAttr({ title: `${condition.icon} ${condition.name}`, notes: [condition.desc] })}>${condition.icon} ${condition.name}</span></div>
+      <h2>Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the board from the street, one square a turn", "Post defenders on the steps — melee reaches 1–2 squares, ranged 4–9, fists only point-blank", "Build in the courtyard: walls block a lane until smashed, traps hurt whatever walks over", "A zombie past the top row batters the doors, then gets in", "Hover a defender to see what they can reach", "Start the fight from the Night Summary (the centre button)"] })}</h2>
+      <div class="ov-head-right"><span class="ov-chip">${waves} wave${waves === 1 ? "" : "s"}</span></div>
+    </div>
     <div class="nw-layout">
       ${renderNightBoard(state)}
       <aside class="nw-side">
-        <h2>Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the board from the street, one square a turn", "Post defenders on the steps — melee reaches 1–2 squares, ranged 4–9, fists only point-blank", "Build in the courtyard: walls block a lane until smashed, traps hurt whatever walks over", "A zombie past the top row batters the doors, then gets in", "Hover a defender to see what they can reach", "Start the fight from the Night Summary (the centre button)"] })}</h2>
-        <div class="nw-tonight">
-          <span class="nw-cond" ${tipAttr({ title: `${condition.icon} ${condition.name}`, notes: [condition.desc] })}>${condition.icon} ${condition.name}</span>
-          <span class="muted">${waves} wave${waves === 1 ? "" : "s"}</span>
-        </div>
         <div class="mini-label">Tonight's horde · ${zombies}</div>
         <div class="nw-horde">${hordeRows}</div>
         <div class="mini-label">Night actions — use them during the fight</div>
@@ -3202,7 +3202,7 @@ function renderNightBoard(state) {
   const size = grid.size;
   const third = ENTRANCE_ZONES.students;
   const comp = hordeComposition(state.day);
-  const horde = ["walker", "runner", "brute", "spitter"].flatMap((t) => Array(comp[t] || 0).fill(t));
+  const horde = ["walker", "runner", "brute", "spitter", "screamer"].flatMap((t) => Array(comp[t] || 0).fill(t));
   if (comp.boss) horde.push("boss");
   let cells = "";
   let ghost = 0;

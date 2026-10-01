@@ -1748,11 +1748,21 @@ export function nightActionUses(state) {
   return Object.fromEntries(Object.entries(NIGHT_ACTIONS).map(([id, a]) => [id, a.uses + (id === "rally" ? Math.min(2, ralliers) : 0)]));
 }
 
+// A screamer's howl: a zombie within range of one (not itself) hits harder.
+function howlMult(b, z) {
+  let m = 1;
+  for (const o of b.zombies) {
+    const H = ZOMBIE_TYPES[o.type].howl;
+    if (H && o.alive && o !== z && chebyshev(o, z) <= H.range) m = Math.max(m, H.mult);
+  }
+  return m;
+}
+
 function battleSnapshot(b, events) {
   return {
     tick: b.tick,
     events,
-    zombies: b.zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp, windup: z.windup ? { ...z.windup } : null, enraged: !!z.enraged })),
+    zombies: b.zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp, windup: z.windup ? { ...z.windup } : null, enraged: !!z.enraged, howled: howlMult(b, z) > 1 })),
     students: b.students.map((s) => ({ id: s.id, row: s.row, col: s.col, hp: Math.max(0, s.hp), maxHp: s.maxHp, downed: s.downed, role: s.role, ability: s.ability, charge: s.charge, inspired: s.inspired })),
     structures: Object.values(b.structures).map((st) => ({ key: st.key, id: st.def.id, hp: st.hp, maxHp: st.maxHp, destroyed: st.destroyed })),
     gate: { ...b.gate },
@@ -1774,7 +1784,7 @@ export function startNightBattle(state) {
   const grid = state.entranceGrid;
   const size = grid.size;
   const comp = hordeComposition(state.day);
-  const queue = shuffled(["walker", "runner", "brute", "spitter"].flatMap((t) => Array(comp[t]).fill(t)));
+  const queue = shuffled(["walker", "runner", "brute", "spitter", "screamer"].flatMap((t) => Array(comp[t]).fill(t)));
   if (comp.boss) queue.push("boss"); // the boss brings up the rear
   const waveCount = nightWaveCount(queue.length);
   const perWave = Math.ceil(queue.length / waveCount);
@@ -1934,7 +1944,7 @@ export function battleTick(state, b) {
     const connects = Math.random() < ZOMBIE_HIT_CHANCE;
     const dodged = connects && Math.random() < s.dodge; // a nimble (high-DEX) defender slips it
     const hit = connects && !dodged;
-    const dmg = hit ? Math.max(1, Math.round(dmgBase * s.armorMult * b.squad.damageTaken * (0.85 + Math.random() * 0.3))) : 0;
+    const dmg = hit ? Math.max(1, Math.round(dmgBase * howlMult(b, z) * s.armorMult * b.squad.damageTaken * (0.85 + Math.random() * 0.3))) : 0;
     s.hp -= dmg;
     events.push({ type, from: [z.row, z.col], to: [s.row, s.col], dmg, hit, dodged });
     if (hit && s.hp > 0) chargeAbility(s, ABILITY_CHARGE.perHurt, events);
@@ -1948,8 +1958,9 @@ export function battleTick(state, b) {
     const ahead = z.row - 1;
     if (ahead < 0) {
       if (b.gate.hp > 0) {
-        b.gate.hp = Math.max(0, b.gate.hp - z.dmg);
-        events.push({ type: "gate", at: [z.row, z.col], dmg: z.dmg });
+        const dmg = Math.round(z.dmg * howlMult(b, z));
+        b.gate.hp = Math.max(0, b.gate.hp - dmg);
+        events.push({ type: "gate", at: [z.row, z.col], dmg });
       } else {
         z.alive = false;
         b.breached++;
@@ -1959,7 +1970,7 @@ export function battleTick(state, b) {
     }
     const wall = wallAt(b, ahead, z.col);
     if (wall) {
-      const dmg = z.dmg * (T.wallMult || 1);
+      const dmg = Math.round(z.dmg * (T.wallMult || 1) * howlMult(b, z));
       wall.hp -= dmg;
       events.push({ type: "smash", at: [ahead, z.col], dmg });
       if (wall.hp <= 0) {
