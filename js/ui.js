@@ -80,9 +80,50 @@ for (const [table, field, names] of ICON_SWAPS) {
     if (logged && entry.emoji && !EMOJI_PIXEL.has(entry.emoji)) EMOJI_PIXEL.set(entry.emoji, entry[field]);
   }
 }
-// Escaped log/report text with its emoji swapped for the pixel icons (longest emoji first).
-const EMOJI_KEYS = [...EMOJI_PIXEL.keys()].sort((a, b) => b.length - a.length);
-const pixelizeText = (html) => EMOJI_KEYS.reduce((out, e) => (out.includes(e) ? out.split(e).join(EMOJI_PIXEL.get(e)) : out), html);
+// Every other emoji still written in the UI text, data descriptions and log lines, and the pixel
+// icon it becomes (one icon per emoji, so a symbol always looks the same). Item emoji are left
+// out on purpose: several items share one, so an item is drawn by its id instead (itemIcon).
+const SYMBOL_NAMES = {
+  "⚔": "assault", "⚠": "warn", "🛡": "shield", "🧟": "zombie", "❤": "heart", "⚡": "bolt", "🦠": "virus", "🧳": "duffel",
+  "😴": "face_tired", "💤": "face_tired", "🔒": "lock", "🔓": "unlock", "🧭": "compass", "🚪": "door", "📚": "library",
+  "✨": "sparkle", "🎒": "student", "🙋": "survivor", "🌟": "star", "⭐": "star", "🎓": "mortarboard", "🚁": "helicopter",
+  "👩‍🏫": "teacher", "✅": "check", "❌": "cross", "💥": "burst", "📻": "antenna", "🎲": "dice", "👊": "dr_brawler",
+  "🔩": "scrapyard", "🔨": "hardware_store", "💀": "skull", "☠": "skull", "🏃": "role_scout", "🌱": "sprout", "🌙": "moon",
+  "🛠": "tools", "🔥": "fire", "📌": "pin", "📍": "pin", "📜": "scroll", "🔄": "refresh", "🧰": "toolbox", "⏱": "stopwatch",
+  "👑": "z_boss", "🚨": "siren", "🌾": "wheat", "💪": "arm", "🤸": "acrobat", "🚫": "forbidden", "🎯": "na_focus",
+  "📖": "classes", "🏆": "it_trophy", "🧱": "fortified_works", "🤝": "handshake", "🌫": "fog", "🩸": "blood", "🩹": "na_patch",
+  "🐄": "cow", "🗡": "armory", "📏": "ruler", "🔧": "dr_engineer", "💡": "role_support", "💾": "floppy", "🔍": "magnifier",
+  "🎨": "palette", "🔊": "speaker", "🌧": "rain", "👥": "population", "🤮": "z_spitter", "💨": "z_runner", "🔔": "na_rally",
+  "😬": "face_grimace", "⚖": "scales", "🏠": "neighborhood", "🏥": "hospital", "🎩": "tophat", "📈": "trend_up",
+  "📉": "trend_down", "🏹": "dr_marksman", "💍": "it_class_ring", "📰": "newspaper", "📊": "chart", "🌳": "tree", "✏": "pencil",
+  "🛏": "bed", "🧠": "research", "🌑": "blackout", "🚧": "barricade", "🔺": "spikes", "🔗": "wire", "📶": "signal",
+  "🛰": "satellite", "🤓": "face_nerd", "😎": "face_cool", "🏋": "barbell", "😊": "mood_happy", "🪤": "yard_traps",
+  "🏫": "school", "🗺": "map", "🗣": "word_of_mouth", "👣": "horde", "🎉": "school_spirit", "🔌": "yard_appliances",
+  "⚙": "scrap", "🌀": "ab_cleave", "💢": "ab_headshot", "💚": "ab_rally", "👁": "dr_spotter", "📣": "dr_rallier",
+};
+for (const [emoji, name] of Object.entries(SYMBOL_NAMES)) if (!EMOJI_PIXEL.has(emoji)) EMOJI_PIXEL.set(emoji, pxe(name));
+// keyed without the variation selector (U+FE0F), which the same emoji may or may not carry
+const VS16 = String.fromCharCode(0xfe0f); // the emoji variation selector
+for (const key of [...EMOJI_PIXEL.keys()]) if (key.includes(VS16)) EMOJI_PIXEL.set(key.split(VS16).join(""), EMOJI_PIXEL.get(key));
+// One pass over the text, longest emoji first; an emoji may carry a trailing variation selector.
+const EMOJI_RE = new RegExp(`(?:${[...EMOJI_PIXEL.keys()].filter((e) => !e.includes(VS16)).sort((x, y) => y.length - x.length).join("|")})${VS16}?`, "gu");
+const EMOJI_TEST = new RegExp(EMOJI_RE.source, "u");
+// Escaped text (or HTML with no emoji in its attributes) with its emoji swapped for pixel icons.
+export const pixelizeText = (html) => (EMOJI_TEST.test(html) ? html.replace(EMOJI_RE, (e) => EMOJI_PIXEL.get(e.split(VS16).join("")) || e) : html);
+// The same for a rendered page: every text node with an emoji in it (not inside an <option>,
+// which can only hold text, or an <svg>). main.js runs this after each render.
+export function pixelizeDom(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => (EMOJI_TEST.test(n.nodeValue) && !n.parentElement?.closest("option, select, textarea, script, style, svg") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP),
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    const tmp = document.createElement("span");
+    tmp.innerHTML = pixelizeText(esc(node.nodeValue));
+    node.replaceWith(...tmp.childNodes);
+  }
+}
 for (const place of [...LOCATIONS, ...LANDMARKS]) LOCATION_ICON[place.id] = pxe(place.id);
 // A boss (raid bosses, boss nights, the horde's leader) wears the crown; a death is a skull.
 const BOSS_ICON = pxe("z_boss");

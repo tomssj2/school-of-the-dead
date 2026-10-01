@@ -3877,6 +3877,856 @@ const ICONS = {
   it_legendary_glasses: () => legendary("it_glasses"),
   it_legendary_compass: () => legendary("it_compass"),
   it_legendary_ring: () => legendary("it_class_ring"),
+  // ---- UI symbols (16x16): the emoji left in text, tooltips and labels (ui.js SYMBOL_ICON) ----
+  heart: () => ascii([
+    "................",
+    "................",
+    "...rrr....rrr...",
+    "..rRRrr..rrrrr..",
+    ".rRRrrrrrrrrrrr.",
+    ".rRrrrrrrrrrrrd.",
+    ".rrrrrrrrrrrrdd.",
+    "..rrrrrrrrrrdd..",
+    "...rrrrrrrrdd...",
+    "....rrrrrrdd....",
+    ".....rrrrdd.....",
+    "......rrrd......",
+    ".......rd.......",
+    "................",
+    "................",
+    "................",
+  ], { r: "#e04848", R: "#ff9a9a", d: "#a82a2a" }),
+  bolt: () => ascii([
+    "................",
+    "........YYYY....",
+    ".......YYyy.....",
+    "......Yyyy......",
+    ".....Yyyy.......",
+    "....Yyyyyyyyy...",
+    "...yyyyyyyyy....",
+    ".......yyyy.....",
+    "......yyyy......",
+    ".....yyyz.......",
+    "....yyz.........",
+    "...yz...........",
+    "..z.............",
+    "................",
+    "................",
+    "................",
+  ], { Y: "#fff3b0", y: "#f4d03f", z: "#c9a020" }),
+  warn: () => ascii([
+    "................",
+    "................",
+    ".......oo.......",
+    "......oooo......",
+    "......okko......",
+    ".....ookkoo.....",
+    ".....ookkoo.....",
+    "....oookkooo....",
+    "....oookkooo....",
+    "...oooooooooo...",
+    "...ooookkoooo...",
+    "..oooookkooooo..",
+    "..oooooooooooo..",
+    ".dddddddddddddd.",
+    "................",
+    "................",
+  ], { o: "#ff9f43", d: "#c86a1a", k: "#2c2c34" }),
+  shield: () => ascii([
+    "................",
+    "................",
+    "..ssssssssssss..",
+    "..sBBBBbbbbbbs..",
+    "..sBrBBbbbbrbs..",
+    "..sBBBBbbbbbbs..",
+    "..sBBBBbbbbbbs..",
+    "..sBBBBbbbbbbs..",
+    "..sBBBBbbbbbbs..",
+    "...sBBBbbbbbs...",
+    "....sBBbbbbs....",
+    ".....sBbbbs.....",
+    "......sbbs......",
+    ".......ss.......",
+    "................",
+    "................",
+  ], { s: "#6b7380", B: "#d0d6dc", b: "#9aa3ad", r: "#ffffff" }),
+  zombie: () => ascii([
+    "................",
+    "................",
+    "....gggggggg....",
+    "...gGgggggggg...",
+    "...gGggggggggd..",
+    "...gkkggggkkd...",
+    "...grkggggrkd...",
+    "...gggggggggd...",
+    "...ggmmmmmggd...",
+    "...ggmwmwmggd...",
+    "....gggggggd....",
+    ".....gggggd.....",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { g: "#7fae4a", G: "#b8dc8a", d: "#4f7a2a", k: "#2c1a1a", r: "#e04848", m: "#3a1a1a", w: "#e6e0c8" }),
+  face_tired: () => face16([
+    ...px(FACE.ink, [4, 7], [5, 7], [6, 7], [9, 7], [10, 7], [11, 7]),
+    ...px(FACE.mouth, [7, 10], [8, 10], [7, 11], [8, 11]),
+    ...px("#9cc2ff", [12, 0], [13, 0], [14, 0], [13, 1], [12, 2], [13, 2], [14, 2]),
+  ]),
+  face_nerd: () => face16([
+    ...px("#3a2a1a", [3, 5], [4, 5], [5, 5], [6, 5], [3, 6], [6, 6], [3, 7], [4, 7], [5, 7], [6, 7], [9, 5], [10, 5], [11, 5], [12, 5], [9, 6], [12, 6], [9, 7], [10, 7], [11, 7], [12, 7], [7, 6], [8, 6]),
+    ...px(FACE.ink, [5, 6], [10, 6]),
+    ...px(FACE.mouth, [5, 10], [6, 11], [7, 11], [8, 11], [9, 11], [10, 10]),
+    ...px("#ffffff", [7, 12], [8, 12]),
+  ]),
+  face_cool: () => face16([
+    ...px("#14141a", [3, 5], [4, 5], [5, 5], [6, 5], [7, 5], [8, 5], [9, 5], [10, 5], [11, 5], [12, 5], [3, 6], [4, 6], [5, 6], [6, 6], [9, 6], [10, 6], [11, 6], [12, 6], [4, 7], [5, 7], [10, 7], [11, 7]),
+    ...px("#6a7a90", [4, 6], [10, 6]),
+    ...px(FACE.mouth, [5, 10], [6, 11], [7, 11], [8, 11], [9, 11], [10, 10]),
+  ]),
+  face_grimace: () => face16([
+    ...DOT_EYES,
+    ...px(FACE.mouth, [4, 9], [5, 9], [6, 9], [7, 9], [8, 9], [9, 9], [10, 9], [11, 9], [4, 10], [11, 10], [4, 11], [5, 11], [6, 11], [7, 11], [8, 11], [9, 11], [10, 11], [11, 11]),
+    ...px("#ffffff", [5, 10], [6, 10], [8, 10], [9, 10], [10, 10]),
+    ...px("#c9c2a8", [7, 10]),
+  ]),
+  lock: () => ascii([
+    "................",
+    "................",
+    "......kkkk......",
+    ".....k....k.....",
+    ".....k....k.....",
+    ".....k....k.....",
+    "...yyyyyyyyyy...",
+    "...yYyyyyyyyz...",
+    "...yYyyddyyyz...",
+    "...yYyyddyyyz...",
+    "...yYyyydyyyz...",
+    "...yyyyyyyyyz...",
+    "...zzzzzzzzzz...",
+    "................",
+    "................",
+    "................",
+  ], { k: "#9aa3ad", y: "#e8c14a", Y: "#fff0a8", z: "#b8862a", d: "#5a3b24" }),
+  unlock: () => ascii([
+    "......kkkk......",
+    ".....k....k.....",
+    ".....k....k.....",
+    ".....k..........",
+    ".....k..........",
+    ".....k..........",
+    "...yyyyyyyyyy...",
+    "...yYyyyyyyyz...",
+    "...yYyyddyyyz...",
+    "...yYyyddyyyz...",
+    "...yYyyydyyyz...",
+    "...yyyyyyyyyz...",
+    "...zzzzzzzzzz...",
+    "................",
+    "................",
+    "................",
+  ], { k: "#9aa3ad", y: "#e8c14a", Y: "#fff0a8", z: "#b8862a", d: "#5a3b24" }),
+  door: () => ascii([
+    "................",
+    "....ffffffff....",
+    "....fddddddf....",
+    "....fdDddddf....",
+    "....fdDppddf....",
+    "....fdDppddf....",
+    "....fdDddddf....",
+    "....fdDddydf....",
+    "....fdDddddf....",
+    "....fdDppddf....",
+    "....fdDppddf....",
+    "....fdDddddf....",
+    "....fddddddf....",
+    "...gggggggggg...",
+    "................",
+    "................",
+  ], { f: "#5a3b24", d: "#a8753f", D: "#c99a5e", p: "#8a5a3a", y: "#e8c14a", g: "#9aa3ad" }),
+  sparkle: () => {
+    const g = blank(16);
+    const star = (cx, cy, r, c, core) => {
+      for (let i = -r; i <= r; i++) { g[cy][cx + i] = c; g[cy + i][cx] = c; }
+      if (r > 2) for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) g[cy + dy][cx + dx] = c;
+      g[cy][cx] = core;
+    };
+    star(6, 8, 5, "#f4d03f", "#ffffff");
+    star(12, 3, 2, "#fff0a8", "#ffffff");
+    star(12, 12, 1, "#fff0a8", "#ffffff");
+    return g;
+  },
+  star: () => {
+    const g = ICONS.honor_roll().map((r) => [...r]);
+    for (const [x, y] of [[1, 2], [14, 2], [0, 9], [15, 9], [8, 0]]) g[y][x] = "#fff6c0";
+    return g;
+  },
+  helicopter: () => ascii([
+    "................",
+    "................",
+    "................",
+    ".kkkkkkkkkkkk...",
+    "......k.........",
+    ".....gggg.......",
+    "....gwwggg......",
+    "...gwwwgggggggg.",
+    "...gggggggg...g.",
+    "....gggggg......",
+    ".....k...k......",
+    "...kkkkkkkk.....",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { g: "#d64545", w: "#bfe3f5", k: "#3a3f48" }),
+  check: () => {
+    const g = blank(16);
+    for (let y = 2; y <= 13; y++) for (let x = 2; x <= 13; x++) if (!((x === 2 || x === 13) && (y === 2 || y === 13))) g[y][x] = y === 2 ? "#7fe0a0" : y === 13 ? "#2e8a48" : "#3fbf6a";
+    for (const [x, y] of [[11, 4], [11, 5], [10, 5], [10, 6], [9, 6], [9, 7], [8, 7], [8, 8], [7, 8], [7, 9], [6, 9], [6, 10], [5, 9], [5, 8], [4, 8], [4, 7]]) g[y][x] = "#ffffff";
+    return g;
+  },
+  cross: () => {
+    const g = blank(16);
+    for (let y = 2; y <= 13; y++) for (let x = 2; x <= 13; x++) if (!((x === 2 || x === 13) && (y === 2 || y === 13))) g[y][x] = y === 2 ? "#ff9a8a" : y === 13 ? "#9e2e2e" : "#d64545";
+    for (let i = 4; i <= 11; i++) { g[i][i] = "#ffffff"; g[i][15 - i] = "#ffffff"; }
+    return g;
+  },
+  burst: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+      const edge = 4.6 + 2.4 * Math.max(0, Math.cos(a * 8));
+      if (r <= edge) g[y][x] = r < 2.6 ? "#fff3b0" : r < 4.4 ? "#f4d03f" : "#f08a24";
+    }
+    return g;
+  },
+  sprout: () => ascii([
+    "................",
+    "................",
+    "................",
+    "..ggg.....ggg...",
+    ".gGggg...ggggd..",
+    ".gGgggg.gggggd..",
+    "..ggggg.ggggd...",
+    "....gggsggd.....",
+    ".......s........",
+    ".......s........",
+    ".......s........",
+    "....bbbbbbbb....",
+    "...bBbbbbbbbb...",
+    "...bbbbbbbbbb...",
+    "................",
+    "................",
+  ], { g: "#6aa84f", G: "#a8dc8a", d: "#3f7a2a", s: "#4f8a2a", b: "#6b4a2a", B: "#8a6a4a" }),
+  tools: () => {
+    const g = blank(16);
+    rod(g, 3, 13, 11, 5, 0.85, sh("#ffffff", "#c9ced4", "#8a93a0"));
+    disk(g, 11.6, 4.4, 2.4, "#c9ced4");
+    disk(g, 13, 3, 1.3, null);
+    rod(g, 13, 13, 6, 6, 0.75, WOOD);
+    rod(g, 3.6, 6.4, 7.4, 2.6, 1.5, IRON);
+    return g;
+  },
+  fire: () => ascii([
+    "................",
+    ".......r........",
+    "......rr........",
+    "......rrr...r...",
+    ".....rrorr..rr..",
+    "....rroorrrrrr..",
+    "....rooyoorrrr..",
+    "...rrooyyoorrr..",
+    "...roooyyyoorr..",
+    "...rooyyWyyorr..",
+    "...rooyWWyyorr..",
+    "....rooyyyoor...",
+    ".....rooooor....",
+    "......rrrrr.....",
+    "................",
+    "................",
+  ], { r: "#d64545", o: "#f08a24", y: "#ffd06a", W: "#fff7d6" }),
+  pin: () => {
+    const g = blank(16);
+    rod(g, 7.4, 8.6, 2.4, 13.6, 0.45, "#9aa3ad");
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 10, dy = y + 0.5 - 6, r = Math.hypot(dx, dy);
+      if (r <= 3.8) g[y][x] = dx + dy < -2 ? "#ff9a8a" : dx + dy > 2.5 ? "#9e2e2e" : "#d64545";
+    }
+    rod(g, 6.6, 9.4, 8.6, 7.4, 1.0, "#b8302a");
+    return g;
+  },
+  scroll: () => ascii([
+    "................",
+    "................",
+    "...pppppppppp...",
+    "..pPppppppppppp.",
+    "...ppppppppppd..",
+    "....wwwwwwwwd...",
+    "....wkkkkkkwd...",
+    "....wwwwwwwwd...",
+    "....wkkkkwwwd...",
+    "....wwwwwwwwd...",
+    "....wkkkkkkwd...",
+    "....wwwwwwwwd...",
+    "...pppppppppp...",
+    "..pPppppppppppp.",
+    "...pppppppppp...",
+    "................",
+  ], { p: "#c9a26a", P: "#e8c890", w: "#f4e8c8", k: "#8a6a4a", d: "#c9b48a" }),
+  refresh: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy), a = Math.atan2(dy, dx);
+      if (r >= 3.9 && r <= 5.6 && !(Math.abs(a + 0.6) < 0.45 || Math.abs(a - 2.55) < 0.45)) g[y][x] = dy < 0 ? "#7fb0f0" : "#3f7fd6";
+    }
+    for (const [x, y] of [[12, 3], [13, 3], [14, 3], [13, 4], [13, 2], [3, 12], [2, 12], [1, 12], [2, 11], [2, 13]]) g[y][x] = x > 8 ? "#7fb0f0" : "#3f7fd6";
+    return g;
+  },
+  toolbox: () => ascii([
+    "................",
+    "................",
+    "................",
+    "......kkkk......",
+    ".....k....k.....",
+    "..rrrrrrrrrrrr..",
+    "..rRRRRRRRRRRq..",
+    "..rRrrrrrrrrrq..",
+    "..kkkkkyykkkkk..",
+    "..rRrrrrrrrrrq..",
+    "..rRrrrrrrrrrq..",
+    "..rrrrrrrrrrrq..",
+    "..qqqqqqqqqqqq..",
+    "................",
+    "................",
+    "................",
+  ], { k: "#3a3f48", r: "#d64545", R: "#f07a6a", q: "#9e2e2e", y: "#e8c14a" }),
+  stopwatch: () => {
+    const g = blank(16);
+    rod(g, 7, 1.4, 9, 1.4, 0.7, "#9aa3ad");
+    rod(g, 8, 2, 8, 3.4, 0.5, "#9aa3ad");
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 9, r = Math.hypot(dx, dy);
+      if (r <= 5.6) g[y][x] = r > 4.6 ? (dx + dy < -2 ? "#e6eaee" : "#8a93a0") : "#ffffff";
+    }
+    rod(g, 8, 9, 10.6, 6.4, 0.4, "#d64545");
+    g[9][8] = "#3a3f48";
+    return g;
+  },
+  siren: () => ascii([
+    "................",
+    "..y..........y..",
+    "...y........y...",
+    "................",
+    "......rrrr......",
+    ".....rRRrrr.....",
+    "y...rRrrrrrr...y",
+    "....rRrrrrrr....",
+    "....rrrrrrrr....",
+    "....rrrrrrrr....",
+    "...kkkkkkkkkk...",
+    "...kKkkkkkkkk...",
+    "...kkkkkkkkkk...",
+    "................",
+    "................",
+    "................",
+  ], { r: "#e04848", R: "#ffb0a0", k: "#3a3f48", K: "#6b7380", y: "#ffd06a" }),
+  arm: () => ascii([
+    "................",
+    "................",
+    "..ggg...........",
+    ".gGGgg..........",
+    ".gGggg..........",
+    ".ggggd..........",
+    "..ggd...........",
+    "..ggd.....ggg...",
+    "..ggd...gGGggg..",
+    "..gggg.gGgggggd.",
+    "..gGgggggggggd..",
+    "...ggggggggggd..",
+    "....ggggggggd...",
+    "......dddddd....",
+    "................",
+    "................",
+  ], { g: "#e8b48a", G: "#f6d2b0", d: "#b9805a" }),
+  acrobat: () => ascii([
+    "................",
+    "..s..........s..",
+    "...s........s...",
+    "....s..hh..s....",
+    ".....s.ss.s.....",
+    "......cccc......",
+    "......cccc......",
+    "......cccc......",
+    "......bbbb......",
+    ".....bb..bb.....",
+    "....bb....bb....",
+    "...bb......bb...",
+    "..kk........kk..",
+    "................",
+    "................",
+    "................",
+  ], { s: "#f2c9a0", h: "#6b4a3a", c: "#e0605a", b: "#3f6fb5", k: "#2c2c34" }),
+  barbell: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "..kk........kk..",
+    ".kKkk......kkKk.",
+    ".kkkk......kkkk.",
+    ".kkkkssssssskkkk",
+    ".kkkk......kkkk.",
+    ".kkkk......kkkk.",
+    "..kk........kk..",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { k: "#3a3f48", K: "#7c8590", s: "#c9ced4" }),
+  forbidden: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
+      if ((r <= 6.6 && r >= 4.8) || (r < 4.8 && Math.abs(dx - dy) < 1.3)) g[y][x] = "#e04848";
+    }
+    return g;
+  },
+  handshake: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "bbbb........oooo",
+    "bbbbbsss..ssoooo",
+    "bbbbssssssssoooo",
+    "bbbbsSsSsSssoooo",
+    "bbbb.sssssss.ooo",
+    "bbbb..sssss..ooo",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { b: "#3f6fb5", o: "#e08a24", s: "#e8b48a", S: "#b9805a" }),
+  fog: () => ascii([
+    "................",
+    "................",
+    "...wwwwwwwww....",
+    "................",
+    ".wwwwwwwwwwwww..",
+    "................",
+    "....wwwwwwwwwww.",
+    "................",
+    "..wwwwwwwwwww...",
+    "................",
+    ".....wwwwwwwww..",
+    "................",
+    "...wwwwwwww.....",
+    "................",
+    "................",
+    "................",
+  ], { w: "#c9d2dc" }),
+  rain: () => ascii([
+    "................",
+    "......cccc......",
+    "....ccCCcccc....",
+    "...cCCccccccc...",
+    "..cCccccccccccd.",
+    "..cccccccccccdd.",
+    "...ddddddddddd..",
+    "................",
+    "...b...b...b....",
+    "..b...b...b.....",
+    "................",
+    ".....b...b...b..",
+    "....b...b...b...",
+    "................",
+    "................",
+    "................",
+  ], { c: "#9aa3b8", C: "#c9d2dc", d: "#6b7380", b: "#5f9fe0" }),
+  blackout: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
+      if (r <= 6) g[y][x] = r > 5.1 ? "#6b7380" : (x * 3 + y * 5) % 7 === 0 ? "#3a3f48" : "#2c3040";
+    }
+    return g;
+  },
+  blood: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 10;
+      if (Math.hypot(dx, dy) <= 4.2 || (y >= 2 && y <= 8 && Math.abs(dx) <= (y - 1.5) * 0.62)) g[y][x] = dx + dy < -2.5 ? "#ff8a8a" : dx + dy > 3 ? "#8a1a1a" : "#c82a2a";
+    }
+    return g;
+  },
+  ruler: () => {
+    const g = rod(blank(16), 2.4, 12.4, 12.4, 2.4, 2.2, sh("#fff0a8", "#f2c14e", "#c99a2e"));
+    for (const [x, y] of [[4, 10], [6, 8], [8, 6], [10, 4], [5, 9], [9, 5]]) g[y][x] = "#8a6a2a";
+    return g;
+  },
+  candle: () => ascii([
+    "................",
+    ".......o........",
+    "......oyo.......",
+    "......oyo.......",
+    ".......k........",
+    "......wwww......",
+    "......wWww......",
+    "......wWww......",
+    "......wWww......",
+    "......wWww......",
+    "......wwww......",
+    "......wwww......",
+    "....dddddddd....",
+    "................",
+    "................",
+    "................",
+  ], { o: "#f08a24", y: "#fff0a8", k: "#3a3f48", w: "#f0ece2", W: "#ffffff", d: "#c9a24a" }),
+  tophat: () => ascii([
+    "................",
+    "................",
+    "....kkkkkkkk....",
+    "....kKkkkkkk....",
+    "....kKkkkkkk....",
+    "....kKkkkkkk....",
+    "....kKkkkkkk....",
+    "....rrrrrrrr....",
+    "....kkkkkkkk....",
+    ".kkkkkkkkkkkkkk.",
+    "..kkkkkkkkkkkk..",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { k: "#2c2c34", K: "#5a5a66", r: "#d64545" }),
+  trend_up: () => {
+    const g = ascii([
+      "................",
+      ".wwwwwwwwwwwwww.",
+      ".wllllllllllllw.",
+      ".wwwwwwwwwwwwww.",
+      ".wllllllllllllw.",
+      ".wwwwwwwwwwwwww.",
+      ".wllllllllllllw.",
+      ".wwwwwwwwwwwwww.",
+      ".wllllllllllllw.",
+      ".wwwwwwwwwwwwww.",
+      ".wllllllllllllw.",
+      ".wwwwwwwwwwwwww.",
+      ".wllllllllllllw.",
+      ".wwwwwwwwwwwwww.",
+      "................",
+      "................",
+    ], { w: "#f4f6f8", l: "#e3e8ee" });
+    rod(g, 2.6, 11.4, 6.4, 7.4, 0.6, "#3fbf6a");
+    rod(g, 6.4, 7.4, 8.6, 9.4, 0.6, "#3fbf6a");
+    rod(g, 8.6, 9.4, 13, 3.6, 0.6, "#3fbf6a");
+    return g;
+  },
+  trend_down: () => {
+    const g = ICONS.trend_up().map((r) => r.map((c) => (c === "#3fbf6a" ? null : c)));
+    for (let y = 1; y <= 13; y++) for (let x = 1; x <= 14; x++) if (!g[y][x]) g[y][x] = y % 2 ? "#f4f6f8" : "#e3e8ee";
+    rod(g, 2.6, 3.6, 6.4, 7.4, 0.6, "#d64545");
+    rod(g, 6.4, 7.4, 8.6, 5.6, 0.6, "#d64545");
+    rod(g, 8.6, 5.6, 13, 11.4, 0.6, "#d64545");
+    return g;
+  },
+  newspaper: () => ascii([
+    "................",
+    "................",
+    "..wwwwwwwwwwww..",
+    "..wkkkkkkkkkkw..",
+    "..wwwwwwwwwwww..",
+    "..wggggwllllww..",
+    "..wggggwwwwwww..",
+    "..wggggwllllww..",
+    "..wwwwwwwwwwww..",
+    "..wllllwllllww..",
+    "..wwwwwwwwwwww..",
+    "..wllllwllllww..",
+    "..wwwwwwwwwwwd..",
+    "..dddddddddddd..",
+    "................",
+    "................",
+  ], { w: "#eeeae0", k: "#3a3f48", g: "#9aa3ad", l: "#8a93a0", d: "#b9b2a0" }),
+  chart: () => ascii([
+    "................",
+    "................",
+    "...........gg...",
+    "...........gG...",
+    ".......bb..gG...",
+    ".......bB..gG...",
+    "...yy..bB..gG...",
+    "...yY..bB..gG...",
+    "...yY..bB..gG...",
+    "...yY..bB..gG...",
+    "...yY..bB..gG...",
+    "..kkkkkkkkkkkk..",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { y: "#f2c14e", Y: "#c99a2e", b: "#5f8fe0", B: "#3a64b0", g: "#3fbf6a", G: "#2e8a48", k: "#9aa3ad" }),
+  tree: () => {
+    const g = blank(16);
+    rod(g, 8, 9, 8, 14, 1.0, "#8a5a3a");
+    for (const [cx, cy, r] of [[8, 5.6, 3.6], [5, 7.8, 3], [11, 7.8, 3], [8, 8.6, 3]]) {
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+        if (Math.hypot(dx, dy) <= r) g[y][x] = dx + dy < -1.6 ? "#8ad48a" : "#4caf50";
+      }
+    }
+    return g;
+  },
+  pencil: () => {
+    const g = rod(blank(16), 4.4, 11.6, 12.4, 3.6, 1.4, (t, side) => (t > 0.86 ? "#f0a0a8" : t > 0.8 ? "#c9ced4" : side < -0.3 ? "#ffe08a" : "#e8b030"));
+    rod(g, 2.6, 13.4, 4.4, 11.6, 0.9, "#f0d8a8");
+    g[13][2] = "#3a3f48";
+    return g;
+  },
+  scales: () => ascii([
+    "................",
+    ".......y........",
+    "..yyyyyyyyyyyy..",
+    "..y....y.....y..",
+    "..y....y.....y..",
+    ".y.y...y....y.y.",
+    "yyyyy..y...yyyyy",
+    ".yyy...y....yyy.",
+    ".......y........",
+    ".......y........",
+    ".......y........",
+    ".....yyyyy......",
+    "....yyyyyyy.....",
+    "................",
+    "................",
+    "................",
+  ], { y: "#c9a24a" }),
+  bed: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "kk..............",
+    "kk..............",
+    "kkww.bbbbbbbbbb.",
+    "kkwwwbBbbbbbbbbb",
+    "kkkkkkkkkkkkkkkk",
+    "kk............kk",
+    "kk............kk",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { k: "#8a5a3a", w: "#f4f4f4", b: "#5f8fe0", B: "#9cc2ff" }),
+  barricade: () => ascii([
+    "................",
+    "................",
+    "................",
+    "..oowwoowwoowo..",
+    "..oowwoowwoowo..",
+    "..k..........k..",
+    "..oowwoowwoowo..",
+    "..oowwoowwoowo..",
+    "..k..........k..",
+    "..k..........k..",
+    "..k..........k..",
+    ".kkk........kkk.",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { o: "#f08a24", w: "#f4f4f4", k: "#6b7380" }),
+  spikes: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "..s...s...s...s.",
+    "..s...s...s...s.",
+    ".sSs.sSs.sSs.sSs",
+    ".sSs.sSs.sSs.sSs",
+    "sSsssSsssSsssSss",
+    "bbbbbbbbbbbbbbbb",
+    "bBbbbbbbbbbbbbbb",
+    "dddddddddddddddd",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { s: "#9aa3ad", S: "#e6eaee", b: "#8a5a3a", B: "#c99a5e", d: "#5a3b24" }),
+  wire: () => {
+    const g = blank(16);
+    for (const cx of [3.5, 8, 12.5]) {
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const r = Math.hypot(x + 0.5 - cx, y + 0.5 - 8);
+        if (r >= 2.6 && r <= 3.5) g[y][x] = y < 8 ? "#d0d6dc" : "#8a93a0";
+      }
+    }
+    for (const [x, y] of [[2, 4], [7, 4], [11, 4], [5, 12], [10, 12], [14, 11]]) g[y][x] = "#e6eaee";
+    return g;
+  },
+  signal: () => ascii([
+    "................",
+    "................",
+    "............gg..",
+    "............gg..",
+    ".........gg.gg..",
+    ".........gg.gg..",
+    "......gg.gg.gg..",
+    "......gg.gg.gg..",
+    "...gg.gg.gg.gg..",
+    "...gg.gg.gg.gg..",
+    "...gg.gg.gg.gg..",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { g: "#7fc8f0" }),
+  satellite: () => {
+    const g = blank(16);
+    for (const [x0, y0, x1, y1] of [[1, 1, 6, 6], [10, 10, 15, 15]]) {
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) g[y][x] = (x + y) % 2 ? "#3f6fb5" : "#5f8fe0";
+    }
+    rod(g, 5.5, 5.5, 10.5, 10.5, 0.4, "#9aa3ad");
+    disk(g, 8, 8, 2.4, "#c9ced4");
+    g[7][7] = "#ffffff";
+    rod(g, 9, 7, 12, 4, 0.35, "#9aa3ad");
+    g[3][12] = "#e04848";
+    return g;
+  },
+  floppy: () => ascii([
+    "................",
+    "................",
+    "..bbbbbbbbbbbb..",
+    "..bbsssssssbbb..",
+    "..bbsssskssbbb..",
+    "..bbsssskssbbb..",
+    "..bbbbbbbbbbbb..",
+    "..bbbbbbbbbbbb..",
+    "..bbwwwwwwwwbb..",
+    "..bbwwwwwwwwbb..",
+    "..bbwllllllwbb..",
+    "..bbwwwwwwwwbb..",
+    "..bbbbbbbbbbbb..",
+    "................",
+    "................",
+    "................",
+  ], { b: "#3f6fb5", s: "#c9ced4", k: "#3a3f48", w: "#f4f4f4", l: "#9aa3ad" }),
+  magnifier: () => {
+    const g = blank(16);
+    rod(g, 9.6, 9.6, 13.8, 13.8, 1.1, "#8a5a3a");
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const r = Math.hypot(x + 0.5 - 6.6, y + 0.5 - 6.6);
+      if (r <= 5) g[y][x] = r > 3.9 ? "#9aa3ad" : r < 1.8 && x < 7 && y < 7 ? "#ffffff" : "#bfe3f5";
+    }
+    return g;
+  },
+  palette: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = (x + 0.5 - 8) / 6.8, dy = (y + 0.5 - 8.4) / 5.4;
+      if (dx * dx + dy * dy <= 1 && Math.hypot(x + 0.5 - 10.6, y + 0.5 - 11.2) > 1.6) g[y][x] = "#d9a86a";
+    }
+    for (const [x, y, c] of [[4, 6, "#e04848"], [7, 4, "#f2c14e"], [10, 5, "#4caf50"], [12, 8, "#3f7fd6"], [5, 10, "#c04aa0"]]) { g[y][x] = c; g[y][x + 1] = c; g[y + 1][x] = c; g[y + 1][x + 1] = c; }
+    return g;
+  },
+  speaker: () => ascii([
+    "................",
+    "................",
+    "................",
+    "......k.....w...",
+    ".....kk...w..w..",
+    "..kkkkk....w..w.",
+    "..kKkkk..w..w.w.",
+    "..kKkkk..w..w.w.",
+    "..kkkkk....w..w.",
+    ".....kk...w..w..",
+    "......k.....w...",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { k: "#6b7380", K: "#b6bcc4", w: "#9cc2ff" }),
+  duffel: () => ascii([
+    "................",
+    "................",
+    "................",
+    "......kkkk......",
+    ".....k....k.....",
+    "...bbbbbbbbbb...",
+    "..bBbbbbbbbbbb..",
+    ".bBbbyyyyyybbbb.",
+    ".bBbbbbbbbbbbbd.",
+    ".bbbbbbbbbbbbbd.",
+    ".bbbbbbbbbbbbbd.",
+    "..bbbbbbbbbbdd..",
+    "...dddddddddd...",
+    "................",
+    "................",
+    "................",
+  ], { k: "#5a3b24", b: "#a8753f", B: "#d9a86a", d: "#7a5230", y: "#e8c14a" }),
+  mortarboard: () => ascii([
+    "................",
+    "................",
+    "................",
+    ".......kk.......",
+    ".....kkkkkk.....",
+    "...kkkKkkkkkk...",
+    ".kkkkKkkkkkkkkk.",
+    "...kkkkkkkkkkyy.",
+    ".....kkkkkk..y..",
+    "....kkkkkkkk.y..",
+    "....kkkkkkkk.yy.",
+    "....kkkkkkkk....",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { k: "#2c3440", K: "#5a6478", y: "#e8c14a" }),
+  teacher: () => ascii([
+    "................",
+    "................",
+    ".....hhhhhh.....",
+    "....hhssssh.....",
+    "....hsssssh.....",
+    ".....ssssss.....",
+    ".....ssssss.....",
+    "......ssss......",
+    "....nNwrrwnn....",
+    "...nNnwrrwnnn...",
+    "...nNnnrrnnnn...",
+    "...nNnnrrnnnn...",
+    "...nnnnnnnnnn...",
+    "................",
+    "................",
+    "................",
+  ], { h: "#6b4a3a", s: "#f2c9a0", n: "#34406b", N: "#56679e", w: "#eef3f7", r: "#c0392b" }),
+  student: () => ascii([
+    "................",
+    "................",
+    ".....hhhhhh.....",
+    "....hhhhhhhh....",
+    "....hssssssh....",
+    ".....ssssss.....",
+    ".....ssssss.....",
+    "......ssss......",
+    "...ouUuuuuuo....",
+    "...oUuuuuuuuo...",
+    "...ouUuuuuuuo...",
+    "...ouUuuuuuuo...",
+    "...uuuuuuuuuu...",
+    "................",
+    "................",
+    "................",
+  ], { h: "#8a5a3a", s: "#f2c9a0", u: "#3f7fd6", U: "#7fb0f0", o: "#e08a24" }),
   // ---- tab and turn-button icons (16x16, shown at 16px) — one per tab ----
   // Lobby: the school's front doors.
   lobby: () => ascii([

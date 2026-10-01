@@ -3,7 +3,7 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionSkirmish,
-  warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings } from "./ui.js";
+  warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled,
@@ -99,7 +99,7 @@ function showHoverTip(el) {
   // An info dot carries its tooltip inside it (hidden); everything else in data-tip / title text.
   const html = el.classList.contains("info-dot") ? el.querySelector(".tip-box")?.innerHTML : el.dataset.tip || tipFromText(el.dataset.tipText || "");
   if (!html) return;
-  hoverTip.innerHTML = html;
+  hoverTip.innerHTML = pixelizeText(html);
   hoverTip.classList.add("show");
   const zoom = parseFloat(document.documentElement.style.zoom) || 1;
   const r = el.getBoundingClientRect();
@@ -611,6 +611,7 @@ function render() {
   const contentScroll = sameTab ? root.querySelector(".content")?.scrollTop || 0 : 0;
   if (state.gameOver || state.victory) recordRun(state, G.aliveChars(state).length);
   root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml;
+  pixelizeDom(root); // any emoji left in the text becomes its pixel icon
   const newContent = root.querySelector(".content");
   if (newContent) newContent.scrollTop = contentScroll;
   fitCityMap();
@@ -835,6 +836,7 @@ function flash(msg) {
     document.body.appendChild(el);
   }
   el.textContent = msg;
+  pixelizeDom(el);
   el.classList.add("show");
   clearTimeout(flashTimer);
   flashTimer = setTimeout(() => el.classList.remove("show"), 1800);
