@@ -1285,9 +1285,12 @@ function renderCityMapScreen(state) {
 
   return `
   <div class="card explore-card">
-    ${renderMapStrip(state)}
     <div class="explore-layout">
-      ${renderExplorationMap(state)}
+      <div class="explore-main">
+        ${renderMapStrip(state)}
+        ${renderExplorationMap(state)}
+        ${renderMapLegend()}
+      </div>
       <aside class="explore-side">
         <h2>City Map ${infoDot({ title: `${pxe("map")} City Map`, notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Scroll to zoom, drag to look around", "Every 25% of the map scouted turns up a legendary item", "At 100% the four raids open in the corners, past the edge of town", "Teachers stay at the school", "Launch the expeditions from the Exploration Summary (the centre button)"] })}</h2>
         <div class="mini-label">Teams</div>
@@ -1552,8 +1555,8 @@ function hexTile(key) {
 // and a marker on everything you can click — "?" on the fog a scout can reach, a label on every
 // place found, nests and raid landmarks. The map is scaled to fit its box (main.js fitCityMap),
 // framing just the part of town that matters so far.
-// Above the map: what its markers mean, and how much of it has been scouted — a legendary item
-// every 25% (MAP_MILESTONES), and at 100% the raids and the outskirts open.
+// Above the map: how much of it has been scouted — a legendary item every 25% (MAP_MILESTONES),
+// and at 100% the raids and the outskirts open.
 function renderMapStrip(state) {
   const { explored, total, pct } = mapProgress(state);
   const claimed = state.mapMilestones || [];
@@ -1565,15 +1568,7 @@ function renderMapStrip(state) {
       notes: [done ? "Reached" : `${Math.max(0, Math.ceil((m / 100) * total) - explored)} more block${Math.ceil((m / 100) * total) - explored === 1 ? "" : "s"} to go`],
     })}>${m === 100 ? BOSS_ICON : pxe("sparkle")}</span>`;
   }).join("");
-  return `<div class="cm-strip">
-    <div class="ex-legend cm-legend">
-      <span><b class="ex-key ex-key-fog">?</b> Scout the fog</span>
-      <span><b class="ex-key">${LOCATION_ICON.corner_store}</b> Send a team</span>
-      <span><b class="ex-key ex-key-nest">${pxe("nest")}</b> Zombie nest</span>
-      <span><b class="ex-key ex-key-drop">${DROP_ICON.crate}</b> Grab supplies</span>
-      <span><b class="ex-key ex-key-nest">${pxe("horde")}</b> The horde</span>
-      <span><b class="ex-key ex-key-raid">${BOSS_ICON}</b> Raid boss</span>
-    </div>
+  return `<div class="cm-strip cm-strip-top">
     <div class="cm-progress" ${tipAttr({
       title: `${pxe("map")} Mapping the town`,
       rows: [["Blocks scouted", `${explored}/${total}`]],
@@ -1582,6 +1577,20 @@ function renderMapStrip(state) {
     })}>
       <span class="cm-progress-label">${pxe("map")} Map <b>${pct}%</b> <small>${explored}/${total}</small></span>
       <span class="cm-progress-bar"><i style="width:${pct}%"></i>${markers}</span>
+    </div>
+  </div>`;
+}
+
+// Under the map: what its markers mean.
+function renderMapLegend() {
+  return `<div class="cm-strip cm-strip-bottom">
+    <div class="ex-legend cm-legend">
+      <span><b class="ex-key ex-key-fog">?</b> Scout the fog</span>
+      <span><b class="ex-key">${LOCATION_ICON.corner_store}</b> Send a team</span>
+      <span><b class="ex-key ex-key-nest">${pxe("nest")}</b> Zombie nest</span>
+      <span><b class="ex-key ex-key-drop">${DROP_ICON.crate}</b> Grab supplies</span>
+      <span><b class="ex-key ex-key-nest">${pxe("horde")}</b> The horde</span>
+      <span><b class="ex-key ex-key-raid">${BOSS_ICON}</b> Raid boss</span>
     </div>
   </div>`;
 }

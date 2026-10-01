@@ -3235,12 +3235,15 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
 }
 .raid-lair-banner .scene-plaque { position: absolute; left: 10px; top: 10px; }
 
-/* ----- above the City Map: the legend and how much of the map is scouted (ui.js renderMapStrip) ----- */
+/* ----- around the City Map: how much of it is scouted above it, the legend below (ui.js
+   renderMapStrip / renderMapLegend) — they take the space the zoomed-out map would leave empty ----- */
+.explore-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.explore-main .citymap { flex: 1; }
 .cm-strip {
   display: flex; align-items: center; gap: 18px; padding: 7px 12px;
-  margin-bottom: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border); border-radius: 10px; background: rgba(255, 255, 255, 0.03);
 }
-.cm-legend { display: flex; flex-wrap: nowrap; gap: 14px; justify-content: flex-start; }
+.cm-legend { display: flex; flex: 1; flex-wrap: nowrap; gap: 14px; justify-content: space-between; }
 .cm-progress { flex: 1; min-width: 240px; display: flex; align-items: center; gap: 12px; cursor: help; }
 .cm-progress-label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 12.5px; }
 .cm-progress-label b { color: #fff; }
