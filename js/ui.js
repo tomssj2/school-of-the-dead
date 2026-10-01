@@ -684,16 +684,22 @@ const ROOM_FIGHT_TIPS = [
   "Clearing a room is the safe way to learn: nobody dies in here. Out in the city — and at the gate at night — students can.",
 ];
 
-// The fight arenas are a stage: the backdrop at 4x (AW x AH art pixels = 728 x 224) with its floor
-// starting 160px down. Fighters stand on that floor in a staggered line — every other one a step
-// back — `spacing` px apart, centred on `centrePct` of the width; feet at ARENA.front or .back.
-const ARENA = { w: 728, front: 200, back: 184 };
+// The fight arenas are a stage: the backdrop at 4x (AW x AH art pixels = 728 x 288) with its floor
+// starting 160px down. Fighters stand on that floor in ranks — one for up to 4, two for up to 10,
+// three beyond — each further forward than the one behind it and staggered half a place,
+// `spacing` px apart, centred on `centrePct` of the width. The first ones listed take the front.
+const ARENA = { w: 728, ranks: { 1: [244], 2: [214, 254], 3: [196, 230, 264] } };
 function arenaSlots(n, centrePct, spacing) {
-  const span = (n - 1) * spacing;
-  const start = Math.max(34, Math.min(ARENA.w - 34 - span, (centrePct / 100) * ARENA.w - span / 2));
-  return Array.from({ length: n }, (_, i) => ({ x: start + i * spacing, foot: i % 2 ? ARENA.back : ARENA.front, z: i % 2 ? 2 : 3 }));
+  const count = n <= 4 ? 1 : n <= 10 ? 2 : 3;
+  const per = Math.ceil(n / count);
+  return Array.from({ length: n }, (_, i) => {
+    const r = Math.floor(i / per); // 0 = the front rank
+    const inRank = Math.min(per, n - r * per);
+    const x = (centrePct / 100) * ARENA.w + (i - r * per - (inRank - 1) / 2) * spacing + (r % 2 ? spacing / 2 : 0);
+    return { x: Math.max(30, Math.min(ARENA.w - 30, x)), foot: ARENA.ranks[count][count - 1 - r], z: 10 - r };
+  });
 }
-// Where a unit `h` px tall stands, from its slot (its shadow, bar and name hang off --h).
+// Where a unit `h` px tall stands, from its slot (its shadow and HP bar hang off --h).
 const arenaAt = (slot, h) => `left:${((slot.x / ARENA.w) * 100).toFixed(2)}%;top:${slot.foot - h}px;--h:${h}px;z-index:${slot.z}`;
 
 export function renderRoomFight(state, anim) {
@@ -701,15 +707,15 @@ export function renderRoomFight(state, anim) {
   const b = BOARDED_ROOMS[report.roomKey];
   const frame = report.frames[anim.frameIndex];
   const hitById = new Map(frame.hits.map((h) => [h.id, h]));
-  const squadSlots = arenaSlots(report.memberIds.length, 26, 46);
-  const zombieSlots = arenaSlots(report.zombies.length, 74, 62);
+  const squadSlots = arenaSlots(report.memberIds.length, 26, 52);
+  const zombieSlots = arenaSlots(report.zombies.length, 74, 64);
   const members = report.memberIds
     .map((id, i) => {
       const c = getChar(state, id);
       if (!c) return "";
       const hp = frame.hp[i];
       const hit = hitById.get(id);
-      return `<div class="raid-member arena-unit ${hp <= 0 ? "raid-member-down" : ""} ${hit && hit.dmg ? "raid-member-hit" : ""}" style="${arenaAt(squadSlots[i], 50)}">
+      return `<div class="raid-member arena-unit ${hp <= 0 ? "raid-member-down" : ""} ${hit && hit.dmg ? "raid-member-hit" : ""}" style="${arenaAt(squadSlots[i], 50)}" title="${esc(c.name)} · ${Math.max(0, hp)}/${c.maxHp} HP">
         ${characterSprite(c, 40)}
         <div class="raid-hp"><div style="width:${Math.max(0, Math.round((hp / c.maxHp) * 100))}%"></div></div>
         <span class="raid-name">${esc(c.name.split(" ")[0])}</span>
@@ -734,7 +740,7 @@ export function renderRoomFight(state, anim) {
   return `<div class="modal-overlay raid-overlay room-fight-overlay">
     <div class="raid-stage">
       <div class="raid-title">🔨 Clearing ${esc(roomLabel(report.roomKey))}</div>
-      <div class="raid-arena room-arena raid-arena-art" style="background-image:linear-gradient(180deg, rgba(8, 10, 16, 0.2), rgba(8, 10, 16, 0.62)), ${sceneBackground(`${report.roomKey.startsWith("classroom:") ? "classroom_empty" : report.roomKey}@1`)}">
+      <div class="raid-arena room-arena raid-arena-art" style="background-image:linear-gradient(180deg, rgba(8, 10, 16, 0.15), rgba(8, 10, 16, 0.55)), ${sceneBackground(`${report.roomKey.startsWith("classroom:") ? "classroom_empty" : report.roomKey}@1`, 28)}">
         ${members}
         ${zombies}
       </div>
@@ -1904,7 +1910,7 @@ export function renderRaidFight(state, anim) {
   const chase = report.kind === "chase"; // the squad running down the horde's leader, out on the street
   const frame = report.frames[anim.frameIndex];
   const hitIds = new Map(frame.hits.map((h) => [h.id, h]));
-  const squadSlots = arenaSlots(report.memberIds.length, 26, 46);
+  const squadSlots = arenaSlots(report.memberIds.length, 26, 52);
   const members = report.memberIds
     .map((id, i) => {
       const c = getChar(state, id);
@@ -1912,7 +1918,7 @@ export function renderRaidFight(state, anim) {
       const hp = frame.hp[i];
       const pct = Math.max(0, Math.round((hp / c.maxHp) * 100));
       const hit = hitIds.get(id);
-      return `<div class="raid-member arena-unit ${hp <= 0 ? "raid-member-down" : ""} ${hit ? "raid-member-hit" : ""}" style="${arenaAt(squadSlots[i], 50)}">
+      return `<div class="raid-member arena-unit ${hp <= 0 ? "raid-member-down" : ""} ${hit ? "raid-member-hit" : ""}" style="${arenaAt(squadSlots[i], 50)}" title="${esc(c.name)} · ${Math.max(0, hp)}/${c.maxHp} HP">
         ${characterSprite(c, 40)}
         <div class="raid-hp"><div style="width:${pct}%"></div></div>
         <span class="raid-name">${esc(c.name.split(" ")[0])}</span>
@@ -1936,7 +1942,7 @@ export function renderRaidFight(state, anim) {
           <div class="raid-boss-bar"><div style="width:${bossPct}%"></div><span>${frame.bossHp} / ${report.bossMaxHp}</span></div>
         </div>
         ${members}
-        <div class="raid-boss arena-unit ${frame.enraged ? "raid-boss-enraged" : ""} ${frame.dealt ? "raid-boss-hit" : ""} ${frame.bossHp <= 0 ? "raid-boss-dead" : ""}" style="${arenaAt({ x: ARENA.w * 0.74, foot: 210, z: 4 }, 160)}">
+        <div class="raid-boss arena-unit ${frame.enraged ? "raid-boss-enraged" : ""} ${frame.dealt ? "raid-boss-hit" : ""} ${frame.bossHp <= 0 ? "raid-boss-dead" : ""}" style="${arenaAt({ x: ARENA.w * 0.74, foot: 262, z: 12 }, 160)}">
           ${frame.dealt ? `<span class="raid-float raid-float-good ${frame.crits ? "raid-float-crit" : ""}">${frame.crits ? `<small>CRIT${frame.crits > 1 ? ` ×${frame.crits}` : ""}!</small>` : ""}-${frame.dealt}</span>` : ""}
           ${frame.dealt ? `<span class="nw-slash ${frame.crits ? "nw-slash-crit" : ""} raid-slash" style="--rot:${(anim.frameIndex * 47) % 100 - 50}deg"></span>` : ""}
           ${frame.bossHp <= 0 && frame.dealt ? `<span class="nw-burst nw-burst-big raid-burst">${Array.from({ length: 22 }, (_, i) => { const a = (i * 16.4 * Math.PI) / 180; const d = 40 + ((i * 29) % 50); return `<i style="--dx:${Math.round(Math.cos(a) * d)}px;--dy:${Math.round(Math.sin(a) * d - 20)}px;--s:${3 + (i % 3)}px"></i>`; }).join("")}</span>` : ""}
@@ -2843,7 +2849,7 @@ function renderFacilityRaidPanel(state) {
 function assaultBanner(state, title) {
   const leader = assaultLeader(state);
   const stragglers = ["walker", "runner", "walker", "walker"].map((t, i) => `<span class="as-straggler" style="--i:${i}">${hordeSprite(t, 30)}</span>`).join("");
-  return `<div class="as-banner" style="background-image:${streetBackdrop(640, 65)}">
+  return `<div class="as-banner" style="background-image:${streetBackdrop(640, 65, 56)}">
     <div class="as-stragglers">${stragglers}</div>
     <span class="as-leader-sprite">${zombieSprite(leader.look, 64)}</span>
     <div class="scene-plaque as-plaque">${title}</div>

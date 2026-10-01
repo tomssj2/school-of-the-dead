@@ -1461,8 +1461,11 @@ const sceneCache = new Map();
 // Returned as a CSS url() so the banner can tile it sideways — full-width cards get a longer
 // room instead of a stretched or cropped one. `kind` may carry the room's level ("gym@3"); the
 // scene is drawn for it (level 5 if none is given).
-export function sceneBackground(kind) {
-  if (!sceneCache.has(kind)) {
+// `floorRows` > 0 adds that many rows of floor under the scene — its bottom 8 rows repeated — so a
+// fight can stand people on a deeper floor in front of the room.
+export function sceneBackground(kind, floorRows = 0) {
+  const key = floorRows ? `${kind}+${floorRows}` : kind;
+  if (!sceneCache.has(key)) {
     const [name, lvText] = kind.split("@");
     const hi = HI_SCENES[name];
     let rects = "";
@@ -1471,10 +1474,16 @@ export function sceneBackground(kind) {
     };
     (hi || HI_SCENES.classroom_empty)(r, Math.min(5, Math.max(1, Number(lvText) || 5)));
     const [w, h] = [SCENE_WIDTH[name] || HW, HH];
-    const svg = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
-    sceneCache.set(kind, `url('data:image/svg+xml,${encodeURIComponent(svg)}')`);
+    let body = rects;
+    if (floorRows) {
+      const band = 8;
+      body = `<g id="s">${rects}</g>`;
+      for (let y = h; y < h + floorRows; y += band) body += `<svg x="0" y="${y}" width="${w}" height="${band}" viewBox="0 ${h - band} ${w} ${band}"><use href="#s"/></svg>`;
+    }
+    const svg = `<svg viewBox="0 0 ${w} ${h + floorRows}" width="${w}" height="${h + floorRows}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+    sceneCache.set(key, `url('data:image/svg+xml,${encodeURIComponent(svg)}')`);
   }
-  return sceneCache.get(kind);
+  return sceneCache.get(key);
 }
 
 // ---------- pixel icons ----------

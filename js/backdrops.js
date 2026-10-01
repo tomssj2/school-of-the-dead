@@ -3,14 +3,14 @@
 // ward, the army hangar, the lab — a street at night for the chase and the scouts' scraps, and a
 // street at dusk behind each expedition team. Each is a CSS url(), cached.
 //
-// The arena scenes are AW x AH art pixels, shown at 4x behind a 728-wide arena; the fighters stand
-// on the floor (from FLOOR down), so the busy detail stays above it.
+// The arena scenes are AW x AH art pixels, shown at 4x (728 x 288); the fighters stand on the
+// floor (from FLOOR down, deep enough for three ranks), so the busy detail stays above it.
 
 import { buffer, lightUp, hash, hash2 } from "./nightwatch.js";
 import { mix } from "./sprite.js";
 
 const AW = 182;
-const AH = 56;
+const AH = 72;
 const FLOOR = 40;
 
 const WARM = [1.0, 0.74, 0.42];
@@ -276,7 +276,7 @@ function militaryBase() {
   speckle(p, 0, FLOOR, AW - 1, AH - 1, ["#64666a", "#787a7e"], 160, 37);
   for (let x = 0; x < AW; x++) for (const y of [41, 42]) p.set(x, y, ((x + y) >> 2) % 2 ? "#e0b830" : "#1e1e22");
   for (const [x, y, rx] of [[40, 49, 7], [110, 53, 5], [150, 47, 8]]) p.oval(x, y, rx, 1.6, "#3a3c40");
-  p.r(0, 52, AW - 1, 52, "#c8a830");
+  p.r(0, 62, AW - 1, 62, "#c8a830");
   return toUrl(p, L, [0.3, 0.32, 0.38]);
 }
 
@@ -358,10 +358,10 @@ function institute() {
 
 // ===== a street at night: the chase, the scouts' scraps out in town, the Assault banner =====
 // `w` x `h` art pixels: a wider street gets more buildings, streetlights and signs, a taller one more
-// sky over the rooftops — the scene itself keeps its AH rows at the bottom.
-function street(w = AW, h = AH) {
+// sky over the rooftops; the scene is `depth` rows at the bottom (a deeper road for a deeper one).
+function street(w = AW, h = AH, depth = AH) {
   const base = buffer(w, h);
-  const dy = Math.max(0, h - AH);
+  const dy = Math.max(0, h - depth);
   base.r(0, 0, w - 1, 12 + dy, "#141c3c", 1);
   stars(base, 0, w - 1, 10 + dy, 50);
   // everything else is drawn for AH rows and sits at the bottom
@@ -408,9 +408,10 @@ function street(w = AW, h = AH) {
   for (let sx = 6; sx < w; sx += 12) p.r(sx, 38, sx, 42, "#76726a");
   p.r(0, 43, w - 1, 43, "#b0aca2");
   p.r(0, 44, w - 1, 44, "#22252b");
-  p.r(0, 45, w - 1, AH - 1, "#3c4048");
-  speckle(p, 0, 45, w - 1, AH - 1, ["#464a52", "#34383f"], Math.round((180 * w) / AW), 57);
-  for (let sx = 2; sx < w; sx += 18) p.r(sx, 50, sx + 9, 50, "#c8a838");
+  p.r(0, 45, w - 1, depth - 1, "#3c4048");
+  speckle(p, 0, 45, w - 1, depth - 1, ["#464a52", "#34383f"], Math.round((180 * w * (depth - 45)) / (AW * 11)), 57);
+  const lane = Math.round((45 + depth) / 2);
+  for (let sx = 2; sx < w; sx += 18) p.r(sx, lane, sx + 9, lane, "#c8a838");
   // streetlights
   for (let sx = 70; sx + 10 < w; sx += 130) {
     p.r(sx, 12, sx + 1, 42, "#30343e");
@@ -434,8 +435,8 @@ function street(w = AW, h = AH) {
     for (let k = 0; k < fh; k++) p.set(fx, 39 - k, k > fh - 2 ? "#fff3b0" : k > fh - 4 ? "#ffd36a" : "#f4943a", 1);
   }
   light({ x: cx + 5, y: 37, r: 34, k: 0.95, c: FIRE });
-  bloodTrail(p, 20, Math.round(w * 0.55), 53, 59);
-  speckle(p, 0, 45, w - 1, AH - 1, ["#d8d8d0"], Math.round((10 * w) / AW), 60);
+  bloodTrail(p, 20, Math.round(w * 0.55), depth - 5, 59);
+  speckle(p, 0, 45, w - 1, depth - 1, ["#d8d8d0"], Math.round((10 * w) / AW), 60);
   return toUrl(base, L, [0.3, 0.34, 0.55]);
 }
 
@@ -486,5 +487,5 @@ function duskStreet(seed) {
 
 const RAIDS = { mall, hospital, military_base: militaryBase, institute };
 export const raidBackdrop = (landmarkId) => cached(`raid:${landmarkId}`, () => (RAIDS[landmarkId] || street)());
-export const streetBackdrop = (w = AW, h = AH) => cached(`street:${w}x${h}`, () => street(w, h));
+export const streetBackdrop = (w = AW, h = AH, depth = AH) => cached(`street:${w}x${h}x${depth}`, () => street(w, h, depth));
 export const duskBackdrop = (placeId = "") => cached(`dusk:${placeId}`, () => duskStreet([...placeId].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 9973, 7)));

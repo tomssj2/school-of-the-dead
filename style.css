@@ -2853,15 +2853,17 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 }
 /* Fight scenes drawn behind the fighters (backdrops.js; room fights use the room's own banner) */
 /* The arena as a stage, the backdrop at 4x (ui.js arenaSlots puts everyone on its floor) */
-.raid-arena.raid-arena-art { display: block; position: relative; box-sizing: border-box; height: 224px; min-height: 0; padding: 0; overflow: hidden; background-color: #10131a; background-size: cover; background-position: center bottom; background-repeat: no-repeat; image-rendering: pixelated; box-shadow: inset 0 0 60px rgba(4, 6, 16, 0.65); }
+.raid-arena.raid-arena-art { display: block; position: relative; box-sizing: border-box; height: 288px; min-height: 0; padding: 0; overflow: hidden; background-color: #10131a; background-size: cover; background-position: center bottom; background-repeat: no-repeat; image-rendering: pixelated; box-shadow: inset 0 0 60px rgba(4, 6, 16, 0.65); }
 .raid-arena-art .raid-name, .raid-arena-art .raid-boss-name, .raid-arena-art .raid-boss-bar span { text-shadow: 0 1px 2px #000, 0 0 6px #000; }
-/* someone standing on the floor: a shadow under their feet, their HP bar and name beneath */
+/* someone standing on the floor: a shadow under their feet, their HP bar over their head (the name
+   on hover — with up to three ranks, anything under the feet would be hidden by the rank in front) */
 .raid-arena-art .arena-unit { position: absolute; transform: translateX(-50%); }
 .raid-arena-art .arena-unit::before { content: ""; position: absolute; z-index: -1; left: 50%; top: calc(var(--h) - 5px); width: 36px; height: 9px; margin-left: -18px; border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.6), transparent); }
 .raid-arena-art .raid-boss.arena-unit::before { top: calc(var(--h) - 10px); width: 110px; height: 18px; margin-left: -55px; }
 .raid-arena-art .room-zombie.arena-unit::before { width: 46px; margin-left: -23px; }
-.raid-arena-art .arena-unit .raid-hp { position: absolute; left: 50%; top: calc(var(--h) + 3px); width: 34px; margin-left: -17px; }
-.raid-arena-art .arena-unit .raid-name { position: absolute; left: 50%; top: calc(var(--h) + 8px); transform: translateX(-50%); white-space: nowrap; font-size: 10px; color: #e4e8ee; }
+.raid-arena-art .arena-unit .raid-hp { position: absolute; left: 50%; top: -7px; width: 30px; margin-left: -15px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6); }
+.raid-arena-art .arena-unit .raid-name { display: none; }
+.raid-arena-art .raid-member.arena-unit .raid-float { top: -18px; }
 /* the boss's name and health, across the top of the arena */
 .arena-boss-hud { position: absolute; top: 10px; right: 14px; z-index: 6; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .arena-boss-hud .raid-boss-bar { width: 230px; }
