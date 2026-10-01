@@ -17,120 +17,310 @@ import { buffer, lightUp } from "./lighting.js";
 const HW = 192;
 const HH = 48;
 
-// A filled box with a darker 1px edge.
+// A filled box with a darker 1px edge; a big enough one is lit along its top and shaded along
+// its bottom, so it has some depth.
 function box(r, x0, y0, x1, y1, fill, edge = shadowOf(fill)) {
   r(x0, y0, x1, y1, edge);
   if (x1 - x0 > 1 && y1 - y0 > 1) r(x0 + 1, y0 + 1, x1 - 1, y1 - 1, fill);
+  if (x1 - x0 >= 5 && y1 - y0 >= 4) {
+    r(x0 + 1, y0 + 1, x1 - 1, y0 + 1, mix(fill, "#fff4dc", 0.16));
+    r(x0 + 1, y1 - 1, x1 - 1, y1 - 1, mix(fill, "#1a1424", 0.14));
+  }
 }
 
-// Walls of painted cinder block over a wainscot, a baseboard, and a plank or tile floor.
-function hiRoom(r, { wall, wainscot, floor, floorLine, blocks = true }) {
+// A pixel-noise texture over a rect: a few pixels a shade darker or lighter than `c`, so painted
+// walls, planks and dirt read as surfaces instead of flat fills.
+function grain(r, x0, y0, x1, y1, c, seed, amount = 0.05, dark = 0.07, light = 0.05) {
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const h = hash01(x * 977 + y * 131, seed);
+    if (h < amount) r(x, y, x, y, mix(c, "#1a1424", dark));
+    else if (h > 1 - amount * 0.6) r(x, y, x, y, mix(c, "#fff4dc", light));
+  }
+}
+
+// Walls of painted cinder block (each block a shade off its neighbours, lit along its top) over a
+// panelled wainscot, a baseboard, and a plank floor, every plank its own tone with a grain. A
+// run-down room (r.lv 1-2) has water stains down the wall, grime along the bottom and dust and
+// rubbish on the floor — and blood at level 1.
+function hiRoom(r, { wall, wainscot, floor, floorLine, blocks = true, tiles = null, concrete = false }) {
+  const lv = r.lv || 5;
   r(0, 0, HW - 1, 31, wall);
   if (blocks) {
-    const mortar = mix(wall, "#1d2330", 0.18);
-    for (let y = 4; y < 22; y += 5) {
-      r(0, y, HW - 1, y, mortar);
-      for (let x = (y / 5) % 2 ? 0 : 8; x < HW; x += 16) r(x, y - 4, x, y - 1, mortar);
+    const mortar = mix(wall, "#1d2330", 0.2);
+    for (let row = 0; row < 5; row++) {
+      const y0 = row * 5;
+      const y1 = Math.min(21, y0 + 3);
+      for (let x = row % 2 ? -8 : 0, i = 0; x < HW; x += 16, i++) {
+        const t = hash01(i * 7 + row * 31, 5) - 0.5;
+        const c = t < 0 ? mix(wall, "#1d2330", -t * 0.12) : mix(wall, "#fff4dc", t * 0.1);
+        r(Math.max(0, x + 1), y0, Math.min(HW - 1, x + 15), y1, c);
+        r(Math.max(0, x + 1), y0, Math.min(HW - 1, x + 15), y0, mix(c, "#fff4dc", 0.08));
+        if (x >= 0) r(x, y0, x, y1, mortar);
+      }
+      if (y0 + 4 < 22) r(0, y0 + 4, HW - 1, y0 + 4, mortar);
     }
   }
+  grain(r, 0, 0, HW - 1, 21, wall, 3, 0.035);
+  // the wainscot: panels with a lit edge and a shaded seam, a rail on top
   r(0, 22, HW - 1, 30, wainscot);
+  for (let x = 0; x < HW; x += 24) {
+    r(x, 24, x, 30, shadowOf(wainscot));
+    r(x + 1, 24, x + 1, 30, mix(wainscot, "#fff4dc", 0.1));
+  }
+  grain(r, 0, 24, HW - 1, 30, wainscot, 4, 0.03);
   r(0, 22, HW - 1, 22, lightOf(wainscot));
   r(0, 23, HW - 1, 23, shadowOf(wainscot));
+  r(0, 30, HW - 1, 30, mix(wainscot, "#1a1424", 0.25));
   r(0, 31, HW - 1, 31, "#241c2a");
   r(0, 32, HW - 1, 47, floor);
-  r(0, 32, HW - 1, 32, shadowOf(floor));
-  for (let y = 36; y < HH; y += 4) {
-    r(0, y, HW - 1, y, floorLine);
-    for (let x = (y / 4) % 2 ? 6 : 20; x < HW; x += 28) r(x, y - 3, x, y - 1, floorLine);
+  if (tiles) {
+    // chequered lino (`tiles`: its two colours), scuffed
+    for (let x = 0; x < HW; x += 8) for (let y = 32; y < HH; y += 4) r(x, y, x + 7, Math.min(HH - 1, y + 3), ((x / 8) + (y - 32) / 4) % 2 ? tiles[1] : tiles[0]);
+    grain(r, 0, 32, HW - 1, 47, tiles[0], 15, 0.05, 0.12, 0.06);
+  } else if (concrete) {
+    // poured concrete in slabs, gritty, stained with oil
+    grain(r, 0, 32, HW - 1, 47, floor, 17, 0.12, 0.12, 0.07);
+    r(0, 39, HW - 1, 39, floorLine);
+    for (let x = 20; x < HW; x += 48) r(x, 32, x, 47, floorLine);
+    for (const [x, y, w] of [[34, 42, 9], [118, 36, 6], [160, 44, 11]]) {
+      r(x, y, x + w, y + 1, mix(floor, "#1a1424", 0.28));
+      r(x + 2, y + 2, x + w - 3, y + 2, mix(floor, "#1a1424", 0.2));
+    }
+  } else {
+    // planks, each a little lighter or darker, with a grain and their joints staggered
+    for (let y = 32, row = 0; y < HH; y += 4, row++) {
+      for (let x = row % 2 ? -22 : -8, i = 0; x < HW; x += 28, i++) {
+        const t = hash01(i * 13 + row * 57, 6) - 0.5;
+        const c = t < 0 ? mix(floor, "#1a1424", -t * 0.14) : mix(floor, "#fff4dc", t * 0.12);
+        r(Math.max(0, x + 1), y, Math.min(HW - 1, x + 27), Math.min(HH - 1, y + 2), c);
+        if (x >= 0) r(x, y, x, Math.min(HH - 1, y + 2), floorLine);
+      }
+      r(0, y + 3, HW - 1, y + 3, floorLine);
+    }
+    grain(r, 0, 32, HW - 1, 47, floor, 7, 0.06, 0.1, 0.06);
   }
+  if (lv <= 2) {
+    // water stains running down from the ceiling
+    for (const [x, len, wd] of [[18, 12, 2], [77, 8, 1], [121, 15, 3], [176, 10, 2]].slice(0, lv === 1 ? 4 : 2)) {
+      for (let y = 0; y < len; y++) {
+        const ww = Math.max(1, Math.round(wd * (1 - y / len) + 0.4));
+        r(x, y, x + ww - 1, y, `${mix(wall, "#3a3020", 0.2)}`);
+      }
+    }
+    // grime along the bottom of the wall
+    for (let x = 0; x < HW; x++) {
+      const top = 27 + Math.floor(hash01(x, 8) * 3);
+      r(x, top, x, 29, mix(wainscot, "#2a2018", 0.16));
+    }
+    // dust, scraps of paper and grit on the floor
+    for (let i = 0; i < (lv === 1 ? 46 : 22); i++) {
+      const x = Math.floor(hash01(i, 9) * HW);
+      const y = 33 + Math.floor(hash01(i, 10) * 14);
+      const k = hash01(i, 11);
+      if (k < 0.25) r(x, y, x + 1, y, "#d8d2c0");
+      else if (k < 0.6) r(x, y, x, y, mix(floor, "#e8e2d0", 0.35));
+      else r(x, y, x, y, mix(floor, "#1a1424", 0.35));
+    }
+    if (lv === 1) {
+      // dried blood: a splash by the wall and a smear dragged across the floor
+      for (const [x, y] of [[102, 33], [103, 33], [101, 34], [104, 34], [102, 35], [106, 33], [99, 33]]) r(x, y, x, y, "#5e1a1a");
+      for (let x = 108; x < 150; x++) if (hash01(x, 12) < 0.6) r(x, 38 + Math.round(Math.sin(x / 7) * 1.4), x, 38 + Math.round(Math.sin(x / 7) * 1.4), hash01(x, 13) < 0.5 ? "#5a1818" : "#6a1d1d");
+    }
+  }
+  r.shellDone?.();
 }
 
-// A hanging ceiling lamp: `on` glows, off (or broken) hangs dark.
+// A hanging pendant lamp: a cord, a metal shade lit along its edge and a rim and bulb glowing
+// underneath when it's `on`; off (or broken) it hangs dark.
 function lamp(r, x, len, on) {
   const glow = (on && r.glow) || r;
-  r(x, 0, x, len, "#3a3f48");
-  glow(x - 3, len + 1, x + 3, len + 2, on ? "#f4d35e" : "#5a5f68");
-  glow(x - 2, len + 1, x + 2, len + 1, on ? "#fff4b0" : "#6a707a");
+  r(x, 0, x, len - 1, "#2e323a");
+  r(x - 1, len, x + 1, len, "#4a505a");
+  r(x - 2, len + 1, x + 2, len + 1, on ? "#6a707a" : "#454a52");
+  r(x - 3, len + 2, x + 3, len + 2, on ? "#8a909a" : "#545962");
+  r(x - 2, len + 1, x - 2, len + 1, on ? "#9aa0aa" : "#5a5f68");
+  r(x - 3, len + 2, x - 2, len + 2, on ? "#b0b6c0" : "#646a74");
+  glow(x - 4, len + 3, x + 4, len + 3, on ? "#f4d35e" : "#3a3f48");
+  glow(x - 1, len + 3, x + 1, len + 3, on ? "#fff6d0" : "#5a5f68");
   if (on) {
-    r.light?.({ x, y: len + 3, r: 24, k: 0.42, c: LAMP_LIGHT });
-    r.light?.({ x, y: len + 3, len: 46, w0: 3, spread: 0.62, k: 0.32, c: LAMP_LIGHT });
+    r.light?.({ x, y: len + 4, r: 24, k: 0.42, c: LAMP_LIGHT });
+    r.light?.({ x, y: len + 4, len: 46, w0: 4, spread: 0.62, k: 0.32, c: LAMP_LIGHT });
   }
 }
 
-// Window `w` wide on the wall; level 1 boarded up, level 2 half-boarded, then clean glass.
+// A window `w` x `h` on the wall over a sill. From level 2 the glass glows with the day outside —
+// the sky over the ruined skyline — and throws a shaft of daylight; level 2 still has a plank
+// nailed across it, and level 1 is boarded up, light leaking between the planks.
 function hiWindow(r, x, y, w, h, lv) {
-  const glass = (lv >= 2 && r.glow) || r;
-  box(r, x, y, x + w, y + h, "#3a4150");
-  glass(x + 1, y + 1, x + w - 1, y + h - 1, lv <= 1 ? "#262b36" : "#a9d4ef");
+  const glass = r.glow || r;
+  const [gx0, gx1, gy0, gy1] = [x + 1, x + w - 1, y + 1, y + h - 1];
+  box(r, x, y, x + w, y + h, "#3a4150", "#262a34");
+  r(x, y, x + w, y, "#525a6a");
+  r(x - 1, y + h + 1, x + w + 1, y + h + 1, "#a8aeb6");
+  r(x - 1, y + h + 2, x + w + 1, y + h + 2, "#5a5f68");
   if (lv >= 2) {
-    glass(x + 1, y + h - 2, x + w - 1, y + h - 1, "#cfe8f8");
-    for (let i = 0; i < 3; i++) glass(x + 3 + i, y + 1 + i, x + 3 + i, y + 1 + i, "#ffffff");
+    for (let yy = gy0; yy <= gy1; yy++) glass(gx0, yy, gx1, yy, mix("#78a8d4", "#d4eaf6", (yy - gy0) / Math.max(1, gy1 - gy0)));
+    for (let xx = gx0; xx <= gx1; xx++) {
+      const bh = 1 + Math.floor(hash01(xx * 3 + x, 40) * Math.max(1, Math.min(4, Math.floor(h / 2) - 1)));
+      glass(xx, gy1 - bh + 1, xx, gy1, hash01(xx, 41) < 0.12 ? "#5e6e84" : "#7e8ea4");
+    }
+    for (let i = 0; i < 3 && gx0 + 2 + i <= gx1 && gy0 + i < gy1; i++) glass(gx0 + 2 + i, gy0 + i, gx0 + 2 + i, gy0 + i, "#ffffff");
     r.light?.({ x: x + w / 2, y: y + h / 2, r: w + 6, sy: 0.9, k: 0.28, c: DAYLIGHT });
     r.light?.({ x: x + w / 2, y: y + h, len: 60, w0: w / 2 - 1, spread: 0.35, k: 0.2, c: DAYLIGHT });
-  } else r.light?.({ x: x + w / 2, y: y + h / 2, r: w + 4, k: 0.14, c: DAYLIGHT }); // light through the cracks in the boards
-  r(x + Math.floor(w / 2), y + 1, x + Math.floor(w / 2), y + h - 1, "#3a4150");
-  const board = (yy) => { r(x - 1, yy, x + w + 1, yy + 1, "#8a5f33"); r(x - 1, yy, x + w + 1, yy, "#a8753f"); };
-  if (lv <= 1) { board(y + 1); board(y + Math.floor(h / 2)); board(y + h - 2); }
-  else if (lv === 2) board(y + Math.floor(h / 2));
+  } else {
+    r(gx0, gy0, gx1, gy1, "#1a1e28");
+    for (let yy = gy0; yy <= gy1; yy++) for (let xx = gx0; xx <= gx1; xx++) if (hash01(xx * 7 + yy, 42) < 0.35) glass(xx, yy, xx, yy, "#8aa2ba");
+    r.light?.({ x: x + w / 2, y: y + h / 2, r: w + 4, k: 0.14, c: DAYLIGHT });
+  }
+  r(x + Math.floor(w / 2), gy0, x + Math.floor(w / 2), gy1, "#3a4150");
+  const board = (yy, k) => {
+    r(x - 1, yy, x + w + 1, yy + 1, k ? "#7a5530" : "#8a5f33");
+    r(x - 1, yy, x + w + 1, yy, k ? "#966a3a" : "#a8753f");
+    r(x, yy + 1, x, yy + 1, "#c9ccd2");
+    r(x + w, yy + 1, x + w, yy + 1, "#c9ccd2");
+  };
+  if (lv <= 1) {
+    board(y + 1, 0);
+    board(y + Math.floor(h / 2), 1);
+    board(y + h - 2, 0);
+  } else if (lv === 2) board(y + Math.floor(h / 2), 1);
 }
 
 // ---- shared props ----
 const crack = (r, x, y, c = "#2e3440") => {
   for (const [dx, dy] of [[0, 0], [1, 1], [1, 2], [2, 3], [3, 5], [2, 6], [4, 6]]) r(x + dx, y + dy, x + dx, y + dy, c);
 };
-// Level-1 clutter: a stack of cardboard boxes against the wall.
-function boxes(r, x) {
-  box(r, x, 20, x + 16, 31, "#a8814f");
-  box(r, x + 4, 12, x + 16, 20, "#b58e5a");
-  r(x, 25, x + 16, 25, "#8a6a3f");
-  r(x + 8, 13, x + 9, 19, "#c9a36a");
-  box(r, x + 18, 24, x + 32, 31, "#9c7747");
-}
-function plant(r, x, base) {
-  box(r, x, base - 5, x + 6, base, "#b0673a", "#7a4424");
-  r(x + 1, base - 9, x + 5, base - 6, "#4caf7d");
-  r(x + 2, base - 12, x + 4, base - 10, "#5cc491");
-  r(x - 1, base - 8, x, base - 7, "#3a8f63");
-  r(x + 6, base - 8, x + 7, base - 7, "#3a8f63");
-}
-// A wall shelf with items [dx, height, color] standing on it.
-function shelf(r, x0, x1, y, items) {
-  r(x0, y, x1, y, "#8a5f33");
-  r(x0, y + 1, x1, y + 1, "#5a3b24");
-  for (const [dx, h, c] of items) box(r, x0 + dx, y - h, x0 + dx + 2, y - 1, c);
-}
-function chalkboard(r, x0, y0, x1, y1, dirty) {
-  box(r, x0, y0, x1, y1, dirty ? "#3b423b" : "#2f4a3a", "#6b4a2f");
-  r(x0 - 1, y0 - 1, x1 + 1, y0 - 1, "#8a5f33");
-  r(x0, y1 + 1, x1, y1 + 1, "#8a5f33");
-  r(x0 + 4, y1, x0 + 9, y1, "#f4f6f8");
-}
-function bookcase(r, x0, y0, x1, y1) {
-  box(r, x0, y0, x1, y1, "#5a3b24", "#3a2618");
-  const colors = ["#d64545", "#3f6fb5", "#f4d35e", "#4caf7d", "#8a5ad6", "#e0602a"];
-  for (let y = y0 + 2, row = 0; y + 5 < y1; y += 6, row++) {
-    for (let x = x0 + 2, i = row; x < x1 - 1; x += 2, i++) r(x, y + (i % 3 === 0 ? 1 : 0), x, y + 4, colors[i % colors.length]);
-    r(x0 + 1, y + 5, x1 - 1, y + 5, "#6b4a2f");
+// A cardboard box: taped shut down the middle, a printed mark in the corner, and its flaps sticking
+// up if it's `open`.
+function carton(r, x0, y0, x1, y1, c, open = false) {
+  box(r, x0, y0, x1, y1, c, shadowOf(c));
+  r(x0 + 1, y0 + 1, x1 - 1, y0 + 1, lightOf(c));
+  const mid = Math.round((x0 + x1) / 2);
+  r(mid, y0, mid + 1, y1, mix(c, "#efe0b8", 0.35));
+  r(x0 + 2, y1 - 3, x0 + 4, y1 - 3, mix(c, "#2a1e14", 0.45));
+  r(x0 + 2, y1 - 2, x0 + 3, y1 - 2, mix(c, "#2a1e14", 0.45));
+  if (open) {
+    r(x0 - 1, y0 - 2, x0 + 4, y0 - 1, lightOf(c));
+    r(x0 - 1, y0 - 1, x0 + 4, y0 - 1, c);
+    r(x1 - 4, y0 - 2, x1 + 1, y0 - 1, shadowOf(c));
   }
 }
+// Level-1 clutter: cardboard boxes stacked against the wall, the top one open.
+function boxes(r, x) {
+  carton(r, x, 20, x + 16, 31, "#a8814f");
+  carton(r, x + 4, 12, x + 16, 19, "#b58e5a", true);
+  carton(r, x + 18, 24, x + 32, 31, "#9c7747");
+}
+// A potted plant: a terracotta pot with a rim and leaves fanning out in three greens.
+function plant(r, x, base) {
+  box(r, x, base - 4, x + 6, base, "#b0673a", "#7a4424");
+  r(x - 1, base - 5, x + 7, base - 5, "#c98050");
+  r(x + 1, base - 4, x + 5, base - 4, "#4a3020");
+  const cx = x + 3;
+  for (const [dx, dy, n] of [[-4, -2, 4], [-3, -5, 4], [-1, -7, 5], [1, -7, 5], [3, -5, 4], [4, -2, 4], [0, -4, 3]]) {
+    for (let k = 1; k <= n; k++) {
+      const px = Math.round(cx + (dx * k) / n);
+      const py = Math.round(base - 5 + (dy * k) / n);
+      r(px, py, px, py, k === n ? "#7cd6a2" : k === 1 ? "#2f7a55" : "#4caf7d");
+    }
+  }
+}
+// A wall shelf on two brackets with items [dx, height, color] standing on it.
+function shelf(r, x0, x1, y, items) {
+  r(x0, y, x1, y, "#a8753f");
+  r(x0, y + 1, x1, y + 1, "#5a3b24");
+  for (const bx of [x0 + 2, x1 - 2]) {
+    r(bx, y + 2, bx, y + 3, "#4a3020");
+    r(bx + 1, y + 2, bx + 1, y + 2, "#4a3020");
+  }
+  for (const [dx, h, c] of items) {
+    box(r, x0 + dx, y - h, x0 + dx + 2, y - 1, c);
+    r(x0 + dx, y - h, x0 + dx + 2, y - h, lightOf(c));
+  }
+}
+// A chalkboard in a wooden frame, smudged where it's been wiped, a tray of chalk and a duster along
+// the bottom; a `dirty` one is grey with dust.
+function chalkboard(r, x0, y0, x1, y1, dirty) {
+  const board = dirty ? "#3b423b" : "#2f4a3a";
+  box(r, x0, y0, x1, y1, board, "#4a3020");
+  r(x0 - 1, y0 - 1, x1 + 1, y0 - 1, "#a8753f");
+  r(x0 - 1, y0, x0 - 1, y1, "#8a5f33");
+  r(x1 + 1, y0, x1 + 1, y1, "#5a3b24");
+  for (let i = 0; i < 6; i++) {
+    const sx = x0 + 3 + Math.floor(hash01(i + x0, 50) * Math.max(1, x1 - x0 - 14));
+    const sy = y0 + 2 + Math.floor(hash01(i + x0, 51) * Math.max(1, y1 - y0 - 4));
+    const len = 5 + Math.floor(hash01(i + x0, 52) * 7);
+    r(sx, sy, sx + len, sy, mix(board, "#e8efe8", dirty ? 0.14 : 0.07));
+    r(sx + 1, sy + 1, sx + len - 2, sy + 1, mix(board, "#e8efe8", dirty ? 0.1 : 0.05));
+  }
+  r(x0 - 1, y1 + 1, x1 + 1, y1 + 1, "#a8753f");
+  r(x0 - 1, y1 + 2, x1 + 1, y1 + 2, "#5a3b24");
+  r(x0 + 4, y1, x0 + 7, y1, "#f4f6f8");
+  r(x0 + 9, y1, x0 + 10, y1, dirty ? "#c9ccd2" : "#f4d35e");
+  r(x1 - 10, y1 - 1, x1 - 6, y1 - 1, "#8a6a4a");
+  r(x1 - 10, y1, x1 - 6, y1, "#c9ccd2");
+}
+// A bookcase: a dark wood frame, the shelves deep in shadow, books of every height and colour on
+// them (the odd gap), each spine lit along its top.
+function bookcase(r, x0, y0, x1, y1) {
+  box(r, x0, y0, x1, y1, "#4a3020", "#2e1e14");
+  r(x0, y0, x1, y0, "#7a5536");
+  const colors = ["#b04848", "#3f6fb5", "#d8b04a", "#4c9f6d", "#7a5ab6", "#c8602a", "#e8e2d0", "#5a6a7a", "#9a3a3a"];
+  for (let y = y0 + 2, row = 0; y + 5 < y1; y += 6, row++) {
+    r(x0 + 1, y, x1 - 1, y + 4, "#24170e");
+    for (let x = x0 + 2, i = row * 17; x < x1 - 1; i++) {
+      if (hash01(i + x0 * 3, 60) < 0.07) {
+        x += 2;
+        continue;
+      }
+      const ww = hash01(i + x0 * 3, 61) < 0.3 ? 2 : 1;
+      const top = y + (hash01(i + x0 * 3, 62) < 0.4 ? 1 : 0) + (hash01(i + x0 * 3, 64) < 0.15 ? 1 : 0);
+      const c = colors[Math.floor(hash01(i + x0 * 3, 63) * colors.length)];
+      const xe = Math.min(x1 - 2, x + ww - 1);
+      r(x, top, xe, y + 4, c);
+      r(x, top, xe, top, lightOf(c));
+      if (xe > x) r(xe, top + 1, xe, y + 4, shadowOf(c));
+      x = xe + 1;
+    }
+    r(x0 + 1, y + 5, x1 - 1, y + 5, "#7a5536");
+  }
+}
+// A desk: a top with a lit edge and a shadow under its lip, steel legs and a footbar.
 function desk(r, x0, x1, y, top = "#c49a64") {
   r(x0, y, x1, y + 1, top);
   r(x0, y, x1, y, lightOf(top));
-  r(x0 + 1, y + 2, x0 + 2, 31, shadowOf(top));
-  r(x1 - 2, y + 2, x1 - 1, 31, shadowOf(top));
+  r(x0 + 1, y + 2, x1 - 1, y + 2, mix(top, "#1a1424", 0.4));
+  for (const lx of [x0 + 1, x1 - 1]) {
+    r(lx, y + 3, lx, 31, "#6b707a");
+    r(lx, y + 3, lx, y + 3, "#8a909a");
+  }
+  r(x0 + 2, 29, x1 - 2, 29, "#545962");
 }
-// A hospital bed against the wall, or its bare frame (level 1).
+// A hospital bed against the wall: a steel frame on wheels, a mattress, a pillow and a blanket with
+// its folds — or the bare frame and its springs (level 1).
 function hiBed(r, x, bare) {
-  box(r, x, 15, x + 3, 31, "#9aa5b1", "#6b737d");
-  r(x + 3, 24, x + 36, 25, "#9aa5b1");
-  r(x + 34, 22, x + 36, 31, "#9aa5b1");
-  r(x + 5, 26, x + 5, 31, "#6b737d");
-  r(x + 33, 26, x + 33, 31, "#6b737d");
-  if (bare) return;
-  box(r, x + 4, 20, x + 34, 23, "#f6f8fa", "#c9d2dc");
-  box(r, x + 5, 18, x + 12, 21, "#ffffff", "#c9d2dc");
-  box(r, x + 14, 19, x + 34, 23, "#8fb8e8", "#6f98c8");
-  r(x + 15, 19, x + 33, 19, "#b3cff2");
+  box(r, x, 15, x + 3, 31, "#9aa5b1", "#5a626c");
+  r(x + 1, 16, x + 1, 30, "#c9d2dc");
+  r(x + 3, 24, x + 36, 25, "#8a95a1");
+  r(x + 3, 24, x + 36, 24, "#c9d2dc");
+  box(r, x + 34, 21, x + 36, 31, "#9aa5b1", "#5a626c");
+  for (const lx of [x + 5, x + 33]) {
+    r(lx, 26, lx, 29, "#6b737d");
+    r(lx - 1, 30, lx + 1, 31, "#2a2d33");
+  }
+  if (bare) {
+    for (let sx = x + 5; sx < x + 33; sx += 2) r(sx, 23, sx, 23, "#6b737d");
+    r(x + 4, 22, x + 33, 22, "#7a828c");
+    return;
+  }
+  box(r, x + 4, 20, x + 34, 23, "#eef2f6", "#b9c4ce");
+  box(r, x + 5, 17, x + 12, 21, "#ffffff", "#c9d2dc");
+  r(x + 6, 17, x + 11, 17, "#ffffff");
+  r(x + 6, 20, x + 11, 20, "#dde4ea");
+  box(r, x + 14, 19, x + 34, 23, "#7fa8dc", "#5a80b4");
+  r(x + 15, 19, x + 33, 19, "#a8c8f0");
+  r(x + 15, 20, x + 33, 20, "#e8f0f8");
+  for (const fx of [x + 20, x + 27]) r(fx, 21, fx, 22, "#6a90c4");
 }
 
 // Outdoors: a sky (grey and smoky at level 1, clearing up level by level) over the ruined city,
@@ -165,17 +355,29 @@ function fence(r, x0, x1, y, broken) {
 }
 function barn(r, x) {
   box(r, x, 12, x + 34, 31, "#b03a2e", "#7a2620");
-  for (let i = 0; i < 6; i++) r(x + 6 - i, 11 - i, x + 28 + i, 11 - i, i ? "#8a3a2e" : "#b03a2e");
+  // boards, the sunlit side and the shaded one
+  for (let px = x + 3; px < x + 34; px += 3) r(px, 13, px, 30, "#9a3228");
+  r(x + 1, 13, x + 1, 30, "#c84a3c");
+  r(x + 33, 13, x + 33, 30, "#7a2620");
+  for (let i = 0; i < 6; i++) {
+    r(x + 6 - i, 11 - i, x + 28 + i, 11 - i, i ? "#8a3a2e" : "#b03a2e");
+    r(x + 6 - i, 11 - i, x + 7 - i, 11 - i, "#a84a3c");
+  }
   r(x + 1, 6, x + 33, 6, "#6b2a22");
+  r(x, 12, x + 34, 12, "#5a1e18");
   box(r, x + 11, 20, x + 23, 31, "#f4f6f8", "#c9ccd2");
   for (let i = 0; i < 6; i++) { r(x + 12 + i * 2, 21 + i * 2, x + 13 + i * 2, 22 + i * 2, "#c9ccd2"); r(x + 22 - i * 2, 21 + i * 2, x + 21 - i * 2, 22 + i * 2, "#c9ccd2"); }
   box(r, x + 14, 13, x + 20, 17, "#3a2a24", "#f4f6f8");
 }
 function silo(r, x) {
-  box(r, x, 8, x + 10, 31, "#b9c2cc", "#8a96a3");
-  r(x + 1, 6, x + 9, 7, "#8a96a3");
-  r(x + 3, 4, x + 7, 5, "#8a96a3");
-  for (const y of [13, 19, 25]) r(x + 1, y, x + 9, y, "#9aa5b1");
+  // a steel cylinder: lit down its left side, round into shadow on the right, a domed cap
+  const cols = ["#8a96a3", "#d8e0e8", "#e4eaf0", "#ccd4dc", "#bcc6d0", "#b0bac4", "#a4aeb8", "#98a2ae", "#8c96a2", "#7e8894", "#6e7884"];
+  cols.forEach((c, i) => r(x + i, 8, x + i, 31, c));
+  for (const [y, w] of [[7, 0], [6, 1], [5, 2], [4, 3]]) r(x + w, y, x + 10 - w, y, y === 4 ? "#c9d2dc" : mix("#b0bac4", "#6e7884", (7 - y) * 0.1));
+  r(x + 2, 5, x + 3, 6, "#e4eaf0");
+  for (const y of [13, 19, 25]) r(x, y, x + 10, y, "#7e8894");
+  r(x + 8, 9, x + 8, 30, "#6e7884");
+  for (let y = 10; y < 30; y += 2) r(x + 9, y, x + 9, y, "#9aa5b1");
 }
 function windmill(r, x) {
   for (let y = 8; y < 32; y++) r(x + Math.floor((y - 8) / 6), y, x + 6 - Math.floor((y - 8) / 6), y, y % 3 ? "#9aa0a8" : "#6b6f78");
@@ -184,151 +386,313 @@ function windmill(r, x) {
   box(r, x + 2, 6, x + 4, 8, "#5a5f68");
 }
 
+// ---- small round things and furniture pieces the rooms share ----
+// An oval (`rx` x `ry` around cx, cy) in one colour, lit at the top left and shaded at the bottom
+// right when it's big enough.
+function disc(r, cx, cy, rx, ry, c, shade = true) {
+  for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
+    const t = (y - cy) / (ry + 0.35);
+    if (Math.abs(t) > 1) continue;
+    const half = (rx + 0.35) * Math.sqrt(1 - t * t);
+    const x0 = Math.ceil(cx - half - 0.01);
+    const x1 = Math.floor(cx + half + 0.01);
+    if (x1 < x0) continue;
+    r(x0, y, x1, y, c);
+    if (shade && rx >= 1.5 && ry >= 1.5) {
+      if (y < cy) r(x0, y, x0, y, lightOf(c));
+      if (y > cy) r(x1, y, x1, y, shadowOf(c));
+    }
+  }
+}
+// Little 3x5 digits, glowing (a scoreboard, a clock).
+const DIGITS = ["111101101101111", "010110010010111", "111001111100111", "111001111001111", "101101111001001", "111100111001111", "111100111101111", "111001010010010", "111101111101111", "111101111001111"];
+function digits(r, x, y, text, c) {
+  const glow = r.glow || r;
+  [...text].forEach((d, n) => {
+    const bits = DIGITS[Number(d)] || "";
+    for (let k = 0; k < 15; k++) if (bits[k] === "1") glow(x + n * 4 + (k % 3), y + Math.floor(k / 3), x + n * 4 + (k % 3), y + Math.floor(k / 3), c);
+  });
+}
+// A row of pennants on a sagging string from x0 to x1, hung at y.
+function pennants(r, x0, x1, y, colors = ["#d64545", "#f4d35e", "#3f6fb5", "#4caf7d"]) {
+  const sag = (x) => y + Math.round(Math.sin(((x - x0) / (x1 - x0)) * Math.PI) * 2);
+  for (let x = x0; x <= x1; x++) r(x, sag(x), x, sag(x), "#e8e2d0");
+  for (let x = x0 + 2, i = 0; x + 4 <= x1; x += 6, i++) {
+    const c = colors[i % colors.length];
+    const t = sag(x + 2) + 1;
+    r(x, t, x + 4, t, c);
+    r(x + 1, t + 1, x + 3, t + 1, c);
+    r(x + 2, t + 2, x + 2, t + 2, shadowOf(c));
+    r(x, t, x + 1, t, lightOf(c));
+  }
+}
+// A trophy standing on y: a cup with handles on a stem and a dark base.
+function trophy(r, x, y, c = "#e0b040") {
+  r(x, y - 6, x + 3, y - 6, lightOf(c));
+  r(x, y - 5, x + 3, y - 4, c);
+  r(x, y - 5, x, y - 4, "#fff0b0");
+  r(x - 1, y - 5, x - 1, y - 4, shadowOf(c));
+  r(x + 4, y - 5, x + 4, y - 4, shadowOf(c));
+  r(x + 1, y - 3, x + 2, y - 3, c);
+  r(x + 1, y - 2, x + 2, y - 2, shadowOf(c));
+  r(x, y - 1, x + 3, y, "#4a3020");
+  r(x, y - 1, x + 3, y - 1, "#6b4a2f");
+}
+// A lamp's reflection in a polished floor under it: a soft vertical streak.
+function floorShine(r, x) {
+  for (const [dy, w, a] of [[1, 2, "44"], [2, 1, "38"], [3, 1, "30"], [4, 0, "28"], [6, 0, "1c"]]) r.shade(x - w, 32 + dy, x + w, 32 + dy, `#fff4c8${a}`);
+}
+// A heavy punching bag on a chain: round-shouldered, lit down its left side, taped round.
+function punchingBag(r, x) {
+  for (let y = 0; y <= 12; y++) r(x, y, x, y, y % 2 ? "#8a909a" : "#5d6168");
+  r(x - 3, 13, x + 3, 14, "#2a2d33");
+  r(x - 2, 13, x + 2, 13, "#4a4f58");
+  for (let y = 15; y <= 29; y++) {
+    const inset = y === 15 || y === 29 ? 1 : 0;
+    r(x - 4 + inset, y, x + 4 - inset, y, "#b03030");
+    r(x - 4 + inset, y, x - 4 + inset, y, "#d0453e");
+    r(x - 3 + inset, y, x - 3 + inset, y, "#c83e38");
+    r(x + 3 - inset, y, x + 4 - inset, y, "#7a2020");
+  }
+  r(x - 2, 16, x - 2, 21, "#e8786a");
+  for (const y of [18, 26]) {
+    r(x - 4, y, x + 4, y, "#2a2d33");
+    r(x - 4, y, x - 3, y, "#4a4f58");
+  }
+}
+// A weight rack: two uprights, two bars of round plates, dumbbells on the floor below.
+function weightRack(r, x) {
+  for (const ux of [x, x + 16]) {
+    r(ux, 14, ux + 1, 31, "#3a3f48");
+    r(ux, 14, ux, 31, "#5a5f68");
+  }
+  r(x - 1, 14, x + 17, 14, "#5a5f68");
+  for (const [y, colors] of [[19, ["#c83a3a", "#3f6fb5", "#e0b040"]], [25, ["#2a2d33", "#c83a3a", "#3f6fb5"]]]) {
+    r(x + 1, y, x + 15, y, "#b8bec8");
+    r(x + 1, y + 1, x + 15, y + 1, "#6b707a");
+    colors.forEach((c, i) => disc(r, x + 4 + i * 4, y, 1.3, 2.6, c));
+  }
+  for (const dx of [3, 10]) {
+    r(dx + x, 30, dx + x + 4, 30, "#8a909a");
+    disc(r, dx + x, 30, 0.6, 1.2, "#2a2d33", false);
+    disc(r, dx + x + 4, 30, 0.6, 1.2, "#2a2d33", false);
+  }
+}
+// Wall bars: two posts and the rungs between them, each rung lit on top.
+function wallBars(r, x) {
+  for (const px of [x, x + 14]) {
+    r(px, 11, px + 1, 30, "#a8753f");
+    r(px, 11, px, 30, "#d4a468");
+  }
+  for (let y = 13; y < 30; y += 3) {
+    r(x + 2, y, x + 13, y, "#d9b27c");
+    r(x + 2, y + 1, x + 13, y + 1, "#8a6a3f");
+  }
+}
+// A basketball hoop: a backboard on a bracket, the rim and a net.
+function hoop(r, x) {
+  r(x + 9, 6, x + 11, 9, "#3a3f48");
+  box(r, x, 9, x + 20, 21, "#f4f6f8", "#8a909a");
+  r(x + 1, 10, x + 19, 10, "#ffffff");
+  box(r, x + 6, 14, x + 14, 19, "#f4f6f8", "#d64545");
+  r(x + 5, 22, x + 15, 22, "#e0602a");
+  r(x + 5, 22, x + 8, 22, "#f08a50");
+  for (let y = 23, w = 5; y <= 27; y++, w -= 0.6) {
+    const c0 = Math.round(x + 10 - w);
+    const c1 = Math.round(x + 10 + w);
+    for (let xx = c0; xx <= c1; xx++) if ((xx + y) % 2 === 0) r(xx, y, xx, y, "#e8e8e8");
+  }
+}
+// A basketball on the floor at `base`: orange with its seams.
+function ball(r, x, base) {
+  disc(r, x + 2.5, base - 2, 2.6, 2.4, "#e0602a");
+  r(x, base - 2, x + 5, base - 2, "#8a3a1a");
+  r(x + 2, base - 4, x + 2, base, "#8a3a1a");
+  r(x + 1, base - 4, x + 1, base - 4, "#f4a070");
+}
+
+// A wall mirror in a steel frame: brighter at the top, with two streaks of glare.
+function mirror(r, x0, y0, x1, y1) {
+  box(r, x0, y0, x1, y1, "#a8d0e2", "#7a808a");
+  r(x0, y0, x1, y0, "#b0b6c0");
+  for (let y = y0 + 1; y < y1; y++) r(x0 + 1, y, x1 - 1, y, mix("#bfe0ee", "#7ea8c0", (y - y0) / (y1 - y0)));
+  for (const gx of [x0 + 5, x0 + Math.round((x1 - x0) * 0.6)]) {
+    for (let i = 0; i < y1 - y0 - 1; i++) {
+      const xx = gx + i;
+      const yy = y1 - 1 - i;
+      if (xx < x1 && yy > y0) {
+        r(xx, yy, xx, yy, "#e8f6fc");
+        if (xx + 1 < x1) r(xx + 1, yy, xx + 1, yy, "#cfeaf4");
+      }
+    }
+  }
+}
+// A conical lab flask standing on `base`: a glass neck with a rim, `c` liquid in its belly.
+function flask(r, x, base, c) {
+  r(x + 1, base - 8, x + 3, base - 8, "#c9ccd2");
+  r(x + 2, base - 7, x + 2, base - 5, "#d8eef4");
+  r(x + 1, base - 4, x + 3, base - 4, "#d8eef4");
+  r(x + 1, base - 3, x + 3, base - 3, c);
+  r(x, base - 2, x + 4, base - 1, c);
+  r(x, base, x + 4, base, shadowOf(c));
+  r(x + 1, base - 3, x + 1, base - 2, lightOf(c));
+}
+// A blue crash mat lying against the wall from x0 to x1, its top at y: a lit top edge, stitched
+// corners and a carrying handle.
+function mat(r, x0, x1, y) {
+  box(r, x0, y, x1, 31, "#3f6fb5", "#2a4a80");
+  r(x0 + 1, y + 1, x1 - 1, y + 1, "#6a90d8");
+  for (const x of [x0 + 3, x1 - 3]) r(x, y + 2, x, 30, "#35609e");
+  r(Math.round((x0 + x1) / 2) - 2, y + 2, Math.round((x0 + x1) / 2) + 2, y + 2, "#2a4a80");
+}
+
 const HI_SCENES = {
   // The Gymnasium, level 1 to 5: an abandoned hall with boxes and a rusty barbell, then a punching
   // bag and a bench, a weight rack and wall bars, a basketball hoop and mats, and at the top a
-  // scoreboard, a trophy shelf and pennants under bright lights.
+  // scoreboard, a trophy shelf and pennants under bright lights, the lamps shining in the polish.
   gym(r, lv) {
-    const wall = ["#5b6678", "#63789a", "#6a86b2", "#7090bd", "#7899c6"][lv - 1];
+    const wall = ["#4f5a6c", "#5a6c8c", "#6078a0", "#6680aa", "#6c88b2"][lv - 1];
     hiRoom(r, { wall, wainscot: mix(wall, "#20283a", 0.35), floor: lv <= 1 ? "#8f6a48" : "#bd8a55", floorLine: lv <= 1 ? "#7a5a3c" : "#a37545" });
     // high windows, in the middle so the labels don't hide them
     for (let i = 0; i < 3; i++) hiWindow(r, 70 + i * 17, 2, 13, 8, lv);
-    // lights
+    const lamps = lv <= 1 ? [] : lv >= 3 ? [34, 96, 158] : [96];
     if (lv <= 1) lamp(r, 96, 12, false);
-    else for (const x of lv >= 3 ? [34, 96, 158] : [96]) lamp(r, x, lv >= 5 ? 3 : 5, true);
-    if (lv >= 5) for (const x of [34, 96, 158]) r(x - 4, 9, x + 4, 9, "#fff4b033");
+    else for (const x of lamps) lamp(r, x, lv >= 5 ? 3 : 5, true);
     if (lv <= 2) {
       // cracks in the plaster and a taped-up X
-      for (const [x, y] of [[20, 14], [21, 15], [22, 15], [23, 16], [24, 18], [120, 13], [121, 14], [121, 15], [122, 17]]) r(x, y, x, y, "#2e3440");
-      for (let i = 0; i < 6; i++) { r(142 + i, 14 + i, 142 + i, 14 + i, "#c9b58c"); r(147 - i, 14 + i, 147 - i, 14 + i, "#c9b58c"); }
+      crack(r, 20, 14);
+      crack(r, 120, 13);
+      for (let i = 0; i < 6; i++) {
+        r(142 + i, 14 + i, 142 + i, 14 + i, "#c9b58c");
+        r(147 - i, 14 + i, 147 - i, 14 + i, "#c9b58c");
+      }
     }
     if (lv <= 1) {
-      // boxes stacked against the wall and a rusty barbell
-      box(r, 150, 20, 166, 31, "#a8814f");
-      box(r, 154, 12, 166, 20, "#b58e5a");
-      r(150, 25, 166, 25, "#8a6a3f");
-      box(r, 168, 24, 182, 31, "#9c7747");
+      // boxes stacked against the wall and a rusty barbell on the floor
+      boxes(r, 150);
       r(52, 29, 80, 29, "#6b6259");
-      for (const x of [52, 78]) box(r, x - 2, 26, x + 2, 31, "#5a524a");
+      r(52, 28, 80, 28, "#857a6e");
+      for (const x of [52, 78]) {
+        disc(r, x, 28, 1.6, 3, "#4a443e");
+        r(x - 1, 26, x - 1, 28, "#6a625a");
+      }
       return;
     }
-    // punching bag
-    r(40, 0, 40, 13, "#5d6168");
-    box(r, 36, 14, 44, 29, "#b03030", "#7a2020");
-    r(37, 15, 38, 28, "#d0453e");
-    r(36, 18, 44, 18, "#7a2020");
-    // bench
-    box(r, 102, 26, 126, 28, "#8a5f33");
-    r(104, 29, 105, 31, "#6b4a2f");
-    r(123, 29, 124, 31, "#6b4a2f");
+    punchingBag(r, 40);
+    // a bench with a pad on it
+    r(102, 26, 126, 27, "#3f5f95");
+    r(102, 26, 126, 26, "#6a8ac8");
+    r(103, 28, 125, 28, "#4a3020");
+    for (const x of [104, 123]) r(x, 29, x + 1, 31, "#545962");
     if (lv >= 3) {
-      // weight rack with colored plates
-      box(r, 50, 16, 66, 31, "#4a4f58");
-      for (const [y, colors] of [[19, ["#d64545", "#3f6fb5", "#f4d35e"]], [25, ["#3a3a3a", "#d64545", "#3f6fb5"]]]) {
-        r(51, y + 2, 65, y + 2, "#9aa0a8");
-        colors.forEach((c, i) => box(r, 52 + i * 5, y, 55 + i * 5, y + 4, c));
-      }
-      // wall bars
-      for (const x of [132, 146]) box(r, x, 11, x + 1, 30, "#c49a64", "#8a6a3f");
-      for (let y = 13; y < 30; y += 3) r(133, y, 145, y, "#d9b27c");
+      weightRack(r, 50);
+      wallBars(r, 132);
     }
     if (lv >= 4) {
-      // basketball hoop and backboard
-      box(r, 166, 10, 186, 22, "#f4f6f8", "#9aa0a8");
-      box(r, 172, 14, 180, 19, "#f4f6f8", "#d64545");
-      r(171, 23, 181, 23, "#e0602a");
-      for (let x = 172; x <= 180; x += 2) r(x, 24, x, 28, "#e8e8e8");
-      r(173, 28, 179, 28, "#e8e8e8");
-      // crash mats against the wall
-      box(r, 108, 20, 126, 25, "#3f6fb5");
-      r(109, 21, 125, 21, "#5b8ad0");
-      // a ball on the floor
-      box(r, 150, 28, 155, 31, "#e0602a", "#8a3a1a");
+      hoop(r, 166);
+      // crash mats against the wall, and a ball by them
+      box(r, 108, 20, 126, 25, "#3f6fb5", "#2a4a80");
+      r(109, 21, 125, 21, "#6a90d8");
+      for (const x of [114, 120]) r(x, 22, x, 24, "#35609e");
+      ball(r, 152, 31);
     }
     if (lv >= 5) {
-      // scoreboard
-      box(r, 68, 13, 98, 21, "#1d2026", "#3a3f48");
-      for (const [x, c] of [[71, "#ff5b5b"], [75, "#ff5b5b"], [89, "#f4d35e"], [93, "#f4d35e"]]) box(r, x, 15, x + 2, 19, c, mix(c, "#000000", 0.5));
-      r(82, 16, 84, 16, "#7fe0a8");
-      r(82, 18, 84, 18, "#7fe0a8");
-      // trophy shelf
-      r(100, 17, 127, 17, "#6b4a2f");
-      for (const x of [103, 110, 117, 123]) {
-        box(r, x, 13, x + 3, 16, "#f4d35e", "#c9a227");
-        r(x + 1, 14, x + 2, 14, "#fff4b0");
-      }
-      // pennants strung across the top of the wall
-      for (let x = 70; x < 128; x += 6) {
-        const c = ["#d64545", "#f4d35e", "#3f6fb5", "#4caf7d"][(x / 6) % 4 | 0];
-        r(x, 11, x + 4, 11, c);
-        r(x + 1, 12, x + 3, 12, c);
-        r(x + 2, 13, x + 2, 13, c);
-      }
-      // court line and a polished shine on the floor
+      // the scoreboard, home 12 : 08 guest
+      box(r, 66, 12, 100, 22, "#16191e", "#3a3f48");
+      r(67, 12, 99, 12, "#5a5f68");
+      digits(r, 69, 15, "12", "#ff5b5b");
+      digits(r, 89, 15, "08", "#ff5b5b");
+      (r.glow || r)(83, 16, 83, 16, "#7fe0a8");
+      (r.glow || r)(83, 18, 83, 18, "#7fe0a8");
+      // the trophy shelf
+      shelf(r, 100, 128, 18, []);
+      for (const x of [103, 110, 117, 123]) trophy(r, x, 17, x === 110 ? "#c9ccd2" : "#e0b040");
+      // the court line, and the lamps shining in the polished floor
       r(0, 38, HW - 1, 38, "#efe6cf");
-      for (const x of [30, 90, 140]) r(x, 34, x + 10, 34, "#e0b07a");
+      for (const x of lamps) floorShine(r, x);
     }
   },
 
   // Acrobatics: a cracked mirror and a torn mat, then a mirror wall with a barre, rings and a
   // balance beam, a vault box and crash mats, and a medal board with streamers at the top.
   acrobatics(r, lv) {
-    const wall = ["#77708a", "#8f82b3", "#9c8dc2", "#a797cc", "#b1a2d6"][lv - 1];
+    const wall = ["#686078", "#7f72a3", "#8c7db2", "#9787bc", "#a192c6"][lv - 1];
     hiRoom(r, { wall, wainscot: mix(wall, "#2a2240", 0.35), floor: lv <= 1 ? "#9a7a55" : "#d6ae78", floorLine: lv <= 1 ? "#846647" : "#bf9764" });
     for (let i = 0; i < 2; i++) hiWindow(r, 132 + i * 20, 2, 14, 8, lv);
     if (lv <= 1) {
       lamp(r, 96, 12, false);
       crack(r, 30, 14);
       crack(r, 124, 15);
-      box(r, 70, 14, 100, 21, "#6f8a96", "#4a5058");
-      for (const [x, y] of [[80, 15], [81, 16], [82, 17], [83, 18], [84, 19], [90, 16], [91, 17], [92, 18]]) r(x, y, x, y, "#c9ccd2");
+      // a mirror off its hooks, cracked across
+      mirror(r, 70, 14, 100, 21);
+      for (const [x, y] of [[80, 15], [81, 16], [82, 17], [83, 18], [84, 19], [85, 20], [90, 16], [91, 17], [92, 18], [86, 17], [87, 16]]) r(x, y, x, y, "#e8f4f8");
       boxes(r, 150);
-      box(r, 30, 28, 58, 31, "#3f5f85");
-      r(52, 28, 58, 29, "#9a7a55");
+      // a torn mat, its stuffing coming out
+      mat(r, 30, 58, 28);
+      r(50, 28, 58, 29, "#9a7a55");
+      for (const [x, y] of [[49, 28], [50, 27], [47, 28]]) r(x, y, x, y, "#e8e2d0");
       return;
     }
     for (const x of lv >= 3 ? [34, 96, 158] : [96]) lamp(r, x, lv >= 5 ? 3 : 5, true);
-    // mirror wall with a barre
+    // the mirror wall, and the barre along it on brackets
     const mx1 = lv >= 3 ? 124 : 104;
-    box(r, 68, 9, mx1, 23, "#a8d4e8", "#8a8e96");
-    for (const x0 of [74, 98]) for (let i = 0; i < 6; i++) r(x0 + i, 21 - i * 2, x0 + i, 22 - i * 2, "#e0f2fa");
-    for (let x = 86; x < mx1; x += 18) r(x, 10, x, 22, "#c9ccd2");
-    r(66, 20, mx1 + 2, 20, "#8a5f33");
-    r(66, 21, 66, 25, "#6b4a2f");
-    r(mx1 + 2, 21, mx1 + 2, 25, "#6b4a2f");
+    mirror(r, 68, 9, mx1, 23);
+    for (let x = 86; x < mx1; x += 18) r(x, 10, x, 22, "#9aa0a8");
+    r(66, 19, mx1 + 2, 19, "#c48a50");
+    r(66, 20, mx1 + 2, 20, "#7a5230");
+    for (const x of [66, Math.round((66 + mx1) / 2), mx1 + 2]) r(x, 21, x, 23, "#8a909a");
     if (lv >= 3) {
-      // rings
+      // rings on their straps
       for (const x of [38, 50]) {
-        r(x, 0, x, 14, "#9aa0a8");
-        r(x - 2, 15, x + 2, 15, "#c9b58c");
-        r(x - 2, 20, x + 2, 20, "#c9b58c");
-        r(x - 3, 16, x - 3, 19, "#c9b58c");
-        r(x + 3, 16, x + 3, 19, "#c9b58c");
+        r(x, 0, x, 13, "#c9b58c");
+        r(x, 0, x, 13, "#c9b58c");
+        for (let y = 1; y < 13; y += 3) r(x, y, x, y, "#a8946a");
+        disc(r, x, 17, 2.4, 2.4, "#d8c08a", false);
+        disc(r, x, 17, 1.2, 1.2, wall, false);
+        r(x - 2, 15, x - 1, 15, "#f0dcaa");
       }
-      // balance beam
-      r(128, 23, 164, 24, "#c49a64");
-      r(128, 23, 164, 23, "#e0b884");
-      box(r, 131, 25, 133, 31, "#6b6f78");
-      box(r, 159, 25, 161, 31, "#6b6f78");
+      // the balance beam on two stands
+      r(128, 22, 164, 24, "#c8a070");
+      r(128, 22, 164, 22, "#e8c898");
+      r(128, 24, 164, 24, "#8a6a40");
+      for (const x of [132, 160]) {
+        r(x, 25, x + 1, 30, "#8a909a");
+        r(x, 25, x, 30, "#b0b6c0");
+        r(x - 2, 31, x + 3, 31, "#545962");
+      }
     }
     if (lv >= 4) {
-      // vault box and crash mats
-      box(r, 170, 19, 186, 31, "#8a5f33");
-      r(170, 19, 186, 20, "#e0cfa8");
-      for (const y of [24, 28]) r(171, y, 185, y, "#6b4a2f");
-      box(r, 12, 26, 56, 31, "#3f6fb5");
-      r(13, 27, 55, 27, "#5b8ad0");
+      // a vaulting box in stacked sections, a padded top, and the crash mats
+      for (let y = 21, k = 0; y < 31; y += 3, k++) {
+        r(170 + k, y, 186 - k, y + 2, "#a8753f");
+        r(170 + k, y, 186 - k, y, "#c99a5e");
+        r(170 + k, y + 2, 186 - k, y + 2, "#6b4a2f");
+      }
+      r(171, 31, 189, 31, "#6b4a2f");
+      r(171, 18, 185, 20, "#e8d8b0");
+      r(171, 18, 185, 18, "#fff0d0");
+      r(171, 20, 185, 20, "#b8a47c");
+      mat(r, 12, 56, 26);
     }
     if (lv >= 5) {
-      // medal board
-      box(r, 12, 14, 28, 24, "#6b4a2f", "#4a3120");
-      for (const [x, c] of [[15, "#f4d35e"], [20, "#c9ccd2"], [25, "#c98a4a"]]) {
-        r(x, 15, x, 18, "#d64545");
-        box(r, x - 1, 19, x + 1, 21, c);
+      // a cork board of medals on their ribbons
+      box(r, 12, 13, 28, 24, "#b88a5a", "#4a3120");
+      grain(r, 13, 14, 27, 23, "#b88a5a", 14, 0.18, 0.12, 0.08);
+      for (const [x, c] of [[15, "#f4d35e"], [20, "#d8dce2"], [25, "#d0904c"]]) {
+        r(x - 1, 14, x - 1, 17, "#3f6fb5");
+        r(x, 14, x, 17, "#d64545");
+        disc(r, x - 0.5, 19.5, 1.4, 1.4, c);
+        r(x - 1, 19, x - 1, 19, "#ffffff");
       }
-      // streamers from the ceiling
-      for (let x = 70; x < 124; x += 5) r(x, 0, x, 2 + (x % 3), ["#d64545", "#f4d35e", "#3f6fb5", "#4caf7d"][(x / 5) % 4 | 0]);
+      // streamers twisting down from the ceiling
+      for (let x = 70; x < 124; x += 5) {
+        const c = ["#d64545", "#f4d35e", "#3f6fb5", "#4caf7d"][(x / 5) % 4 | 0];
+        for (let y = 0; y <= 2 + (x % 3); y++) r(x + (y % 2), y, x + (y % 2), y, y % 2 ? shadowOf(c) : c);
+      }
       r(0, 38, HW - 1, 38, "#f4e3c0");
+      floorShine(r, 34);
+      floorShine(r, 96);
+      floorShine(r, 158);
     }
   },
 
@@ -336,60 +700,91 @@ const HI_SCENES = {
   // pot, a menu board, trays of food and a fridge, tables and shelves of jars, and at the top
   // bunting, a coffee machine and warm lights.
   cafeteria(r, lv) {
-    const wall = ["#8a8270", "#c9b68a", "#d4c093", "#dcc99c", "#e4d2a6"][lv - 1];
-    hiRoom(r, { wall, wainscot: lv <= 1 ? "#6b6a5e" : "#5f8a6e", floor: lv <= 1 ? "#7d7a70" : "#e8e2d0", floorLine: lv <= 1 ? "#6e6b62" : "#c9c2ad", blocks: false });
-    for (let x = 0; x < HW; x += 8) for (let y = 32; y < HH; y += 4) if (((x / 8) + (y - 32) / 4) % 2) r(x, y, x + 7, y + 3, lv <= 1 ? "#6e6b62" : "#cfc6ad");
-    if (lv >= 2) for (let y = 3; y < 22; y += 3) r(0, y, HW - 1, y, mix(wall, "#ffffff", 0.18));
-    // menu board
+    const wall = ["#7a7262", "#bca97e", "#c6b386", "#cfbc90", "#d6c49a"][lv - 1];
+    hiRoom(r, { wall, wainscot: lv <= 1 ? "#5e5d52" : "#56806a", floor: lv <= 1 ? "#7d7a70" : "#e8e2d0", floorLine: lv <= 1 ? "#6e6b62" : "#c9c2ad", blocks: false, tiles: lv <= 1 ? ["#7d7a70", "#6e6b62"] : ["#e2dccb", "#c8bfa6"] });
+    // painted stripes along the wall
+    if (lv >= 2) for (let y = 3; y < 22; y += 3) r(0, y, HW - 1, y, mix(wall, "#ffffff", 0.14));
+    r.shellDone?.();
+    // the menu board
     chalkboard(r, 68, 10, 102, 25, lv <= 1);
-    if (lv >= 2) for (const [y, w] of [[13, 18], [16, 22], [19, 14], [22, 20]]) r(72, y, 72 + w, y, lv >= 4 ? ["#f4f6f8", "#f4d35e", "#7fe0a8", "#f4f6f8"][((y - 13) / 3) % 4 | 0] : "#d8e0d8");
-    if (lv >= 4) for (const y of [13, 16, 19, 22]) r(95, y, 98, y, "#f4d35e");
+    if (lv >= 2) {
+      for (const [y, w, n] of [[13, 18, 0], [16, 22, 1], [19, 14, 2], [22, 20, 3]]) {
+        const c = lv >= 4 ? ["#f4f6f8", "#f4d35e", "#9fe8b8", "#f4f6f8"][n] : "#d8e0d8";
+        for (let x = 72; x <= 72 + w; x++) if (hash01(x * 5 + y, 70) < 0.82) r(x, y, x, y, c);
+      }
+      if (lv >= 4) for (const y of [13, 16, 19, 22]) r(95, y, 98, y, "#f4d35e");
+    }
     if (lv <= 1) {
       lamp(r, 96, 12, false);
       crack(r, 40, 14);
       crack(r, 140, 13);
-      // an overturned table and boxes
-      r(24, 24, 50, 25, "#8a6a4a");
-      r(26, 20, 27, 23, "#6b5a48");
-      r(47, 20, 48, 23, "#6b5a48");
+      // a table on its back, legs in the air, and a chair on its side
+      r(22, 26, 52, 28, "#7a5c40");
+      r(22, 26, 52, 26, "#9a7a58");
+      for (const x of [24, 50]) r(x, 18, x + 1, 25, "#6b707a");
+      r(58, 29, 66, 30, "#3f5f85");
+      r(64, 23, 65, 30, "#3f5f85");
+      r(58, 31, 59, 31, "#545962");
       boxes(r, 150);
       return;
     }
     for (const x of lv >= 3 ? [34, 96, 158] : [96]) lamp(r, x, 4, true);
-    // serving counter
-    box(r, 108, 21, 164, 31, "#9aa5b1", "#6b737d");
-    r(108, 21, 164, 21, "#dfe6ee");
-    box(r, 114, 15, 124, 21, "#6b6f78", "#4a4f58");
-    r(113, 15, 125, 15, "#8a8e96");
+    // the serving counter: steel, a pot steaming on it, a ladle
+    box(r, 108, 21, 164, 31, "#9aa5b1", "#5e6670");
+    r(108, 21, 164, 21, "#e8eef4");
+    r(109, 22, 163, 22, "#c0c8d2");
+    for (const x of [126, 145]) r(x, 23, x, 30, "#7a848e");
+    box(r, 113, 15, 125, 21, "#5a5f68", "#3a3f48");
+    r(112, 15, 126, 15, "#9aa0a8");
+    r(114, 16, 124, 16, "#7a808a");
+    r(126, 14, 128, 14, "#c9ccd2");
+    r(128, 14, 128, 20, "#c9ccd2");
     if (lv >= 3) {
-      for (const x of [116, 119, 122]) r(x, 10 + (x % 2), x, 13, "#e8eef4aa");
-      r(110, 12, 162, 12, "#bfe0f5");
+      // steam, a sneeze guard and trays of food
+      for (const [x, y0] of [[116, 10], [119, 9], [122, 11]]) for (let y = y0; y <= 13; y++) r(x + (y % 2), y, x + (y % 2), y, "#e8eef466");
+      r(110, 12, 162, 12, "#d8eef8");
       for (const x of [110, 162]) r(x, 13, x, 20, "#9aa5b1");
-      for (const [x, c] of [[127, "#e0602a"], [139, "#f4d35e"], [151, "#4caf7d"]]) box(r, x, 17, x + 9, 20, c);
-      // fridge
-      box(r, 168, 8, 182, 31, "#dfe6ee", "#9aa5b1");
-      r(169, 18, 181, 18, "#9aa5b1");
-      r(179, 11, 179, 15, "#6b737d");
-      r(179, 21, 179, 26, "#6b737d");
+      for (const [x, food, bits] of [[130, "#e0782a", "#f4b060"], [141, "#e8d8a0", "#ffffff"], [152, "#4caf7d", "#8ad8a0"]]) {
+        box(r, x, 17, x + 9, 20, "#c0c8d2", "#7a848e");
+        r(x + 1, 18, x + 8, 19, food);
+        for (let k = 0; k < 4; k++) r(x + 1 + ((k * 3) % 8), 18 + (k % 2), x + 1 + ((k * 3) % 8), 18 + (k % 2), bits);
+      }
+      // the fridge, a note stuck to it
+      box(r, 168, 8, 182, 31, "#dfe6ee", "#8a95a1");
+      r(169, 9, 169, 30, "#f4f8fc");
+      r(169, 18, 181, 18, "#8a95a1");
+      r(179, 11, 179, 15, "#5a626c");
+      r(179, 21, 179, 26, "#5a626c");
+      r(171, 21, 174, 24, "#f4d35e");
+      r(171, 21, 174, 21, "#d64545");
     }
-    // a table and bench
+    // a table and its bench
     desk(r, 16, 52, 25, "#c49a64");
     r(20, 29, 48, 29, "#8a6a4a");
+    r(20, 28, 48, 28, "#a8845a");
     if (lv >= 4) {
-      shelf(r, 14, 54, 17, [[2, 4, "#e0602a"], [7, 5, "#f4d35e"], [12, 3, "#d64545"], [17, 5, "#4caf7d"], [24, 4, "#e8e2d0"], [30, 5, "#8a5ad6"], [36, 4, "#e0602a"]]);
-      box(r, 28, 22, 34, 24, "#e0602a", "#8a3a1a");
+      // jars and tins on a shelf, a tray on the table
+      shelf(r, 14, 54, 17, []);
+      for (const [dx, h, c] of [[2, 4, "#e0602a"], [7, 5, "#f4d35e"], [12, 3, "#d64545"], [17, 5, "#4caf7d"], [24, 4, "#e8e2d0"], [30, 5, "#8a5ad6"], [36, 4, "#e0602a"]]) {
+        r(14 + dx, 17 - h + 1, 16 + dx, 16, c);
+        r(14 + dx, 17 - h + 1, 14 + dx, 16, lightOf(c));
+        r(14 + dx, 17 - h, 16 + dx, 17 - h, "#c9ccd2");
+      }
+      box(r, 27, 23, 35, 24, "#c0c8d2", "#7a848e");
+      r(29, 23, 32, 23, "#e0602a");
     }
     if (lv >= 5) {
-      for (let x = 66; x < 106; x += 5) {
-        const c = ["#d64545", "#f4d35e", "#4caf7d", "#3f6fb5"][(x / 5) % 4 | 0];
-        r(x, 1, x + 3, 1, c);
-        r(x + 1, 2, x + 2, 2, c);
-      }
-      // coffee machine on the counter, a plant
-      box(r, 152, 13, 160, 20, "#3a3f48", "#1d2026");
-      r(154, 15, 158, 15, "#d64545");
+      // bunting, a coffee machine on the counter, a plant, a cake on the table
+      pennants(r, 66, 90, 0, ["#d64545", "#f4d35e", "#4caf7d", "#3f6fb5"]);
+      box(r, 152, 12, 160, 20, "#3a3f48", "#1d2026");
+      r(153, 13, 159, 13, "#5a5f68");
+      (r.glow || r)(154, 15, 155, 15, "#ff5b5b");
+      r(155, 17, 157, 19, "#e8e2d0");
       plant(r, 184, 31);
-      box(r, 38, 22, 44, 24, "#f4d35e", "#c9a227");
+      r(38, 23, 45, 24, "#f4d35e");
+      r(38, 22, 45, 22, "#fff4f0");
+      r(41, 20, 41, 21, "#f4f6f8");
+      (r.glow || r)(41, 19, 41, 19, "#ffd27a");
     }
   },
 
@@ -397,43 +792,72 @@ const HI_SCENES = {
   // and an IV stand, a privacy curtain and a medicine cabinet, and a heart monitor and plants at
   // the top.
   infirmary(r, lv) {
-    const wall = ["#8a948f", "#cfe3dc", "#d8ebe4", "#e0f0ea", "#e8f5f0"][lv - 1];
-    hiRoom(r, { wall, wainscot: lv <= 1 ? "#6d7a74" : "#8fc4b8", floor: lv <= 1 ? "#8a8f8a" : "#e6ecef", floorLine: lv <= 1 ? "#737873" : "#c2cbd0", blocks: false });
+    const wall = ["#7f8a85", "#bcd6cc", "#c4dcd2", "#cae2d8", "#d0e7de"][lv - 1];
+    hiRoom(r, { wall, wainscot: lv <= 1 ? "#5f6c66" : "#7fb4a8", floor: lv <= 1 ? "#8a8f8a" : "#dfe6ea", floorLine: lv <= 1 ? "#737873" : "#c2cbd0", blocks: false, tiles: lv <= 1 ? ["#878c87", "#7a7f7a"] : ["#dfe6ea", "#cfd8de"] });
     if (lv >= 2) for (let x = 0; x < HW; x += 8) r(x, 0, x, 21, mix(wall, "#6b8a80", 0.12));
+    r.shellDone?.();
     if (lv <= 1) {
       lamp(r, 96, 12, false);
       crack(r, 66, 13);
       crack(r, 130, 14);
       hiBed(r, 20, true);
+      // the red cross torn half off the wall
+      box(r, 80, 11, 92, 21, "#c9ccc4", "#9aa098");
+      r(85, 12, 87, 20, "#8a5050");
+      r(81, 15, 91, 17, "#8a5050");
+      r(88, 18, 92, 21, "#5f6c66");
       boxes(r, 150);
       return;
     }
     for (const x of lv >= 3 ? [34, 96, 158] : [96]) lamp(r, x, 3, true);
-    // red cross
-    box(r, 78, 9, 94, 23, "#f4f6f8", "#c9d2dc");
-    r(84, 11, 88, 21, lv >= 3 ? "#d64545" : "#c98080");
-    r(80, 14, 92, 18, lv >= 3 ? "#d64545" : "#c98080");
+    // the red cross
+    box(r, 78, 9, 94, 23, "#f4f6f8", "#b9c4ce");
+    const cross = lv >= 3 ? "#d64545" : "#c98080";
+    r(84, 11, 88, 21, cross);
+    r(80, 14, 92, 18, cross);
+    r(84, 11, 84, 21, lightOf(cross));
+    r(80, 14, 92, 14, lightOf(cross));
     hiBed(r, 16, false);
     if (lv >= 3) {
       hiBed(r, 124, false);
-      // IV stand by the first bed
-      r(58, 12, 58, 30, "#9aa0a8");
-      r(55, 31, 61, 31, "#6b737d");
-      box(r, 55, 12, 61, 17, "#d8f0ff", "#9ab8cc");
-      r(58, 18, 58, 19, "#d64545");
+      // an IV stand by the first bed, the bag half full, its line down to the bed
+      r(58, 11, 58, 30, "#9aa0a8");
+      r(57, 11, 57, 30, "#c9ccd2");
+      r(55, 31, 61, 31, "#545962");
+      r(55, 11, 61, 11, "#9aa0a8");
+      box(r, 55, 12, 61, 18, "#e8f6ff", "#9ab8cc");
+      r(56, 15, 60, 17, "#bfe4f4");
+      r(58, 19, 58, 20, "#d64545");
+      for (let y = 20; y < 24; y++) r(57 - (y - 20), y, 57 - (y - 20), y, "#cfe0ea");
     }
     if (lv >= 4) {
-      // privacy curtain and medicine cabinet
-      r(100, 7, 118, 7, "#9aa0a8");
-      for (let x = 101; x < 118; x += 2) r(x, 8, x, 29, x % 4 === 1 ? "#8fc4b8" : "#b8ded4");
-      box(r, 164, 11, 184, 30, "#dfe6ee", "#9aa5b1");
-      r(165, 20, 183, 20, "#9aa5b1");
-      for (const [x, y, c] of [[167, 15, "#d64545"], [171, 15, "#f4d35e"], [175, 16, "#3f6fb5"], [179, 15, "#4caf7d"], [167, 24, "#e8e2d0"], [172, 24, "#d64545"], [177, 25, "#8a5ad6"]]) box(r, x, y, x + 2, y + 4, c);
+      // a privacy curtain on its rail, hanging in folds
+      r(99, 7, 119, 7, "#9aa0a8");
+      for (let x = 101; x < 118; x += 2) r(x, 7, x, 7, "#5a5f68");
+      for (let x = 100; x < 119; x++) r(x, 8, x, 29 - (x % 3 === 0 ? 1 : 0), ["#a8d8cc", "#8fc4b8", "#7aaea2"][x % 3]);
+      r(100, 8, 118, 8, "#c4e8de");
+      // the medicine cabinet: glass doors, bottles and boxes on two shelves
+      box(r, 164, 11, 184, 30, "#dfe6ee", "#8a95a1");
+      r(165, 12, 183, 29, "#c8d4de");
+      r(174, 12, 174, 29, "#8a95a1");
+      r(165, 20, 183, 20, "#8a95a1");
+      for (const [x, y, w, h, c] of [[166, 15, 2, 4, "#d64545"], [169, 16, 1, 3, "#f4d35e"], [171, 14, 2, 5, "#3f6fb5"], [176, 15, 3, 4, "#4caf7d"], [180, 16, 2, 3, "#e8e2d0"], [166, 24, 3, 5, "#e8e2d0"], [170, 25, 2, 4, "#d64545"], [176, 23, 2, 6, "#8a5ad6"], [180, 25, 2, 4, "#e0602a"]]) {
+        r(x, y, x + w - 1, y + h - 1, c);
+        r(x, y, x, y + h - 1, lightOf(c));
+      }
+      for (let i = 0; i < 4; i++) r(166 + i, 13 + i, 166 + i, 13 + i, "#ffffff88");
+      r(172, 24, 172, 25, "#5a626c");
+      r(176, 24, 176, 25, "#5a626c");
     }
     if (lv >= 5) {
-      // heart monitor, eye chart, plant
-      box(r, 64, 13, 76, 20, "#1d2026", "#3a3f48");
-      for (const [x, y] of [[65, 17], [67, 17], [68, 15], [69, 18], [70, 16], [71, 17], [74, 17]]) r(x, y, x, y, "#7fe0a8");
+      // a heart monitor on its stand, its trace glowing
+      box(r, 63, 12, 77, 21, "#1d2026", "#4a4f58");
+      r(64, 12, 76, 12, "#6a707a");
+      const trace = [17, 17, 17, 16, 17, 17, 13, 20, 17, 17, 16, 17, 17];
+      trace.forEach((ty, i) => (r.glow || r)(64 + i, ty, 64 + i, ty, "#7fe0a8"));
+      (r.glow || r)(73, 14, 75, 14, "#ff5b5b");
+      r(70, 22, 70, 30, "#6b707a");
+      r(67, 31, 73, 31, "#3a3f48");
       plant(r, 186, 31);
       plant(r, 110, 31);
     }
@@ -445,38 +869,58 @@ const HI_SCENES = {
   classroom_Biology(r, lv) {
     classroomBase(r, lv, "#9cc9a8");
     if (lv <= 1) return;
-    // a DNA helix on the board
-    for (let x = 66; x < 126; x += 2) {
-      r(x, 17 + Math.round(Math.sin(x / 3) * 4), x, 17 + Math.round(Math.sin(x / 3) * 4), "#e8efe8");
-      r(x, 17 - Math.round(Math.sin(x / 3) * 4), x, 17 - Math.round(Math.sin(x / 3) * 4), "#f4d35e");
+    // a DNA helix on the board, its rungs between the two strands
+    for (let x = 66; x < 126; x++) {
+      const a = Math.round(Math.sin(x / 3) * 4);
+      if (x % 3 === 0) r(x, 17 - Math.abs(a), x, 17 + Math.abs(a), "#5a7a68");
+      r(x, 17 + a, x, 17 + a, "#e8efe8");
+      r(x, 17 - a, x, 17 - a, "#f4d35e");
     }
     if (lv >= 3) {
-      // plant-cell poster
-      box(r, 24, 12, 44, 24, "#f4f6f8", "#c9d2dc");
-      box(r, 26, 14, 42, 22, "#b8e0b0", "#4caf7d");
-      box(r, 31, 16, 36, 20, "#8a5ad6", "#5a3a96");
-      r(28, 15, 29, 15, "#4caf7d");
-      r(39, 20, 40, 20, "#4caf7d");
+      // a poster of a plant cell, pinned at the top
+      poster(r, 24, 12, 44, 24, "#f4f6f8");
+      disc(r, 34, 18, 8, 4, "#b8e0b0", false);
+      r(26, 18, 42, 18, "#b8e0b0");
+      for (let x = 26; x <= 42; x++) for (const y of [14, 22]) if (Math.abs(x - 34) < 6) r(x, y, x, y, "#4caf7d");
+      disc(r, 35, 18, 2.4, 1.8, "#8a5ad6");
+      r(34, 17, 34, 17, "#b89af0");
+      for (const [x, y] of [[28, 17], [30, 20], [39, 16], [40, 20]]) r(x, y, x + 1, y, "#4caf7d");
     }
     if (lv >= 4) {
-      // skeleton model
-      box(r, 147, 9, 153, 14, "#f4f4f4", "#c9ccd2");
-      r(149, 12, 151, 12, "#3a3f48");
-      r(150, 15, 150, 25, "#f4f4f4");
-      for (const y of [17, 19, 21]) r(146, y, 154, y, "#f4f4f4");
-      r(145, 16, 145, 22, "#f4f4f4");
-      r(155, 16, 155, 22, "#f4f4f4");
-      r(148, 26, 148, 30, "#f4f4f4");
-      r(152, 26, 152, 30, "#f4f4f4");
-      r(144, 31, 156, 31, "#6b737d");
+      // the skeleton on its stand
+      disc(r, 150, 11, 2.6, 2.4, "#f4f4ec");
+      r(149, 11, 149, 11, "#3a3f48");
+      r(151, 11, 151, 11, "#3a3f48");
+      r(149, 13, 151, 13, "#c9c8bc");
+      r(150, 14, 150, 25, "#e8e6da");
+      for (const y of [16, 18, 20]) {
+        r(147, y, 153, y, "#f4f4ec");
+        r(147, y + 1, 153, y + 1, "#c9c8bc");
+      }
+      r(146, 15, 146, 22, "#f4f4ec");
+      r(154, 15, 154, 22, "#f4f4ec");
+      r(147, 24, 153, 25, "#f4f4ec");
+      r(148, 26, 148, 30, "#f4f4ec");
+      r(152, 26, 152, 30, "#f4f4ec");
+      r(150, 26, 150, 30, "#6b737d");
+      r(146, 31, 154, 31, "#545962");
     }
     if (lv >= 5) {
-      // microscope and an aquarium on the teacher's desk, plants
-      box(r, 12, 19, 22, 25, "#8fd0e8", "#5a8aa0");
-      r(15, 22, 17, 22, "#e0602a");
-      r(19, 21, 20, 21, "#f4d35e");
-      r(26, 20, 27, 24, "#3a3f48");
-      r(25, 19, 28, 19, "#3a3f48");
+      // an aquarium (lit, bubbling, a fish in it) and a microscope on the teacher's desk
+      const glow = r.glow || r;
+      box(r, 11, 18, 23, 24, "#3a4150", "#2a2f3a");
+      for (let y = 19; y <= 23; y++) glow(12, y, 22, y, mix("#8fd8f0", "#3f8ab0", (y - 19) / 4));
+      glow(12, 23, 22, 23, "#c8b078");
+      glow(19, 21, 20, 22, "#4caf7d");
+      glow(14, 20, 16, 20, "#e0602a");
+      glow(13, 20, 13, 20, "#f4a030");
+      for (const [x, y] of [[18, 19], [17, 20], [18, 21]]) glow(x, y, x, y, "#e8f8ff");
+      r.light?.({ x: 17, y: 21, r: 12, k: 0.35, c: [0.55, 0.9, 1.0] });
+      r(25, 24, 29, 24, "#3a3f48");
+      r(28, 19, 28, 23, "#545962");
+      r(25, 21, 28, 21, "#545962");
+      r(26, 17, 27, 20, "#3a3f48");
+      r(26, 17, 26, 20, "#6b707a");
       plant(r, 160, 31);
       plant(r, 58, 31);
     }
@@ -485,62 +929,105 @@ const HI_SCENES = {
     classroomBase(r, lv, "#9fb3d6");
     if (lv <= 1) return;
     // formulas and an atom on the board
-    for (const [x, y, w] of [[66, 13, 16], [66, 17, 12], [66, 21, 18]]) r(x, y, x + w, y, "#e8efe8");
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
+    for (const [x, y, w] of [[66, 13, 16], [66, 17, 12], [66, 21, 18]]) for (let xx = x; xx <= x + w; xx++) if (hash01(xx * 3 + y, 71) < 0.8) r(xx, y, xx, y, "#e8efe8");
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
       r(110 + Math.round(Math.cos(a) * 10), 18 + Math.round(Math.sin(a) * 4), 110 + Math.round(Math.cos(a) * 10), 18 + Math.round(Math.sin(a) * 4), "#7fc8f0");
       r(110 + Math.round(Math.cos(a) * 4), 18 + Math.round(Math.sin(a) * 6), 110 + Math.round(Math.cos(a) * 4), 18 + Math.round(Math.sin(a) * 6), "#f4d35e");
     }
-    r(109, 17, 111, 19, "#d64545");
+    disc(r, 110, 18, 1.4, 1.4, "#d64545");
     if (lv >= 3) {
-      // solar-system poster
-      box(r, 24, 12, 46, 24, "#1d2240", "#3a3f60");
-      box(r, 26, 16, 30, 20, "#f4d35e", "#e0a536");
-      for (const [x, c] of [[33, "#c98a4a"], [36, "#3f6fb5"], [40, "#d64545"], [43, "#e0b884"]]) r(x, 18, x + 1, 18, c);
+      // a poster of the solar system: the sun, the planets on their orbits
+      poster(r, 24, 12, 46, 24, "#1d2240");
+      for (const rr of [6, 10, 14]) for (let x = 28; x <= 44; x++) if (Math.abs(x - 28) <= rr && (x + rr) % 2 === 0) r(x, 18 - Math.round(Math.sqrt(Math.max(0, rr * rr - (x - 28) ** 2)) * 0.35), x, 18 - Math.round(Math.sqrt(Math.max(0, rr * rr - (x - 28) ** 2)) * 0.35), "#3a4270");
+      disc(r, 27, 18, 2.6, 2.6, "#f4c542");
+      (r.glow || r)(26, 17, 27, 18, "#fff3c4");
+      for (const [x, y, c] of [[33, 18, "#c98a4a"], [36, 16, "#3f8fd0"], [40, 19, "#d64545"], [43, 17, "#e0b884"]]) {
+        r(x, y, x + 1, y + 1, c);
+        r(x, y, x, y, lightOf(c));
+      }
     }
     if (lv >= 4) {
-      // Tesla coil
+      // a Tesla coil: a base, the copper winding, the ring on top
       box(r, 146, 26, 156, 31, "#3a3f48", "#1d2026");
-      box(r, 149, 14, 153, 25, "#c98a4a", "#8a5a2a");
-      for (let y = 15; y < 25; y += 2) r(149, y, 153, y, "#e0a060");
-      box(r, 147, 10, 155, 13, "#c9ccd2", "#8a8e96");
+      r(147, 27, 155, 27, "#5a5f68");
+      r(149, 14, 153, 25, "#b8783a");
+      for (let y = 14; y < 26; y++) r(149, y, 153, y, y % 2 ? "#d89050" : "#a86830");
+      r(149, 14, 149, 25, "#f0b070");
+      disc(r, 151, 11.5, 4.4, 1.8, "#c9ccd2");
+      r(148, 10, 152, 10, "#ffffff");
     }
     if (lv >= 5) {
-      // sparks off the coil, a model rocket, a pendulum
-      for (const [x, y] of [[145, 9], [144, 8], [157, 9], [158, 7], [151, 8], [151, 7]]) r(x, y, x, y, "#bfe8ff");
-      box(r, 16, 13, 20, 24, "#f4f6f8", "#9aa5b1");
+      // sparks off the coil, a model rocket, a pendulum swinging
+      const glow = r.glow || r;
+      for (const [x0, y0, x1, y1] of [[146, 11, 142, 7], [156, 11, 160, 6], [151, 9, 152, 4]]) {
+        const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+        for (let k = 0; k <= n; k++) glow(Math.round(x0 + ((x1 - x0) * k) / n) + (k % 2), Math.round(y0 + ((y1 - y0) * k) / n), Math.round(x0 + ((x1 - x0) * k) / n) + (k % 2), Math.round(y0 + ((y1 - y0) * k) / n), "#d8f0ff");
+      }
+      r.light?.({ x: 151, y: 9, r: 16, k: 0.4, c: [0.7, 0.85, 1.0] });
+      r(16, 13, 20, 22, "#f4f6f8");
+      r(16, 13, 16, 22, "#ffffff");
+      r(20, 13, 20, 22, "#c9ccd2");
       r(17, 11, 19, 12, "#d64545");
-      r(15, 22, 21, 24, "#d64545");
-      r(60, 22, 60, 29, "#9aa0a8");
-      box(r, 58, 29, 62, 31, "#c9a227");
+      r(18, 10, 18, 10, "#d64545");
+      disc(r, 18, 16, 1, 1, "#3f8fd0", false);
+      r(14, 20, 15, 24, "#d64545");
+      r(21, 20, 22, 24, "#d64545");
+      r(17, 23, 19, 24, "#5a5f68");
+      r(56, 21, 64, 21, "#5a5f68");
+      r(60, 22, 61, 23, "#9aa0a8");
+      r(62, 24, 62, 25, "#9aa0a8");
+      r(63, 26, 63, 27, "#9aa0a8");
+      disc(r, 63.5, 28.5, 1.4, 1.4, "#c9a227");
     }
   },
   classroom_History(r, lv) {
     classroomBase(r, lv, "#c9b28a");
     if (lv <= 1) return;
-    // a timeline on the board
+    // a timeline on the board, its dates in chalk
     r(66, 19, 126, 19, "#e8efe8");
-    for (let x = 68; x < 126; x += 10) { r(x, 17, x, 21, "#e8efe8"); r(x - 1, 14, x + 1, 14, "#f4d35e"); }
+    for (let x = 68; x < 126; x += 10) {
+      r(x, 17, x, 21, "#e8efe8");
+      r(x - 1, 14, x + 1, 14, "#f4d35e");
+      r(x - 1, 23, x + 1, 23, "#c8d0c8");
+    }
     if (lv >= 3) {
-      // world map
-      box(r, 20, 12, 48, 25, "#8fc0e0", "#6b4a2f");
-      for (const [x0, y0, x1, y1] of [[23, 15, 29, 19], [26, 20, 28, 23], [33, 14, 37, 17], [34, 18, 36, 22], [39, 14, 45, 18], [42, 20, 44, 22]]) r(x0, y0, x1, y1, "#6fae6a");
+      // a world map
+      box(r, 20, 12, 48, 25, "#6fa8d0", "#6b4a2f");
+      r(21, 13, 47, 13, "#8fc0e0");
+      for (const [x0, y0, x1, y1] of [[22, 15, 28, 17], [24, 18, 27, 19], [26, 20, 27, 23], [31, 14, 35, 15], [32, 16, 36, 18], [33, 19, 35, 22], [37, 14, 45, 17], [41, 18, 43, 19], [43, 21, 46, 23]]) r(x0, y0, x1, y1, "#7cae5a");
+      for (const [x, y] of [[22, 15], [31, 14], [37, 14], [43, 21]]) r(x, y, x + 1, y, "#a8d080");
+      r(38, 13, 44, 13, "#f4f6f8");
+      r(22, 24, 46, 24, "#f4f6f8");
     }
     if (lv >= 4) {
-      // globe on a stand
-      box(r, 145, 12, 157, 23, "#3f8fd0", "#2a5a8a");
-      for (const [x0, y0, x1, y1] of [[147, 14, 150, 17], [151, 18, 154, 21], [153, 13, 155, 15]]) r(x0, y0, x1, y1, "#6fae6a");
-      r(151, 24, 151, 29, "#8a5f33");
+      // a globe on its stand
+      disc(r, 151, 17, 5.4, 5.4, "#3f8fd0");
+      for (const [x0, y0, x1, y1] of [[148, 14, 150, 16], [151, 18, 154, 20], [153, 13, 154, 15], [147, 19, 148, 20]]) r(x0, y0, x1, y1, "#6fae6a");
+      r(148, 13, 149, 13, "#8fc8f0");
+      for (let y = 11; y <= 23; y++) r(157 - Math.round(Math.abs(y - 17) * 0.25), y, 157 - Math.round(Math.abs(y - 17) * 0.25), y, "#c9a227");
+      r(151, 23, 151, 29, "#8a5f33");
       r(147, 30, 155, 31, "#6b4a2f");
+      r(147, 30, 155, 30, "#8a6a4a");
     }
     if (lv >= 5) {
-      // a bust on a pedestal and hanging flags
-      box(r, 12, 22, 22, 31, "#e8e2d0", "#b9b4a4");
-      box(r, 14, 14, 20, 21, "#e8e2d0", "#b9b4a4");
-      r(16, 12, 18, 13, "#e8e2d0");
-      for (const [x, c] of [[58, "#d64545"], [132, "#3f6fb5"]]) {
-        r(x, 13, x, 30, "#8a5f33");
-        box(r, x + 1, 13, x + 7, 18, c);
+      // a marble bust on a pedestal, and two flags on poles
+      box(r, 11, 23, 23, 31, "#d8d2c0", "#a8a294");
+      r(12, 24, 22, 24, "#f0ece0");
+      r(13, 21, 21, 22, "#e8e2d0");
+      r(12, 22, 22, 22, "#d8d2c0");
+      disc(r, 17, 16, 3, 3.6, "#e8e2d0");
+      r(15, 15, 15, 15, "#a8a294");
+      r(19, 15, 19, 15, "#a8a294");
+      r(17, 17, 17, 18, "#c8c2b0");
+      r(14, 12, 20, 12, "#4caf7d");
+      r(13, 13, 13, 14, "#4caf7d");
+      r(21, 13, 21, 14, "#4caf7d");
+      for (const [x, c] of [[53, "#d64545"]]) {
+        r(x, 12, x, 30, "#8a5f33");
+        r(x, 11, x, 11, "#c9a227");
+        for (let dx = 1; dx <= 7; dx++) r(x + dx, 13 + (dx > 4 ? 1 : 0), x + dx, 18 + (dx > 4 ? 1 : 0), dx % 3 === 0 ? shadowOf(c) : c);
+        r(x + 2, 15, x + 4, 16, "#f4d35e");
       }
     }
   },
@@ -551,42 +1038,65 @@ const HI_SCENES = {
     for (const [x, y, w] of [[68, 12, 16], [92, 15, 20], [74, 18, 14]]) {
       box(r, x, y, x + w, y + 4, "#2f4a3a", "#e8efe8");
       r(x + 3, y + 5, x + 4, y + 5, "#e8efe8");
+      for (let xx = x + 2; xx < x + w - 1; xx += 2) r(xx, y + 2, xx, y + 2, "#9ab0a0");
     }
     if (lv >= 3) {
       // flags of the world
       for (let i = 0; i < 6; i++) {
         const x = 20 + (i % 3) * 10;
         const y = 12 + Math.floor(i / 3) * 7;
-        box(r, x, y, x + 7, y + 5, ["#d64545", "#3f6fb5", "#4caf7d", "#f4d35e", "#8a5ad6", "#e0602a"][i], "#3a3f48");
-        r(x + 1, y + 2, x + 6, y + 2, "#f4f6f8");
+        const c = ["#d64545", "#3f6fb5", "#4caf7d", "#f4d35e", "#8a5ad6", "#e0602a"][i];
+        box(r, x, y, x + 7, y + 5, c, "#3a3f48");
+        r(x + 1, y + 2, x + 6, y + 3, i % 2 ? "#f4f6f8" : shadowOf(c));
+        if (i % 3 === 1) r(x + 3, y + 1, x + 4, y + 4, "#f4f6f8");
+        r(x + 1, y + 1, x + 6, y + 1, lightOf(c));
       }
     }
     if (lv >= 4) {
-      // a debate podium with a microphone
-      box(r, 144, 18, 158, 31, "#8a5f33", "#5a3b24");
-      r(144, 18, 158, 18, "#c49a64");
-      box(r, 148, 22, 154, 26, "#f4d35e", "#c9a227");
-      r(151, 12, 151, 17, "#3a3f48");
-      box(r, 150, 10, 152, 12, "#3a3f48");
+      // a debate podium with a seal on its front and a microphone
+      box(r, 144, 18, 158, 31, "#8a5f33", "#4a3020");
+      r(143, 17, 159, 18, "#c49a64");
+      r(143, 17, 159, 17, "#e0b884");
+      disc(r, 151, 23.5, 3, 3, "#f4d35e");
+      disc(r, 151, 23.5, 1.4, 1.4, "#c9a227", false);
+      r(151, 12, 151, 16, "#3a3f48");
+      r(150, 10, 152, 11, "#545962");
+      r(150, 10, 150, 10, "#8a909a");
     }
     if (lv >= 5) {
-      // pinned photos and pennants
-      box(r, 10, 12, 18, 24, "#c49a64", "#8a5f33");
-      for (const [x, y] of [[11, 13], [14, 16], [11, 19]]) box(r, x, y, x + 3, y + 3, "#f4f6f8", "#9aa5b1");
-      for (let x = 66; x < 128; x += 6) {
-        const c = ["#d64545", "#f4f6f8", "#3f6fb5"][(x / 6) % 3 | 0];
-        r(x, 1, x + 4, 1, c);
-        r(x + 1, 2, x + 3, 2, c);
-        r(x + 2, 3, x + 2, 3, c);
+      // a cork board of pinned photos, and pennants
+      box(r, 10, 12, 18, 24, "#b88a5a", "#6b4a2f");
+      for (const [x, y, c] of [[11, 13, "#7fb0d8"], [14, 16, "#e0b884"], [11, 19, "#a8d090"]]) {
+        box(r, x, y, x + 3, y + 3, "#f4f6f8", "#9aa5b1");
+        r(x + 1, y + 1, x + 2, y + 2, c);
+        r(x + 1, y, x + 1, y, "#d64545");
       }
+      pennants(r, 66, 128, 0, ["#d64545", "#f4f6f8", "#3f6fb5"]);
     }
   },
 };
 
+// A paper poster pinned to the wall: its sheet (`paper`), a curling shadow under its lower edge
+// and a pin at the top.
+function poster(r, x0, y0, x1, y1, paper) {
+  box(r, x0, y0, x1, y1, paper, mix(paper, "#1a1424", 0.35));
+  r(x0 + 1, y0 + 1, x1 - 1, y0 + 1, lightOf(paper));
+  r(Math.round((x0 + x1) / 2), y0, Math.round((x0 + x1) / 2), y0, "#d64545");
+}
+// A round wall clock: a white face in a dark rim, its two hands.
+function clock(r, x, y) {
+  disc(r, x, y, 3.4, 3.4, "#2a2d33", false);
+  disc(r, x, y, 2.4, 2.4, "#f4f6f8", false);
+  r(x - 2, y - 1, x - 2, y - 1, "#ffffff");
+  r(x, y - 2, x, y, "#1d2026");
+  r(x, y, x + 2, y, "#1d2026");
+  r(x, y, x, y, "#d64545");
+}
+
 // A classroom at a level: dusty with a cracked board and boxes at level 1; then clean, with a
 // teacher's desk and student desks, lamps, a bookcase (level 4) and plants and a clock (level 5).
 function classroomBase(r, lv, tint) {
-  const wall = mix(tint, lv <= 1 ? "#4a4a50" : "#fff4dc", lv <= 1 ? 0.45 : [0, 0.3, 0.2, 0.12, 0.05][lv - 1]);
+  const wall = mix(tint, lv <= 1 ? "#4a4a50" : "#fff4dc", lv <= 1 ? 0.45 : [0, 0.22, 0.14, 0.08, 0.02][lv - 1]);
   hiRoom(r, { wall, wainscot: mix(wall, "#2a2230", 0.4), floor: lv <= 1 ? "#8a7058" : "#b98a5e", floorLine: lv <= 1 ? "#735c47" : "#9d7249" });
   chalkboard(r, 62, 10, 130, 25, lv <= 1);
   hiWindow(r, 160, 2, 16, 10, lv);
@@ -594,23 +1104,33 @@ function classroomBase(r, lv, tint) {
     lamp(r, 96, 22, false);
     for (const [x, y] of [[80, 12], [81, 13], [83, 14], [84, 16], [86, 17], [87, 19]]) r(x, y, x, y, "#1d2026");
     crack(r, 30, 14);
-    // an overturned desk, stacked chairs, papers on the floor
-    r(20, 25, 42, 26, "#8a6a4a");
-    r(22, 21, 23, 24, "#6b5a48");
-    r(39, 21, 40, 24, "#6b5a48");
+    // a desk on its side, a chair kicked over, papers on the floor
+    r(20, 24, 42, 26, "#8a6a4a");
+    r(20, 24, 42, 24, "#a8845a");
+    r(22, 20, 23, 23, "#6b707a");
+    r(39, 20, 40, 23, "#6b707a");
+    r(48, 29, 55, 30, "#a8753f");
+    r(54, 23, 55, 30, "#6b707a");
     boxes(r, 146);
-    for (const [x, y] of [[60, 34], [100, 38], [130, 35]]) r(x, y, x + 3, y, "#e8e2d0");
+    for (const [x, y] of [[60, 34], [100, 38], [130, 35], [75, 42]]) {
+      r(x, y, x + 3, y, "#e8e2d0");
+      r(x + 1, y + 1, x + 3, y + 1, "#c9c2ad");
+    }
     return;
   }
   for (const x of lv >= 3 ? [34, 158] : [34]) lamp(r, x, 3, true);
   // the teacher's desk and a row of student desks against the back wall
   desk(r, 8, 30, 25, "#a8753f");
   for (const x of [64, 88, 112]) desk(r, x, x + 16, 27);
+  if (lv >= 2 && lv <= 4) {
+    // a pile of books and an apple on the teacher's desk
+    for (const [y, c] of [[24, "#3f6fb5"], [23, "#d64545"], [22, "#e8e2d0"]]) r(11 + (y % 2), y, 17 + (y % 2), y, c);
+    r(24, 23, 25, 24, "#d64545");
+    r(25, 22, 25, 22, "#4caf7d");
+  }
   if (lv >= 4) bookcase(r, 170, 12, 186, 31);
   if (lv >= 5) {
-    box(r, 134, 13, 140, 19, "#f4f6f8", "#3a3f48");
-    r(137, 15, 137, 16, "#1d2026");
-    r(137, 16, 138, 16, "#1d2026");
+    clock(r, 137, 16);
     plant(r, 44, 31);
   }
 }
@@ -619,40 +1139,67 @@ Object.assign(HI_SCENES, {
   // The Headmaster's Office (it has no levels): wood panelling, a bookcase, a window onto the
   // ruined city at sunset, a flag, a diploma, a trophy cabinet and the big desk on a red rug.
   headmaster(r) {
-    hiRoom(r, { wall: "#6b4f3a", wainscot: "#4f3826", floor: "#7a2f3a", floorLine: "#6a2832", blocks: false });
-    for (let x = 4; x < HW; x += 12) r(x, 0, x, 21, "#5d4432");
-    for (let x = 0; x < HW; x += 8) r(x, 24, x, 30, "#43301f");
-    r(0, 33, HW - 1, 33, "#c9a227");
-    r(0, 46, HW - 1, 46, "#c9a227");
+    hiRoom(r, { wall: "#5f4634", wainscot: "#4a3424", floor: "#5a3a26", floorLine: "#45291a", blocks: false });
+    for (let x = 4; x < HW; x += 12) {
+      r(x, 0, x, 21, "#4f3828");
+      r(x + 1, 0, x + 1, 21, "#6e543f");
+    }
+    for (let x = 0; x < HW; x += 8) r(x, 24, x, 30, "#3a2818");
+    // a red rug with a gold border and a faint pattern, fringed at the edges
+    r(0, 33, HW - 1, 46, "#7a2f3a");
+    for (let y = 35; y <= 44; y++) for (let x = 0; x < HW; x++) if ((x + y * 3) % 12 === 0 || (x - y * 3 + 600) % 12 === 0) r(x, y, x, y, "#6a2832");
+    grain(r, 0, 34, HW - 1, 45, "#7a2f3a", 16, 0.05, 0.12, 0.05);
+    r(0, 34, HW - 1, 34, "#c9a227");
+    r(0, 45, HW - 1, 45, "#c9a227");
+    for (let x = 0; x < HW; x += 2) {
+      r(x, 33, x, 33, "#d8c8a0");
+      r(x, 46, x, 46, "#d8c8a0");
+    }
+    r.shellDone?.();
     bookcase(r, 12, 12, 40, 31);
-    // window onto the city at sunset
-    box(r, 70, 2, 102, 17, "#e8a56a", "#3a2a1e");
-    (r.glow || r)(71, 3, 101, 16, "#e8a56a");
-    (r.glow || r)(71, 3, 101, 7, "#d98a5a");
+    // the window onto the ruined city at sunset, red velvet curtains either side
+    const glow = r.glow || r;
+    box(r, 70, 2, 102, 17, "#e8a56a", "#2a1c12");
+    for (let y = 3; y <= 16; y++) glow(71, y, 101, y, mix("#8a4a6a", "#f0b070", (y - 3) / 13));
+    disc(glow, 80, 12, 3, 3, "#ffe0a0", false);
+    for (const [x, y, w] of [[88, 5, 9], [74, 7, 6], [92, 8, 6]]) glow(x, y, x + w, y, "#f8c8a0");
     r.light?.({ x: 86, y: 10, r: 54, sy: 0.8, k: 0.42, c: [1.0, 0.7, 0.45] });
-    for (const [x0, x1, top] of [[71, 76, 12], [77, 81, 9], [82, 88, 13], [89, 93, 10], [94, 101, 12]]) r(x0, top, x1, 16, "#4a3a44");
-    r(86, 3, 86, 16, "#3a2a1e");
-    r(71, 10, 101, 10, "#3a2a1e");
+    for (const [x0, x1, top] of [[71, 74, 12], [75, 77, 10], [78, 81, 13], [82, 85, 11], [86, 88, 9], [89, 93, 12], [94, 96, 10], [97, 101, 13]]) {
+      r(x0, top, x1, 16, "#3a2a34");
+      if (x1 - x0 >= 2) r(x0 + 1, top + 2, x0 + 1, top + 2, "#e8a858");
+    }
+    r(73, 9, 73, 11, "#3a2a34");
+    r(86, 3, 86, 16, "#2a1c12");
+    r(71, 10, 101, 10, "#2a1c12");
+    for (const [x0, x1, edge] of [[66, 70, 70], [102, 106, 102]]) {
+      for (let x = x0; x <= x1; x++) r(x, 1, x, 20 - (x === edge ? 3 : 0), ["#8a1f2a", "#6e1820", "#a02a36"][x % 3]);
+      r(x0, 0, x1, 0, "#c9a227");
+    }
     // a flag on a pole
     r(52, 8, 52, 30, "#c9a227");
+    r(52, 7, 52, 7, "#f4d35e");
     box(r, 53, 9, 63, 16, "#b03030", "#7a2020");
-    box(r, 56, 11, 59, 14, "#f4d35e", "#c9a227");
-    // diploma
+    for (let x = 54; x < 63; x += 3) r(x, 10, x, 15, "#9a2828");
+    disc(r, 58, 12.5, 2, 2, "#f4d35e", false);
+    r(57, 12, 57, 12, "#fff0b0");
+    // the diploma, framed, with its seal
     box(r, 110, 13, 126, 22, "#efe4c8", "#c9a227");
-    for (const y of [15, 17, 19]) r(113, y, 123, y, "#8a7a5a");
-    r(123, 20, 124, 21, "#b03030");
-    // trophy cabinet
-    box(r, 150, 11, 176, 31, "#8fb1c4", "#4a3120");
+    r(110, 13, 126, 13, "#f4d35e");
+    for (const y of [15, 17, 19]) for (let x = 113; x <= 123; x++) if (hash01(x + y * 9, 72) < 0.8) r(x, y, x, y, "#8a7a5a");
+    disc(r, 123, 20, 1.2, 1.2, "#b03030", false);
+    // the trophy cabinet: glass doors, two shelves of cups
+    box(r, 150, 11, 176, 31, "#7e9aaa", "#3a2618");
+    r(150, 11, 176, 11, "#6b4a2f");
+    for (let y = 12; y <= 30; y++) r(151, y, 175, y, mix("#a8c0cc", "#6e8a9a", (y - 12) / 18));
     r(151, 21, 175, 21, "#4a3120");
-    for (const [x, y] of [[154, 15], [162, 14], [169, 16], [156, 25], [166, 25]]) {
-      r(x, y, x + 3, y, "#f4d35e");
-      r(x + 1, y + 1, x + 2, y + 2, "#c9a227");
-      r(x, y + 3, x + 3, y + 3, "#c9a227");
-    }
+    r(163, 12, 163, 30, "#4a3120");
+    for (const [x, y, c] of [[154, 20, "#e0b040"], [158, 20, "#c9ccd2"], [167, 20, "#e0b040"], [155, 30, "#d0904c"], [168, 30, "#e0b040"]]) trophy(r, x, y, c);
+    for (let i = 0; i < 5; i++) r(152 + i, 26 - i, 152 + i, 26 - i, "#e8f4f8");
     // the Headmaster in his big leather chair behind the desk (he'll hand out missions): a grey,
     // balding head with glasses and a moustache over a dark suit, white shirt and red tie
     box(r, 85, 4, 101, 21, "#6e1f28", "#4a1218");
     r(86, 5, 100, 5, "#8a2c36");
+    r(86, 6, 86, 20, "#8a2c36");
     for (const x of [87, 93, 99]) r(x, 6, x, 6, "#c9a227");
     box(r, 86, 15, 100, 21, "#2c3140", "#1c2029");
     r(92, 15, 94, 19, "#f4f6f8");
@@ -660,6 +1207,7 @@ Object.assign(HI_SCENES, {
     r(90, 16, 91, 18, "#3a4052");
     r(95, 16, 96, 18, "#3a4052");
     box(r, 90, 7, 96, 14, "#e8b894", "#c48f6a");
+    r(91, 8, 91, 12, "#f4cca8");
     r(90, 7, 96, 7, "#c4c8d0");
     r(89, 8, 89, 11, "#b8bcc4");
     r(97, 8, 97, 11, "#b8bcc4");
@@ -667,87 +1215,130 @@ Object.assign(HI_SCENES, {
     r(94, 10, 95, 10, "#1d2026");
     r(93, 10, 93, 10, "#5a5f68");
     r(92, 12, 94, 12, "#c4c8d0");
-    // the headmaster's desk with a lamp, a globe and papers
+    // the headmaster's desk: panelled, a gold nameplate, a banker's lamp, a globe and papers
     box(r, 66, 22, 132, 31, "#5a3620", "#3a2414");
-    // his hands folded on it
+    for (const x0 of [69, 108]) {
+      box(r, x0, 25, x0 + 20, 30, "#4e2e1a", "#3a2414");
+      r(x0 + 1, 25, x0 + 19, 25, "#6e4a30");
+    }
     r(89, 22, 91, 22, "#e8b894");
     r(95, 22, 97, 22, "#e8b894");
     r(66, 22, 132, 22, "#a8753f");
+    r(66, 23, 132, 23, "#7a4e2c");
     box(r, 93, 25, 105, 29, "#c9a227", "#8a6a1a");
+    r(94, 26, 104, 26, "#f4d35e");
+    for (let x = 95; x <= 103; x += 2) r(x, 27, x, 27, "#6a4a10");
     r(72, 16, 72, 21, "#c9a227");
-    box(r, 69, 14, 76, 16, "#2f7a4f", "#1f5a38");
+    r(70, 21, 74, 21, "#8a6a1a");
+    box(glow, 69, 14, 76, 16, "#2f8a5a", "#1f5a38");
+    glow(70, 16, 75, 16, "#fff0b0");
     r.light?.({ x: 72, y: 17, r: 22, k: 0.45, c: LAMP_LIGHT });
-    box(r, 118, 15, 125, 21, "#3f8fd0", "#2a5a8a");
+    disc(r, 121.5, 17.5, 3.4, 3.4, "#3f8fd0");
     r(120, 16, 122, 18, "#6fae6a");
+    r(123, 15, 123, 16, "#6fae6a");
+    r(121, 21, 122, 21, "#c9a227");
     for (let i = 0; i < 3; i++) r(100 + i, 20 - i, 110 + i, 21 - i, i % 2 ? "#e0d6bc" : "#efe4c8");
+    r(111, 19, 114, 19, "#1d2026");
   },
 
   // The Radio Station: dead equipment and a boarded window, then a transmitter and an ON AIR
   // sign, a receiver and a map of the city, racks of blinking gear with a microphone, and at the
   // top monitors and the satellite dish outside.
   radio(r, lv) {
-    const wall = ["#4a524d", "#566a5e", "#5c7466", "#617d6d", "#678575"][lv - 1];
+    const wall = ["#424a45", "#4e6256", "#546c5e", "#597565", "#5f7d6d"][lv - 1];
     hiRoom(r, { wall, wainscot: mix(wall, "#1d2026", 0.4), floor: lv <= 1 ? "#5a5550" : "#6a6058", floorLine: lv <= 1 ? "#4a4540" : "#5a5048" });
-    // window with the antenna mast (or satellite dish) outside
-    box(r, 70, 2, 100, 16, "#9cc4de", "#3a3f48");
-    r(71, 12, 99, 15, "#7fa6c0");
+    // the window, with the antenna mast (or, at the top, the satellite dish) outside it
+    hiWindow(r, 70, 2, 30, 12, lv);
     if (lv <= 1) {
-      r(84, 6, 86, 15, "#5a5f68");
-      r(80, 9, 90, 9, "#5a5f68");
-      for (const y of [4, 9, 14]) { r(69, y, 101, y + 1, "#8a5f33"); r(69, y, 101, y, "#a8753f"); }
       lamp(r, 40, 12, false);
       crack(r, 130, 14);
+      // dead equipment: a smashed set and a cabinet, wires hanging
       box(r, 110, 20, 126, 31, "#3a3f48", "#1d2026");
+      r(112, 22, 124, 26, "#22252b");
+      for (const [x, y] of [[114, 23], [115, 24], [117, 23], [119, 25], [121, 24]]) r(x, y, x, y, "#8a909a");
       box(r, 20, 22, 36, 31, "#4a4f58", "#2a2d33");
+      for (let y = 24; y < 31; y += 2) r(22, y, 34, y, "#3a3f48");
+      for (let y = 20; y < 31; y++) r(38 + Math.round(Math.sin(y / 2)), y, 38 + Math.round(Math.sin(y / 2)), y, "#2a2d33");
       boxes(r, 150);
       return;
     }
     if (lv >= 5) {
-      // the satellite dish on the roof outside
-      box(r, 78, 5, 92, 11, "#e8eef4", "#9aa5b1");
-      r(85, 12, 85, 15, "#9aa5b1");
-      r(84, 3, 86, 4, "#d64545");
+      disc(r, 85, 7.5, 6, 3.4, "#e8eef4");
+      r(80, 6, 84, 6, "#ffffff");
+      r(85, 11, 85, 12, "#9aa5b1");
+      r(84, 7, 86, 8, "#9aa5b1");
+      (r.glow || r)(85, 3, 85, 3, "#ff5b5b");
     } else {
-      r(85, 3, 85, 15, "#5a5f68");
-      for (const y of [5, 8, 11]) r(82, y, 88, y, "#5a5f68");
-      r(84, 3, 86, 3, "#d64545");
+      r(85, 3, 85, 12, "#4a4f58");
+      for (const y of [5, 8, 11]) r(82, y, 88, y, "#4a4f58");
+      (r.glow || r)(85, 2, 85, 2, "#ff5b5b");
     }
     for (const x of lv >= 3 ? [40, 150] : [40]) lamp(r, x, 3, true);
-    // ON AIR sign under the window
-    box(r, 74, 18, 96, 22, "#1d2026", "#3a3f48");
-    r(77, 20, 93, 20, "#ff5b5b");
-    // the long desk with the transmitter
+    // the ON AIR sign under the window, lit
+    r(73, 18, 97, 24, "#3a1a1a");
+    r(74, 19, 96, 23, "#ff5b5b");
+    const GLYPHS = { O: "111101101101111", N: "110101101101101", A: "010101111101101", I: "11111", R: "110101110101101" };
+    let gx = 76;
+    for (const ch of "ON AIR") {
+      if (ch === " ") {
+        gx += 2;
+        continue;
+      }
+      const bits = GLYPHS[ch];
+      const wide = bits.length === 15 ? 3 : 1;
+      for (let k = 0; k < bits.length; k++) if (bits[k] === "1") r(gx + (k % wide), 19 + Math.floor(k / wide), gx + (k % wide), 19 + Math.floor(k / wide), "#5a1414");
+      gx += wide + 1;
+    }
+    // the long desk with the transmitter: dials, a level meter, switches
     box(r, 104, 23, 188, 31, "#6b5a48", "#4a3e32");
     r(104, 23, 188, 23, "#8a7560");
-    box(r, 108, 14, 124, 22, "#3a3f48", "#1d2026");
-    r(110, 16, 114, 16, "#7fe0a8");
-    r(116, 16, 122, 16, "#f4d35e");
-    for (const x of [110, 115, 120]) r(x, 19, x + 1, 20, "#c9ccd2");
+    r(105, 24, 187, 24, "#5a4a3a");
+    box(r, 108, 13, 124, 22, "#3a3f48", "#1d2026");
+    r(109, 14, 123, 14, "#545962");
+    for (let x = 110; x <= 117; x++) (r.glow || r)(x, 16, x, 16, x < 115 ? "#7fe0a8" : "#f4d35e");
+    for (const x of [110, 115, 120]) {
+      disc(r, x + 0.5, 19.5, 1.2, 1.2, "#c9ccd2", false);
+      r(x, 19, x, 19, "#ffffff");
+    }
     if (lv >= 3) {
-      // receiver with a big dial, and a map of the city with pins
-      box(r, 128, 15, 142, 22, "#5a4a3a", "#3a2e24");
-      box(r, 130, 16, 135, 21, "#e8e2d0", "#8a7a5a");
-      r(132, 18, 133, 19, "#d64545");
+      // a receiver with its big tuning dial, and a map of the city stuck with pins
+      box(r, 128, 14, 142, 22, "#6b5038", "#3a2e24");
+      r(129, 15, 141, 15, "#8a6a4a");
+      disc(r, 133, 18.5, 2.6, 2.6, "#e8e2d0", false);
+      r(133, 17, 133, 18, "#d64545");
+      for (let x = 137; x <= 140; x++) r(x, 17 + (x % 2), x, 17 + (x % 2), "#3a2e24");
       box(r, 16, 12, 50, 26, "#e8e2d0", "#8a7a5a");
       r(17, 13, 49, 25, "#cfd8c0");
-      r(20, 18, 46, 18, "#9aa88a");
+      for (const [x0, y0, x1, y1] of [[18, 14, 24, 17], [26, 19, 31, 24], [36, 14, 41, 16], [43, 20, 48, 24]]) r(x0, y0, x1, y1, "#b8c8a8");
+      r(17, 18, 49, 18, "#9aa88a");
       r(32, 13, 32, 25, "#9aa88a");
-      for (const [x, y, c] of [[24, 15, "#d64545"], [40, 21, "#d64545"], [36, 16, "#3f6fb5"], [27, 22, "#f4d35e"]]) r(x, y, x + 1, y + 1, c);
+      r(17, 22, 30, 22, "#8fb8d0");
+      for (const [x, y, c] of [[24, 15, "#d64545"], [40, 21, "#d64545"], [36, 16, "#3f6fb5"], [27, 22, "#f4d35e"]]) {
+        r(x, y, x, y, c);
+        r(x + 1, y + 1, x + 1, y + 1, "#5a5f68");
+      }
     }
     if (lv >= 4) {
       // a rack of gear with blinking lights, a microphone and headphones
       box(r, 146, 10, 162, 22, "#2a2d33", "#1d2026");
-      for (let y = 12; y < 21; y += 3) for (let x = 148; x < 161; x += 3) r(x, y, x, y, ["#7fe0a8", "#f4d35e", "#ff5b5b"][(x + y) % 3]);
+      for (let y = 12; y < 21; y += 3) {
+        r(147, y + 1, 161, y + 1, "#1d2026");
+        for (let x = 148; x < 161; x += 3) (r.glow || r)(x, y, x, y, ["#7fe0a8", "#f4d35e", "#ff5b5b"][(x + y) % 3]);
+      }
       r(166, 17, 167, 21, "#2a2d33");
+      r(166, 16, 167, 16, "#8a909a");
       r(165, 22, 168, 22, "#8a8e96");
       r(170, 19, 174, 19, "#2a2d33");
       r(170, 20, 170, 22, "#2a2d33");
       r(174, 20, 174, 22, "#2a2d33");
+      r(169, 21, 170, 22, "#3a3f48");
+      r(174, 21, 175, 22, "#3a3f48");
     }
     if (lv >= 5) {
       // monitors with the world map and a signal wave
       box(r, 176, 11, 188, 22, "#1d2240", "#3a3f48");
-      for (const [x0, y0, x1, y1] of [[178, 13, 181, 15], [183, 14, 186, 17], [179, 17, 180, 20]]) r(x0, y0, x1, y1, "#4caf7d");
+      for (const [x0, y0, x1, y1] of [[178, 13, 181, 15], [183, 14, 186, 17], [179, 17, 180, 20]]) (r.glow || r)(x0, y0, x1, y1, "#4caf7d");
+      r.light?.({ x: 182, y: 16, r: 12, k: 0.3, c: [0.5, 0.9, 0.6] });
       box(r, 54, 13, 64, 21, "#1d2026", "#3a3f48");
       for (let x = 55; x < 64; x++) r(x, 17 + Math.round(Math.sin(x) * 2), x, 17 + Math.round(Math.sin(x) * 2), "#7fe0a8");
     }
@@ -756,111 +1347,186 @@ Object.assign(HI_SCENES, {
   // The Research Room: broken glass and empty shelves, then a whiteboard and a bench of flasks, a
   // microscope and books, a computer, and at the top a glowing machine.
   research(r, lv) {
-    const wall = ["#7a828c", "#c8d6e2", "#d0dce8", "#d8e2ee", "#dee8f2"][lv - 1];
-    hiRoom(r, { wall, wainscot: lv <= 1 ? "#5a6068" : "#6f8aa0", floor: lv <= 1 ? "#6a6e72" : "#9aa5b1", floorLine: lv <= 1 ? "#5a5e62" : "#8a96a3", blocks: false });
+    const wall = ["#6e767f", "#b4c4d2", "#bccad8", "#c4d0de", "#cad6e4"][lv - 1];
+    hiRoom(r, { wall, wainscot: lv <= 1 ? "#525860" : "#647e94", floor: lv <= 1 ? "#6a6e72" : "#9aa5b1", floorLine: lv <= 1 ? "#5a5e62" : "#8a96a3", blocks: false, tiles: lv <= 1 ? ["#6a6e72", "#5f6367"] : ["#a4aeb8", "#949fab"] });
     if (lv >= 2) for (let x = 0; x < HW; x += 10) r(x, 0, x, 21, mix(wall, "#6f8aa0", 0.15));
-    // whiteboard
-    box(r, 68, 10, 104, 25, lv <= 1 ? "#b9bcc0" : "#f4f6f8", "#9aa5b1");
+    r.shellDone?.();
+    // the whiteboard in its aluminium frame, a tray of markers under it
+    box(r, 68, 10, 104, 25, lv <= 1 ? "#a9acb0" : "#f4f6f8", "#8a95a1");
+    r(68, 10, 104, 10, "#c9d2dc");
+    r(67, 26, 105, 26, "#9aa5b1");
     if (lv <= 1) {
+      // scrawled over and smeared, glass on the floor, an empty shelf
+      for (let x = 72; x < 100; x++) r(x, 16 + Math.round(Math.sin(x / 2) * 2), x, 16 + Math.round(Math.sin(x / 2) * 2), "#7a6a6a");
       lamp(r, 96, 20, false);
       crack(r, 30, 14);
       crack(r, 120, 13);
       shelf(r, 16, 50, 20, []);
-      for (const [x, y] of [[112, 34], [114, 35], [120, 33], [140, 36]]) r(x, y, x + 1, y, "#bfe0f5");
+      for (const [x, y] of [[112, 34], [114, 35], [120, 33], [140, 36], [117, 37], [133, 34]]) r(x, y, x + 1, y, "#bfe0f5");
       boxes(r, 150);
       return;
     }
-    for (const [x, y, w, c] of [[71, 13, 14, "#3f6fb5"], [71, 16, 20, "#3a3f48"], [71, 19, 10, "#d64545"], [86, 19, 14, "#3a3f48"], [71, 22, 24, "#3a3f48"]]) r(x, y, x + w, y, c);
+    // notes and a graph on the board, a magnet holding a sheet
+    for (const [x, y, w, c] of [[71, 13, 14, "#3f6fb5"], [71, 16, 18, "#3a3f48"], [71, 19, 10, "#d64545"], [71, 22, 14, "#3a3f48"]]) for (let xx = x; xx <= x + w; xx++) if (hash01(xx + y * 7, 73) < 0.85) r(xx, y, xx, y, c);
+    r(90, 13, 90, 23, "#3a3f48");
+    r(90, 23, 101, 23, "#3a3f48");
+    for (let x = 91; x <= 101; x++) r(x, 22 - Math.round(((x - 91) / 10) ** 2 * 8), x, 22 - Math.round(((x - 91) / 10) ** 2 * 8), "#d64545");
+    for (const [x, c] of [[72, "#d64545"], [75, "#3f6fb5"], [78, "#3a3f48"]]) r(x, 25, x + 1, 25, c);
     for (const x of lv >= 3 ? [34, 150] : [150]) lamp(r, x, 3, true);
-    // lab bench with flasks
-    box(r, 108, 22, 188, 31, "#3a4a4a", "#1d2a2a");
-    r(108, 22, 188, 22, "#5a6a6a");
-    for (const [x, c] of [[114, "#4caf7d"], [122, "#3fa7d6"], [130, "#e0602a"], [138, "#8a5ad6"]]) {
-      r(x + 1, 15, x + 2, 17, "#c9ccd2");
-      box(r, x, 18, x + 3, 21, c, shadowOf(c));
+    // the lab bench: cupboards under a steel top
+    box(r, 108, 23, 188, 31, "#3a4a4a", "#1d2a2a");
+    r(107, 22, 189, 22, "#9aa5b1");
+    r(107, 23, 189, 23, "#5e6670");
+    for (let x = 109; x < 186; x += 16) {
+      box(r, x, 24, x + 14, 30, "#425454", "#2a3838");
+      r(x + 12, 26, x + 12, 28, "#9aa5b1");
+    }
+    // flasks and a rack of test tubes, each with its liquid
+    for (const [x, c] of [[114, "#4caf7d"], [130, "#e0602a"]]) flask(r, x, 21, c);
+    disc(r, 123, 19.5, 2.2, 2.2, "#c9e4ee", false);
+    r(122, 19, 124, 21, "#3fa7d6");
+    r(121, 20, 125, 20, "#3fa7d6");
+    r(123, 15, 123, 17, "#c9e4ee");
+    r(122, 14, 124, 14, "#c9ccd2");
+    r(136, 21, 145, 21, "#8a6a4a");
+    r(136, 17, 145, 17, "#8a6a4a");
+    for (const [x, c] of [[137, "#8a5ad6"], [140, "#f4d35e"], [143, "#4caf7d"]]) {
+      r(x, 15, x, 20, "#d8eef4");
+      r(x, 18, x, 20, c);
     }
     if (lv >= 3) {
-      // microscope, and books on shelves
-      r(148, 14, 149, 20, "#3a3f48");
-      r(146, 21, 152, 21, "#3a3f48");
-      r(150, 13, 152, 14, "#3a3f48");
+      // a microscope, and books on shelves
+      r(147, 21, 153, 21, "#2a2d33");
+      r(151, 15, 152, 20, "#3a3f48");
+      r(152, 15, 152, 20, "#5a5f68");
+      r(148, 18, 151, 18, "#3a3f48");
+      r(148, 12, 149, 16, "#545962");
+      r(148, 12, 148, 16, "#7a808a");
+      r(147, 11, 150, 11, "#2a2d33");
       bookcase(r, 14, 12, 40, 31);
     }
     if (lv >= 4) {
-      // a computer terminal
-      box(r, 46, 16, 62, 26, "#1d2026", "#3a3f48");
-      for (const y of [18, 20, 22]) r(48, y, 48 + (y % 7) + 6, y, "#7fe0a8");
-      r(52, 27, 56, 28, "#3a3f48");
+      // a computer: a monitor glowing with green text, a keyboard on the desk
       desk(r, 44, 64, 29, "#9aa5b1");
+      box(r, 46, 15, 62, 26, "#3a3f48", "#22252b");
+      r(46, 15, 62, 15, "#5a5f68");
+      (r.glow || r)(48, 17, 60, 24, "#10241a");
+      for (const y of [18, 20, 22]) for (let x = 49; x < 49 + ((y * 3) % 9) + 3; x++) (r.glow || r)(x, y, x, y, "#7fe0a8");
+      r(53, 27, 55, 28, "#3a3f48");
+      r(48, 28, 52, 28, "#c9ccd2");
     }
     if (lv >= 5) {
-      // a glowing machine of tubes on the bench
-      box(r, 160, 9, 182, 21, "#3a3f48", "#1d2026");
+      // a glowing machine of tubes on the bench, bubbling, piped together, a gauge on it
+      box(r, 160, 8, 182, 21, "#3a3f48", "#1d2026");
+      r(161, 9, 181, 9, "#5a5f68");
       for (const x of [163, 169, 175]) {
         box(r, x, 11, x + 4, 19, "#7fe0a8", "#3a8f63");
         r(x + 1, 12, x + 1, 17, "#d8ffe8");
+        for (const [dx, dy] of [[2, 16], [3, 14], [2, 12]]) r(x + dx, dy, x + dx, dy, "#d8ffe8");
       }
-      for (const [x, y] of [[166, 8], [172, 7], [178, 8]]) r(x, y, x, y, "#7fe0a8aa");
+      r(167, 13, 168, 13, "#8a909a");
+      r(173, 15, 174, 15, "#8a909a");
+      disc(r, 180, 11, 1.2, 1.2, "#e8e2d0", false);
+      r(180, 11, 180, 11, "#d64545");
+      for (const [x, y] of [[166, 6], [172, 5], [178, 6]]) r(x, y, x, y, "#7fe0a8aa");
     }
   },
 
   // The Crafting Room: piles of junk, then a workbench under a pegboard of tools, a vise and a
   // drill press, a welding station throwing sparks, and at the top finished barricade panels.
   crafting(r, lv) {
-    const wall = ["#6a5a4c", "#8a6f58", "#937860", "#9c8068", "#a58870"][lv - 1];
-    hiRoom(r, { wall, wainscot: mix(wall, "#1d1a18", 0.4), floor: lv <= 1 ? "#5e5a55" : "#77736c", floorLine: lv <= 1 ? "#4e4a45" : "#66625b" });
+    const wall = ["#5e5044", "#7a624e", "#836a56", "#8c725e", "#957a66"][lv - 1];
+    hiRoom(r, { wall, wainscot: mix(wall, "#1d1a18", 0.4), floor: lv <= 1 ? "#5e5a55" : "#77736c", floorLine: lv <= 1 ? "#4e4a45" : "#66625b", concrete: true });
     if (lv <= 1) {
       lamp(r, 96, 14, false);
       crack(r, 80, 13);
-      // junk piles
-      for (const [x, w, h, c] of [[20, 26, 8, "#6b6f78"], [60, 20, 6, "#8a5f33"], [104, 24, 9, "#5a5f68"]]) {
-        for (let i = 0; i < h; i++) r(x + i, 31 - i, x + w - i, 31 - i, i % 2 ? c : shadowOf(c));
-      }
+      junkPile(r, 20, 26, 9, "#6b6f78");
+      junkPile(r, 60, 20, 7, "#8a5f33");
+      junkPile(r, 104, 24, 10, "#5a5f68");
       boxes(r, 150);
       return;
     }
     for (const x of lv >= 3 ? [34, 96, 158] : [96]) lamp(r, x, 3, true);
-    // pegboard of tools
+    // the pegboard and its tools: a hammer, a wrench, a screwdriver, a saw, pliers
     box(r, 68, 10, 104, 25, "#c9a878", "#8a6f4a");
-    for (let y = 12; y < 25; y += 3) for (let x = 70; x < 104; x += 3) r(x, y, x, y, "#a8875a");
-    // hammer, wrench, saw
-    r(74, 13, 74, 21, "#6b4a2f");
-    box(r, 72, 12, 76, 14, "#6b6f78");
-    r(82, 13, 82, 22, "#9aa0a8");
-    box(r, 81, 12, 83, 13, "#9aa0a8");
+    for (let y = 12; y < 25; y += 3) for (let x = 70; x < 104; x += 3) r(x, y, x, y, "#9a7a50");
+    r(74, 14, 74, 22, "#8a5f33");
+    r(74, 14, 74, 18, "#a8753f");
+    r(72, 12, 76, 13, "#6b707a");
+    r(72, 12, 76, 12, "#9aa0aa");
+    r(80, 14, 80, 22, "#9aa0a8");
+    r(79, 12, 81, 13, "#9aa0a8");
+    r(80, 13, 80, 13, "#c9a878");
+    r(84, 12, 84, 17, "#c9ccd2");
+    r(84, 18, 84, 22, "#d64545");
     box(r, 87, 14, 98, 17, "#c9ccd2", "#8a8e96");
-    r(98, 14, 101, 17, "#8a5f33");
-    // workbench
-    box(r, 108, 21, 170, 24, "#8a5f33", "#5a3b24");
-    r(110, 25, 111, 31, "#5a3b24");
-    r(167, 25, 168, 31, "#5a3b24");
-    r(112, 28, 166, 28, "#6b4a2f");
+    for (let x = 88; x < 98; x += 2) r(x, 17, x, 17, "#8a8e96");
+    r(98, 13, 101, 18, "#8a5f33");
+    r(99, 15, 100, 16, "#c9a878");
+    r(90, 19, 90, 23, "#3f6fb5");
+    r(93, 19, 93, 23, "#3f6fb5");
+    r(91, 19, 92, 20, "#6b707a");
+    // the workbench: a thick top, a toolbox and planks on the shelf under it
+    r(108, 21, 170, 23, "#9a6a3a");
+    r(108, 21, 170, 21, "#c08a50");
+    r(108, 23, 170, 23, "#6b4a2f");
+    for (const x of [110, 167]) r(x, 24, x + 1, 31, "#5a3b24");
+    r(112, 28, 166, 28, "#7a5232");
+    box(r, 120, 25, 130, 27, "#c83a3a", "#7a2020");
+    r(124, 24, 126, 24, "#2a2d33");
+    r(138, 26, 160, 26, "#c49a64");
+    r(140, 27, 158, 27, "#a8784a");
+    for (const [x, y] of [[132, 20], [150, 20], [156, 20]]) r(x, y, x + 1, y, "#e0c08a");
     if (lv >= 3) {
-      // a vise on the bench and a drill press
-      box(r, 114, 17, 122, 20, "#6b6f78", "#3a3f48");
-      r(117, 15, 119, 16, "#6b6f78");
-      box(r, 176, 10, 184, 16, "#d64545", "#7a2020");
-      r(179, 17, 180, 29, "#6b6f78");
-      box(r, 174, 29, 186, 31, "#3a3f48");
-      r(179, 17, 180, 19, "#c9ccd2");
+      // a vise on the bench, and a drill press
+      box(r, 114, 17, 122, 20, "#6b707a", "#3a3f48");
+      r(115, 17, 121, 17, "#9aa0aa");
+      r(117, 15, 119, 16, "#6b707a");
+      r(123, 18, 125, 18, "#9aa0aa");
+      box(r, 174, 29, 186, 31, "#3a3f48", "#1d2026");
+      r(179, 13, 180, 29, "#8a909a");
+      r(179, 13, 179, 29, "#b0b6c0");
+      box(r, 175, 9, 185, 15, "#c83a3a", "#7a2020");
+      r(176, 10, 184, 10, "#e85a50");
+      r(180, 16, 180, 19, "#c9ccd2");
+      r(181, 20, 181, 21, "#9aa0aa");
+      r(185, 13, 188, 13, "#3a3f48");
+      r(176, 22, 184, 23, "#6b707a");
     }
     if (lv >= 4) {
-      // a welding station with sparks
+      // the welding set: the machine with its dial, a mask on a hook, the torch throwing sparks
       box(r, 16, 18, 34, 31, "#3a3f48", "#1d2026");
-      box(r, 19, 20, 31, 24, "#f4d35e", "#c9a227");
-      for (const [x, y] of [[38, 22], [40, 20], [42, 24], [39, 25], [44, 21]]) r(x, y, x, y, "#ffd27a");
-      box(r, 36, 23, 48, 31, "#6b6f78", "#3a3f48");
+      r(17, 19, 33, 19, "#5a5f68");
+      disc(r, 22, 23, 2, 2, "#e8e2d0", false);
+      r(22, 22, 22, 23, "#d64545");
+      (r.glow || r)(28, 22, 31, 23, "#f4d35e");
+      r(26, 27, 31, 28, "#2a2d33");
+      for (let k = 0; k < 8; k++) r(34 + k, 26 - Math.round(Math.sin(k / 2) * 2), 34 + k, 26 - Math.round(Math.sin(k / 2) * 2), "#1d2026");
+      box(r, 36, 23, 48, 31, "#6b707a", "#3a3f48");
+      r(37, 23, 47, 23, "#9aa0aa");
+      r(5, 14, 11, 20, "#2a2d33");
+      r(6, 16, 10, 17, "#3a6a5a");
+      const glow = r.glow || r;
+      glow(42, 22, 42, 22, "#ffffff");
+      for (const [x, y, c] of [[38, 21, "#ffd27a"], [40, 19, "#ffd27a"], [44, 20, "#fff4b0"], [45, 18, "#f4a030"], [39, 17, "#f4a030"], [46, 22, "#ffd27a"], [41, 20, "#fff4b0"], [43, 17, "#ffd27a"]]) glow(x, y, x, y, c);
+      r.light?.({ x: 42, y: 21, r: 16, k: 0.55, c: [0.75, 0.85, 1.0] });
     }
     if (lv >= 5) {
-      // finished barricade panels leaning on the wall, a safety sign
+      // finished barricade panels leaning on the wall, strapped and spiked, and a safety sign
       for (const x of [132, 144]) {
         box(r, x, 10, x + 10, 20, "#8a5f33", "#5a3b24");
-        r(x + 1, 13, x + 9, 13, "#6b6f78");
-        r(x + 1, 17, x + 9, 17, "#6b6f78");
+        for (let px = x + 3; px < x + 10; px += 3) r(px, 11, px, 19, "#6e4a28");
+        for (const y of [13, 17]) {
+          r(x + 1, y, x + 9, y, "#6b707a");
+          r(x + 2, y, x + 2, y, "#c9ccd2");
+          r(x + 8, y, x + 8, y, "#c9ccd2");
+        }
+        for (let px = x + 1; px <= x + 9; px += 2) r(px, 9, px, 9, "#c9ccd2");
       }
-      box(r, 52, 12, 62, 20, "#f4d35e", "#1d2026");
-      r(56, 14, 57, 17, "#1d2026");
-      r(56, 18, 57, 18, "#1d2026");
+      for (let y = 13; y <= 20; y++) r(57 - Math.round((y - 13) * 0.75), y, 57 + Math.round((y - 13) * 0.75), y, "#f4d35e");
+      r(51, 20, 63, 20, "#c9a227");
+      r(57, 15, 57, 18, "#1d2026");
+      r(57, 19, 57, 19, "#1d2026");
     }
   },
 
@@ -1025,66 +1691,112 @@ function hash01(i, s) {
 }
 
 function wideOutdoor(r, lv, ground, sunX = 360) {
-  const top = ["#6f7780", "#7fa3c8", "#79afe0", "#74b3e8", "#78b9ee"][lv - 1];
-  const low = ["#a39c8f", "#c7d3d9", "#cfe3ee", "#d6ebf5", "#e2f1f8"][lv - 1];
-  const skyAt = (y) => mix(top, low, Math.min(1, y / 21));
-  for (let i = 0; i < 8; i++) r(0, i * 3, WW - 1, i * 3 + 2, skyAt(i * 3));
-  // the sun, from level 3
+  const top = ["#5f6770", "#6f95bd", "#6aa2d6", "#66a8e0", "#6aaee6"][lv - 1];
+  const low = ["#9a948a", "#c4d0d6", "#cfe2ec", "#d8ecf4", "#e4f2f8"][lv - 1];
+  const skyAt = (y) => mix(top, low, Math.min(1, Math.max(0, y / 21) ** 0.85));
+  for (let y = 0; y < 22; y++) r(0, y, WW - 1, y, skyAt(y));
+  // the sun, from level 3, a faint ring round it
   if (lv >= 3) {
-    r(sunX - 4, 4, sunX + 4, 8, "#fff3c4");
-    r(sunX - 3, 3, sunX + 3, 9, "#fff3c4");
-    r(sunX - 2, 2, sunX + 2, 10, "#fff3c4");
-    r(sunX - 1, 4, sunX + 1, 8, "#fffbe8");
+    const glow = r.glow || r;
+    disc(glow, sunX, 6, 4.6, 4.6, "#fff3c4", false);
+    disc(glow, sunX, 6, 2.6, 2.6, "#fffbe8", false);
+    for (let a = 0; a < 40; a++) {
+      const x = Math.round(sunX + Math.cos((a / 40) * Math.PI * 2) * 8);
+      const y = Math.round(6 + Math.sin((a / 40) * Math.PI * 2) * 8);
+      if (a % 2 === 0 && y >= 0) r(x, y, x, y, "#fff6d855");
+    }
     // its halo over the sky and the warm light it throws across the yard
     r.light?.({ x: sunX, y: 6, r: 150, sy: 1.8, k: 0.28, c: [1.0, 0.88, 0.62] });
   }
-  // clouds, more of them as the smoke clears
+  // clouds, puffed up, lit on top and grey underneath, more of them as the smoke clears
   if (lv >= 2) {
-    for (const [x, y, w] of [[96, 5, 26], [196, 3, 34], [290, 7, 22], [392, 4, 18], [150, 9, 14]].slice(0, lv)) {
-      r(x, y, x + w, y + 2, "#f4f8fc");
-      r(x + 4, y - 2, x + w - 8, y - 1, "#f4f8fc");
-      r(x + 2, y + 3, x + w - 2, y + 3, mix("#f4f8fc", low, 0.5));
+    for (const [x, y, w] of [[96, 6, 26], [196, 4, 34], [290, 8, 22], [392, 5, 18], [150, 10, 14]].slice(0, lv)) {
+      const under = mix("#f4f8fc", top, 0.35);
+      r(x, y + 1, x + w, y + 2, "#eef4fa");
+      r(x + 1, y + 3, x + w - 1, y + 3, under);
+      for (const [dx, rr] of [[0.25, 2.6], [0.5, 3.4], [0.75, 2.2]]) disc(r, x + w * dx, y, rr * (w / 26) + 1, rr * 0.8, "#f4f8fc", false);
+      r(x + Math.round(w * 0.35), y - 2, x + Math.round(w * 0.6), y - 2, "#ffffff");
     }
   }
   // birds
   if (lv >= 4) for (const [x, y] of [[250, 6], [258, 4], [265, 7], [120, 3]]) { r(x, y, x + 1, y, "#3a3f48"); r(x + 2, y - 1, x + 2, y - 1, "#3a3f48"); r(x + 3, y, x + 4, y, "#3a3f48"); }
+  // the far city, hazy with distance
+  const far = mix(low, "#5a6478", 0.32);
+  for (let x = 0, i = 0; x < WW; i++) {
+    const w = 8 + Math.floor(hash01(i, 31) * 14);
+    const h = 7 + Math.floor(hash01(i, 32) * 10);
+    r(x, 22 - h, x + w - 1, 21, far);
+    if (hash01(i, 33) < 0.25) r(x + Math.floor(w / 2), 22 - h - 3, x + Math.floor(w / 2), 22 - h - 1, far);
+    x += w;
+  }
   // smoke rising over the city at levels 1-2
   if (lv <= 2) {
     for (const x of lv === 1 ? [80, 230, 330] : [230]) {
-      for (let k = 0; k < 7; k++) {
-        const w = 2 + k;
-        const cx = x + k + Math.round(Math.sin(k * 0.9) * 3);
-        r(cx - (w >> 1), 17 - k * 3, cx + (w >> 1), 19 - k * 3, lv === 1 ? "#4a4d52aa" : "#6a6d7277");
+      for (let k = 0; k < 8; k++) {
+        const cx = x + k * 1.5 + Math.sin(k * 0.9) * 3;
+        disc(r, cx, 18 - k * 2.6, 1.4 + k * 0.5, 1.2 + k * 0.3, lv === 1 ? "#4a4d52aa" : "#6a6d7277", false);
       }
     }
   }
-  // the ruined city on the horizon
+  // the ruined city on the horizon: broken towers, lit windows from level 4, a water tower, a
+  // crane and a radio mast with its red light
   const city = mix(low, "#2c3340", 0.58);
   const win = mix(city, "#10141c", 0.35);
   for (let x = 0, i = 0; x < WW; i++) {
     const w = 6 + Math.floor(hash01(i, 1) * 12);
     const h = 4 + Math.floor(hash01(i, 2) * 11);
     r(x, 22 - h, x + w - 1, 21, city);
-    if (hash01(i, 3) < 0.45) r(x + w - 3, 22 - h, x + w - 1, 23 - h + Math.floor(hash01(i, 4) * 2), skyAt(22 - h));
-    for (let wy = 24 - h; wy < 20; wy += 3) for (let wx = x + 2; wx < x + w - 2; wx += 3) r(wx, wy, wx, wy, lv >= 4 && hash01(wx, wy) < 0.08 ? "#f4d35e" : win);
+    r(x, 22 - h, x, 21, mix(city, low, 0.12));
+    if (hash01(i, 3) < 0.45) {
+      // a broken corner, jagged
+      for (let k = 0; k < 3; k++) r(x + w - 3 + k, 22 - h, x + w - 1, 22 - h + k + Math.floor(hash01(i, 4) * 2), skyAt(22 - h + k));
+    }
+    for (let wy = 24 - h; wy < 20; wy += 3) for (let wx = x + 2; wx < x + w - 2; wx += 3) {
+      const lit = lv >= 4 && hash01(wx, wy) < 0.08;
+      (lit ? r.glow || r : r)(wx, wy, wx, wy, lit ? "#f4d35e" : win);
+    }
     x += w + (hash01(i, 5) < 0.3 ? 2 : 0);
   }
-  // a hazy tree line in front of it
-  const trees = lv <= 1 ? mix("#5a5a44", low, 0.35) : mix("#3f6a3a", low, 0.3);
+  for (const tx of [44, 270]) {
+    r(tx, 11, tx + 6, 14, city);
+    r(tx + 1, 10, tx + 5, 10, city);
+    for (const lx of [tx + 1, tx + 5]) r(lx, 15, lx, 21, city);
+    r(tx + 1, 18, tx + 5, 18, city);
+  }
+  r(338, 4, 338, 21, city);
+  for (const y of [8, 13, 18]) r(337, y, 339, y, city);
+  (r.glow || r)(338, 3, 338, 3, "#ff5b5b");
+  r(180, 6, 180, 21, city);
+  r(170, 6, 200, 6, city);
+  r(198, 7, 198, 10, city);
+  // a hazy tree line in front of it, crowns lit from the sun's side
+  const trees = lv <= 1 ? mix("#5a5a44", low, 0.35) : mix("#3f6a3a", low, 0.28);
   for (let x = 0; x < WW; x++) {
     const h = 1 + Math.round(1.2 + Math.sin(x / 7) * 1.2 + Math.sin(x / 19 + 1) * 1.4 + hash01(x, 9));
     r(x, 22 - h, x, 21, trees);
+    r(x, 22 - h, x, 22 - h, x % 7 < 3 ? mix(trees, low, 0.3) : trees);
   }
-  // the ground: lighter at the horizon, specks and tufts
+  // the ground: lighter at the horizon, tufts of grass (or grit) all over it, darker at the front
   r(0, 22, WW - 1, 47, ground);
   r(0, 22, WW - 1, 22, mix(ground, "#f4f0e0", 0.25));
   r(0, 23, WW - 1, 24, mix(ground, "#f4f0e0", 0.1));
-  r(0, 44, WW - 1, 47, shadowOf(ground));
-  for (let i = 0; i < 160; i++) {
-    const x = Math.floor(hash01(i, 21) * WW);
-    const y = 25 + Math.floor(hash01(i, 22) * 22);
-    r(x, y, x + 1, y, i % 3 ? shadowOf(ground) : lightOf(ground));
+  for (let i = 0; i < 9; i++) {
+    const x = Math.floor(hash01(i, 23) * WW);
+    const y = 27 + Math.floor(hash01(i, 24) * 16);
+    const w = 14 + Math.floor(hash01(i, 25) * 26);
+    for (let dy = 0; dy < 3; dy++) r(x + dy * 2, y + dy, x + w - dy * 2, y + dy, mix(ground, i % 2 ? "#1a1424" : "#f4f0e0", 0.07));
   }
+  r(0, 44, WW - 1, 47, shadowOf(ground));
+  for (let i = 0; i < 420; i++) {
+    const x = Math.floor(hash01(i, 21) * WW);
+    const y = 25 + Math.floor(hash01(i, 22) ** 0.7 * 22);
+    const k = i % 4;
+    if (k === 0) r(x, y, x + 1, y, shadowOf(ground));
+    else if (k === 1) r(x, y - 1, x, y, mix(ground, "#f4f0e0", 0.22));
+    else if (k === 2) r(x, y - 1, x, y, mix(ground, "#1a1424", 0.2));
+    else r(x, y, x, y, lightOf(ground));
+  }
+  r.shellDone?.();
 }
 
 // A dirt track across the front of the yard.
@@ -1198,9 +1910,15 @@ function scarecrow(r, x) {
 // A wooden shed; caved in at level 1. `sparks`: a welder at work inside.
 function shed(r, x, broken, sparks = false) {
   box(r, x, 18, x + 22, 31, "#8a6a4a", "#5a4430");
-  for (let yy = 20; yy < 31; yy += 3) r(x + 1, yy, x + 21, yy, "#7a5c40");
+  for (let yy = 20; yy < 31; yy += 3) {
+    r(x + 1, yy, x + 21, yy, "#7a5c40");
+    r(x + 1, yy + 1, x + 21, yy + 1, "#9a7a58");
+  }
+  r(x + 21, 19, x + 21, 30, "#6a4e36");
   r(x - 1, 16, x + 23, 17, "#5a5e66");
   r(x - 2, 15, x + 24, 15, "#6b6f78");
+  for (let px = x - 1; px <= x + 23; px += 3) r(px, 16, px, 17, "#4a4e56");
+  r(x - 2, 15, x + 24, 15, "#8a909a");
   box(r, x + 8, 23, x + 14, 31, broken ? "#2a2420" : "#4a3626", "#3a2a1e");
   if (broken) {
     r(x + 10, 15, x + 18, 18, "#2a2420");
@@ -1211,7 +1929,8 @@ function shed(r, x, broken, sparks = false) {
   box(r, x + 2, 20, x + 6, 23, "#a9d4ef", "#5a4430");
   if (sparks) {
     r(x + 9, 24, x + 13, 31, "#1d2026");
-    for (const [dx, dy, c] of [[11, 27, "#fff4b0"], [10, 26, "#f4d35e"], [12, 25, "#f4d35e"], [13, 28, "#f08a3a"], [9, 28, "#f08a3a"], [14, 24, "#fff4b0"]]) r(x + dx, dy, x + dx, dy, c);
+    for (const [dx, dy, c] of [[11, 27, "#fff4b0"], [10, 26, "#f4d35e"], [12, 25, "#f4d35e"], [13, 28, "#f08a3a"], [9, 28, "#f08a3a"], [14, 24, "#fff4b0"]]) (r.glow || r)(x + dx, dy, x + dx, dy, c);
+    r.light?.({ x: x + 11, y: 26, r: 12, k: 0.5, c: [0.75, 0.85, 1.0] });
   }
 }
 function toolRack(r, x) {
@@ -1372,10 +2091,12 @@ function tyre(r, x, y) {
   r(x + 2, y - 1, x + 5, y - 1, "#3a3f48");
 }
 function drum(r, x, base, c) {
-  box(r, x, base - 8, x + 6, base, c, shadowOf(c));
+  // an oil drum: round, so lit on the left and shaded on the right, two ribs and a lid
+  for (let i = 0; i <= 6; i++) r(x + i, base - 8, x + i, base, [shadowOf(c), lightOf(c), lightOf(c), c, c, shadowOf(c), mix(c, "#1a1424", 0.45)][i]);
   r(x, base - 6, x + 6, base - 6, shadowOf(c));
   r(x, base - 2, x + 6, base - 2, shadowOf(c));
-  r(x + 1, base - 7, x + 1, base - 1, lightOf(c));
+  r(x, base - 9, x + 6, base - 9, mix(c, "#c9ccd2", 0.5));
+  r(x + 4, base - 9, x + 4, base - 9, "#3a3f48");
 }
 function workbench(r, x) {
   r(x, 23, x + 22, 24, "#8a5f33");
@@ -1487,9 +2208,39 @@ const sceneCache = new Map();
 const LAMP_LIGHT = [1.0, 0.86, 0.6];
 const DAYLIGHT = [0.8, 0.9, 1.0];
 const SCREEN_LIGHTS = { "#7fe0a8": [0.45, 1.0, 0.7], "#d8ffe8": [0.6, 1.0, 0.8], "#ff5b5b": [1.0, 0.4, 0.4], "#fff3c4": [1.0, 0.95, 0.75], "#fffbe8": [1.0, 0.95, 0.8] };
-const INDOOR_AMBIENT = [[0.6, 0.6, 0.68], [0.68, 0.68, 0.74], [0.74, 0.74, 0.79], [0.78, 0.78, 0.82], [0.82, 0.82, 0.86]];
-const AFTERNOON = [[0.8, 0.79, 0.78], [0.92, 0.88, 0.82], [0.98, 0.92, 0.84], [1.0, 0.94, 0.85], [1.02, 0.96, 0.86]];
+const INDOOR_AMBIENT = [[0.5, 0.5, 0.58], [0.58, 0.58, 0.65], [0.64, 0.64, 0.7], [0.68, 0.68, 0.73], [0.72, 0.72, 0.76]];
+const AFTERNOON = [[0.68, 0.67, 0.68], [0.82, 0.79, 0.76], [0.89, 0.85, 0.8], [0.93, 0.88, 0.81], [0.96, 0.9, 0.82]];
 const OUTDOOR_SCENES = new Set(["farm", "scrapyard"]);
+
+// Shadows, so the things in a room sit in it: indoors a drop shadow down and to the right of
+// everything on the wall, the ceiling's shadow along the top, and the floor darker where it meets
+// the wall and darker still under anything standing there; outdoors a shadow at the foot of
+// everything on the ground. `prop` marks the things (see sceneBackground). The scene tiles
+// sideways, so the shadows wrap round.
+function finishScene(p, prop, w, h, outdoor) {
+  const isProp = (x, y) => y >= 0 && y < h && prop[y * w + ((x + w) % w)];
+  const dims = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (prop[i] || p.glow[i]) continue;
+    let k = 0;
+    if (outdoor) {
+      if (y >= 22) k = isProp(x, y - 1) ? 0.34 : isProp(x, y - 2) ? 0.16 : isProp(x - 1, y - 1) || isProp(x + 1, y - 1) ? 0.12 : 0;
+    } else if (y <= 31) {
+      if (isProp(x - 1, y - 1)) k = 0.3;
+      if (y <= 2) k = Math.max(k, [0.22, 0.12, 0.05][y]);
+    } else {
+      const d = y - 32;
+      if (d < 4) {
+        const under = isProp(x, 31) ? [0.32, 0.2, 0.08, 0.03] : isProp(x - 1, 31) || isProp(x + 1, 31) ? [0.16, 0.07, 0, 0] : [0, 0, 0, 0];
+        k = [0.2, 0.1, 0.04, 0][d] + under[d];
+      }
+    }
+    if (k) dims.push(i, k);
+  }
+  for (let n = 0; n < dims.length; n += 2) p.col[dims[n]] = mix(p.col[dims[n]] || "#000000", "#140f1e", dims[n + 1]);
+}
+
 export function sceneBackground(kind, floorRows = 0) {
   const key = floorRows ? `${kind}+${floorRows}` : kind;
   if (!sceneCache.has(key)) {
@@ -1499,10 +2250,32 @@ export function sceneBackground(kind, floorRows = 0) {
     const [w, h] = [SCENE_WIDTH[name] || HW, HH];
     const p = buffer(w, h + floorRows);
     const lights = [];
-    const r = (x0, y0, x1, y1, c) => p.r(x0, y0, x1, y1, c);
-    r.glow = (x0, y0, x1, y1, c) => p.r(x0, y0, x1, y1, c, 1);
+    // Everything solid drawn after the room's shell (r.shellDone) is a thing in the room, and gets a
+    // shadow (finishScene); see-through colours and r.shade (stains, shadows) don't.
+    const prop = new Uint8Array(w * h);
+    let shellOn = false;
+    const mark = (x0, y0, x1, y1, c) => {
+      if (!shellOn || !c || c.length !== 7) return;
+      for (let y = Math.max(0, Math.round(y0)); y <= Math.min(h - 1, Math.round(y1)); y++)
+        for (let x = Math.max(0, Math.round(x0)); x <= Math.min(w - 1, Math.round(x1)); x++) prop[y * w + x] = 1;
+    };
+    const r = (x0, y0, x1, y1, c) => {
+      p.r(x0, y0, x1, y1, c);
+      mark(x0, y0, x1, y1, c);
+    };
+    r.glow = (x0, y0, x1, y1, c) => {
+      p.r(x0, y0, x1, y1, c, 1);
+      mark(x0, y0, x1, y1, c);
+    };
+    r.shade = (x0, y0, x1, y1, c) => p.r(x0, y0, x1, y1, c);
     r.light = (l) => lights.push(l);
+    r.lv = lv;
+    r.shellDone = () => {
+      shellOn = true;
+      prop.fill(0);
+    };
     (hi || HI_SCENES.classroom_empty)(r, lv);
+    if (shellOn) finishScene(p, prop, w, h, OUTDOOR_SCENES.has(name));
     // screens, indicator lights, the sun: they glow, and each cluster of them lights its corner
     const cells = new Map();
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
