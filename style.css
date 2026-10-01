@@ -1440,7 +1440,8 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
 .nw-role { position: absolute; top: -2px; left: -12px; font-size: 12px; line-height: 1; filter: drop-shadow(0 1px 1px #000); }
 .nw-static { cursor: default; }
 
-/* tonight's weather over the board: fog swallows the street, rain streaks, a blackout darkens it all */
+/* tonight's weather over the board: fog swallows the street, rain streaks, a blackout darkens all
+   but the two lamp-lit lanes (--lamp-a, --lamp-b) */
 .nw-cells::before { content: ""; position: absolute; inset: 0; z-index: 12; pointer-events: none; }
 .nw-cond-fog .nw-cells::before {
   background: linear-gradient(to top, rgba(170, 180, 195, 0.88) 0%, rgba(150, 160, 178, 0.55) 30%, rgba(140, 150, 168, 0.15) 62%, transparent 78%);
@@ -1452,7 +1453,15 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
   animation: nw-rain 0.45s linear infinite;
 }
 @keyframes nw-rain { to { background-position: -10px 30px; } }
-.nw-cond-blackout .nw-cells::before { background: rgba(0, 0, 8, 0.58); }
+.nw-cond-blackout .nw-cells::before {
+  --dark: rgba(0, 0, 8, 0.58);
+  background: linear-gradient(to right,
+    var(--dark) 0, var(--dark) calc(var(--lamp-a) * 100% / var(--size)),
+    transparent calc(var(--lamp-a) * 100% / var(--size)), transparent calc((var(--lamp-a) + 1) * 100% / var(--size)),
+    var(--dark) calc((var(--lamp-a) + 1) * 100% / var(--size)), var(--dark) calc(var(--lamp-b) * 100% / var(--size)),
+    transparent calc(var(--lamp-b) * 100% / var(--size)), transparent calc((var(--lamp-b) + 1) * 100% / var(--size)),
+    var(--dark) calc((var(--lamp-b) + 1) * 100% / var(--size)), var(--dark) 100%);
+}
 
 /* night actions: a bar under the battle, and aiming one at a square */
 .nw-actions { display: flex; gap: 8px; }

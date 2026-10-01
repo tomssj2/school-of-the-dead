@@ -1739,6 +1739,8 @@ export function nightCondition(state) {
 // The horde comes in 1 wave up to 6 zombies, 2 up to 14, 3 beyond.
 export const nightWaveCount = (zombies) => (zombies <= 6 ? 1 : zombies <= 14 ? 2 : 3);
 
+// The two lamp-lit lanes (a blackout doesn't reach them).
+export const lampLanes = (size) => [Math.round(size * 0.2), size - 1 - Math.round(size * 0.2)];
 
 // How many night actions tonight: the base, plus a Rally for each rallier on watch (up to two).
 export function nightActionUses(state) {
@@ -1777,6 +1779,7 @@ export function startNightBattle(state) {
   const waveCount = nightWaveCount(queue.length);
   const perWave = Math.ceil(queue.length / waveCount);
   const condition = nightCondition(state);
+  const lamps = lampLanes(size);
 
   const roleCount = {};
   const students = Object.entries(grid.students)
@@ -1821,7 +1824,7 @@ export function startNightBattle(state) {
   const gateMax = gateHp(state);
 
   const b = {
-    size, rows: ENTRANCE_ROWS, condition,
+    size, rows: ENTRANCE_ROWS, condition, lamps,
     zStats: zombieStatsForDay(state.day),
     waves: Array.from({ length: waveCount }, (_, i) => queue.slice(i * perWave, (i + 1) * perWave)),
     wave: 0, waveSpawned: 0, waveTick: 0,
@@ -1900,7 +1903,7 @@ export function battleTick(state, b) {
     const weapon = useMelee ? s.melee : s.ranged;
     if (useMelee) s.usedMelee = true;
     else s.usedRanged = true;
-    const dark = b.condition.id === "blackout" ? 0.15 : 0;
+    const dark = b.condition.id === "blackout" && !b.lamps.includes(s.col) ? 0.15 : 0;
     // its type fights back: a runner slips melee blows, armour shrugs off shots, a weak spot doesn't
     const T = ZOMBIE_TYPES[target.type];
     const evaded = useMelee && T.meleeEvade && Math.random() < T.meleeEvade;
