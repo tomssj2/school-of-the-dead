@@ -3227,7 +3227,6 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
   transition: background 0.12s, box-shadow 0.12s;
 }
 .cm-lair:hover { z-index: 6; background: rgba(255, 255, 255, 0.1); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35); }
-.cm-lair-locked .cm-label { border-color: #6b7380; color: #c9ced4; }
 .cm-lair.cm-assigned { box-shadow: 0 0 0 2px var(--team); }
 /* the raid pop-up's banner: the lair itself */
 .raid-lair-banner {
@@ -3235,3 +3234,22 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
   background-size: cover; background-position: center; image-rendering: pixelated;
 }
 .raid-lair-banner .scene-plaque { position: absolute; left: 10px; top: 10px; }
+
+/* ----- above the City Map: the legend and how much of the map is scouted (ui.js renderMapStrip) ----- */
+.cm-strip {
+  display: flex; align-items: center; gap: 18px; padding: 7px 12px;
+  margin-bottom: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(255, 255, 255, 0.03);
+}
+.cm-legend { display: flex; flex-wrap: nowrap; gap: 14px; justify-content: flex-start; }
+.cm-progress { flex: 1; min-width: 240px; display: flex; align-items: center; gap: 12px; cursor: help; }
+.cm-progress-label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 12.5px; }
+.cm-progress-label b { color: #fff; }
+.cm-progress-label small { color: var(--muted); }
+.cm-progress-bar { position: relative; flex: 1; height: 8px; margin: 0 12px 0 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); }
+.cm-progress-bar > i { display: block; height: 100%; border-radius: 4px; background: var(--bar-other); }
+.cm-ms {
+  position: absolute; top: 50%; left: var(--at); transform: translate(-50%, -50%);
+  display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+  background: #1b1f2a; border: 1px solid #5a6170; filter: grayscale(1) brightness(0.8);
+}
+.cm-ms.done { border-color: #e8b830; filter: none; box-shadow: 0 0 6px rgba(232, 184, 48, 0.55); }

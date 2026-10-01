@@ -135,7 +135,8 @@ export function exploreMap(state, rings = MAP_RADIUS) {
       added++;
     }
   }
-  return `${added} blocks revealed · ${state.exploredHexes.length} explored`;
+  const milestones = G.checkMapMilestones(state);
+  return `${added} blocks revealed · ${state.exploredHexes.length} explored${milestones.length ? ` · milestones ${milestones.map((m) => `${m.pct}%`).join(", ")} paid out` : ""}`;
 }
 
 // Puts the wandering horde on the map (or moves it a block) and fills the map with supply drops.

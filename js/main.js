@@ -15,7 +15,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -456,7 +456,9 @@ function migrateState(s) {
     if (s.raidTarget === oldId) s.raidTarget = newId;
   }
   const raidLm = LANDMARKS.find((l) => l.id === s.raidTarget);
-  if (s.raidTarget && (!raidLm || !G.raidUnlocked(s, raidLm))) s.raidTarget = null; // gone, or its road not scouted yet
+  if (s.raidTarget && (!raidLm || !G.raidUnlocked(s))) s.raidTarget = null; // gone, or the map isn't fully scouted yet
+  // Map milestones are new: an older save is counted as having had the ones it's already past.
+  if (!s.mapMilestones) s.mapMilestones = MAP_MILESTONES.filter((m) => G.mapProgress(s).pct >= m);
   if (!s.raidTarget) for (const c of s.characters) if (c.exploreTeam === G.RAID_TEAM) c.exploreTeam = null;
   // Expedition teams are bought now: an old save keeps as many as it has in use (at least one).
   if (!s.teamSlots) s.teamSlots = Math.max(1, ...[0, 1, 2].filter((i) => s.teamLocations[i] || s.characters.some((c) => c.exploreTeam === i)).map((i) => i + 1));

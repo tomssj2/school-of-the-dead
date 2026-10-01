@@ -3,7 +3,7 @@
 // town is the same every game and every save, and needs no state — it's just hidden under the fog
 // until a scout gets there.
 
-import { LOCATIONS, LANDMARKS } from "./data.js";
+import { LOCATIONS } from "./data.js";
 import { shadowOf, lightOf } from "./sprite.js";
 
 // ---------- terrain ----------
@@ -65,8 +65,6 @@ export const TERRAIN_NAMES = {
 };
 
 export const locationAt = (q, r) => LOCATIONS.find((l) => l.hex.q === q && l.hex.r === r) || null;
-// The raid whose road comes in at this edge block (scouting it opens the raid), if any.
-export const raidApproachAt = (q, r) => LANDMARKS.find((l) => l.approach.q === q && l.approach.r === r) || null;
 
 // What a hex's tile shows: a location's building, or its terrain (with one of two looks).
 export function hexTileKey(q, r) {

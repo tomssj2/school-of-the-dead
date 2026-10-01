@@ -8,7 +8,7 @@ import {
   NIGHT_ACTIONS, NIGHT_CONDITIONS, DEFENDER_ROLES, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
-  MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
   RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
 } from "./data.js";
@@ -20,7 +20,7 @@ import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, defenderRole, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, formationsFor, entranceFormations, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
-  gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, RAID_TEAM,
+  gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM,
 } from "./game.js";
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, MAP_RADIUS, isSchoolHex,
@@ -1285,20 +1285,13 @@ function renderCityMapScreen(state) {
 
   return `
   <div class="card explore-card">
+    ${renderMapStrip(state)}
     <div class="explore-layout">
       ${renderExplorationMap(state)}
       <aside class="explore-side">
-        <h2>City Map ${infoDot({ title: `${pxe("map")} City Map`, notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Scroll to zoom, drag to look around", "The four corners hold the raids — each best for its own loot", "A raid opens once a scout reaches the edge block where its road comes in", "⤢ Whole map pulls back to show them", "Teachers stay at the school", "Launch the expeditions from the Exploration Summary (the centre button)"] })}</h2>
+        <h2>City Map ${infoDot({ title: `${pxe("map")} City Map`, notes: ["Click a place on the map to send a team of up to 5 students — fuller teams do better", "Farther is harder but pays better", "Click the fog (?) to send a scout and open up the town", "Grab supply drops before they're gone, and mind the horde", "Scroll to zoom, drag to look around", "Every 25% of the map scouted turns up a legendary item", "At 100% the four raids open in the corners, past the edge of town", "Teachers stay at the school", "Launch the expeditions from the Exploration Summary (the centre button)"] })}</h2>
         <div class="mini-label">Teams</div>
         ${teamRows}${raidRow}
-        <div class="ex-legend">
-          <span><b class="ex-key ex-key-fog">?</b> Scout the fog</span>
-          <span><b class="ex-key">${LOCATION_ICON.corner_store}</b> Send a team</span>
-          <span><b class="ex-key ex-key-nest">${pxe("nest")}</b> Zombie nest</span>
-          <span><b class="ex-key ex-key-raid">${BOSS_ICON}</b> Raid boss</span>
-          <span><b class="ex-key ex-key-drop">${DROP_ICON.crate}</b> Grab supplies</span>
-          <span><b class="ex-key ex-key-nest">${pxe("horde")}</b> The horde</span>
-        </div>
         ${renderRoleWindows(state)}
       </aside>
     </div>
@@ -1352,7 +1345,7 @@ function renderTurn2Summary(state) {
   const scoutsReady = cheapest === null ? 0 : students.filter((c) => exploreRole(c) === "scout" && c.stamina >= cheapest).length;
   const drops = state.mapDrops || [];
   const soonest = drops.length ? Math.min(...drops.map((d) => d.expires - state.day + 1)) : 0;
-  const raids = LANDMARKS.filter((lm) => raidUnlocked(state, lm) && !raidCooldownLeft(state, lm.id)).length;
+  const raids = LANDMARKS.filter((lm) => raidUnlocked(state) && !raidCooldownLeft(state, lm.id)).length;
   const nests = (state.nests || []).length;
   const found = LOCATIONS.filter((l) => isHexExplored(state, l.hex.q, l.hex.r)).length;
   const cityMap = overviewCard({
@@ -1559,6 +1552,40 @@ function hexTile(key) {
 // and a marker on everything you can click — "?" on the fog a scout can reach, a label on every
 // place found, nests and raid landmarks. The map is scaled to fit its box (main.js fitCityMap),
 // framing just the part of town that matters so far.
+// Above the map: what its markers mean, and how much of it has been scouted — a legendary item
+// every 25% (MAP_MILESTONES), and at 100% the raids and the outskirts open.
+function renderMapStrip(state) {
+  const { explored, total, pct } = mapProgress(state);
+  const claimed = state.mapMilestones || [];
+  const markers = MAP_MILESTONES.map((m) => {
+    const done = claimed.includes(m) || pct >= m;
+    return `<span class="cm-ms ${done ? "done" : ""} ${m === 100 ? "cm-ms-final" : ""}" style="--at:${m}%" ${tipAttr({
+      title: `${m}% mapped`,
+      rows: [["Reward", `${pxe("sparkle")} a legendary item`], ...(m === 100 ? [["…and", `${BOSS_ICON} the four raids open`]] : [])],
+      notes: [done ? "Reached" : `${Math.max(0, Math.ceil((m / 100) * total) - explored)} more block${Math.ceil((m / 100) * total) - explored === 1 ? "" : "s"} to go`],
+    })}>${m === 100 ? BOSS_ICON : pxe("sparkle")}</span>`;
+  }).join("");
+  return `<div class="cm-strip">
+    <div class="ex-legend cm-legend">
+      <span><b class="ex-key ex-key-fog">?</b> Scout the fog</span>
+      <span><b class="ex-key">${LOCATION_ICON.corner_store}</b> Send a team</span>
+      <span><b class="ex-key ex-key-nest">${pxe("nest")}</b> Zombie nest</span>
+      <span><b class="ex-key ex-key-drop">${DROP_ICON.crate}</b> Grab supplies</span>
+      <span><b class="ex-key ex-key-nest">${pxe("horde")}</b> The horde</span>
+      <span><b class="ex-key ex-key-raid">${BOSS_ICON}</b> Raid boss</span>
+    </div>
+    <div class="cm-progress" ${tipAttr({
+      title: `${pxe("map")} Mapping the town`,
+      rows: [["Blocks scouted", `${explored}/${total}`]],
+      total: ["Mapped", `${pct}%`],
+      notes: ["Every 25% turns up a legendary item", "At 100% the four raids open, out past the edge of town"],
+    })}>
+      <span class="cm-progress-label">${pxe("map")} Map <b>${pct}%</b> <small>${explored}/${total}</small></span>
+      <span class="cm-progress-bar"><i style="width:${pct}%"></i>${markers}</span>
+    </div>
+  </div>`;
+}
+
 function renderExplorationMap(state) {
   const teamAt = {};
   state.teamLocations.forEach((id, i) => {
@@ -1642,10 +1669,9 @@ function renderExplorationMap(state) {
     })}>${zombieSprite("walker", 18)}${zombieSprite("walker", 18)}${zombieSprite("walker", 18)}</span></div>`;
   }
 
-  // The raids: compounds painted into the town past the edge of the map (citymap.js). Locked —
-  // under the outskirts' haze, with a padlock — until a scout reaches the edge block nearest.
-  for (const lm of LANDMARKS) {
-    const open = raidUnlocked(state, lm);
+  // The raids: compounds painted into the town past the edge of the map (citymap.js), under the
+  // fog with the rest of the outskirts until the whole map is scouted.
+  for (const lm of raidUnlocked(state) ? LANDMARKS : []) {
     const cooldown = raidCooldownLeft(state, lm.id);
     const boss = raidBoss(state, lm);
     const team = teamAt[lm.id];
@@ -1654,12 +1680,12 @@ function renderExplorationMap(state) {
       const members = state.characters.filter((c) => c.exploreTeam === team && c.alive);
       squad = `<span class="cm-squad">${members.slice(0, 3).map((c) => characterSprite(c, 16)).join("")}${members.length > 3 ? `<b>+${members.length - 3}</b>` : members.length ? "" : "<b>0</b>"}</span>`;
     }
-    const mark = !open ? pxe("lock") : cooldown ? `💤 ${cooldown}d` : BOSS_ICON;
-    cells += `<div class="cm-lair ${open ? "" : "cm-lair-locked"} ${cooldown ? "cm-cleared" : ""} ${team !== undefined ? "cm-assigned" : ""}" data-action="open-raid" data-landmark="${lm.id}"
+    const mark = cooldown ? `💤 ${cooldown}d` : BOSS_ICON;
+    cells += `<div class="cm-lair ${cooldown ? "cm-cleared" : ""} ${team !== undefined ? "cm-assigned" : ""}" data-action="open-raid" data-landmark="${lm.id}"
       style="--x:${lm.at.x};--y:${lm.at.y};${team !== undefined ? `--team:${TEAM_COLORS[team]};` : ""}" ${tipAttr({
         title: `${LOCATION_ICON[lm.id]} ${esc(lm.name)} · tier ${lm.tier}`,
         rows: [["Best for", lm.focus], ["Boss", `${esc(boss.name)} · ${boss.hp} HP`], ["Squad", `${lm.minTeam}+ students, Lv ${lm.minLevel}+`]],
-        notes: [!open ? "Locked — scout the edge block where its road comes in" : cooldown ? `Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}` : "Click to plan a raid"],
+        notes: [cooldown ? `Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}` : "Click to plan a raid"],
       })}>${squad}<span class="cm-label cm-label-raid">${mark}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
   }
 
@@ -1668,7 +1694,7 @@ function renderExplorationMap(state) {
   return `<div class="citymap" data-view="${vx},${vy},${vw},${vh}">
     <div class="cm-world" style="width:${WORLD_W}px;height:${WORLD_H}px">
       <img class="cm-layer" src="${cityBaseUrl()}" alt="" draggable="false">
-      <img class="cm-layer" src="${fogUrl(clear, reachable, LANDMARKS.filter((lm) => raidUnlocked(state, lm)).map((lm) => lm.id))}" alt="" draggable="false">
+      <img class="cm-layer" src="${fogUrl(clear, reachable, raidUnlocked(state))}" alt="" draggable="false">
       <svg class="cm-routes" width="${WORLD_W}" height="${WORLD_H}" viewBox="0 0 ${WORLD_W} ${WORLD_H}">${routes}</svg>
     </div>
     <button class="cm-reset" data-action="map-reset" title="Zoom back out">⤢ Whole map</button>
@@ -1689,9 +1715,6 @@ export function renderScoutReport(state, report) {
   } else if (result.location) {
     title = `Discovered: ${esc(result.location.name)}`;
     body = `${esc(scoutName)} found the ${esc(result.location.name)}. ${esc(result.location.desc)} Send a team there any day.`;
-  } else if (result.landmark) {
-    title = `${LOCATION_ICON[result.landmark.id]} The road to the ${esc(result.landmark.name)}`;
-    body = `${esc(scoutName)} found the road out to the ${esc(result.landmark.name)} — the raid is open. ${esc(result.landmark.boss.name)} is inside; a raid needs ${result.landmark.minTeam}+ students at Lv${result.landmark.minLevel} or higher. Best for: ${result.landmark.focus.toLowerCase()}.${result.find ? ` On the way they also found ${esc(result.find.text)}.` : ""}`;
   } else {
     title = TERRAIN_NAMES[result.find.terrain];
     body = `${esc(scoutName)} scouted the ${TERRAIN_NAMES[result.find.terrain].toLowerCase()} and found ${esc(result.find.text)}.`;
@@ -1702,6 +1725,7 @@ export function renderScoutReport(state, report) {
       <div class="scout-report-tile ${nest ? "hex-nest" : ""}">${hexTile(hexTileKey(q, r))}${nest ? `<span class="hex-badge hex-badge-nest">🧟 Nest</span>` : ""}</div>
       <h3>${title}</h3>
       <p>${body}</p>
+      ${(result.milestones || []).map((m) => `<div class="mission-success mission-good">${pxe("map")} <b>${m.pct}% of the town mapped!</b> On the way: ${itemIcon(m.item)} <b>${esc(m.item.name)}</b>, a legendary ${m.item.slot === "weapon" ? "weapon" : m.item.slot === "armor" ? "armour" : "accessory"}.${m.pct === 100 ? ` And out past the edge of town, the four raids are open.` : ""}</div>`).join("")}
       <button class="btn btn-primary" data-action="close-scout-report">Continue</button>
     </div>
   </div>`;
@@ -1766,8 +1790,8 @@ export function renderRaidModal(state, landmarkId) {
     </div>`;
 
   let body;
-  if (!raidUnlocked(state, lm)) {
-    body = `<div class="mission-success mission-bad">${pxe("lock")} Locked — scout the block at the edge of the map where its road comes in (${["north", "south"][lm.corner[0] === "n" ? 0 : 1]}-${lm.corner[1] === "w" ? "west" : "east"}).</div>`;
+  if (!raidUnlocked(state)) {
+    body = `<div class="mission-success mission-bad">${pxe("lock")} Locked — the raids open once the whole map is scouted (${mapProgress(state).pct}% so far).</div>`;
   } else if (cooldown) {
     body = `<div class="mission-success mission-ok">${esc(boss.name)} is dead — for now. Something takes its place in ${cooldown} day${cooldown === 1 ? "" : "s"}.</div>`;
   } else if (!planned) {

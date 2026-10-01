@@ -1156,19 +1156,22 @@ export const MAP_DROP_DAYS = 3;
 export const HORDE_START_RING = 5;
 
 // ===== Raids =====
-// Four big places in the corners of the map, past its edge — the last tier of difficulty, each the
-// best source of its own resources. They loom from day 1 but stay locked until a scout reaches the
-// `approach` block at the map's edge where their road comes in. Each holds a raid boss that needs a
+// Four big places in the corners of the map, past its edge — the endgame, each the best source of
+// its own resources. They stay under the fog with the rest of the outskirts until every block of
+// the map has been scouted (MAP_MILESTONES' 100%). Each holds a raid boss that needs a
 // bigger, higher-level squad (up to RAID_MAX_TEAM, launched with the day's expeditions). Beating it
 // pays its `rewards`, `legendaryItems` from its `legendarySlot` (any slot if null), `extraGear`
 // common items from `gearSlots`, and can free a legendary survivor; it comes back `respawnDays`
 // later, 25% tougher for every time it's been killed. `at` is where it's drawn (world pixels).
+// Mapping the town: every 25% of the map's blocks scouted pays out a legendary item; 100% also
+// opens the raids and the outskirts.
+export const MAP_MILESTONES = [25, 50, 75, 100];
 export const RAID_MAX_TEAM = 8;
 export const RAID_MAX_ROUNDS = 15;
 export const RAID_BOSS_SCALING = 0.25;
 export const LANDMARKS = [
   {
-    id: "mall", name: "City Mall", tier: 1, corner: "nw", at: { x: 72, y: 62 }, approach: { q: -5, r: -2 },
+    id: "mall", name: "City Mall", tier: 1, corner: "nw", at: { x: 72, y: 62 },
     focus: "Food, scrap and accessories",
     desc: "Three floors of shops and a food court the dead never left. Mall security still walks the rounds.",
     boss: { name: "The Security Chief", look: "guard", hp: 520, damage: 18, attacks: 2 },
@@ -1176,7 +1179,7 @@ export const LANDMARKS = [
     rewards: { food: 60, materials: 25, medicine: 5 }, respawnDays: 4,
   },
   {
-    id: "hospital", name: "General Hospital", tier: 2, corner: "ne", at: { x: 344, y: 62 }, approach: { q: 5, r: -7 },
+    id: "hospital", name: "General Hospital", tier: 2, corner: "ne", at: { x: 344, y: 62 },
     focus: "Medicine and serum",
     desc: "The mother lode of medicine — and of the infected. The head surgeon is still on call.",
     boss: { name: "The Head Surgeon", look: "surgeon", hp: 760, damage: 22, attacks: 2 },
@@ -1184,7 +1187,7 @@ export const LANDMARKS = [
     rewards: { food: 5, materials: 10, medicine: 60, serum: 2 }, respawnDays: 5,
   },
   {
-    id: "military_base", name: "Military Base", tier: 3, corner: "se", at: { x: 344, y: 402 }, approach: { q: 5, r: 2 },
+    id: "military_base", name: "Military Base", tier: 3, corner: "se", at: { x: 344, y: 402 },
     focus: "Scrap, weapons and armour",
     desc: "The army's staging base, overrun on the first night. Something in there still wears the sergeant's stripes.",
     boss: { name: "Sergeant Rot", look: "soldier", hp: 1080, damage: 24, attacks: 3 },
@@ -1192,7 +1195,7 @@ export const LANDMARKS = [
     rewards: { food: 15, materials: 70, medicine: 10 }, respawnDays: 5,
   },
   {
-    id: "institute", name: "Research Institute", tier: 4, corner: "sw", at: { x: 72, y: 402 }, approach: { q: -5, r: 7 },
+    id: "institute", name: "Research Institute", tier: 4, corner: "sw", at: { x: 72, y: 402 },
     focus: "Research and serum",
     desc: "Where the outbreak started. Patient zero never left the building.",
     boss: { name: "Subject Zero", look: "labcoat", hp: 1520, damage: 28, attacks: 3 },

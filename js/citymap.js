@@ -531,8 +531,10 @@ let fogCache = { key: "", url: "" };
 
 // The fog over the town as a data: URL: soft-edged pixel clouds over every hex not yet scouted,
 // a little lighter where a scout can go next. `clear` and `reachable` are "q,r" keys.
-export function fogUrl(clear, reachable, openRaids = []) {
-  const key = `${clear.join("|")}#${reachable.join("|")}#${openRaids.join("|")}`;
+// `outskirtsOpen`: the whole map is scouted — past the edge the town shows through a haze, and
+// the raids sit in clearings; until then the outskirts are fogged over like everything else.
+export function fogUrl(clear, reachable, outskirtsOpen = false) {
+  const key = `${clear.join("|")}#${reachable.join("|")}#${outskirtsOpen}`;
   if (fogCache.key === key) return fogCache.url;
   const R = MAP_RADIUS + 3;
   const side = 2 * R + 1;
@@ -559,7 +561,7 @@ export function fogUrl(clear, reachable, openRaids = []) {
   }
   // an open raid: a ragged clearing around its compound, like the fog's own edges
   for (const lm of LANDMARKS) {
-    if (!openRaids.includes(lm.id)) continue;
+    if (!outskirtsOpen) continue;
     for (let y = lm.at.y - 40; y <= lm.at.y + 40; y++) for (let x = lm.at.x - 44; x <= lm.at.x + 44; x++) {
       if (x < 0 || y < 0 || x >= W || y >= H) continue;
       const d = Math.hypot((x - lm.at.x) / 33, (y - lm.at.y) / 30) + (vnoise(x, y, 9, 51) - 0.5) * 0.35;
@@ -598,7 +600,7 @@ export function fogUrl(clear, reachable, openRaids = []) {
         else if (fogNear(x, y, 2)) p.raw(x, y, haze2);
         continue;
       }
-      if (m === 3) {
+      if (m === 3 && outskirtsOpen) {
         p.raw(x, y, clearNear(x, y, 2) ? outskirtsRim : outskirts);
         continue;
       }
