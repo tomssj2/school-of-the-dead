@@ -777,16 +777,17 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
 // Each tab is [id, label, pixel icon].
 const LEFT_TABS_BY_TURN = {
   1: [["floor1", "Lobby", "lobby"], ["floor2", "Classrooms", "classrooms"], ["floor3", "Facilities", "facilities"]],
-  2: [["citymap", "City Map", "explore"], ["farm", "Farm", "farm"], ["scrapyard", "Scrapyard", "scrap"]],
-  3: [["defense", "Night Watch", "defense"], ["assault", "Assault", "assault"], ["event", "Event", "event"]],
+  2: [["citymap", "City Map", "map"], ["farm", "Farm", "farm"], ["scrapyard", "Scrapyard", "scrapyard"]],
+  3: [["defense", "Night Watch", "lantern"], ["assault", "Assault", "assault"], ["event", "Event", "dice"]],
 };
-const RIGHT_TABS = [["roster", "Roster", "roster"], ["armory", "Armory", "armory"], ["research", "Research", "research"]];
+const RIGHT_TABS = [["roster", "Roster", "roster"], ["armory", "Armory", "armory"], ["research", "Research", "tech"]];
 // The center button always returns to the current turn's action screen (assigning classes,
 // missions, or defenders + the button that actually advances the turn) — labeled per-turn so
 // it doesn't read as a generic "advance turn" action.
-const OVERVIEW_TAB = { 1: ["Classes", "classes"], 2: ["Explore", "explore"], 3: ["Night", "moon"] };
+const OVERVIEW_TAB = { 1: ["Classes", "classes"], 2: ["Explore", "compass"], 3: ["Night", "moon"] };
 
-const navBtn = (activeTab, [id, label, icon], cls = "", size = 18) =>
+// Tab icons are 16x16, drawn at exactly 16px.
+const navBtn = (activeTab, [id, label, icon], cls = "", size = 16) =>
   `<button class="nav-btn ${cls} ${activeTab === id ? "active" : ""}" data-action="set-tab" data-tab="${id}">${pixelIcon(icon, size)}<span>${label}</span></button>`;
 
 // The turn button doubles as the clock: a tear-off day card, then the turn's name over the
@@ -796,13 +797,13 @@ function renderTurnButton(state, activeTab) {
   const phases = DAY_STEPS.map(([phaseIcon, name], i) => {
     const cls = i + 1 === state.turn ? "now" : i + 1 < state.turn ? "done" : "";
     const link = i ? `<span class="turn-phase-link ${i < state.turn ? "done" : ""}"></span>` : "";
-    return `${link}<span class="turn-phase ${cls}" title="Turn ${i + 1}: ${name}">${pixelIcon(phaseIcon, 14)}</span>`;
+    return `${link}<span class="turn-phase ${cls}" title="Turn ${i + 1}: ${name}">${pixelIcon(phaseIcon, 16)}</span>`;
   }).join("");
   return `<button class="nav-btn nav-turn ${activeTab === "overview" ? "active" : ""}" data-action="set-tab" data-tab="overview"
     title="Day ${state.day}, turn ${state.turn} of 3 — ${label}">
     <span class="turn-day"><small>DAY</small><b>${state.day}</b></span>
     <span class="turn-body">
-      <span class="turn-label">${pixelIcon(icon, 18)}<span>${label}</span></span>
+      <span class="turn-label">${pixelIcon(icon, 16)}<span>${label}</span></span>
       <span class="turn-track">${phases}</span>
     </span>
   </button>`;

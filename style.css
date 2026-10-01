@@ -345,7 +345,7 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
 .turn-body { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .turn-label { display: inline-flex; align-items: center; gap: 7px; line-height: 1; }
 .turn-track { display: flex; align-items: center; padding: 2px 5px; border-radius: 999px; background: rgba(0, 0, 0, 0.22); }
-.turn-phase { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; opacity: 0.45; filter: grayscale(0.7); }
+.turn-phase { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; opacity: 0.45; filter: grayscale(0.7); }
 .turn-phase.done { opacity: 0.8; filter: grayscale(0.2); }
 .turn-phase.now { opacity: 1; filter: none; background: rgba(255, 255, 255, 0.3); box-shadow: 0 0 0 1.5px #fff, 0 0 8px rgba(255, 255, 255, 0.7); }
 .turn-phase-link { width: 8px; height: 2px; border-radius: 1px; background: rgba(0, 0, 0, 0.3); }

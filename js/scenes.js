@@ -1557,12 +1557,25 @@ const ICONS = {
     }
     return g;
   },
-  // Medicine: a two-tone capsule, lying diagonally.
-  medicine: () => rod(blank(16), 3.6, 12.4, 12.4, 3.6, 3.3, (t, side) => {
-    const red = t < 0.5;
-    if (Math.abs(t - 0.5) < 0.04) return red ? "#9e2e2e" : "#b9c3cc";
-    return side < -1.6 ? (red ? "#ff9a8a" : "#ffffff") : side > 1.5 ? (red ? "#9e2e2e" : "#b9c3cc") : (red ? "#d64545" : "#e6ecf1");
-  }),
+  // Medicine: a red medkit with a white cross.
+  medicine: () => ascii([
+    "................",
+    "................",
+    "......kkkk......",
+    ".....k....k.....",
+    "..rrrrrrrrrrrr..",
+    "..rRRRRRRRRRRq..",
+    "..rRrrrwwrrrrq..",
+    "..rRrrrwwrrrrq..",
+    "..rRrwwwwwwrrq..",
+    "..rRrwwwwwwrrq..",
+    "..rRrrrwwrrrrq..",
+    "..rRrrrwwrrrrq..",
+    "..rrrrrrrrrrrq..",
+    "..qqqqqqqqqqqq..",
+    "................",
+    "................",
+  ], { k: "#6b7380", r: "#d64545", R: "#f07a6a", q: "#9e2e2e", w: "#ffffff" }),
   // Serum: a syringe of green antiviral.
   serum: () => {
     const g = blank(16);
@@ -1961,160 +1974,252 @@ const ICONS = {
     "............",
     "............",
   ], { w: "#dfe4ea" }),
+  // ---- tab and turn-button icons (16x16, shown at 16px) — one per tab ----
+  // Lobby: the school's front doors.
   lobby: () => ascii([
-    "............",
-    "....ssss....",
-    "...s....s...",
-    "..rrrrrrrr..",
-    "..rRRrrrrr..",
-    "..rRrrrrrr..",
-    "..rrrrrrrr..",
-    "..rppppppr..",
-    "..rpPppPpr..",
-    "..rppppppr..",
-    "..rrrrrrrr..",
-    "............",
-  ], { s: "#6b4a3a", r: "#c0583a", R: "#e88a62", p: "#8a3a24", P: "#e8c14a" }),
+    "................",
+    "......rrrr......",
+    "....rrrRrrrr....",
+    "..rrrrrrrrrrrr..",
+    "..ssssssssssss..",
+    "..rRrrrrrrrrrq..",
+    "..rRrddddddrrq..",
+    "..rRrdwddwdrrq..",
+    "..rRrdwddwdrrq..",
+    "..rRrddddddrrq..",
+    "..rRrddyyddrrq..",
+    "..rRrddddddrrq..",
+    "..qqqddddddqqq..",
+    ".gggggggggggggg.",
+    "................",
+    "................",
+  ], { r: "#c0583a", R: "#e88a62", q: "#8a3a24", s: "#e3d6c0", d: "#7a4a2a", w: "#bfe3f5", y: "#e8c14a", g: "#9aa3ad" }),
+  // Classrooms: a chalkboard.
   classrooms: () => ascii([
-    "............",
-    ".wwwwwwwwww.",
-    ".wggggggggw.",
-    ".wgccgggggw.",
-    ".wgggccgcgw.",
-    ".wggggggcgw.",
-    ".wggggggggw.",
-    ".wwwwwwwwww.",
-    "...w....w...",
-    "..ww....ww..",
-    "............",
-    "............",
-  ], { w: "#a8753f", g: "#2f5a44", c: "#e8efe8" }),
+    "................",
+    "................",
+    ".kkkkkkkkkkkkkk.",
+    ".kGgggggggggggk.",
+    ".kgcccgggcgcggk.",
+    ".kgggcggcccggck.",
+    ".kggggggggggggk.",
+    ".kgccccgggccggk.",
+    ".kggggggggggggk.",
+    ".kkkkkkkkkkkkkk.",
+    "...yyyyyyyyyy...",
+    "...k........k...",
+    "...k........k...",
+    "..kk........kk..",
+    "................",
+    "................",
+  ], { k: "#a8753f", g: "#2f5a44", G: "#3f7a5c", c: "#e8efe8", y: "#d9c9a0" }),
+  // Facilities: an office block with lit windows.
   facilities: () => ascii([
-    "............",
-    ".....rr.....",
-    "...rrrrrr...",
-    ".rrrrrrrrrr.",
-    "..bbbbbbbb..",
-    "..bwwbbwwb..",
-    "..bbbbbbbb..",
-    "..bwwbbwwb..",
-    "..bbbbbbbb..",
-    "..bbbddbbb..",
-    "..bbbddbbb..",
-    "............",
-  ], { r: "#5a6478", b: "#9aa3b8", w: "#f4d35e", d: "#5a3b24" }),
+    "................",
+    "................",
+    "...ssssssssss...",
+    "...Bbbbbbbbbb...",
+    "...Bwwbwwbwwb...",
+    "...Bwwbwwbwwb...",
+    "...Bbbbbbbbbb...",
+    "...Bwwbwwbwwb...",
+    "...Bwwbwwbwwb...",
+    "...Bbbbbbbbbb...",
+    "...Bwwbddbwwb...",
+    "...Bbbbddbbbb...",
+    "...Bbbbddbbbb...",
+    "..gggggggggggg..",
+    "................",
+    "................",
+  ], { s: "#5a6478", b: "#9aa3b8", B: "#c3cad8", w: "#f4d35e", d: "#5a3b24", g: "#6b7380" }),
+  // City Map: a folded map with a route to an X.
+  map: () => ascii([
+    "................",
+    "................",
+    ".aaaabbbbbaaaaa.",
+    ".aaaabbbbbaaXaX.",
+    ".aaaabbbbbaaaXa.",
+    ".aaaabbbbbaaXaX.",
+    ".aaaabbbbbaapaa.",
+    ".aaaabbbbbpaaaa.",
+    ".aaaabbbpbaaaaa.",
+    ".aaaabpbbbaaaaa.",
+    ".aaapbbbbbaaaaa.",
+    ".apaabbbbbaaaaa.",
+    ".aaaabbbbbaaaaa.",
+    ".ccccdddddccccc.",
+    "................",
+    "................",
+  ], { a: "#e8d8b0", b: "#cdb98c", c: "#b8a47a", d: "#a8946a", X: "#d64545", p: "#8a5a3a" }),
+  // Explore (the turn button): a brass compass.
+  compass: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
+      if (r <= 6.8) g[y][x] = r > 5.4 ? (dx + dy < -2 ? "#ead07a" : "#b8862a") : "#f4efe0";
+    }
+    rod(g, 8, 8, 10.6, 3.4, 1.05, "#d64545");
+    rod(g, 8, 8, 5.4, 12.6, 1.05, "#8a93a0");
+    g[7][7] = "#3a3f48";
+    g[8][8] = "#3a3f48";
+    return g;
+  },
+  // Farm: a sheaf of wheat.
   farm: () => ascii([
-    "............",
-    "..y...y...y.",
-    ".yYy.yYy.yYy",
-    ".yYy.yYy.yYy",
-    "..y...y...y.",
-    "...g..g..g..",
-    "....g.g.g...",
-    ".....ggg....",
-    "....rrrrr...",
-    ".....ggg....",
-    "....g.g.g...",
-    "............",
+    "................",
+    ".......y........",
+    "......yYy.......",
+    "..y...yyy...y...",
+    ".yYy..yYy..yYy..",
+    ".yyy..yyy..yyy..",
+    ".yYy..yYy..yYy..",
+    "..yy..yyy..yy...",
+    "...g...g...g....",
+    "...g...g...g....",
+    "....g..g..g.....",
+    ".....g.g.g......",
+    "......ggg.......",
+    ".....rrrrr......",
+    "......ggg.......",
+    "................",
   ], { y: "#e8c14a", Y: "#f7e08a", g: "#b8a24a", r: "#c0583a" }),
-  defense: () => ascii([
-    "............",
-    "..ssssssss..",
-    "..sBBBBBBs..",
-    "..sBbbbbBs..",
-    "..sBbwwbBs..",
-    "..sBbwwbBs..",
-    "..sBbbbbBs..",
-    "...sBbbBs...",
-    "....sBBs....",
-    ".....ss.....",
-    "............",
-    "............",
-  ], { s: "#c9ccd2", B: "#6f9ae8", b: "#3f6fb5", w: "#f4f6f8" }),
-  assault: () => ascii([
-    "............",
-    ".s........s.",
-    "..s......s..",
-    "...s....s...",
-    "....s..s....",
-    ".....ss.....",
-    ".....ss.....",
-    "....s..s....",
-    "..gs....sg..",
-    "...g....g...",
-    "..h......h..",
-    ".h........h.",
-  ], { s: "#e6ebf0", g: "#e8c14a", h: "#8a5a3a" }),
-  event: () => ascii([
-    "............",
-    "............",
-    "..wwwwwwww..",
-    "..wkwwwwkw..",
-    "..wwwwwwww..",
-    "..wwwkkwww..",
-    "..wwwkkwww..",
-    "..wwwwwwww..",
-    "..wkwwwwkw..",
-    "..wwwwwwww..",
-    "............",
-    "............",
-  ], { w: "#f4f4f4", k: "#d64545" }),
+  // Scrapyard: a tyre leaning on a rusty plate.
+  scrapyard: () => {
+    const g = blank(16);
+    rod(g, 10.6, 12.6, 13, 3.6, 1.7, (t, side) => (side < -0.6 ? "#e09a6a" : side > 0.8 ? "#8a4a2a" : "#b8683a"));
+    for (const [x, y] of [[11, 6], [12, 10]]) g[y][x] = "#5a3020";
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 6.5, dy = y + 0.5 - 9.5, r = Math.hypot(dx, dy);
+      if (r > 4.9 || r < 1.1) continue;
+      g[y][x] = r > 2.7 ? (dx + dy < -3 ? "#5a5a66" : "#2c2c34") : (dx + dy < 0 ? "#dde3e8" : "#9aa3ad");
+    }
+    return g;
+  },
+  // Night Watch: a lit lantern.
+  lantern: () => ascii([
+    "................",
+    ".......kk.......",
+    "......k..k......",
+    ".....kkkkkk.....",
+    "....kKkkkkkk....",
+    ".....kyyyyk.....",
+    ".....kyFFyk.....",
+    ".....kyFWyk.....",
+    ".....kyFFyk.....",
+    ".....kyyyyk.....",
+    ".....kyyyyk.....",
+    "....kKkkkkkk....",
+    ".....kkkkkk.....",
+    "................",
+    "................",
+    "................",
+  ], { k: "#4a4f5a", K: "#7c8590", y: "#ffe08a", F: "#f08a24", W: "#fff7d6" }),
+  // Assault: two crossed swords.
+  assault: () => {
+    const g = blank(16);
+    for (const flip of [false, true]) {
+      const X = (x) => (flip ? 16 - x : x);
+      rod(g, X(5.2), 10.8, X(13.2), 2.8, 1.0, (t, side) => ((flip ? -side : side) < 0 ? "#f4f6f8" : "#a9b1ba"));
+      rod(g, X(3.6), 9.6, X(6.4), 12.4, 0.75, "#e8c14a");
+      rod(g, X(2.2), 13.8, X(4.4), 11.6, 0.75, "#8a5a3a");
+    }
+    return g;
+  },
+  // Event: a die — the day's luck.
+  dice: () => ascii([
+    "................",
+    "................",
+    "....TTTTTTTTTT..",
+    "...TTTTTTTTTTS..",
+    "..wwwwwwwwwwSS..",
+    "..wrrwwwwwwwSS..",
+    "..wrrwwwwwwwSS..",
+    "..wwwwwwwwwwSS..",
+    "..wwwwrrwwwwSS..",
+    "..wwwwrrwwwwSS..",
+    "..wwwwwwwwwwSS..",
+    "..wwwwwwwrrwSS..",
+    "..wwwwwwwrrwS...",
+    "..wwwwwwwwww....",
+    "................",
+    "................",
+  ], { T: "#ffffff", w: "#e9edf0", S: "#b9c3cc", r: "#d64545" }),
+  // Roster: a clipboard with the list.
   roster: () => ascii([
-    "............",
-    "....cccc....",
-    "..bbcCCcbb..",
-    "..bwwwwwwb..",
-    "..bwkkkkwb..",
-    "..bwwwwwwb..",
-    "..bwkkkwwb..",
-    "..bwwwwwwb..",
-    "..bwkkkkwb..",
-    "..bwwwwwwb..",
-    "..bbbbbbbb..",
-    "............",
+    "................",
+    "......cccc......",
+    "....bbcCCcbb....",
+    "...bbbbbbbbbb...",
+    "...bwwwwwwwwb...",
+    "...bwkkkkkkwb...",
+    "...bwwwwwwwwb...",
+    "...bwkkkkwwwb...",
+    "...bwwwwwwwwb...",
+    "...bwkkkkkkwb...",
+    "...bwwwwwwwwb...",
+    "...bwkkkwwwwb...",
+    "...bwwwwwwwwb...",
+    "...bbbbbbbbbb...",
+    "................",
+    "................",
   ], { b: "#a8753f", c: "#9aa0a8", C: "#d9dde2", w: "#eef3f7", k: "#6b7380" }),
+  // Armory: a crate with a sword and a bat sticking out.
   armory: () => ascii([
-    "..........s.",
-    ".........sS.",
-    "........sS..",
-    ".......sS...",
-    "......sS....",
-    ".....sS.....",
-    "..g.sS......",
-    "...gS.......",
-    "...hg.......",
-    "..h..g......",
-    ".h..........",
-    "............",
-  ], { s: "#b6bcc4", S: "#f4f6f8", g: "#e8c14a", h: "#8a5a3a" }),
+    "................",
+    "....s.....hh....",
+    "....sS....hh....",
+    "....sS....hh....",
+    "....sS....hh....",
+    "...ysSy...hh....",
+    "....dd.....h....",
+    "..wwwwwwwwwwww..",
+    "..wWWWWWWWWWWq..",
+    "..wwwwwwwwwwwq..",
+    "..qqqqqqqqqqqq..",
+    "..wwwwwwwwwwwq..",
+    "..wwwwwwwwwwwq..",
+    "..qqqqqqqqqqqq..",
+    "................",
+    "................",
+  ], { s: "#b6bcc4", S: "#f4f6f8", y: "#e8c14a", d: "#5a3b24", h: "#c99a5e", w: "#b8834a", W: "#d9a86a", q: "#7a5230" }),
+  // Research (the tech tree): a blueprint.
+  tech: () => ascii([
+    "................",
+    "................",
+    ".bbbbbbbbbbbbbb.",
+    ".bLbbbLbbbLbbbb.",
+    ".bbwwwwwwbbbbbb.",
+    ".bLwbbbbwbLbbbb.",
+    ".bbwbbbbwbbwwwb.",
+    ".bLwbbbbwbLwbwb.",
+    ".bbwbbbbwbbwwwb.",
+    ".bLwwwwwwbLbbbb.",
+    ".bbbbbbbbbbbbbb.",
+    ".bLbwwwwwwwwbbb.",
+    ".bbbbbbbbbbbbcc.",
+    ".bbbbbbbbbbbbc..",
+    "................",
+    "................",
+  ], { b: "#2f6fb5", L: "#5a95d6", w: "#eef6ff", c: "#bcd6f0" }),
+  // Classes (the turn button): an open book.
   classes: () => ascii([
-    "............",
-    "............",
-    ".wwwwccwwww.",
-    ".wkkwccwkkw.",
-    ".wwwwccwwww.",
-    ".wkkwccwkkw.",
-    ".wwwwccwwww.",
-    ".wkkwccwkkw.",
-    ".bbbbbbbbbb.",
-    "............",
-    "............",
-    "............",
-  ], { w: "#f4f1e6", c: "#c9bfa6", k: "#8a93a8", b: "#3f6fb5" }),
-  explore: () => ascii([
-    "............",
-    ".aaabbbaaab.",
-    ".aaabbbXaX..",
-    ".aaabbbaXab.",
-    ".aaabbbXaX..",
-    ".aaabbbaaab.",
-    ".aaarbbaaab.",
-    ".aarabbaaab.",
-    ".arabbbaaab.",
-    ".aaabbbaaab.",
-    "............",
-    "............",
-  ], { a: "#e8d8b0", b: "#cdb98c", X: "#d64545", r: "#d64545" }),
+    "................",
+    "................",
+    "................",
+    "..wwww....wwww..",
+    ".wwwwwwsswwwwww.",
+    ".wkkkkwsswkkkkw.",
+    ".wwwwwwsswwwwww.",
+    ".wkkkwwsswkkkkw.",
+    ".wwwwwwsswwwwww.",
+    ".wkkkkwsswkkkww.",
+    ".wwwwwwsswwwwww.",
+    ".bbbbbbbbbbbbbb.",
+    "......bbbb......",
+    "................",
+    "................",
+    "................",
+  ], { w: "#f4f1e6", k: "#8a93a8", s: "#c9bfa6", b: "#3f6fb5" }),
   // The Radio Station's mast (16x16): a lattice tower, its red light and the signal going out.
   antenna: () => ascii([
     "................",
@@ -2166,28 +2271,38 @@ const ICONS = {
     ...px(FACE.mouth, [6, 10], [7, 10], [8, 10], [9, 10], [5, 11], [10, 11], [4, 12], [11, 12]),
     ...px(FACE.tear, [4, 8], [4, 9]), ...px("#4f9fd6", [4, 10]),
   ], "#e0c05a", "#b88a2a"),
+  // The day's three turns (16x16): morning sun, afternoon dusk, night moon.
   sun: () => {
-    const g = disk(blank(), 6, 6, 2.7, "#f4c542");
+    const g = blank(16);
     for (let a = 0; a < 8; a++) {
-      const x = Math.round(5.5 + Math.cos((a * Math.PI) / 4) * 4.5);
-      const y = Math.round(5.5 + Math.sin((a * Math.PI) / 4) * 4.5);
-      g[y][x] = "#f7d774";
+      const ang = (a * Math.PI) / 4;
+      rod(g, 8 + Math.cos(ang) * 5.2, 8 + Math.sin(ang) * 5.2, 8 + Math.cos(ang) * 6.6, 8 + Math.sin(ang) * 6.6, 0.7, "#f7d774");
     }
-    g[4][5] = "#fbe7a6";
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8;
+      if (Math.hypot(dx, dy) <= 3.7) g[y][x] = dx + dy < -2.2 ? "#fbe7a6" : dx + dy > 2.6 ? "#e0a020" : "#f4c542";
+    }
     return g;
   },
   dusk: () => {
-    const g = disk(blank(), 6, 8.5, 3.6, "#f08a3a");
-    for (let x = 0; x < IW; x++) for (let y = 9; y < IW; y++) g[y][x] = null;
-    for (let x = 1; x < 11; x++) g[9][x] = "#7a4a6a";
-    for (const [x, y] of [[1, 5], [10, 5], [3, 3], [8, 3], [6, 2]]) g[y][x] = "#f7b26a";
+    const g = blank(16);
+    for (const [x0, y0, x1, y1] of [[8, 1.6, 8, 3.2], [2.6, 4.2, 3.8, 5.4], [13.4, 4.2, 12.2, 5.4], [1, 9.5, 2.4, 9.5], [15, 9.5, 13.6, 9.5]]) rod(g, x0, y0, x1, y1, 0.7, "#f7b26a");
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 10.5;
+      if (y <= 10 && Math.hypot(dx, dy) <= 5.2) g[y][x] = dx + dy < -3.5 ? "#ffc58a" : "#f08a3a";
+    }
+    for (let x = 1; x <= 14; x++) g[11][x] = "#7a4a6a";
+    for (let x = 3; x <= 12; x++) g[12][x] = "#5a3a5a";
     return g;
   },
   moon: () => {
-    const g = disk(blank(), 6, 6, 4.2, "#e8e2c0");
-    disk(g, 8.2, 4.6, 3.4, null);
-    g[2][9] = "#ffffff";
-    g[9][10] = "#ffffff";
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const a = Math.hypot(x + 0.5 - 8, y + 0.5 - 8.5), b = Math.hypot(x + 0.5 - 10.8, y + 0.5 - 6.2);
+      if (a <= 5.8 && b > 4.6) g[y][x] = a > 4.7 ? "#c9c2a0" : "#e8e2c0";
+    }
+    for (const [x, y] of [[4, 8], [5, 11]]) g[y][x] = "#c9c2a0";
+    for (const [x, y] of [[12, 12], [13, 3], [10, 1]]) g[y][x] = "#ffffff";
     return g;
   },
 };
