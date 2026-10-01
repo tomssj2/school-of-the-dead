@@ -518,7 +518,7 @@ export const CAFETERIA_REST_BY_LEVEL = [20, 35, 50, 65, 80]; // stamina a restin
 
 // Research Room: teachers turn their combined INT (Physics grade) into research points each day.
 export const RESEARCH_ROOM_TEACHERS = 1;
-export const RESEARCH_ROOM_INT_PER_POINT = 20;
+export const RESEARCH_ROOM_INT_PER_POINT = 10;
 
 // Nurse's Office: nurses (teachers) and a few beds for healing and quarantine. Each patient is
 // healed a flat amount of HP (growing with the room's level), plus INFIRMARY_NURSE_HP_PER_RANK for

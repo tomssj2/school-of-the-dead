@@ -7,7 +7,7 @@ import {
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
   NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_ROLES, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
-  RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
+  RESEARCH_ROOM_INT_PER_POINT, RESEARCH_BONUS_BY_LEVEL, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
   RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
@@ -3665,11 +3665,13 @@ export function renderFloor3(state) {
   const researchSlots = state.rooms.research.teacherCapacity;
   const crew = researchCrew(state);
   const totalInt = crew.reduce((sum, t) => sum + t.grades.Physics, 0);
-  const researchLevelBonus = crew.length ? researchRoomYield(state) - Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) : 0;
+  const researchFromInt = Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT);
+  const researchLevelBonus = RESEARCH_BONUS_BY_LEVEL[roomLevel(state, "research") - 1];
+  const researchLab = crew.length ? researchRoomYield(state) - researchFromInt - researchLevelBonus : 0; // Lab Equipment
   const researchHow = crew.length
     ? {
         title: `${ri("research")} +${researchRoomYield(state)} research a day`,
-        rows: [[`INT of the ${crew.length} working here`, `${totalInt}`], [`Research · 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT`, `+${Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT)}`], [`Room · level ${roomLevel(state, "research")}`, `+${researchLevelBonus}`]],
+        rows: [[`INT of the ${crew.length} working here`, `${totalInt}`], [`Research · 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT`, `+${researchFromInt}`], [`Room · level ${roomLevel(state, "research")}`, `+${researchLevelBonus}`], ...(researchLab ? [["Lab Equipment · +25%", `+${researchLab}`]] : [])],
         total: ["Total", `+${researchRoomYield(state)}`],
         notes: ["Teachers and assisting students all add their INT", "Research buys the tech tree and the Radio Station's upgrades"],
       }
