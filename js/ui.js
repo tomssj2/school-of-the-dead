@@ -88,6 +88,10 @@ for (const place of [...LOCATIONS, ...LANDMARKS]) LOCATION_ICON[place.id] = pxe(
 const BOSS_ICON = pxe("z_boss");
 const SKULL_ICON = pxe("skull");
 const DROP_ICON = Object.fromEntries(Object.entries(MAP_DROPS).map(([k, d]) => [k, d.icon]));
+// An item's pixel icon, by its template id ("it_<id>" in scenes.js). Saved items carry their own
+// copy of the old emoji, and several items share one, so the id — not the emoji — picks it.
+const ITEM_IDS = new Set([...ITEM_TEMPLATES, ...LEGENDARY_ITEM_TEMPLATES].map((t) => t.id));
+const itemIcon = (it) => (it && ITEM_IDS.has(it.id) ? pxe(`it_${it.id}`) : it?.icon || "");
 
 // Expedition teams 1-3 and the raid squad each get a colour for their route, markers and chips.
 const TEAM_COLORS = ["#4caf7d", "#3fa7d6", "#e0a536", "#e0455f"];
@@ -1774,7 +1778,7 @@ export function renderRaidFight(state, anim) {
   const bossPct = Math.round((frame.bossHp / report.bossMaxHp) * 100);
   const done = anim.phase === "result";
   const loot = [
-    ...report.items.map((it) => `<span class="legend-text">${it.icon} ${esc(it.name)}</span>`),
+    ...report.items.map((it) => `<span class="legend-text">${itemIcon(it)} ${esc(it.name)}</span>`),
     ...(report.recruit ? [`<span class="legend-text">🙋 ${esc(report.recruit)} wants to join</span>`] : []),
     ...Object.entries(report.loot).map(([k, v]) => `<span>${RESOURCE_ICON[k]} +${v}</span>`),
   ];
@@ -1938,7 +1942,7 @@ export function renderExpeditionReport(state, anim) {
     const rd = summary.raid;
     const lm = LANDMARKS.find((l) => l.id === rd.landmarkId);
     const tag = rd.won ? `<span class="tag tag-ok">${BOSS_ICON} Boss slain</span>` : `<span class="tag tag-injured">Retreated</span>`;
-    const details = `<div class="exp-finds">${rd.items.map((it) => `<span class="exp-chip exp-legend">${it.icon} ${esc(it.name)}</span>`).join("")}${rd.recruit ? `<span class="exp-chip exp-legend">🙋 ${esc(rd.recruit)}</span>` : ""}${lootChips(rd.loot)}</div>
+    const details = `<div class="exp-finds">${rd.items.map((it) => `<span class="exp-chip exp-legend">${itemIcon(it)} ${esc(it.name)}</span>`).join("")}${rd.recruit ? `<span class="exp-chip exp-legend">🙋 ${esc(rd.recruit)}</span>` : ""}${lootChips(rd.loot)}</div>
       ${rd.hurt.length ? `<div class="exp-hurt">🩹 ${rd.hurt.map(esc).join(", ")}</div>` : ""}
       ${rd.lost.length ? `<div class="exp-bad">${SKULL_ICON} Lost: ${rd.lost.map(esc).join(", ")}</div>` : ""}`;
     rows.push(row(TEAM_COLORS[RAID_TEAM], "school", lm.id, getChar(state, rd.memberIds[0]), `Raid squad → ${esc(lm.name)}`, tag, details));
@@ -2364,7 +2368,7 @@ export function renderBattleAnimation(state, anim) {
     const icon = successes === teamsSent ? "🧳" : none ? "😬" : "⚖️";
     const text = `${successes}/${teamsSent} expedition${teamsSent === 1 ? "" : "s"} succeeded`;
     const finds = [
-      ...itemsFound.map((it) => `${it.icon} ${esc(it.name)}`),
+      ...itemsFound.map((it) => `${itemIcon(it)} ${esc(it.name)}`),
       ...ingredientsFound.map((g) => `${INGREDIENTS[g.id].icon} ${esc(INGREDIENTS[g.id].name)} ×${g.qty}`),
       ...stockFound.map((g) => stockLabel(g.id, g.qty)),
     ];
@@ -3094,7 +3098,7 @@ function nightDefender(state, c, row, col) {
     <span class="nw-role">${role.icon}</span>
     <span class="nw-xrole" title="${x.name.slice(0, -1)}">${x.icon}</span>
     ${characterSprite(c, 40)}
-    <span class="nw-gear">${gear.length ? gear.map((w) => w.icon).join("") : "👊"}</span>
+    <span class="nw-gear">${gear.length ? gear.map(itemIcon).join("") : "👊"}</span>
     <span class="nw-hp nw-hp-student"><i style="width:${Math.round((c.hp / c.maxHp) * 100)}%"></i></span>
   </div>`;
 }
@@ -3159,7 +3163,7 @@ function nightRoster(state) {
     .sort((a, b) => (b.defending - a.defending) || overallLevel(b) - overallLevel(a))
     .map((c) => {
       const eq = c.equipment || {};
-      const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean).map((w) => w.icon).join("") || "👊";
+      const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean).map(itemIcon).join("") || "👊";
       const role = defenderRole(state, c);
       return `<div class="nw-chip ${c.defending ? "nw-chip-on" : ""} ${c.injured ? "nw-chip-hurt" : ""}" draggable="true" data-drag-student="${c.id}" data-action="nw-quick" data-id="${c.id}"
         title="${esc(c.name)}, ${role.name.toLowerCase()} (${role.desc}) — ${c.defending ? "on watch: click to take them off" : "click to post them, or drag onto the steps"}">
@@ -4048,7 +4052,7 @@ function armoryItemRow(it) {
     ? `🔒 ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}+`).join(" ")}`
     : "";
   return `<div class="armory-item ${it.legendary ? "armory-legendary" : ""}">
-    <span class="armory-icon">${it.icon}</span>
+    <span class="armory-icon">${itemIcon(it)}</span>
     <span class="armory-name">${it.legendary ? "✨ " : ""}${esc(it.name)}</span>
     <span class="armory-bonus">${formatBonuses(it.bonuses)}</span>
     <span class="armory-cell">${weapon ? `⚔ ${it.damage} dmg` : ""}</span>
@@ -4315,7 +4319,7 @@ function renderInventoryTab(state, c) {
     const options = state.armory.filter((it) => it.slot === allowedSlotType && (!category || it.category === category));
     const itemHtml = item
       ? `<div class="inv-item">
-          <span class="inv-item-icon">${item.icon}</span>
+          <span class="inv-item-icon">${itemIcon(item)}</span>
           <span class="inv-item-name">${esc(item.name)}</span>
           <span class="inv-item-bonus">${formatBonuses(item.bonuses)}</span>
           ${weaponStatsLabel(item)}
@@ -4329,7 +4333,7 @@ function renderInventoryTab(state, c) {
               const reqNote = it.requires && Object.keys(it.requires).length
                 ? ` [needs ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}+`).join(" ")}]`
                 : "";
-              return `<option value="${it.uid}" ${ok ? "" : "disabled"}>${ok ? "" : "🔒 "}${it.icon} ${esc(it.name)} (${formatBonuses(it.bonuses)})${reqNote}</option>`;
+              return `<option value="${it.uid}" ${ok ? "" : "disabled"}>${ok ? "" : "🔒 "}${esc(it.name)} (${formatBonuses(it.bonuses)})${reqNote}</option>`;
             })
             .join("")}
         </select>`;

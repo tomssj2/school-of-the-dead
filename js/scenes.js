@@ -1525,6 +1525,67 @@ function face16(marks, base = FACE.base, dark = FACE.dark) {
 const px = (c, ...pts) => pts.map(([x, y]) => [x, y, c]);
 const DOT_EYES = px(FACE.ink, [5, 6], [5, 7], [10, 6], [10, 7]);
 
+// ---- item icon helpers ----
+// rod() paints: light on the up-left side, dark on the down-right.
+const sh = (light, mid, dark) => (t, side) => (side < -0.4 ? light : side > 0.5 ? dark : mid);
+const STEEL = sh("#ffffff", "#c9ced4", "#8a93a0");
+const IRON = sh("#9aa3ad", "#5b616d", "#3a3f48");
+const WOOD = sh("#e8c08a", "#c99a5e", "#8a5a3a");
+// A jacket or coat, front on: `b` body, `L`/`d` its light and dark edge, `s` sleeves, `k` cuffs,
+// `c` collar, `z` zip/opening, `t` hem — recoloured per item, with optional extra pixels.
+function garment(colors, extra = [], hood = false) {
+  const g = ascii([
+    "................",
+    hood ? ".....hhhhhh....." : "................",
+    hood ? "....hhkkkkhh...." : "......cccc......",
+    "....sbbccbbs....",
+    "...ssbbzzbbss...",
+    "..sssLbzzbdsss..",
+    "..ss.Lbzzbd.ss..",
+    "..ss.Lbzzbd.ss..",
+    "..ss.Lbzzbd.ss..",
+    "..ss.Lbzzbd.ss..",
+    "..kk.Lbzzbd.kk..",
+    ".....Lbzzbd.....",
+    ".....tttttt.....",
+    "................",
+    "................",
+    "................",
+  ], { h: colors.s, k: colors.k, c: colors.c, ...colors });
+  for (const [x, y, c] of extra) g[y][x] = c;
+  return g;
+}
+// A sleeveless vest (or apron): straps, body, hem; pockets as extra pixels.
+function vest(colors, extra = []) {
+  const g = ascii([
+    "................",
+    "................",
+    "................",
+    ".....bb..bb.....",
+    ".....bb..bb.....",
+    "....bbbbbbbb....",
+    "...Lbbbbbbbbd...",
+    "...Lbbbbbbbbd...",
+    "...Lbbbbbbbbd...",
+    "...Lbbbbbbbbd...",
+    "...Lbbbbbbbbd...",
+    "...Lbbbbbbbbd...",
+    "...tttttttttt...",
+    "................",
+    "................",
+    "................",
+  ], colors);
+  for (const [x, y, c] of extra) g[y][x] = c;
+  return g;
+}
+// A legendary item: its base icon with a gold outline and a sparkle in the corner.
+function legendary(base) {
+  const g = ICONS[base]().map((row) => [...row]);
+  for (const [x, y] of [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]]) if (!g[y][x]) g[y][x] = "#fff6c0";
+  g.outline = "#e8b830";
+  return g;
+}
+
 const ICONS = {
   // ---- resources (16x16) ----
   // Food: a tin of canned food — metal lid and rims, red label, yellow badge.
@@ -3083,6 +3144,739 @@ const ICONS = {
     g[9][8] = "#c9a24a";
     return g;
   },
+  // ---- items (16x16): every weapon, armour and accessory; legendaries are their base item in gold ----
+  // Melee weapons.
+  it_bat: () => {
+    const g = blank(16);
+    rod(g, 2.6, 13.4, 5.6, 10.4, 0.75, "#3a3f48");
+    rod(g, 5.2, 10.8, 12.6, 3.4, 1.55, WOOD);
+    disk(g, 2.3, 13.7, 1.0, "#3a3f48");
+    return g;
+  },
+  it_knife: () => {
+    const g = blank(16);
+    rod(g, 2.6, 13.4, 6.2, 9.8, 0.95, "#3a3028");
+    rod(g, 5.4, 8.8, 7.4, 10.8, 0.6, "#9aa3ad");
+    rod(g, 7, 9, 12.4, 3.6, 1.1, STEEL);
+    return g;
+  },
+  it_axe: () => {
+    const g = blank(16);
+    // a fire axe: the blade to one side of the handle, the pick to the other
+    rod(g, 2.6, 13.4, 11.4, 4.6, 0.75, WOOD);
+    rod(g, 10.8, 4.2, 12.8, 6.4, 1.8, sh("#ff8a7a", "#d64545", "#9e2e2e"));
+    rod(g, 12.2, 7.8, 14.4, 5.6, 0.8, STEEL);
+    rod(g, 10.6, 4.4, 8.2, 2.0, 0.75, "#d64545");
+    return g;
+  },
+  it_crowbar: () => {
+    const g = blank(16);
+    rod(g, 3.4, 12.6, 12.2, 3.8, 0.85, sh("#ff8a7a", "#c0392b", "#8a2a20"));
+    rod(g, 12.2, 3.8, 11.2, 1.8, 0.75, "#c0392b");
+    rod(g, 3.4, 12.6, 1.8, 12.8, 0.75, "#c0392b");
+    return g;
+  },
+  it_hockey_stick: () => {
+    const g = blank(16);
+    rod(g, 12.6, 1.6, 5.4, 11.4, 0.75, WOOD);
+    rod(g, 4.4, 12.4, 10.6, 12.8, 1.15, "#2c2c34");
+    rod(g, 11.6, 1.2, 13.2, 2.4, 0.9, "#2c2c34");
+    return g;
+  },
+  it_cleaver: () => {
+    const g = blank(16);
+    rod(g, 2.4, 13.6, 5.4, 10.6, 0.95, "#5a3b24");
+    rod(g, 7.4, 8.6, 11, 5, 2.9, STEEL);
+    g[5][9] = "#3a3f48";
+    return g;
+  },
+  it_broom_spear: () => {
+    const g = blank(16);
+    rod(g, 2.2, 13.8, 10.6, 5.4, 0.6, "#c99a5e");
+    rod(g, 10.4, 5.6, 13.8, 2.2, 1.15, STEEL);
+    rod(g, 9.6, 6.4, 10.8, 5.2, 0.95, "#d64545");
+    return g;
+  },
+  it_tennis_racket: () => {
+    const g = blank(16);
+    rod(g, 7, 9, 2.6, 13.4, 0.9, "#3a3f48");
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const r = Math.hypot(x + 0.5 - 10, y + 0.5 - 6);
+      if (r <= 4.4) g[y][x] = r > 3.3 ? "#3fbf6a" : (x + y) % 2 ? "#e6e9ef" : null;
+    }
+    return g;
+  },
+  it_trophy: () => ascii([
+    "................",
+    "................",
+    "..yy.yyyyyy.yy..",
+    ".y...yYyyyyz..y.",
+    ".y...yYyyyyz..y.",
+    "..y..yYyyyyz.y..",
+    "...yyyyyyyyzz...",
+    "......yyyz......",
+    ".......yz.......",
+    ".......yz.......",
+    "......yyyz......",
+    ".....kkkkkk.....",
+    ".....kKkkkk.....",
+    ".....kkkkkk.....",
+    "................",
+    "................",
+  ], { y: "#f2c14e", Y: "#fff0a8", z: "#b8862a", k: "#5a3b24", K: "#8a5a3a" }),
+  it_wrench: () => {
+    const g = blank(16);
+    rod(g, 2.8, 13.2, 9.4, 6.6, 1.0, sh("#ff8a7a", "#c0392b", "#8a2a20"));
+    rod(g, 8.6, 7.4, 11.6, 4.4, 1.5, IRON);
+    rod(g, 11.2, 2.6, 13.6, 5.0, 1.0, IRON);
+    rod(g, 11.2, 5.6, 12.6, 7.0, 0.7, IRON);
+    return g;
+  },
+  it_shovel: () => {
+    const g = blank(16);
+    rod(g, 5, 11, 12.2, 3.8, 0.6, WOOD);
+    rod(g, 11.4, 2.0, 14.0, 4.6, 0.65, "#3a3f48");
+    rod(g, 2.8, 13.2, 5.0, 11.0, 2.0, STEEL);
+    return g;
+  },
+  it_nail_bat: () => {
+    const g = blank(16);
+    rod(g, 2.6, 13.4, 5.6, 10.4, 0.75, "#3a3f48");
+    rod(g, 5.2, 10.8, 12.4, 3.6, 1.5, sh("#d9b07a", "#a8834a", "#7a5a30"));
+    for (const [x, y] of [[8, 5], [10, 3], [13, 5], [11, 8], [7, 9], [14, 2]]) g[y][x] = "#dde3e8";
+    disk(g, 2.3, 13.7, 1.0, "#3a3f48");
+    return g;
+  },
+  it_machete: () => {
+    const g = blank(16);
+    rod(g, 2.4, 13.6, 5.2, 10.8, 0.9, "#4f7a3a");
+    rod(g, 5.4, 10.6, 12.8, 3.2, 1.35, STEEL);
+    rod(g, 12.2, 3.8, 13.6, 2.4, 1.6, STEEL);
+    return g;
+  },
+  it_sledgehammer: () => {
+    const g = blank(16);
+    rod(g, 2.6, 13.4, 10, 6, 0.75, WOOD);
+    rod(g, 8.2, 3.6, 12.8, 8.2, 2.1, IRON);
+    return g;
+  },
+  it_field_chainsaw: () => ascii([
+    "................",
+    "................",
+    "................",
+    "..........ttttt.",
+    "....kk...tsssst.",
+    "...k..k.tsssst..",
+    "..ooooootsssst..",
+    "..oOoooosssst...",
+    "..ooooooosst....",
+    "..oooooooot.....",
+    "..kkkkkkkk......",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { o: "#f08a24", O: "#ffc07a", k: "#2c2c34", s: "#c9ced4", t: "#5b616d" }),
+  it_pool_cue: () => rod(blank(16), 1.8, 14.2, 13.8, 2.2, 0.6, (t) => (t < 0.3 ? "#3a2418" : t > 0.95 ? "#5f8fe0" : t > 0.88 ? "#f4f1e6" : "#d9b07a")),
+  it_fire_poker: () => {
+    const g = blank(16);
+    rod(g, 3.6, 12.4, 12.6, 3.4, 0.6, "#4a4f5a");
+    rod(g, 12.6, 3.4, 13.8, 5.2, 0.6, "#4a4f5a");
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const r = Math.hypot(x + 0.5 - 2.6, y + 0.5 - 13.4);
+      if (r <= 1.9 && r >= 0.8) g[y][x] = "#b8862a";
+    }
+    g[2][13] = "#ff8a3a";
+    return g;
+  },
+  // Ranged weapons.
+  it_slingshot: () => {
+    const g = blank(16);
+    rod(g, 8, 14, 8, 9, 0.95, WOOD);
+    rod(g, 8, 9.4, 4.4, 4, 0.8, WOOD);
+    rod(g, 8, 9.4, 11.6, 4, 0.8, WOOD);
+    rod(g, 4.4, 4.2, 11.6, 4.2, 0.35, "#d64545");
+    disk(g, 8, 4.4, 1.1, "#8a3a2a");
+    return g;
+  },
+  it_recurve_bow: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 13, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
+      if (r >= 7 && r <= 8.1 && dx < -4.5) g[y][x] = dy < 0 ? "#8a4a2a" : "#6b3a1a";
+    }
+    for (const [x, y] of [[7, 1], [8, 0], [7, 14], [8, 15]]) g[y][x] = "#6b3a1a";
+    rod(g, 7.4, 1.4, 7.4, 14.6, 0.35, "#e6e9ef");
+    return g;
+  },
+  it_compound_bow: () => {
+    const g = blank(16);
+    rod(g, 6, 2.5, 3.5, 8, 0.8, "#3a3f48");
+    rod(g, 3.5, 8, 6, 13.5, 0.8, "#3a3f48");
+    disk(g, 6.4, 2.4, 1.4, "#9aa3ad");
+    disk(g, 6.4, 13.6, 1.4, "#9aa3ad");
+    rod(g, 6.4, 2.4, 9.4, 8, 0.35, "#e6e9ef");
+    rod(g, 9.4, 8, 6.4, 13.6, 0.35, "#e6e9ef");
+    rod(g, 3, 8, 13, 8, 0.45, "#5f8fe0");
+    rod(g, 12.6, 8, 14.2, 8, 0.9, "#c9ced4");
+    return g;
+  },
+  it_crossbow: () => ascii([
+    "................",
+    "................",
+    "................",
+    "...b............",
+    "...bb...........",
+    "....bb..........",
+    ".....bw.........",
+    "..wwwwbwwwwwwss.",
+    ".kkkkkkkkkkkkk..",
+    ".kKkkkkkkk......",
+    ".....bw.k.......",
+    "....bb..........",
+    "...bb...........",
+    "...b............",
+    "................",
+    "................",
+  ], { b: "#3a3f48", w: "#c99a5e", s: "#c9ced4", k: "#8a5a3a", K: "#c99a5e" }),
+  it_nerf_blaster: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "..oooooooooooo..",
+    "..oOooooooooobb.",
+    "..ooooooooooo...",
+    "..bbbbobbb......",
+    ".....ooo........",
+    "....ooo.........",
+    "....ooo.........",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { o: "#f08a24", O: "#ffc07a", b: "#3f7fd6" }),
+  it_dart_gun: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "..............r.",
+    "...kkkkkkkkkkrr.",
+    "..kKkkkkkkkkk...",
+    "..kkkkkkk.......",
+    "....kkk.........",
+    "...kkk..........",
+    "...kkk..........",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { k: "#2c2c34", K: "#6b7380", r: "#e04848" }),
+  it_paintball_marker: () => ascii([
+    "................",
+    "................",
+    ".....ppp........",
+    "....pPppp.......",
+    "....ppppp.......",
+    ".....ppp........",
+    "..kkkkkkkkkkkk..",
+    "..kKkkkkkkkkkk..",
+    "..kkkkkkk.......",
+    "....kkk.........",
+    "...kkk..........",
+    "...kkk..........",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { p: "#c04aa0", P: "#f0a0e0", k: "#3a3f48", K: "#7c8590" }),
+  it_potato_cannon: () => {
+    const g = blank(16);
+    rod(g, 5.6, 10.4, 13.2, 2.8, 1.0, sh("#ffffff", "#e9edf0", "#b9c3cc"));
+    rod(g, 2.6, 13.4, 6, 10, 2.0, sh("#ffffff", "#e9edf0", "#b9c3cc"));
+    disk(g, 13.6, 2.4, 1.0, "#c9935a");
+    g[13][4] = "#d64545";
+    return g;
+  },
+  it_water_balloon_launcher: () => {
+    const g = blank(16);
+    rod(g, 2, 3, 8, 11, 0.45, "#3fbf6a");
+    rod(g, 14, 3, 8, 11, 0.45, "#3fbf6a");
+    disk(g, 2, 3, 1.0, "#e8c14a");
+    disk(g, 14, 3, 1.0, "#e8c14a");
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = (y + 0.5 - 11) / 1.15, r = Math.hypot(dx, dy);
+      if (r <= 3.3) g[y][x] = dx + dy < -1.6 ? "#bfe3f5" : "#3f8fd0";
+    }
+    return g;
+  },
+  it_throwing_knives: () => {
+    const g = blank(16);
+    for (const [x0, y0, x1, y1] of [[4, 14, 4, 4], [8, 14, 8, 3], [12, 14, 12, 4]]) {
+      rod(g, x0, y0, x0, y0 - 3, 0.7, "#3a3028");
+      rod(g, x0, y0 - 3.4, x1, y1, 0.9, STEEL);
+    }
+    return g;
+  },
+  it_javelin: () => {
+    const g = blank(16);
+    rod(g, 1.6, 14.4, 11.6, 4.4, 0.5, "#d9b07a");
+    rod(g, 6, 10, 7.4, 8.6, 0.75, "#3a3f48");
+    rod(g, 11.2, 4.8, 14.2, 1.8, 0.95, STEEL);
+    return g;
+  },
+  it_discus: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = (y + 0.5 - 8) * 1.5, r = Math.hypot(dx, dy);
+      if (r <= 6.6) g[y][x] = r <= 2.2 ? "#e8c14a" : r <= 3 ? "#b8862a" : dx + dy < -2 ? "#e6eaee" : "#9aa3ad";
+    }
+    return g;
+  },
+  it_fire_extinguisher: () => ascii([
+    "................",
+    "......kkkk......",
+    ".....kk..kkk....",
+    "......ss....k...",
+    ".....rrrr...k...",
+    "....rRrrrr..k...",
+    "....rRrrrr..k...",
+    "....rRwwrr..k...",
+    "....rRwwrr..kk..",
+    "....rRrrrr......",
+    "....rRrrrr......",
+    "....rrrrrr......",
+    "....rrrrrr......",
+    ".....dddd.......",
+    "................",
+    "................",
+  ], { k: "#2c2c34", s: "#c9ced4", r: "#d64545", R: "#f08a7a", w: "#f4f4f4", d: "#8a2a2a" }),
+  it_bottle_rocket: () => {
+    const g = blank(16);
+    rod(g, 2, 14, 8, 8, 0.4, "#c99a5e");
+    rod(g, 7, 9, 12.4, 3.6, 1.3, sh("#ff8a7a", "#d64545", "#9e2e2e"));
+    rod(g, 12, 4, 13.8, 2.2, 0.7, "#f4f4f4");
+    for (const [x, y, c] of [[5, 10, "#ffd06a"], [4, 12, "#f08a24"], [6, 12, "#ffd06a"], [3, 11, "#f08a24"]]) g[y][x] = c;
+    return g;
+  },
+  it_bb_gun: () => {
+    const g = blank(16);
+    rod(g, 1.8, 12.4, 6, 9.6, 1.5, WOOD);
+    rod(g, 5.6, 9.6, 14.2, 4.4, 0.6, "#3a3f48");
+    rod(g, 6, 9.6, 9.6, 7.6, 1.0, "#5b616d");
+    g[10][7] = "#3a3f48";
+    return g;
+  },
+  it_baseball_pitch: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
+      if (r <= 6) g[y][x] = dx + dy < -3 ? "#ffffff" : dx + dy > 4 ? "#d9d4c8" : "#f4f1e6";
+    }
+    for (const [x, y] of [[4, 4], [5, 5], [4, 6], [5, 7], [4, 8], [5, 9], [4, 10], [11, 4], [10, 5], [11, 6], [10, 7], [11, 8], [10, 9], [11, 10]]) g[y][x] = "#d64545";
+    return g;
+  },
+  it_fishing_rod_hook: () => {
+    const g = blank(16);
+    rod(g, 2, 14, 12.8, 2.2, 0.5, (t) => (t < 0.3 ? "#3a2418" : "#c99a5e"));
+    disk(g, 4.6, 12.4, 1.3, "#9aa3ad");
+    rod(g, 13, 2, 13, 11, 0.3, "#e6e9ef");
+    for (const [x, y] of [[13, 11], [13, 12], [12, 12], [11, 11]]) g[y][x] = "#c9ced4";
+    return g;
+  },
+  // Armour.
+  it_jacket: () => garment({ b: "#3f6fb5", L: "#7fa8e8", d: "#2a4a80", s: "#3f6fb5", k: "#f2c14e", c: "#f2c14e", z: "#2a4a80", t: "#f2c14e" }),
+  it_vest: () => vest({ b: "#3a4658", L: "#5a6a80", d: "#232b38", t: "#232b38" }, [[5, 7, "#f2c14e"], [6, 7, "#f2c14e"], [9, 7, "#f2c14e"], [10, 7, "#f2c14e"], [5, 9, "#4a5466"], [10, 9, "#4a5466"]]),
+  it_pads: () => {
+    const g = blank(16);
+    for (const cx of [5, 11]) {
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const dx = (x + 0.5 - cx) / 2.6, dy = (y + 0.5 - 8) / 4.6;
+        if (dx * dx + dy * dy <= 1) g[y][x] = Math.abs(dy) < 0.4 ? "#3a3f48" : dx < -0.3 ? "#7c8590" : "#5b616d";
+      }
+    }
+    return g;
+  },
+  it_helmet: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    ".....rrrrrr.....",
+    "....rRkrrkrr....",
+    "...rRrrrrrrrr...",
+    "..rRrkrrkrrkrr..",
+    "..rrrrrrrrrrrr..",
+    "..dddddddddddd..",
+    "...k........k...",
+    "....k......k....",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { r: "#e04848", R: "#ff9a8a", d: "#3a3f48", k: "#2c2c34" }),
+  it_letterman_jacket: () => garment({ b: "#b8302a", L: "#e0605a", d: "#7a1a18", s: "#f4f1e6", k: "#b8302a", c: "#f4f1e6", z: "#7a1a18", t: "#f4f1e6" },
+    [[5, 6, "#f2c14e"], [6, 6, "#f2c14e"], [5, 7, "#f2c14e"], [6, 8, "#f2c14e"]]),
+  it_hoodie: () => garment({ b: "#8a93a0", L: "#b6bcc4", d: "#5b616d", s: "#8a93a0", k: "#5b616d", c: "#5b616d", z: "#8a93a0", t: "#5b616d", h: "#8a93a0" },
+    [[7, 8, "#5b616d"], [8, 8, "#5b616d"], [6, 9, "#5b616d"], [9, 9, "#5b616d"], [7, 5, "#e6e9ef"], [8, 5, "#e6e9ef"]], true),
+  it_backpack_plate: () => ascii([
+    "................",
+    "......kkkk......",
+    ".....k....k.....",
+    "...bbbbbbbbbb...",
+    "..bBbbbbbbbbbb..",
+    "..bBssssssssbb..",
+    "..bBsSssssssbb..",
+    "..bBsSssssssbb..",
+    "..bBssssssssbb..",
+    "..bBbbbbbbbbbb..",
+    "..bBbbbbbbbbbb..",
+    "..bbbbbbbbbbbb..",
+    "...dddddddddd...",
+    "................",
+    "................",
+    "................",
+  ], { k: "#3a3f48", b: "#6b4a8a", B: "#9a7ab8", s: "#9aa3ad", S: "#dde3e8", d: "#4a2a6a" }),
+  it_catchers_gear: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = (x + 0.5 - 8) / 5.4, dy = (y + 0.5 - 8) / 6.4, e = dx * dx + dy * dy;
+      if (e > 1) continue;
+      g[y][x] = e > 0.72 ? "#3a3f48" : x % 3 === 1 || y % 3 === 1 ? "#9aa3ad" : null;
+    }
+    for (const [x, y] of [[4, 4], [11, 4]]) g[y][x] = "#3f6fb5";
+    return g;
+  },
+  it_football_pads: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "....ww....ww....",
+    "..wwWww..wwwww..",
+    ".wWwwwwwwwwwwww.",
+    ".wWwwwwkkwwwwwd.",
+    ".wwwwwwkkwwwwwd.",
+    "..ddwwwkkwwwdd..",
+    "....wwwkkwww....",
+    ".....wwwwww.....",
+    "......wwww......",
+    "................",
+    "................",
+    "................",
+  ], { w: "#e9edf0", W: "#ffffff", d: "#b9c3cc", k: "#d64545" }),
+  it_trash_lid: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
+      if (r > 6.8) continue;
+      g[y][x] = r > 5.9 ? "#5b616d" : Math.round(r) % 2 ? (dx + dy < 0 ? "#c9ced4" : "#9aa3ad") : dx + dy < 0 ? "#b6bcc4" : "#8a93a0";
+    }
+    for (let x = 6; x <= 9; x++) g[7][x] = "#3a3f48";
+    g[8][6] = "#3a3f48";
+    g[8][9] = "#3a3f48";
+    return g;
+  },
+  it_welding_mask: () => ascii([
+    "................",
+    "................",
+    "....kkkkkkkk....",
+    "...kKkkkkkkkk...",
+    "..kKkkkkkkkkkk..",
+    "..kKkggggggkkk..",
+    "..kKkgGggggkkk..",
+    "..kkkggggggkkk..",
+    "..kkkkkkkkkkkk..",
+    "..kkkkkkkkkkkk..",
+    "...kkkkkkkkkk...",
+    "....kkkkkkkk....",
+    ".....kkkkkk.....",
+    "................",
+    "................",
+    "................",
+  ], { k: "#3a3f48", K: "#6b7380", g: "#2f8a5a", G: "#7fe0a8" }),
+  it_motorcycle_jacket: () => garment({ b: "#2c2c34", L: "#5a5a66", d: "#14141a", s: "#2c2c34", k: "#5a5a66", c: "#5a5a66", z: "#c9ced4", t: "#14141a" },
+    [[6, 4, "#c9ced4"], [9, 6, "#c9ced4"]]),
+  it_kevlar_vest: () => vest({ b: "#6f7f4a", L: "#93a86a", d: "#4a5632", t: "#4a5632" }, [[5, 8, "#4a5632"], [6, 8, "#4a5632"], [9, 8, "#4a5632"], [10, 8, "#4a5632"], [5, 10, "#4a5632"], [10, 10, "#4a5632"]]),
+  it_lab_coat: () => garment({ b: "#f4f6f8", L: "#ffffff", d: "#c9d2dc", s: "#f4f6f8", k: "#c9d2dc", c: "#c9d2dc", z: "#9aa3ad", t: "#c9d2dc" },
+    [[5, 8, "#5f8fe0"], [10, 6, "#9aa3ad"]]),
+  it_apron: () => vest({ b: "#f4f6f8", L: "#ffffff", d: "#c9d2dc", t: "#3f6fb5" }, [[3, 8, "#3f6fb5"], [4, 8, "#3f6fb5"], [11, 8, "#3f6fb5"], [12, 8, "#3f6fb5"], [7, 9, "#c9d2dc"], [8, 9, "#c9d2dc"], [7, 10, "#c9d2dc"], [8, 10, "#c9d2dc"]]),
+  it_winter_coat: () => garment({ b: "#f08a24", L: "#ffc07a", d: "#b8601a", s: "#f08a24", k: "#b8601a", c: "#f4f1e6", z: "#b8601a", t: "#b8601a" },
+    [[5, 7, "#b8601a"], [6, 7, "#b8601a"], [9, 7, "#b8601a"], [10, 7, "#b8601a"], [5, 9, "#b8601a"], [6, 9, "#b8601a"], [9, 9, "#b8601a"], [10, 9, "#b8601a"]]),
+  it_riot_harness: () => ascii([
+    "................",
+    "................",
+    "...ssssssssss...",
+    "...sggggggggs...",
+    "...sgGggggggs...",
+    "...sgGggggggs...",
+    "...sggggggggs...",
+    "...sgkkkkkkgs...",
+    "...sgkwwwwkgs...",
+    "...sgkkkkkkgs...",
+    "...sggggggggs...",
+    "...sggggggggs...",
+    "...ssssssssss...",
+    "................",
+    "................",
+    "................",
+  ], { s: "#3a3f48", g: "#9fc8e0", G: "#e6f4ff", k: "#2c2c34", w: "#f4f4f4" }),
+  // Accessories.
+  it_charm: () => {
+    const g = blank(16);
+    for (const [cx, cy] of [[6, 5.4], [10, 5.4], [6, 9.4], [10, 9.4]]) disk(g, cx, cy, 2.4, "#4caf50");
+    for (const [x, y] of [[5, 4], [9, 4], [5, 8]]) g[y][x] = "#9fe0a0";
+    rod(g, 8, 8, 11, 14, 0.5, "#2e7a3a");
+    return g;
+  },
+  it_glasses: () => {
+    const g = blank(16);
+    for (const cx of [4.8, 11.2]) for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const r = Math.hypot(x + 0.5 - cx, y + 0.5 - 8.5);
+      if (r <= 3.2) g[y][x] = r > 2.2 ? "#8a5a3a" : r < 1.2 ? "#ffffff" : "#bfe3f5";
+    }
+    for (const x of [7, 8]) g[7][x] = "#8a5a3a";
+    g[7][1] = "#8a5a3a";
+    g[7][14] = "#8a5a3a";
+    return g;
+  },
+  it_watch: () => {
+    const g = blank(16);
+    rod(g, 8, 1.4, 8, 3.6, 0.6, "#c9a24a");
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 9.4, r = Math.hypot(dx, dy);
+      if (r <= 5.4) g[y][x] = r > 4.4 ? (dx + dy < -2 ? "#fff0a8" : "#c9a24a") : "#f4f1e6";
+    }
+    rod(g, 8, 9.4, 8, 6.4, 0.35, "#3a2a1a");
+    rod(g, 8, 9.4, 10.2, 9.4, 0.35, "#3a2a1a");
+    return g;
+  },
+  it_energy_drink: () => ascii([
+    "................",
+    "................",
+    ".....ssssss.....",
+    ".....kkkkkk.....",
+    ".....kKkkkk.....",
+    ".....kKkkgk.....",
+    ".....kKkggk.....",
+    ".....kKggkk.....",
+    ".....kKkggk.....",
+    ".....kKkgkk.....",
+    ".....kKgkkk.....",
+    ".....kKkkkk.....",
+    ".....kkkkkk.....",
+    ".....ssssss.....",
+    "................",
+    "................",
+  ], { s: "#b6bcc4", k: "#2c2c34", K: "#5a5a66", g: "#8ad13a" }),
+  it_photo: () => ascii([
+    "................",
+    "................",
+    "..ffffffffffff..",
+    "..fbbbbbbbbbbf..",
+    "..fbbbbbbbbbbf..",
+    "..fbbsbbbbsbbf..",
+    "..fbsssbbsssbf..",
+    "..fbbsbbbbsbbf..",
+    "..fbrrrbbcccbf..",
+    "..fbrrrbbcccbf..",
+    "..fggggggggggf..",
+    "..ffffffffffff..",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { f: "#a8753f", b: "#bfe3f5", s: "#f2c9a0", r: "#d64545", c: "#3f7fd6", g: "#6aa84f" }),
+  it_gloves: () => ascii([
+    "................",
+    "................",
+    "....s.s.s.......",
+    "....s.s.s.s.....",
+    "...kkkkkkks.....",
+    "...kKkkkkkk.....",
+    "...kKkkkkkk.ss..",
+    "...kKkkkkkkkks..",
+    "...kkkkkkkkkk...",
+    "...kkkkkkkkk....",
+    "....kkkkkkk.....",
+    "....ddddddd.....",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { s: "#f2c9a0", k: "#3a3f48", K: "#6b7380", d: "#2c2c34" }),
+  it_bracelet: () => {
+    const g = blank(16);
+    const beads = ["#d64545", "#f2c14e", "#4caf50", "#3f7fd6", "#c04aa0", "#f08a24"];
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      disk(g, 8 + Math.cos(a) * 4.8, 8 + Math.sin(a) * 4.2, 1.15, beads[i % beads.length]);
+    }
+    return g;
+  },
+  it_class_ring: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = (y + 0.5 - 10) * 1.3, r = Math.hypot(dx, dy);
+      if (r <= 5.4 && r >= 3.4) g[y][x] = dy < 0 ? "#fff0a8" : "#c9a24a";
+    }
+    disk(g, 8, 4.6, 2.4, "#c9a24a");
+    disk(g, 8, 4.6, 1.5, "#d64545");
+    g[4][7] = "#ff9a8a";
+    return g;
+  },
+  it_harmonica: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".ssssssssssssss.",
+    ".sSSSSSSSSSSSSs.",
+    ".rkrkrkrkrkrkrr.",
+    ".rkrkrkrkrkrkrr.",
+    ".sssssssssssssd.",
+    ".dddddddddddddd.",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { s: "#c9ced4", S: "#ffffff", d: "#8a93a0", r: "#3f6fb5", k: "#14141a" }),
+  it_walkie_talkie: () => ascii([
+    "................",
+    "....k...........",
+    "....k...........",
+    "....k...........",
+    "....kkkkkkk.....",
+    "....kKkkkkk.....",
+    "....kggggkk.....",
+    "....kgGggkk.....",
+    "....kkkkkkk.....",
+    "....kdkdkdk.....",
+    "....kkkkkkk.....",
+    "....kdkdkdk.....",
+    "....kkkkkkk.....",
+    "....kkkkkkk.....",
+    "................",
+    "................",
+  ], { k: "#2c2c34", K: "#5a5a66", g: "#7fe0a8", G: "#cfffe0", d: "#5a5a66" }),
+  it_compass: () => ascii([
+    "................",
+    "................",
+    "...pppppppppp...",
+    "...pPppppppppd..",
+    "...ppwwwwwwppd..",
+    "...ppwwrrwwppd..",
+    "...ppwwrrwwppd..",
+    "...ppwwkkwwppd..",
+    "...ppwwkkwwppd..",
+    "...ppwwwwwwppd..",
+    "...pppppppppppd.",
+    "...ppprrrrpppd..",
+    "...pppppppppp...",
+    "................",
+    "................",
+    "................",
+  ], { p: "#9fc8e0", P: "#e6f4ff", d: "#6a98b8", w: "#f4f4f4", r: "#d64545", k: "#3a3f48" }),
+  it_notebook: () => ascii([
+    "................",
+    "................",
+    "...s.s.s.s.s....",
+    "..rrrrrrrrrrr...",
+    "..rRrrrrrrrrr...",
+    "..rRrwwwwwwrr...",
+    "..rRrrrrrrrrr...",
+    "..rRrrrrrrrrr...",
+    "..rRrrrrrrrrr...",
+    "..rRrrrrrrrrr...",
+    "..rRrrrrrrrrr...",
+    "..rrrrrrrrrrr...",
+    "..ddddddddddd...",
+    "................",
+    "................",
+    "................",
+  ], { s: "#c9ced4", r: "#b8302a", R: "#e0605a", w: "#f4f1e6", d: "#7a1a18" }),
+  it_headband: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = (y + 0.5 - 8) * 2.2, r = Math.hypot(dx, dy);
+      if (r <= 6.6 && r >= 4.4) g[y][x] = Math.abs(dx) < 1.2 && dy > 0 ? "#f4f4f4" : dy < 0 ? "#e0605a" : "#b8302a";
+    }
+    return g;
+  },
+  it_whistle: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const r = Math.hypot(x + 0.5 - 6.4, y + 0.5 - 9.6);
+      if (r <= 3.6) g[y][x] = r < 1.2 ? "#3a3f48" : x + y < 15 ? "#ffffff" : "#b6bcc4";
+    }
+    rod(g, 8, 7, 13.4, 7, 1.4, sh("#ffffff", "#c9ced4", "#8a93a0"));
+    rod(g, 3.6, 7, 2, 2, 0.4, "#d64545");
+    return g;
+  },
+  it_sunglasses: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".kkkkkkkkkkkkkk.",
+    ".kKggggkkggggk..",
+    ".kgGgggkkgGgggk.",
+    "..ggggg..ggggg..",
+    "...ggg....ggg...",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { k: "#14141a", K: "#5a5a66", g: "#2c3440", G: "#6a7a90" }),
+  it_first_aid: () => ascii([
+    "................",
+    "................",
+    "................",
+    "..wwwwwwwwwwww..",
+    "..wWWWWWWWWWWd..",
+    "..wWwwwrrwwwwd..",
+    "..wWwwwrrwwwwd..",
+    "..wWwrrrrrrwwd..",
+    "..wWwrrrrrrwwd..",
+    "..wWwwwrrwwwwd..",
+    "..wWwwwrrwwwwd..",
+    "..wwwwwwwwwwwd..",
+    "..dddddddddddd..",
+    "................",
+    "................",
+    "................",
+  ], { w: "#e9e4d4", W: "#ffffff", d: "#a89a80", r: "#d64545" }),
+  it_energy_stash: () => {
+    const g = blank(16);
+    rod(g, 3, 11, 13, 5, 2.4, (t, side) => (t < 0.12 || t > 0.88 ? "#c9ced4" : side < -1 ? "#ffd06a" : t > 0.45 && t < 0.62 ? "#5a3b24" : "#e08a24"));
+    return g;
+  },
+  // Legendaries: the base item in gold.
+  it_legendary_bat: () => legendary("it_bat"),
+  it_legendary_axe: () => legendary("it_axe"),
+  it_legendary_chainsaw: () => legendary("it_field_chainsaw"),
+  it_legendary_machete: () => legendary("it_machete"),
+  it_legendary_recurve: () => legendary("it_recurve_bow"),
+  it_legendary_crossbow: () => legendary("it_crossbow"),
+  it_legendary_cannon: () => legendary("it_potato_cannon"),
+  it_legendary_slingshot: () => legendary("it_slingshot"),
+  it_legendary_vest: () => legendary("it_vest"),
+  it_legendary_coat: () => legendary("it_winter_coat"),
+  it_legendary_riotgear: () => legendary("it_riot_harness"),
+  it_legendary_labcoat: () => legendary("it_lab_coat"),
+  it_legendary_charm: () => legendary("it_charm"),
+  it_legendary_glasses: () => legendary("it_glasses"),
+  it_legendary_compass: () => legendary("it_compass"),
+  it_legendary_ring: () => legendary("it_class_ring"),
   // ---- tab and turn-button icons (16x16, shown at 16px) — one per tab ----
   // Lobby: the school's front doors.
   lobby: () => ascii([
@@ -3407,7 +4201,7 @@ export function pixelIcon(name, size = 16) {
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
       if (g[y][x]) continue;
       const touching = [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([dx, dy]) => g[y + dy]?.[x + dx]).find(Boolean);
-      if (touching) color[y][x] = outlineOf(touching);
+      if (touching) color[y][x] = g.outline || outlineOf(touching);
     }
     let rects = "";
     for (let y = 0; y < n; y++) {
