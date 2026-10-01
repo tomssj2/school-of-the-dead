@@ -3,11 +3,14 @@
 // cards tile them sideways; the UI stands the room's characters on top of them.
 
 import { shadowOf, lightOf, outlineOf, mix } from "./sprite.js";
+import { buffer, lightUp } from "./lighting.js";
 
 // ---------- high-resolution room scenes ----------
 // 192x48, twice the detail of the old 96x24 ones, and drawn by room level: a level-1 room is
 // run-down (boarded windows, cracks, boxes), each level adds equipment, light and decor, and a
 // maxed room is fully kitted out. Rows 0-31 are wall (the wainscot from 22), 32-47 the floor.
+// They're lit like the Night Watch board and the fight backdrops (lighting.js): the drawing gets
+// `r.glow` (a rect that gives off its own light) and `r.light` (a light pool or beam) next to `r`.
 // The banner's labels cover the top corners (roughly x < 70 and x > 100 above y 14) and the crowd
 // the floor, so the pieces that should be seen hang on the wall between y 10 and 30.
 
@@ -44,20 +47,27 @@ function hiRoom(r, { wall, wainscot, floor, floorLine, blocks = true }) {
 
 // A hanging ceiling lamp: `on` glows, off (or broken) hangs dark.
 function lamp(r, x, len, on) {
+  const glow = (on && r.glow) || r;
   r(x, 0, x, len, "#3a3f48");
-  r(x - 3, len + 1, x + 3, len + 2, on ? "#f4d35e" : "#5a5f68");
-  r(x - 2, len + 1, x + 2, len + 1, on ? "#fff4b0" : "#6a707a");
-  if (on) for (const [dx, dy] of [[-5, 4], [5, 4], [-3, 5], [3, 5], [0, 5]]) r(x + dx, len + dy, x + dx, len + dy, "#fff4b066");
+  glow(x - 3, len + 1, x + 3, len + 2, on ? "#f4d35e" : "#5a5f68");
+  glow(x - 2, len + 1, x + 2, len + 1, on ? "#fff4b0" : "#6a707a");
+  if (on) {
+    r.light?.({ x, y: len + 3, r: 24, k: 0.42, c: LAMP_LIGHT });
+    r.light?.({ x, y: len + 3, len: 46, w0: 3, spread: 0.62, k: 0.32, c: LAMP_LIGHT });
+  }
 }
 
 // Window `w` wide on the wall; level 1 boarded up, level 2 half-boarded, then clean glass.
 function hiWindow(r, x, y, w, h, lv) {
+  const glass = (lv >= 2 && r.glow) || r;
   box(r, x, y, x + w, y + h, "#3a4150");
-  r(x + 1, y + 1, x + w - 1, y + h - 1, lv <= 1 ? "#262b36" : "#a9d4ef");
+  glass(x + 1, y + 1, x + w - 1, y + h - 1, lv <= 1 ? "#262b36" : "#a9d4ef");
   if (lv >= 2) {
-    r(x + 1, y + h - 2, x + w - 1, y + h - 1, "#cfe8f8");
-    for (let i = 0; i < 3; i++) r(x + 3 + i, y + 1 + i, x + 3 + i, y + 1 + i, "#ffffff");
-  }
+    glass(x + 1, y + h - 2, x + w - 1, y + h - 1, "#cfe8f8");
+    for (let i = 0; i < 3; i++) glass(x + 3 + i, y + 1 + i, x + 3 + i, y + 1 + i, "#ffffff");
+    r.light?.({ x: x + w / 2, y: y + h / 2, r: w + 6, sy: 0.9, k: 0.28, c: DAYLIGHT });
+    r.light?.({ x: x + w / 2, y: y + h, len: 60, w0: w / 2 - 1, spread: 0.35, k: 0.2, c: DAYLIGHT });
+  } else r.light?.({ x: x + w / 2, y: y + h / 2, r: w + 4, k: 0.14, c: DAYLIGHT }); // light through the cracks in the boards
   r(x + Math.floor(w / 2), y + 1, x + Math.floor(w / 2), y + h - 1, "#3a4150");
   const board = (yy) => { r(x - 1, yy, x + w + 1, yy + 1, "#8a5f33"); r(x - 1, yy, x + w + 1, yy, "#a8753f"); };
   if (lv <= 1) { board(y + 1); board(y + Math.floor(h / 2)); board(y + h - 2); }
@@ -617,8 +627,9 @@ Object.assign(HI_SCENES, {
     bookcase(r, 12, 12, 40, 31);
     // window onto the city at sunset
     box(r, 70, 2, 102, 17, "#e8a56a", "#3a2a1e");
-    r(71, 3, 101, 7, "#d98a5a");
-    r(71, 8, 101, 11, "#e8a56a");
+    (r.glow || r)(71, 3, 101, 16, "#e8a56a");
+    (r.glow || r)(71, 3, 101, 7, "#d98a5a");
+    r.light?.({ x: 86, y: 10, r: 54, sy: 0.8, k: 0.42, c: [1.0, 0.7, 0.45] });
     for (const [x0, x1, top] of [[71, 76, 12], [77, 81, 9], [82, 88, 13], [89, 93, 10], [94, 101, 12]]) r(x0, top, x1, 16, "#4a3a44");
     r(86, 3, 86, 16, "#3a2a1e");
     r(71, 10, 101, 10, "#3a2a1e");
@@ -665,6 +676,7 @@ Object.assign(HI_SCENES, {
     box(r, 93, 25, 105, 29, "#c9a227", "#8a6a1a");
     r(72, 16, 72, 21, "#c9a227");
     box(r, 69, 14, 76, 16, "#2f7a4f", "#1f5a38");
+    r.light?.({ x: 72, y: 17, r: 22, k: 0.45, c: LAMP_LIGHT });
     box(r, 118, 15, 125, 21, "#3f8fd0", "#2a5a8a");
     r(120, 16, 122, 18, "#6fae6a");
     for (let i = 0; i < 3; i++) r(100 + i, 20 - i, 110 + i, 21 - i, i % 2 ? "#e0d6bc" : "#efe4c8");
@@ -1023,6 +1035,8 @@ function wideOutdoor(r, lv, ground, sunX = 360) {
     r(sunX - 3, 3, sunX + 3, 9, "#fff3c4");
     r(sunX - 2, 2, sunX + 2, 10, "#fff3c4");
     r(sunX - 1, 4, sunX + 1, 8, "#fffbe8");
+    // its halo over the sky and the warm light it throws across the yard
+    r.light?.({ x: sunX, y: 6, r: 150, sy: 1.8, k: 0.28, c: [1.0, 0.88, 0.62] });
   }
   // clouds, more of them as the smoke clears
   if (lv >= 2) {
@@ -1439,9 +1453,11 @@ function crusher(r, x) {
   }
 }
 function floodlight(r, x) {
+  const glow = r.glow || r;
   r(x, 4, x + 1, 31, "#6b6f78");
-  box(r, x - 3, 2, x + 4, 5, "#f4d35e", "#c9a227");
-  r(x - 2, 3, x + 3, 3, "#fffbe8");
+  box(glow, x - 3, 2, x + 4, 5, "#f4d35e", "#c9a227");
+  glow(x - 2, 3, x + 3, 3, "#fffbe8");
+  r.light?.({ x: x + 0.5, y: 6, len: 40, w0: 4, spread: 0.6, k: 0.32, c: LAMP_LIGHT });
   for (let i = 1; i < 5; i++) r(x - 3 - i, 5 + i, x + 4 + i, 5 + i, "#fff4b01a");
 }
 function forklift(r, x, base) {
@@ -1463,25 +1479,54 @@ const sceneCache = new Map();
 // scene is drawn for it (level 5 if none is given).
 // `floorRows` > 0 adds that many rows of floor under the scene — its bottom 8 rows repeated — so a
 // fight can stand people on a deeper floor in front of the room.
+//
+// Every scene is lit: indoors dim while the room's run-down and its lamps are out, brighter as it's
+// done up (INDOOR_AMBIENT by level), lamps casting warm pools and cones, windows glowing with a
+// shaft of daylight, screens and indicator lights glowing; outdoors (the Farm and the Scrapyard,
+// Turn 2 tabs) in warm afternoon light.
+const LAMP_LIGHT = [1.0, 0.86, 0.6];
+const DAYLIGHT = [0.8, 0.9, 1.0];
+const SCREEN_LIGHTS = { "#7fe0a8": [0.45, 1.0, 0.7], "#d8ffe8": [0.6, 1.0, 0.8], "#ff5b5b": [1.0, 0.4, 0.4], "#fff3c4": [1.0, 0.95, 0.75], "#fffbe8": [1.0, 0.95, 0.8] };
+const INDOOR_AMBIENT = [[0.6, 0.6, 0.68], [0.68, 0.68, 0.74], [0.74, 0.74, 0.79], [0.78, 0.78, 0.82], [0.82, 0.82, 0.86]];
+const AFTERNOON = [[0.8, 0.79, 0.78], [0.92, 0.88, 0.82], [0.98, 0.92, 0.84], [1.0, 0.94, 0.85], [1.02, 0.96, 0.86]];
+const OUTDOOR_SCENES = new Set(["farm", "scrapyard"]);
 export function sceneBackground(kind, floorRows = 0) {
   const key = floorRows ? `${kind}+${floorRows}` : kind;
   if (!sceneCache.has(key)) {
     const [name, lvText] = kind.split("@");
     const hi = HI_SCENES[name];
-    let rects = "";
-    const r = (x0, y0, x1, y1, c) => {
-      rects += `<rect x="${x0}" y="${y0}" width="${x1 - x0 + 1}" height="${y1 - y0 + 1}" fill="${c}"/>`;
-    };
-    (hi || HI_SCENES.classroom_empty)(r, Math.min(5, Math.max(1, Number(lvText) || 5)));
+    const lv = Math.min(5, Math.max(1, Number(lvText) || 5));
     const [w, h] = [SCENE_WIDTH[name] || HW, HH];
-    let body = rects;
-    if (floorRows) {
-      const band = 8;
-      body = `<g id="s">${rects}</g>`;
-      for (let y = h; y < h + floorRows; y += band) body += `<svg x="0" y="${y}" width="${w}" height="${band}" viewBox="0 ${h - band} ${w} ${band}"><use href="#s"/></svg>`;
+    const p = buffer(w, h + floorRows);
+    const lights = [];
+    const r = (x0, y0, x1, y1, c) => p.r(x0, y0, x1, y1, c);
+    r.glow = (x0, y0, x1, y1, c) => p.r(x0, y0, x1, y1, c, 1);
+    r.light = (l) => lights.push(l);
+    (hi || HI_SCENES.classroom_empty)(r, lv);
+    // screens, indicator lights, the sun: they glow, and each cluster of them lights its corner
+    const cells = new Map();
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const c = p.col[y * w + x];
+      if (!SCREEN_LIGHTS[c]) continue;
+      p.glow[y * w + x] = 1;
+      const k = `${x >> 3},${y >> 3}`;
+      const cell = cells.get(k) || { x: 0, y: 0, n: 0, c };
+      cell.x += x;
+      cell.y += y;
+      cell.n++;
+      cells.set(k, cell);
     }
-    const svg = `<svg viewBox="0 0 ${w} ${h + floorRows}" width="${w}" height="${h + floorRows}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
-    sceneCache.set(key, `url('data:image/svg+xml,${encodeURIComponent(svg)}')`);
+    for (const cell of cells.values()) if (cell.n >= 2) lights.push({ x: cell.x / cell.n, y: cell.y / cell.n, r: 10 + Math.min(10, cell.n), k: 0.35, c: SCREEN_LIGHTS[cell.c] });
+    // a deeper floor for a fight: the bottom 8 rows again and again
+    for (let y = h; y < h + floorRows; y++) {
+      const src = (h - 8 + ((y - h) % 8)) * w;
+      for (let x = 0; x < w; x++) {
+        p.col[y * w + x] = p.col[src + x];
+        p.glow[y * w + x] = p.glow[src + x];
+      }
+    }
+    const ambient = (OUTDOOR_SCENES.has(name) ? AFTERNOON : INDOOR_AMBIENT)[lv - 1];
+    sceneCache.set(key, `url('${lightUp(p, lights, { ambient, mist: false })}')`);
   }
   return sceneCache.get(key);
 }

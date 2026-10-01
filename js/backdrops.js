@@ -6,7 +6,7 @@
 // The arena scenes are AW x AH art pixels, shown at 4x (728 x 288); the fighters stand on the
 // floor (from FLOOR down, deep enough for three ranks), so the busy detail stays above it.
 
-import { buffer, lightUp, hash, hash2 } from "./nightwatch.js";
+import { buffer, lightUp, hash, hash2 } from "./lighting.js";
 import { mix } from "./sprite.js";
 
 const AW = 182;
