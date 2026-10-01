@@ -1658,7 +1658,7 @@ function renderExplorationMap(state) {
       <svg class="cm-routes" width="${WORLD_W}" height="${WORLD_H}" viewBox="0 0 ${WORLD_W} ${WORLD_H}">${routes}</svg>
     </div>
     <button class="cm-reset" data-action="map-reset" title="Zoom back out">⤢ Whole map</button>
-    <div class="cm-cell cm-school" style="--x:${school.x};--y:${school.y + 34};"><span class="cm-label cm-label-school">${pxe("school")}<span class="cm-name"> School</span></span></div>
+    <div class="cm-cell cm-school" style="--x:${school.x};--y:${school.y - 29};"><span class="cm-label cm-label-school">${pxe("school")}<span class="cm-name"> School</span></span></div>
     ${cells}
   </div>`;
 }
