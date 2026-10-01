@@ -339,7 +339,7 @@ export const NIGHT_CONDITIONS = {
   clear: { id: "clear", name: "Clear night", icon: "🌙", weight: 60, desc: "Nothing out of the ordinary" },
   fog: { id: "fog", name: "Fog", icon: "🌫️", weight: 15, from: 3, desc: "Ranged weapons reach 2 squares less, and the street can't be seen" },
   rain: { id: "rain", name: "Rain", icon: "🌧️", weight: 15, from: 2, desc: "Ranged attacks deal 30% less" },
-  blackout: { id: "blackout", name: "Blackout", icon: "🌑", weight: 10, from: 5, desc: "Everyone hits 15% less often — except in the two lamp-lit lanes" },
+  blackout: { id: "blackout", name: "Blackout", icon: "🌑", weight: 10, from: 5, desc: "Everyone hits 15% less often" },
 };
 // Three stars for a perfect night: nobody got in, nobody went down, every zombie put down.
 export const NIGHT_STAR_REWARD = { materials: 10, happiness: 3 };
