@@ -755,7 +755,6 @@ function placeCamera(map) {
   const zMax = Math.max(1, MAP_MAX_SCALE / f.s);
   mapCam.z = Math.min(Math.max(f.zMin, mapCam.z), zMax);
   const s = f.s * mapCam.z;
-  // Zoomed in, the centre can move anywhere that keeps the view box's edge on screen.
   const halfW = f.cw / 2 / s;
   const halfH = f.ch / 2 / s;
   const clampTo = (v, lo, hi) => (lo > hi ? (lo + hi) / 2 : Math.min(Math.max(v, lo), hi));
@@ -763,14 +762,9 @@ function placeCamera(map) {
     mapCam.x = f.vx + f.vw / 2;
     mapCam.y = f.vy + f.vh / 2;
   }
-  if (mapCam.z < 1) {
-    // pulled back past the view box: keep the whole map in frame
-    mapCam.x = clampTo(mapCam.x, halfW, WORLD_W - halfW);
-    mapCam.y = clampTo(mapCam.y, halfH, WORLD_H - halfH);
-  } else {
-    mapCam.x = clampTo(mapCam.x, f.vx + halfW, f.vx + f.vw - halfW);
-    mapCam.y = clampTo(mapCam.y, f.vy + halfH, f.vy + f.vh - halfH);
-  }
+  // the view can go anywhere on the map, out to the raids in its corners
+  mapCam.x = clampTo(mapCam.x, halfW, WORLD_W - halfW);
+  mapCam.y = clampTo(mapCam.y, halfH, WORLD_H - halfH);
   // Zoomed far out (a small screen, the whole town explored), names shrink to their icon.
   map.classList.toggle("cm-compact", s < 1.35);
   map.classList.toggle("cm-zoomed", mapCam.z > 1.001);

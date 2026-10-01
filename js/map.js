@@ -683,106 +683,149 @@ const TILES = {
   },
 };
 
-// 64 x 52: each raid's whole compound, with its own ground, sitting past the edge of the map.
-export const LAIR_W = 64;
-export const LAIR_H = 52;
+// 44 x 40 — a raid's compound, drawn like the school campus (a little smaller): its own grounds,
+// the main building and what's around it. citymap.js paints it into the town past the map's
+// edge, with a fence and the town carrying on around it.
+export const LAIR_W = 44;
+export const LAIR_H = 40;
 const LAIRS = {
-  // The City Mall: pink stores around a glass dome, a sign and a parking lot full of dead cars.
+  // The City Mall: a pink mall with a glass dome over the entrance, a sign, two anchor stores,
+  // skylights over the food court, and a parking lot of abandoned cars with lamp posts.
   mall(k) {
-    k.r(0, 0, 63, 51, "#3b3f47");
-    for (let x = 4; x < 62; x += 6) k.r(x, 40, x, 49, "#c9ccd2");
-    for (const [x, c] of [[6, "#d64545"], [19, "#3f6fb5"], [37, "#e8c14a"], [50, "#4caf7d"]]) {
-      k.r(x, 42, x + 4, 46, c);
-      k.r(x + 1, 43, x + 3, 44, "#9fc7e8");
+    k.r(0, 0, 43, 39, "#4e525a");
+    for (let x = 2; x < 43; x += 5) {
+      k.r(x, 27, x, 31, "#b6bbc3");
+      k.r(x, 34, x, 38, "#b6bbc3");
     }
-    k.r(3, 12, 60, 36, "#d98fb0");
-    k.r(3, 12, 60, 13, lightOf("#d98fb0"));
-    k.r(3, 35, 60, 36, shadowOf("#d98fb0"));
-    k.ellipse(31.5, 13, 11, 8, "#7fd4d0");
-    k.ellipse(31.5, 13, 8, 5, "#bff0ec");
-    for (let x = 23; x <= 40; x += 4) k.r(x, 8, x, 18, "#5fb4b0");
-    k.r(19, 4, 44, 7, "#e8c14a");
-    k.r(21, 5, 42, 6, "#fff0a8");
-    k.r(24, 24, 39, 36, "#9fe0dc");
-    for (let x = 24; x <= 39; x += 3) k.r(x, 24, x, 36, "#5fb4b0");
-    for (const x of [6, 14, 46, 54]) {
-      k.r(x, 22, x + 4, 30, "#9fe0dc");
-      k.r(x, 26, x + 4, 26, "#d98fb0");
+    for (const [x, y, c] of [[3, 28, "#b03030"], [13, 28, "#3f6fb5"], [28, 28, "#e0a536"], [38, 34, "#4caf7d"], [8, 34, "#f4f4f4"], [23, 34, "#8a5ad6"]]) car(k, x, y, c, true);
+    for (const x of [1, 21, 42]) {
+      k.r(x, 26, x, 32, "#6b6f78");
+      k.px(x, 26, "#fff0a8");
     }
+    k.r(3, 25, 40, 25, "#2c3038");
+    roof(k, 2, 6, 11, 24, "#b0607a");
+    roof(k, 32, 6, 41, 24, "#7a5ab0");
+    k.r(11, 9, 32, 24, "#d98fb0");
+    k.r(11, 9, 32, 9, lightOf("#d98fb0"));
+    k.r(11, 24, 32, 24, shadowOf("#d98fb0"));
+    for (const x of [13, 18, 26]) k.r(x, 11, x + 2, 12, "#bff0ec");
+    k.ellipse(21.5, 12, 6.5, 4.5, "#5fb4b0");
+    k.ellipse(21.5, 12, 4.5, 3, "#9fe0dc");
+    k.px(20, 10, "#e8fffc");
+    k.r(14, 3, 29, 6, "#e8c14a");
+    k.r(15, 4, 28, 5, "#fff0a8");
+    for (let x = 16; x <= 27; x += 3) k.px(x, 4, "#d64545");
+    k.r(17, 16, 26, 24, "#9fe0dc");
+    for (let x = 17; x <= 26; x += 3) k.r(x, 16, x, 24, "#5fb4b0");
+    for (const x of [4, 35]) {
+      k.r(x, 17, x + 4, 24, "#2a2d33");
+      k.r(x + 1, 18, x + 3, 19, x === 4 ? "#f08a9a" : "#c9a0f0");
+    }
+    k.r(12, 26, 15, 29, "#2c3e6b");
+    k.r(12, 26, 15, 26, "#ff4a4a");
+    k.px(13, 26, "#4a8aff");
+    for (const x of [10, 33]) { tree(k, x, 2, false); }
   },
-  // The General Hospital: a tall white block with a red cross, a helipad on the roof and an
-  // ambulance bay out front.
+  // The General Hospital: a white tower with a red cross and a rooftop helipad, a lower wing, the
+  // emergency entrance under a red canopy, a drop-off loop with ambulances, and the lawn.
   hospital(k) {
-    k.r(0, 0, 63, 51, "#4a5a48");
-    k.speckle("#566a53", 40);
-    k.r(0, 44, 63, 51, "#8a8e96");
-    k.r(8, 6, 47, 43, "#eef2f5");
-    k.r(47, 6, 47, 43, shadowOf("#eef2f5"));
-    k.r(48, 18, 59, 43, "#dfe6ea");
-    k.r(8, 3, 47, 6, "#9aa0a8");
-    k.disc(15, 4.5, 2.5, "#5b616d");
-    k.r(14, 3, 14, 6, "#f4d35e");
-    k.r(16, 3, 16, 6, "#f4d35e");
-    k.r(15, 4, 15, 4, "#f4d35e");
-    for (let y = 18; y <= 36; y += 5) for (let x = 11; x <= 44; x += 5) k.r(x, y, x + 2, y + 2, "#9fc7e8");
-    for (let y = 22; y <= 36; y += 5) for (let x = 50; x <= 56; x += 4) k.r(x, y, x + 1, y + 2, "#9fc7e8");
-    k.r(25, 8, 30, 16, "#d64545");
-    k.r(22, 10, 33, 14, "#d64545");
-    k.r(20, 38, 35, 43, "#9fc7e8");
-    k.r(18, 36, 37, 37, "#d64545");
-    k.r(40, 45, 51, 50, "#f4f4f4");
-    k.r(40, 47, 51, 47, "#d64545");
-    k.r(48, 45, 50, 46, "#9fc7e8");
+    k.r(0, 0, 43, 39, "#5f9e5a");
+    for (let x = 0; x < 44; x += 4) k.r(x, 0, x + 1, 39, "#58965a");
+    k.ellipse(21.5, 35, 17, 5, "#4e525a");
+    k.ellipse(21.5, 35, 11, 2.2, "#5f9e5a");
+    for (const [x, y] of [[10, 33], [27, 31]]) {
+      k.r(x, y, x + 5, y + 3, "#f4f4f4");
+      k.r(x, y + 2, x + 5, y + 2, "#d64545");
+      k.px(x + 2, y, "#4a8aff");
+      k.px(x + 3, y, "#ff4a4a");
+    }
+    roof(k, 28, 12, 41, 27, "#dfe6ea");
+    for (let y = 15; y <= 24; y += 4) for (let x = 30; x <= 38; x += 4) k.r(x, y, x + 1, y + 1, "#9fc7e8");
+    k.r(6, 28, 39, 28, "#3f6f3a");
+    k.r(6, 4, 27, 27, "#eef2f5");
+    k.r(6, 4, 6, 27, "#ffffff");
+    k.r(27, 4, 27, 27, shadowOf("#eef2f5"));
+    k.r(5, 2, 28, 4, "#9aa0a8");
+    k.disc(10, 3, 1.6, "#5b616d");
+    k.px(10, 3, "#f4d35e");
+    for (let y = 13; y <= 21; y += 4) for (let x = 8; x <= 25; x += 3) k.r(x, y, x + 1, y + 1, "#9fc7e8");
+    k.r(15, 5, 18, 11, "#d64545");
+    k.r(13, 7, 20, 9, "#d64545");
+    k.r(11, 24, 22, 25, "#d64545");
+    k.r(11, 24, 22, 24, "#f07a6a");
+    k.r(13, 26, 20, 27, "#9fc7e8");
+    for (const [x, y] of [[2, 6], [2, 16], [41, 4], [36, 30]]) tree(k, x, y, false);
   },
-  // The Military Base: a fenced compound with a watchtower, tents, a barracks and a tank.
+  // The Military Base: a sandbagged gate, a watchtower, two tents, a long barracks, a helipad, a
+  // tank and a supply truck on the packed dirt, and the flag.
   military_base(k) {
-    k.r(0, 0, 63, 51, "#6a6a4a");
-    k.speckle("#5a5a3e", 70);
-    for (let x = 1; x < 63; x += 2) { k.px(x, 1, "#9aa0a8"); k.px(x, 50, "#9aa0a8"); }
-    for (let y = 1; y < 51; y += 2) { k.px(1, y, "#9aa0a8"); k.px(62, y, "#9aa0a8"); }
-    k.r(26, 48, 37, 51, "#5b574f");
-    striped(k, 26, 37, 46, 46, "#d64545", "#f4f4f4");
-    k.r(6, 6, 33, 17, "#5a6a3a");
-    k.r(6, 4, 33, 6, "#465533");
-    for (let x = 9; x <= 30; x += 4) k.r(x, 10, x + 1, 12, "#2a3020");
-    gable(k, 40, 52, 16, "#5a6a3a");
-    gable(k, 46, 58, 28, "#4a5a30");
-    k.r(4, 22, 4, 36, "#6b4a2f");
-    k.r(11, 22, 11, 36, "#6b4a2f");
-    k.r(3, 18, 12, 22, "#8a5f33");
-    k.r(4, 16, 11, 18, "#465533");
-    k.r(19, 30, 36, 38, "#4a5a30");
-    k.r(19, 30, 36, 31, "#5a6a3a");
-    k.r(23, 26, 31, 30, "#3a4a28");
-    k.r(31, 27, 42, 28, "#3a4a28");
-    for (let x = 20; x <= 35; x += 3) k.r(x, 38, x + 1, 39, "#222");
-    k.r(56, 4, 56, 14, "#6b6f78");
-    k.r(57, 4, 61, 7, "#d64545");
-    for (const y of [41, 44]) for (let x = (y === 41 ? 4 : 6); x < 22; x += 4) {
+    k.r(0, 0, 43, 39, "#7a7452");
+    for (let i = 0; i < 70; i++) k.px(Math.floor(k.rng() * 44), Math.floor(k.rng() * 40), k.rng() < 0.5 ? "#6a6446" : "#8a845e");
+    roof(k, 2, 3, 25, 10, "#5a6a3a");
+    for (let x = 4; x <= 23; x += 4) k.r(x, 6, x + 1, 7, "#2a3020");
+    gable(k, 29, 37, 9, "#5a6a3a");
+    gable(k, 29, 41, 18, "#4a5a30");
+    k.disc(9, 21, 5.5, "#5b616d");
+    k.disc(9, 21, 4.4, "#6b6f78");
+    k.r(7, 19, 7, 23, "#f4d35e");
+    k.r(11, 19, 11, 23, "#f4d35e");
+    k.r(7, 21, 11, 21, "#f4d35e");
+    k.r(19, 26, 32, 32, "#4a5a30");
+    k.r(19, 26, 32, 26, "#5a6a3a");
+    k.r(22, 23, 29, 26, "#3a4a28");
+    k.r(29, 24, 38, 25, "#3a4a28");
+    for (let x = 20; x <= 31; x += 3) k.r(x, 32, x + 1, 33, "#222");
+    k.r(35, 28, 42, 33, "#5a6a3a");
+    k.r(39, 28, 42, 30, "#8fb0c8");
+    k.r(35, 31, 38, 33, "#c9b58c");
+    k.r(14, 13, 14, 23, "#6b4a2f");
+    k.r(20, 13, 20, 23, "#6b4a2f");
+    k.r(13, 11, 21, 13, "#8a5f33");
+    k.r(14, 10, 20, 11, "#465533");
+    k.r(40, 2, 40, 11, "#9aa0a8");
+    k.r(41, 2, 43, 4, "#d64545");
+    for (const y of [35, 37]) for (let x = (y === 35 ? 2 : 4); x < 18; x += 4) {
+      k.r(x, y, x + 2, y + 1, "#c9b58c");
+      k.r(x, y + 1, x + 2, y + 1, "#a8946a");
+    }
+    for (const y of [35, 37]) for (let x = (y === 35 ? 26 : 28); x < 43; x += 4) {
       k.r(x, y, x + 2, y + 1, "#c9b58c");
       k.r(x, y + 1, x + 2, y + 1, "#a8946a");
     }
   },
-  // The Research Institute: a dark glass tower with glowing lab windows, a biohazard sign and a
-  // fence of warning tape — and something green seeping out of the door.
+  // The Research Institute: a dark glass tower with glowing lab windows and a dish on the roof, a
+  // domed lab beside it, a biohazard sign, quarantine tape and something green seeping out.
   institute(k) {
-    k.r(0, 0, 63, 51, "#3a3f48");
-    k.r(0, 44, 63, 51, "#8a8e96");
-    k.r(14, 2, 49, 43, "#4a6a8a");
-    k.r(14, 2, 14, 43, lightOf("#4a6a8a"));
-    k.r(49, 2, 49, 43, shadowOf("#4a6a8a"));
-    k.r(5, 20, 14, 43, "#3f5a78");
-    k.r(49, 24, 58, 43, "#3f5a78");
-    for (let y = 5; y <= 34; y += 4) for (let x = 17; x <= 45; x += 4) k.r(x, y, x + 1, y + 1, k.rng() < 0.25 ? "#b07fe0" : "#7fa8d0");
-    k.r(30, 0, 33, 2, "#d0d4da");
-    k.r(26, 36, 37, 43, "#9fc7e8");
-    k.ellipse(31.5, 46, 7, 2.2, "#7fd13a");
-    k.r(30, 43, 33, 45, "#7fd13a");
-    k.r(6, 24, 12, 30, "#f4d35e");
-    k.px(8, 26, "#222");
-    k.px(10, 26, "#222");
-    k.px(9, 28, "#222");
-    striped(k, 0, 63, 49, 49, "#f4d35e", "#2a2a2a");
+    k.r(0, 0, 43, 39, "#8a8e96");
+    for (let x = 0; x < 44; x += 4) for (let y = 0; y < 40; y += 4) k.px(x, y, "#7a7e86");
+    k.r(4, 30, 39, 30, "#2c3038");
+    k.r(10, 3, 30, 29, "#4a6a8a");
+    k.r(10, 3, 10, 29, lightOf("#4a6a8a"));
+    k.r(30, 3, 30, 29, shadowOf("#4a6a8a"));
+    k.r(9, 1, 31, 3, "#3a4a5e");
+    k.disc(26, 1, 1.8, "#d0d4da");
+    k.px(26, 0, "#ff4a4a");
+    for (let y = 6; y <= 22; y += 3) for (let x = 12; x <= 27; x += 3) k.r(x, y, x + 1, y + 1, k.rng() < 0.3 ? "#b07fe0" : "#7fa8d0");
+    k.r(16, 24, 23, 29, "#9fc7e8");
+    k.r(19, 24, 20, 29, "#5f7f9f");
+    k.ellipse(37, 20, 6, 5, "#c9ced4");
+    k.ellipse(37, 20, 4.5, 3.5, "#e6eaee");
+    k.r(31, 20, 43, 29, "#c9ced4");
+    k.r(31, 20, 43, 20, "#e6eaee");
+    for (const x of [33, 37, 41]) k.r(x, 23, x + 1, 25, "#b07fe0");
+    k.r(2, 18, 7, 24, "#f4d35e");
+    k.px(4, 20, "#222");
+    k.px(5, 20, "#222");
+    k.px(4, 22, "#222");
+    k.r(4, 25, 5, 29, "#6b6f78");
+    k.ellipse(19.5, 33, 7, 2.5, "#7fd13a");
+    k.ellipse(19.5, 33, 4, 1.2, "#b8f070");
+    k.r(19, 30, 20, 31, "#7fd13a");
+    striped(k, 0, 43, 37, 37, "#f4d35e", "#2a2a2a");
+    for (const [x, y] of [[36, 33], [40, 34]]) {
+      k.r(x, y, x + 3, y + 2, "#e6eaee");
+      k.px(x + 1, y, "#f4d35e");
+    }
   },
 };
 

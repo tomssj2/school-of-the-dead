@@ -3,8 +3,8 @@
 // in code like the room scenes. Underneath it's still the hex grid from map.js (every hex is a
 // "block" a scout can reveal, with the same terrain, places and rules), but the grid is never drawn.
 
-import { MAP_RADIUS, isSchoolHex, hexTerrain, hexDistance, locationAt, tilePixels, hexTileKey } from "./map.js";
-import { LOCATIONS } from "./data.js";
+import { MAP_RADIUS, isSchoolHex, hexTerrain, hexDistance, locationAt, tilePixels, hexTileKey, LAIR_W, LAIR_H } from "./map.js";
+import { LOCATIONS, LANDMARKS } from "./data.js";
 import { shadowOf, lightOf } from "./sprite.js";
 
 // ---------- geometry: world pixels <-> hexes ----------
@@ -155,12 +155,31 @@ const mainV = (i) => i % 4 === 1;
 const mainH = (j) => j % 4 === 2;
 
 const URBAN = new Set(["street", "apartments", "shops", "parking", "houses", "ruins"]);
-const NATURE = new Set(["woods", "field", "edge"]);
+const NATURE = new Set(["woods", "field", "edge", "raid"]);
+
+// The raids' compounds, past the map's edge (world pixels), and the kind of town around each.
+const lairBox = (lm) => ({ x0: Math.round(lm.at.x - LAIR_W / 2), y0: Math.round(lm.at.y - LAIR_H / 2), x1: Math.round(lm.at.x + LAIR_W / 2) - 1, y1: Math.round(lm.at.y + LAIR_H / 2) - 1 });
+const inBox = (b, x, y, pad = 0) => x >= b.x0 - pad && x <= b.x1 + pad && y >= b.y0 - pad && y <= b.y1 + pad;
+const RAID_DISTRICTS = {
+  mall: ["shops", "parking", "shops", "street", "apartments"],
+  hospital: ["street", "apartments", "park", "parking"],
+  military_base: ["field", "ruins", "woods", "field", "parking"],
+  institute: ["street", "parking", "apartments", "ruins"],
+};
 
 function zoneAt(x, y) {
   const { q, r } = worldToHex(x, y);
   if (isSchoolHex(q, r)) return "school";
-  if (hexDistance(q, r) > MAP_RADIUS) return "edge";
+  if (hexDistance(q, r) > MAP_RADIUS) {
+    // past the edge the town carries on: each raid in its own neighbourhood, the outskirts beyond
+    for (const lm of LANDMARKS) {
+      if (inBox(lairBox(lm), x, y, 4)) return "raid";
+      if (Math.hypot(x - lm.at.x, y - lm.at.y) < 74) {
+        const kinds = RAID_DISTRICTS[lm.id];
+        return kinds[Math.floor(hash2(Math.floor(x / GX), Math.floor(y / GY), 17) * kinds.length)];
+      }
+    }
+  }
   return hexTerrain(q, r);
 }
 
@@ -345,6 +364,10 @@ const LOTS = {
   school(p, a) {
     for (let x = a.x0; x <= a.x1; x++) p.rect(x, a.y0, x, a.y1, Math.floor(x / 3) % 2 ? "#63a158" : "#6aa85f");
   },
+  // a raid's grounds (its compound is painted over them)
+  raid(p, a) {
+    p.rect(a.x0, a.y0, a.x1, a.y1, "#5a5e66");
+  },
   edge(p, a, rnd) {
     p.rect(a.x0, a.y0, a.x1, a.y1, "#26482a");
     for (let i = 0; i < 6; i++) tree(p, a.x0 + 2 + rnd() * (a.x1 - a.x0 - 3), a.y0 + 2 + rnd() * (a.y1 - a.y0 - 3), rnd() < 0.5, "#2f5f33");
@@ -381,7 +404,7 @@ export function cityBaseUrl() {
 
   // 2. roads: streets around every town block, avenues and country roads further out
   const roadKind = (a, b, main) => {
-    if (a === "school" || b === "school") return 0;
+    if (a === "school" || b === "school" || a === "raid" || b === "raid") return 0;
     if (URBAN.has(a) || URBAN.has(b)) return main ? 2 : 1;
     return main ? 3 : 0;
   };
@@ -450,6 +473,18 @@ export function cityBaseUrl() {
     for (let ty = 0; ty < t.h; ty++) for (let tx = 0; tx < t.w; tx++) if (t.g[ty][tx]) p.dot(x0 + tx, y0 + ty, t.g[ty][tx]);
   }
 
+  // 4b. the raids, past the edge: each compound on its grounds, behind a fence with a gate
+  for (const lm of LANDMARKS) {
+    const b = lairBox(lm);
+    const t = tilePixels(`lair:${lm.id}`);
+    for (let y = b.y0 - 3; y <= b.y1 + 3; y++) for (let x = b.x0 - 3; x <= b.x1 + 3; x++) {
+      const edge = x === b.x0 - 3 || x === b.x1 + 3 || y === b.y0 - 3 || y === b.y1 + 3;
+      if (!edge) p.dot(x, y, "#5a5e66");
+      else if (!(y === b.y1 + 3 && Math.abs(x - lm.at.x) <= 3)) p.dot(x, y, (x + y) % 3 === 0 ? "#6b6f78" : "#9aa0a8");
+    }
+    for (let ty = 0; ty < t.h; ty++) for (let tx = 0; tx < t.w; tx++) if (t.g[ty][tx]) p.dot(b.x0 + tx, b.y0 + ty, t.g[ty][tx]);
+  }
+
   // 5. the school: its grounds, a fence and the road out of the front gate
   const campus = tilePixels("campus");
   const sx = Math.round(CX - campus.w / 2);
@@ -496,8 +531,8 @@ let fogCache = { key: "", url: "" };
 
 // The fog over the town as a data: URL: soft-edged pixel clouds over every hex not yet scouted,
 // a little lighter where a scout can go next. `clear` and `reachable` are "q,r" keys.
-export function fogUrl(clear, reachable) {
-  const key = `${clear.join("|")}#${reachable.join("|")}`;
+export function fogUrl(clear, reachable, openRaids = []) {
+  const key = `${clear.join("|")}#${reachable.join("|")}#${openRaids.join("|")}`;
   if (fogCache.key === key) return fogCache.url;
   const R = MAP_RADIUS + 3;
   const side = 2 * R + 1;
@@ -522,6 +557,15 @@ export function fogUrl(clear, reachable) {
       mask[y * W + x] = Math.abs(q) <= R && Math.abs(r) <= R ? status[(q + R) * side + r + R] : 3;
     }
   }
+  // an open raid: a ragged clearing around its compound, like the fog's own edges
+  for (const lm of LANDMARKS) {
+    if (!openRaids.includes(lm.id)) continue;
+    for (let y = lm.at.y - 40; y <= lm.at.y + 40; y++) for (let x = lm.at.x - 44; x <= lm.at.x + 44; x++) {
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const d = Math.hypot((x - lm.at.x) / 33, (y - lm.at.y) / 30) + (vnoise(x, y, 9, 51) - 0.5) * 0.35;
+      if (d <= 1) mask[y * W + x] = 0;
+    }
+  }
   const p = painter(W, H);
   const clearNear = (x, y, d) => {
     for (let oy = -d; oy <= d; oy++) for (let ox = -d; ox <= d; ox++) {
@@ -543,12 +587,19 @@ export function fogUrl(clear, reachable) {
   };
   const haze1 = ((150 << 24) | (0x16 << 16) | (0x12 << 8) | 0x10) >>> 0; // rgba(16,18,22,.6)
   const haze2 = ((70 << 24) | (0x16 << 16) | (0x12 << 8) | 0x10) >>> 0;
+  // past the edge of the map: the town shows through, dimmed (rgba(21,26,35,.55), lighter at a clearing)
+  const outskirts = ((140 << 24) | (0x23 << 16) | (0x1a << 8) | 0x15) >>> 0;
+  const outskirtsRim = ((85 << 24) | (0x23 << 16) | (0x1a << 8) | 0x15) >>> 0;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const m = mask[y * W + x];
       if (m === 0) {
         if (fogNear(x, y, 1)) p.raw(x, y, haze1);
         else if (fogNear(x, y, 2)) p.raw(x, y, haze2);
+        continue;
+      }
+      if (m === 3) {
+        p.raw(x, y, clearNear(x, y, 2) ? outskirtsRim : outskirts);
         continue;
       }
       const f = FOG[m];

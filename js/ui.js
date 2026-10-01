@@ -1642,15 +1642,13 @@ function renderExplorationMap(state) {
     })}>${zombieSprite("walker", 18)}${zombieSprite("walker", 18)}${zombieSprite("walker", 18)}</span></div>`;
   }
 
-  // The raids: big lairs in the corners past the edge of the map, each with a road in from the
-  // edge block that unlocks it. Visible from the start; locked (dimmed, a padlock) until scouted.
+  // The raids: compounds painted into the town past the edge of the map (citymap.js). Locked —
+  // under the outskirts' haze, with a padlock — until a scout reaches the edge block nearest.
   for (const lm of LANDMARKS) {
     const open = raidUnlocked(state, lm);
     const cooldown = raidCooldownLeft(state, lm.id);
     const boss = raidBoss(state, lm);
     const team = teamAt[lm.id];
-    const gate = hexToWorld(lm.approach.q, lm.approach.r);
-    routes += `<path class="cm-raid-road ${open ? "open" : ""}" d="M${gate.x.toFixed(1)},${gate.y.toFixed(1)} L${lm.at.x},${lm.at.y}"/>`;
     let squad = "";
     if (team !== undefined) {
       const members = state.characters.filter((c) => c.exploreTeam === team && c.alive);
@@ -1662,7 +1660,7 @@ function renderExplorationMap(state) {
         title: `${LOCATION_ICON[lm.id]} ${esc(lm.name)} · tier ${lm.tier}`,
         rows: [["Best for", lm.focus], ["Boss", `${esc(boss.name)} · ${boss.hp} HP`], ["Squad", `${lm.minTeam}+ students, Lv ${lm.minLevel}+`]],
         notes: [!open ? "Locked — scout the edge block where its road comes in" : cooldown ? `Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}` : "Click to plan a raid"],
-      })}><img class="cm-lair-art" src="${tileDataUri(`lair:${lm.id}`)}" alt="" draggable="false">${squad}<span class="cm-label cm-label-raid">${mark}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
+      })}>${squad}<span class="cm-label cm-label-raid">${mark}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
   }
 
   const [vx, vy, vw, vh] = viewBox(shown);
@@ -1670,7 +1668,7 @@ function renderExplorationMap(state) {
   return `<div class="citymap" data-view="${vx},${vy},${vw},${vh}">
     <div class="cm-world" style="width:${WORLD_W}px;height:${WORLD_H}px">
       <img class="cm-layer" src="${cityBaseUrl()}" alt="" draggable="false">
-      <img class="cm-layer" src="${fogUrl(clear, reachable)}" alt="" draggable="false">
+      <img class="cm-layer" src="${fogUrl(clear, reachable, LANDMARKS.filter((lm) => raidUnlocked(state, lm)).map((lm) => lm.id))}" alt="" draggable="false">
       <svg class="cm-routes" width="${WORLD_W}" height="${WORLD_H}" viewBox="0 0 ${WORLD_W} ${WORLD_H}">${routes}</svg>
     </div>
     <button class="cm-reset" data-action="map-reset" title="Zoom back out">⤢ Whole map</button>
