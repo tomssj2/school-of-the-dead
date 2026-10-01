@@ -885,41 +885,61 @@ export const EVENTS = [
 ];
 
 // ===== Research tech tree =====
-// Permanent buffs bought with banked research. Each node's `perk` holds numbers that stack
-// across owned nodes and are read through techPerk() in game.js at the point in the game they
-// affect (battle damage, expedition odds, XP, ...). Nodes in a branch unlock in order: each
-// `requires` the one before it.
-export const TECH_BRANCHES = [
-  { id: "combat", name: "⚔ Night Watch", desc: "Hold the entrance." },
-  { id: "scavenging", name: "🧭 Scavenging", desc: "Bring more home, lose fewer people." },
-  { id: "school", name: "🏫 School Life", desc: "Grow faster, recover better." },
-  { id: "defenses", name: "🛡 Defenses", desc: "Better walls and traps at the entrance." },
+// Permanent buffs bought with banked research, as a talent tree: one path per turn of the day
+// (TECH_PATHS, left to right), each a short trunk that splits into two branches. A node `requires`
+// the one above it. Each node's `perk` holds numbers that stack across owned nodes and are read
+// through techPerk() in game.js where they apply. `short` is the one-line effect on the tree.
+export const TECH_PATHS = [
+  { id: "school", name: "School Life", turn: 1, icon: "sun", desc: "Classes, rooms and the students in them", branches: { a: ["lobby", "Rooms"], b: ["student", "Students"] } },
+  { id: "explore", name: "Exploration", turn: 2, icon: "dusk", desc: "Expeditions, the Farm and the Scrapyard", branches: { a: ["population", "Teams"], b: ["pin", "Places & Yards"] } },
+  { id: "night", name: "Night Watch", turn: 3, icon: "moon", desc: "Holding the entrance", branches: { a: ["assault", "The Watch"], b: ["shield", "Defenses"] } },
 ];
 export const TECH_TREE = [
-  // ⚔ Night Watch
-  { id: "whetstones", branch: "combat", name: "Whetstones", icon: "🗡", cost: 15, requires: null, perk: { meleeDamage: 0.15 }, desc: "+15% melee damage in the night battle." },
-  { id: "archery_club", branch: "combat", name: "Archery Club", icon: "🏹", cost: 30, requires: "whetstones", perk: { rangedRange: 1, rangedDamage: 0.1 }, desc: "Ranged weapons reach 1 square further and deal +10% damage." },
-  { id: "fortified_works", branch: "combat", name: "Fortified Works", icon: "🧱", cost: 50, requires: "archery_club", perk: { wallHp: 0.5, gateHp: 0.5 }, desc: "Walls and the gate hold 50% more HP." },
-  { id: "field_medics", branch: "combat", name: "Field Medics", icon: "⛑", cost: 75, requires: "fortified_works", perk: { stabilizeDiscount: 2, untreatedDeathReduction: 0.5 }, desc: "Saving a downed defender costs 3 medicine instead of 5, and without medicine their death chance is halved." },
-  { id: "last_stand", branch: "combat", name: "Last Stand", icon: "🔥", cost: 110, requires: "field_medics", perk: { lastStand: 1 }, desc: "Defenders below 25% HP deal double damage." },
-  // 🧭 Scavenging
-  { id: "scouts_eye", branch: "scavenging", name: "Scout's Eye", icon: "👁", cost: 15, requires: null, perk: { expeditionSuccess: 0.1 }, desc: "Expeditions are 10% more likely to succeed." },
-  { id: "deep_pockets", branch: "scavenging", name: "Deep Pockets", icon: "🎒", cost: 30, requires: "scouts_eye", perk: { expeditionLoot: 0.25 }, desc: "Expeditions bring back 25% more food, scrap and medicine." },
-  { id: "treasure_hunters", branch: "scavenging", name: "Treasure Hunters", icon: "🗺", cost: 50, requires: "deep_pockets", perk: { itemChance: 0.2, ingredientChance: 0.2 }, desc: "+20% chance to find gear and cooking ingredients on every expedition." },
-  { id: "word_of_mouth", branch: "scavenging", name: "Word of Mouth", icon: "🗣", cost: 75, requires: "treasure_hunters", perk: { recruitChance: 0.5 }, desc: "Expeditions are 50% more likely to find survivors who want to join." },
-  { id: "ghost_walkers", branch: "scavenging", name: "Ghost Walkers", icon: "👣", cost: 110, requires: "word_of_mouth", perk: { casualtyReduction: 0.5, exploreStaminaReduction: 0.5 }, desc: "Expedition casualties are halved, and expeditions cost half the stamina." },
-  // 🏫 School Life
-  { id: "study_groups", branch: "school", name: "Study Groups", icon: "📚", cost: 15, requires: null, perk: { classXp: 0.25 }, desc: "Classes teach 25% more a day." },
-  { id: "power_naps", branch: "school", name: "Power Naps", icon: "😴", cost: 30, requires: "study_groups", perk: { restRecovery: 20 }, desc: "Resting in the Cafeteria recovers 20 more stamina." },
-  { id: "school_spirit", branch: "school", name: "School Spirit", icon: "🎉", cost: 50, requires: "power_naps", perk: { happinessLossReduction: 0.5 }, desc: "Happiness losses are halved." },
-  { id: "home_economics", branch: "school", name: "Home Economics", icon: "🍳", cost: 75, requires: "school_spirit", perk: { extraDishesPerCook: 1 }, desc: "Each cook can serve two dishes a day instead of one." },
-  { id: "honor_roll", branch: "school", name: "Honor Roll", icon: "🏅", cost: 110, requires: "home_economics", perk: { xp: 0.25 }, desc: "Every action earns 25% more XP." },
-  // 🛡 Defenses (the two upgrades replace sandbag walls and razor wire — see DEFENSE_STRUCTURES)
-  { id: "concrete_barricades", branch: "defenses", name: "Concrete Barricades", icon: "🚧", cost: 20, requires: null, perk: {}, desc: "Sandbag walls become concrete barricades (160 HP) — the ones already built too." },
-  { id: "trap_engineering", branch: "defenses", name: "Trap Engineering", icon: "🔧", cost: 35, requires: "concrete_barricades", perk: { trapDamage: 0.25, wallHp: 0.25 }, desc: "Traps hit 25% harder and walls hold 25% more." },
-  { id: "electric_fence", branch: "defenses", name: "Electric Fence", icon: "⚡", cost: 55, requires: "trap_engineering", perk: {}, desc: "Razor wire becomes an electric fence (shocks for 18) — what's already built too." },
-  { id: "lookouts", branch: "defenses", name: "Lookouts", icon: "👁", cost: 80, requires: "electric_fence", perk: { watchHit: 0.1 }, desc: "The whole watch hits 10% more often." },
-  { id: "rally_drills", branch: "defenses", name: "Rally Drills", icon: "📣", cost: 110, requires: "lookouts", perk: { rallyUses: 1 }, desc: "One more Rally every night." },
+  // 🏫 School Life — trunk
+  { id: "study_groups", path: "school", branch: "trunk", tier: 1, cost: 10, requires: null, icon: "📚", name: "Study Groups", short: "+25% class gains", perk: { classXp: 0.25 }, desc: "Classes teach 25% more a day." },
+  { id: "school_spirit", path: "school", branch: "trunk", tier: 2, cost: 20, requires: "study_groups", icon: "🎉", name: "School Spirit", short: "½ morale losses", perk: { happinessLossReduction: 0.5 }, desc: "Happiness losses are halved." },
+  // 🏫 → Rooms
+  { id: "power_naps", path: "school", branch: "a", tier: 3, cost: 30, requires: "school_spirit", icon: "😴", name: "Power Naps", short: "+20 rest stamina", perk: { restRecovery: 20 }, desc: "Resting in the Cafeteria recovers 20 more stamina." },
+  { id: "nurse_training", path: "school", branch: "a", tier: 4, cost: 45, requires: "power_naps", icon: "🩺", name: "Nurse Training", short: "+15 HP healed", perk: { healBonus: 15 }, desc: "The Nurse's Office heals every patient 15 HP more." },
+  { id: "home_economics", path: "school", branch: "a", tier: 5, cost: 60, requires: "nurse_training", icon: "🍳", name: "Home Economics", short: "2 dishes a cook", perk: { extraDishesPerCook: 1 }, desc: "Each cook can serve two dishes a day instead of one." },
+  { id: "lab_equipment", path: "school", branch: "a", tier: 6, cost: 80, requires: "home_economics", icon: "🥼", name: "Lab Equipment", short: "+25% research", perk: { researchYield: 0.25 }, desc: "The Research Room makes 25% more research." },
+  { id: "master_builders", path: "school", branch: "a", tier: 7, cost: 100, requires: "lab_equipment", icon: "🛠", name: "Master Builders", short: "Cheaper upgrades", perk: { upgradeDiscount: 0.25 }, desc: "Room upgrades cost 25% less scrap." },
+  // 🏫 → Students
+  { id: "coaching", path: "school", branch: "b", tier: 3, cost: 30, requires: "school_spirit", icon: "📯", name: "Coaching", short: "+2 training a day", perk: { gymGain: 2 }, desc: "The Gymnasium and Acrobatics teach 2 more a session." },
+  { id: "honor_roll", path: "school", branch: "b", tier: 4, cost: 45, requires: "coaching", icon: "🏅", name: "Honor Roll", short: "+25% XP", perk: { xp: 0.25 }, desc: "Every action earns 25% more XP." },
+  { id: "hygiene", path: "school", branch: "b", tier: 5, cost: 60, requires: "honor_roll", icon: "🧼", name: "Hygiene", short: "Half the infections", perk: { infectionResist: 0.5 }, desc: "Half the bites that would infect someone don't." },
+  { id: "pep_rallies", path: "school", branch: "b", tier: 6, cost: 80, requires: "hygiene", icon: "🎺", name: "Pep Rallies", short: "+2 morale a day", perk: { dailyHappiness: 2 }, desc: "Morale rises by 2 every morning." },
+  { id: "prodigies", path: "school", branch: "b", tier: 7, cost: 100, requires: "pep_rallies", icon: "🎓", name: "Prodigies", short: "+10 grade cap", perk: { gradeCap: 10 }, desc: "Students can learn 10 past their teacher's grade (and past the 50 cap with no teacher)." },
+  // 🧭 Exploration — trunk
+  { id: "scouts_eye", path: "explore", branch: "trunk", tier: 1, cost: 10, requires: null, icon: "👁", name: "Scout's Eye", short: "+10% success", perk: { expeditionSuccess: 0.1 }, desc: "Expeditions are 10% more likely to succeed." },
+  { id: "trail_maps", path: "explore", branch: "trunk", tier: 2, cost: 20, requires: "scouts_eye", icon: "🧭", name: "Trail Maps", short: "Cheaper scouting", perk: { scoutCost: 0.25 }, desc: "Scouting a block costs 25% less stamina." },
+  // 🧭 → Teams
+  { id: "sparring", path: "explore", branch: "a", tier: 3, cost: 30, requires: "trail_maps", icon: "⚔️", name: "Sparring", short: "Fighters +15%", perk: { fighterPower: 0.15 }, desc: "Fighters count 15% more power on expeditions." },
+  { id: "pathfinding", path: "explore", branch: "a", tier: 4, cost: 45, requires: "sparring", icon: "🏃", name: "Pathfinding", short: "Scouts +15%", perk: { scoutPower: 0.15 }, desc: "Scouts count 15% more power on expeditions." },
+  { id: "field_kits", path: "explore", branch: "a", tier: 5, cost: 60, requires: "pathfinding", icon: "🧠", name: "Field Kits", short: "Supports +15%", perk: { supportPower: 0.15 }, desc: "Supports count 15% more power on expeditions." },
+  { id: "teamwork", path: "explore", branch: "a", tier: 6, cost: 80, requires: "field_kits", icon: "🤝", name: "Teamwork", short: "Double teamwork", perk: { teamwork: 0.05 }, desc: "Every team member past the first adds 10% power instead of 5%." },
+  { id: "ghost_walkers", path: "explore", branch: "a", tier: 7, cost: 100, requires: "teamwork", icon: "👣", name: "Ghost Walkers", short: "Safer expeditions", perk: { casualtyReduction: 0.5, exploreStaminaReduction: 0.5 }, desc: "Expedition casualties are halved, and expeditions cost half the stamina." },
+  // 🧭 → Places & Yards
+  { id: "deep_pockets", path: "explore", branch: "b", tier: 3, cost: 30, requires: "trail_maps", icon: "🎒", name: "Deep Pockets", short: "+25% loot", perk: { expeditionLoot: 0.25 }, desc: "Expeditions bring back 25% more food, scrap and medicine." },
+  { id: "green_thumbs", path: "explore", branch: "b", tier: 4, cost: 45, requires: "deep_pockets", icon: "🌱", name: "Green Thumbs", short: "+25% harvests", perk: { farmYield: 0.25 }, desc: "Farm harvests bring in 25% more." },
+  { id: "scrap_sorting", path: "explore", branch: "b", tier: 5, cost: 60, requires: "green_thumbs", icon: "🧰", name: "Scrap Sorting", short: "+25% salvage", perk: { salvageYield: 0.25 }, desc: "Scrapyard salvage brings in 25% more scrap." },
+  { id: "treasure_hunters", path: "explore", branch: "b", tier: 6, cost: 80, requires: "scrap_sorting", icon: "🗺", name: "Treasure Hunters", short: "+20% gear finds", perk: { itemChance: 0.2, ingredientChance: 0.2 }, desc: "+20% chance to find gear and cooking ingredients on every expedition." },
+  { id: "word_of_mouth", path: "explore", branch: "b", tier: 7, cost: 100, requires: "treasure_hunters", icon: "🗣", name: "Word of Mouth", short: "+50% recruits", perk: { recruitChance: 0.5 }, desc: "Expeditions are 50% more likely to find survivors who want to join." },
+  // 🌙 Night Watch — trunk
+  { id: "whetstones", path: "night", branch: "trunk", tier: 1, cost: 10, requires: null, icon: "🗡", name: "Whetstones", short: "+15% melee", perk: { meleeDamage: 0.15 }, desc: "+15% melee damage in the night battle." },
+  { id: "archery_club", path: "night", branch: "trunk", tier: 2, cost: 20, requires: "whetstones", icon: "🏹", name: "Archery Club", short: "+1 ranged reach", perk: { rangedRange: 1, rangedDamage: 0.1 }, desc: "Ranged weapons reach 1 square further and deal +10% damage." },
+  // 🌙 → The Watch
+  { id: "field_medics", path: "night", branch: "a", tier: 3, cost: 30, requires: "archery_club", icon: "⛑", name: "Field Medics", short: "Cheaper saves", perk: { stabilizeDiscount: 2, untreatedDeathReduction: 0.5 }, desc: "Saving a downed defender costs 3 medicine instead of 5, and without medicine their death chance is halved." },
+  { id: "quick_reflexes", path: "night", branch: "a", tier: 4, cost: 45, requires: "field_medics", icon: "⏱", name: "Quick Reflexes", short: "+25% ability charge", perk: { abilityCharge: 0.25 }, desc: "Abilities charge 25% faster in the night battle." },
+  { id: "rally_drills", path: "night", branch: "a", tier: 5, cost: 60, requires: "quick_reflexes", icon: "📣", name: "Rally Drills", short: "+1 Rally a night", perk: { rallyUses: 1 }, desc: "One more Rally every night." },
+  { id: "lookouts", path: "night", branch: "a", tier: 6, cost: 80, requires: "rally_drills", icon: "👁", name: "Lookouts", short: "+10% hit chance", perk: { watchHit: 0.1 }, desc: "The whole watch hits 10% more often." },
+  { id: "last_stand", path: "night", branch: "a", tier: 7, cost: 100, requires: "lookouts", icon: "🔥", name: "Last Stand", short: "2× dmg when hurt", perk: { lastStand: 1 }, desc: "Defenders below 25% HP deal double damage." },
+  // 🌙 → Defenses (the upgrades replace sandbag walls and razor wire — see DEFENSE_STRUCTURES)
+  { id: "concrete_barricades", path: "night", branch: "b", tier: 3, cost: 30, requires: "archery_club", icon: "🚧", name: "Concrete Barricades", short: "Concrete walls", perk: {}, desc: "Sandbag walls become concrete barricades (160 HP), the ones already built too." },
+  { id: "trap_engineering", path: "night", branch: "b", tier: 4, cost: 45, requires: "concrete_barricades", icon: "🔧", name: "Trap Engineering", short: "+25% traps & walls", perk: { trapDamage: 0.25, wallHp: 0.25 }, desc: "Traps hit 25% harder and walls hold 25% more." },
+  { id: "electric_fence", path: "night", branch: "b", tier: 5, cost: 60, requires: "trap_engineering", icon: "⚡", name: "Electric Fence", short: "Electric fences", perk: {}, desc: "Razor wire becomes an electric fence (shocks for 18), what's already built too." },
+  { id: "fortified_works", path: "night", branch: "b", tier: 6, cost: 80, requires: "electric_fence", icon: "🧱", name: "Fortified Works", short: "+50% walls & gate", perk: { wallHp: 0.5, gateHp: 0.5 }, desc: "Walls and the gate hold 50% more HP." },
+  { id: "barbed_walls", path: "night", branch: "b", tier: 7, cost: 100, requires: "fortified_works", icon: "🔺", name: "Barbed Walls", short: "Walls bite back", perk: { wallThorns: 6 }, desc: "A zombie that smashes a wall takes 6 damage every time." },
 ];
 
 // ===== Exploration locations =====

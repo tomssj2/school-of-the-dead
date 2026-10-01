@@ -2025,6 +2025,13 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       render();
       return summary;
     },
+    // schoolDev.research(n): n research to spend on the tree.
+    research(n = 500) {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      state.resources.research += n;
+      render();
+      return `+${n} research (${state.resources.research} banked)`;
+    },
     // schoolDev.fortify(): a defense on every square of the courtyard, free.
     fortify() {
       if (!beforeMax) beforeMax = JSON.stringify(state);

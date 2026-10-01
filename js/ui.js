@@ -7,7 +7,7 @@ import {
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
   NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_ROLES, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
-  RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_BRANCHES, STAT_EFFECTS, SKILL_EFFECTS,
+  RESEARCH_ROOM_INT_PER_POINT, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
   RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
@@ -1347,7 +1347,7 @@ function renderTurn2Summary(state) {
 
   // ----- the City Map: fog to scout, drops, raids, nests -----
   const fog = hexesInRadius(HEX_RADIUS).filter(({ q, r }) => canScoutHex(state, q, r));
-  const cheapest = fog.length ? Math.min(...fog.map(({ q, r }) => scoutCost(q, r))) : null;
+  const cheapest = fog.length ? Math.min(...fog.map(({ q, r }) => scoutCost(q, r, state))) : null;
   const scoutsReady = cheapest === null ? 0 : students.filter((c) => exploreRole(c) === "scout" && c.stamina >= cheapest).length;
   const drops = state.mapDrops || [];
   const soonest = drops.length ? Math.min(...drops.map((d) => d.expires - state.day + 1)) : 0;
@@ -1627,7 +1627,7 @@ function renderExplorationMap(state) {
       const danger = Math.round(scoutEncounterChance(state, q, r) * 100);
       cells += `<div class="cm-cell cm-fog" data-action="open-scout" data-q="${q}" data-r="${r}" style="${at(q, r)}" ${tipAttr({
         title: "🌫 Unexplored",
-        rows: [["Scout", `⚡ ${scoutCost(q, r)} stamina`], ["Zombie risk", `up to ${danger}%`]],
+        rows: [["Scout", `⚡ ${scoutCost(q, r, state)} stamina`], ["Zombie risk", `up to ${danger}%`]],
         notes: dangerNotes(state, q, r),
       })}><span class="cm-q">?</span></div>`;
       continue;
@@ -1673,7 +1673,7 @@ function renderExplorationMap(state) {
     const left = d.expires - state.day + 1;
     cells += `<div class="cm-cell cm-drop" data-action="open-drop" data-q="${d.q}" data-r="${d.r}" style="${at(d.q, d.r)}" ${tipAttr({
       title: `${DROP_ICON[d.kind]} ${md.name}`,
-      rows: [["Runner", `⚡ ${scoutCost(d.q, d.r)} stamina`], ["Gone in", left <= 1 ? "1 day" : `${left} days`]],
+      rows: [["Runner", `⚡ ${scoutCost(d.q, d.r, state)} stamina`], ["Gone in", left <= 1 ? "1 day" : `${left} days`]],
       notes: ["Send a runner to grab it"],
     })}><span class="cm-drop-icon">${DROP_ICON[d.kind]}</span></div>`;
   }
@@ -2069,7 +2069,7 @@ function changeBar(kind, from, to, max) {
 export function renderScoutModal(state, q, r, isDrop = false) {
   const drop = isDrop ? dropAt(state, q, r) : null;
   const d = drop && MAP_DROPS[drop.kind];
-  const cost = scoutCost(q, r);
+  const cost = scoutCost(q, r, state);
   const danger = Math.round(scoutEncounterChance(state, q, r) * 100);
   const people = state.characters
     .filter((c) => c.role === "student" && c.alive && !c.infection && (d || exploreRole(c) === "scout"))
@@ -4133,46 +4133,70 @@ export function renderEventTab(state) {
 
 const TECH_EFFECT_ICON = { ...RESOURCE_ICON, fortification: "🛡", happiness: ri("mood_happy") };
 
-function renderTechNode(state, node, tier) {
-  const owned = state.techUnlocked;
-  const isOwned = owned.includes(node.id);
-  const lockedBy = node.requires && !owned.includes(node.requires) ? TECH_TREE.find((t) => t.id === node.requires) : null;
+// One node of the research tree: its icon, name and one-line effect, and its cost (or ✓) in the
+// corner. Owned nodes glow in the path's colour; the next ones you can buy are lit (click to buy);
+// the rest wait, dimmed, behind the node above them.
+function renderTechNode(state, node) {
+  const owned = state.techUnlocked.includes(node.id);
+  const parent = node.requires ? TECH_TREE.find((t) => t.id === node.requires) : null;
+  const open = !parent || state.techUnlocked.includes(parent.id);
   const affordable = state.resources.research >= node.cost;
-
-  let action;
-  if (isOwned) action = `<span class="tag tag-ok">✓ Active</span>`;
-  else if (lockedBy) action = `<span class="tag tag-injured">🔒 ${node.cost}</span>`;
-  else action = `<button class="btn btn-sm btn-primary" data-action="buy-tech" data-id="${node.id}" ${affordable ? "" : "disabled"}>${ri("research")} ${node.cost}</button>`;
-
-  return `<div class="subcard tech-node ${isOwned ? "tech-owned" : lockedBy ? "tech-locked" : ""}" title="${lockedBy ? `Needs ${esc(lockedBy.name)} first` : ""}">
-    <div class="tech-node-main">
-      <div><span class="tech-tier">${tier}</span><span class="tech-icon">${node.icon}</span> <b>${esc(node.name)}</b></div>
-      ${action}
-    </div>
-    <div class="tech-effect">${esc(node.desc)}</div>
-  </div>`;
+  const status = owned ? "owned" : !open ? "locked" : affordable ? "ready" : "poor";
+  const tip = tipAttr({
+    title: `${node.icon} ${esc(node.name)}`,
+    rows: [["Effect", esc(node.short)], ["Cost", `${node.cost} research`]],
+    notes: [esc(node.desc), owned ? "✓ Learned" : !open ? `🔒 Needs ${esc(parent.name)} first` : affordable ? "Click to learn it" : `Needs ${node.cost - state.resources.research} more research`],
+  });
+  return `<button class="tt-node tt-${status}" ${status === "ready" ? `data-action="buy-tech" data-id="${node.id}"` : "disabled"} ${tip}>
+    <span class="tt-icon">${pixelIcon(node.id, 32)}</span>
+    <span class="tt-text"><b class="tt-name">${esc(node.name)}</b><span class="tt-short">${esc(node.short)}</span></span>
+    <span class="tt-cost">${owned ? "✓" : `${ri("research")}${node.cost}`}</span>
+  </button>`;
 }
 
+// The research tree: a path per turn of the day (TECH_PATHS), each a trunk that forks into two
+// branches. The lines between nodes light up in the path's colour as it's learned.
 export function renderResearch(state) {
-  const branches = TECH_BRANCHES.map((branch) => {
-    const nodes = TECH_TREE.filter((t) => t.branch === branch.id);
-    const chain = [nodes.find((t) => !t.requires)];
-    for (let next = nodes.find((t) => t.requires === chain[0].id); next; next = nodes.find((t) => t.requires === next.id)) chain.push(next);
-    const owned = chain.filter((t) => state.techUnlocked.includes(t.id)).length;
-    return `<div class="tech-branch">
-      <div class="tech-branch-head"><b>${branch.name}</b> <span class="muted">${owned}/${chain.length}</span><div class="muted">${esc(branch.desc)}</div></div>
-      ${chain.map((t, i) => renderTechNode(state, t, i + 1)).join("")}
-    </div>`;
+  const owned = (id) => state.techUnlocked.includes(id);
+  const link = (lit) => `<i class="tt-link ${lit ? "lit" : ""}"></i>`;
+  const paths = TECH_PATHS.map((path) => {
+    const nodes = TECH_TREE.filter((t) => t.path === path.id);
+    const chain = (branch) => nodes.filter((t) => t.branch === branch).sort((a, b) => a.tier - b.tier);
+    const trunk = chain("trunk");
+    const learned = nodes.filter((t) => owned(t.id)).length;
+    const trunkHtml = trunk.map((t, i) => `${i ? link(owned(t.id)) : ""}${renderTechNode(state, t)}`).join("");
+    const branch = (key) => {
+      const list = chain(key);
+      const [icon, name] = path.branches[key];
+      const got = list.filter((t) => owned(t.id)).length;
+      return `<div class="tt-branch">
+        <div class="tt-branch-label">${pxe(icon)} ${esc(name)} <span class="muted">${got}/${list.length}</span></div>
+        ${list.map((t) => `${link(owned(t.id))}${renderTechNode(state, t)}`).join("")}
+      </div>`;
+    };
+    const heads = ["a", "b"].map((k) => owned(chain(k)[0].id));
+    return `<section class="tt-path tt-path-${path.id}">
+      <header class="tt-path-head">
+        <span class="tt-path-icon">${pixelIcon(path.icon, 32)}</span>
+        <span class="tt-path-title"><b>${esc(path.name)}</b><span class="muted">Turn ${path.turn} · ${esc(path.desc)}</span></span>
+        <span class="tt-path-count"><b>${learned}</b>/${nodes.length}</span>
+        <span class="tt-path-bar"><i style="width:${Math.round((learned / nodes.length) * 100)}%"></i></span>
+      </header>
+      <div class="tt-trunk">${trunkHtml}</div>
+      <div class="tt-fork ${owned(trunk[trunk.length - 1].id) ? "lit" : ""}"><i class="${heads[0] ? "lit" : ""}"></i><i class="${heads[1] ? "lit" : ""}"></i></div>
+      <div class="tt-branches">${branch("a")}${branch("b")}</div>
+    </section>`;
   }).join("");
+  const total = TECH_TREE.filter((t) => owned(t.id)).length;
 
   return `
-  <div class="card">
-    <h2>${ri("research")} Research</h2>
-    <p class="room-tagline">Permanent buffs for the whole school · each branch unlocks top to bottom ${infoDot("Research comes from the teachers posted in the Research Room (Floor 3).")}</p>
-    <div class="summary-list">
-      <div>Research banked: <b>${state.resources.research}</b></div>
+  <div class="card tt-page">
+    <div class="ov-head floor-head">
+      <div class="ov-head-left"><span class="ov-chip">${ri("research")} <b>${state.resources.research}</b> research banked</span></div>
+      <h2>Research ${infoDot({ title: `${ri("research")} Research`, notes: ["Permanent upgrades for the whole school, one path for each turn of the day", "Each path forks into two branches — learn a node to open the one below it", "Research comes from the Research Room (Floor 3)"] })}</h2>
+      <div class="ov-head-right"><span class="ov-chip">✓ <b>${total}</b>/${TECH_TREE.length} learned</span></div>
     </div>
-    <div class="tech-grid">${branches}</div>
+    <div class="tt-paths">${paths}</div>
   </div>`;
 }
 

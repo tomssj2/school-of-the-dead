@@ -86,6 +86,7 @@ export const infectionDaysLeft = (state, c) => c.infection.dueDay - state.day;
 
 export function infect(state, c, how) {
   if (!c || !c.alive || c.infection) return false;
+  if (Math.random() < techPerk(state, "infectionResist")) return false; // Hygiene: shrugged it off
   if (c.role === "teacher" && c.post) setTeacherPost(state, c.id, null);
   c.infection = { dueDay: state.day + INFECTION_DAYS };
   Object.assign(c, { gymToday: false, radioToday: false, researchToday: false, craftingToday: false, infirmaryToday: false, restToday: false, farmToday: false, scrapyardToday: false, exploreTeam: null, defending: false });
@@ -492,7 +493,9 @@ export const teacherRank = (t, subject) => GRADE_TIERS.indexOf(gradeLetter(t.gra
 
 // A Gymnasium (STR) / Acrobatics (DEX) session, taught exactly like a class (see lessonFrom).
 export function gymLesson(state, side) {
-  return lessonFrom(side, gymTeachers(state, side), roomLevel(state, GYM_SIDES[side].roomKey), 0);
+  const lesson = lessonFrom(side, gymTeachers(state, side), roomLevel(state, GYM_SIDES[side].roomKey), 0, techPerk(state, "gradeCap"));
+  lesson.gain += techPerk(state, "gymGain");
+  return lesson;
 }
 
 // What one session adds to a student's STR (PE) or DEX (Gymnastics): 0 once they've caught up
@@ -669,7 +672,7 @@ function restoreTurnOneJobs(state) {
 // What a treatment gives at the Nurse's Office's current care level.
 // HP a treated patient gets back from the room itself, by its level.
 export function infirmaryHeal(state) {
-  return INFIRMARY_HEAL_BY_LEVEL[roomLevel(state, "infirmary") - 1];
+  return INFIRMARY_HEAL_BY_LEVEL[roomLevel(state, "infirmary") - 1] + techPerk(state, "healBonus");
 }
 // HP one nurse adds to every treatment: INFIRMARY_NURSE_HP_PER_RANK per rank of their CON grade.
 export const nurseHpBonus = (n) => teacherRank(n, "Biology") * INFIRMARY_NURSE_HP_PER_RANK;
@@ -840,7 +843,7 @@ export function applyRoomLevel(state, key) {
 
 export function roomUpgradeCostFor(state, key) {
   const level = roomLevel(state, key);
-  return level >= roomMaxLevel(key) ? null : roomUpgradeCost(level);
+  return level >= roomMaxLevel(key) ? null : Math.round(roomUpgradeCost(level) * (1 - techPerk(state, "upgradeDiscount")));
 }
 
 export function upgradeRoom(state, key) {
@@ -961,8 +964,10 @@ export const workersNeeded = (state, side) => Math.ceil(readySlots(state, side).
 function harvestSlot(state, kind, i, out) {
   const plot = state.plots[kind][i];
   const p = PRODUCERS[kind];
-  out.produced[p.product] = (out.produced[p.product] || 0) + p.yield;
-  state.pantry[p.product] = (state.pantry[p.product] || 0) + p.yield;
+  const boosted = p.yield * (1 + techPerk(state, "farmYield")); // a fraction left over is a chance at one more
+  const amount = Math.floor(boosted) + (Math.random() < boosted % 1 ? 1 : 0);
+  out.produced[p.product] = (out.produced[p.product] || 0) + amount;
+  state.pantry[p.product] = (state.pantry[p.product] || 0) + amount;
   plot.growth = 0;
   if (p.perennial) return;
   plot.id = null;
@@ -1019,8 +1024,9 @@ function resolveYard(state) {
         state.resources.materials -= job.cost;
       }
       if (job.scrap) {
-        state.resources.materials += job.scrap;
-        out.scrap += job.scrap;
+        const scrap = Math.round(job.scrap * (1 + techPerk(state, "salvageYield")));
+        state.resources.materials += scrap;
+        out.scrap += scrap;
       }
       if (job.research && Math.random() < job.researchChance) {
         const n = randInt(job.research[0], job.research[1]);
@@ -1178,7 +1184,9 @@ export function buyTeamSlot(state) {
 // What one member adds to their team's power: the two stats of their role (fighters STR + CON,
 // scouts DEX + CHA, supports INT + WIS), gear included.
 export function memberPower(state, c) {
-  return EXPLORE_ROLES[exploreRole(c)].stats.reduce((sum, s) => sum + effectiveGrade(state, c, s), 0);
+  const role = exploreRole(c);
+  const base = EXPLORE_ROLES[role].stats.reduce((sum, s) => sum + effectiveGrade(state, c, s), 0);
+  return Math.round(base * (1 + techPerk(state, `${role}Power`)));
 }
 // A team's power: its members' added up (`base`), plus teamwork — EXPLORE_TEAMWORK_BONUS for every
 // member past the first (`bonus`, +20% for a full team). Its rank is that as a grade (an empty slot
@@ -1186,7 +1194,7 @@ export function memberPower(state, c) {
 export function teamPower(state, i) {
   const members = teamMembers(state, i);
   const base = members.reduce((sum, c) => sum + memberPower(state, c), 0);
-  const bonus = Math.max(0, members.length - 1) * EXPLORE_TEAMWORK_BONUS;
+  const bonus = Math.max(0, members.length - 1) * (EXPLORE_TEAMWORK_BONUS + techPerk(state, "teamwork"));
   const power = Math.round(base * (1 + bonus));
   return { power, base, bonus, rank: gradeLetter(Math.min(100, Math.round(power / (EXPLORE_TEAM_SLOTS.length * 2)))) };
 }
@@ -1249,7 +1257,7 @@ export function researchRoomYield(state) {
   const researchers = researchCrew(state);
   if (!researchers.length) return 0;
   const totalInt = researchers.reduce((sum, c) => sum + c.grades.Physics, 0);
-  return Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) + RESEARCH_BONUS_BY_LEVEL[roomLevel(state, "research") - 1];
+  return Math.floor((Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) + RESEARCH_BONUS_BY_LEVEL[roomLevel(state, "research") - 1]) * (1 + techPerk(state, "researchYield")));
 }
 
 // A classroom's lesson today, in grade points for every seated student: the room's level bonus
@@ -1260,19 +1268,19 @@ export function classroomLesson(state, roomId) {
   const subject = room?.subject;
   const teachers = subject ? state.characters.filter((t) => t.role === "teacher" && t.alive && t.post === `classroom:${roomId}`) : [];
   // Unlike the training rooms, a classroom with no teacher teaches nothing.
-  return lessonFrom(teachers.length ? subject : null, teachers, room?.level || 1, techPerk(state, "classXp"));
+  return lessonFrom(teachers.length ? subject : null, teachers, room?.level || 1, techPerk(state, "classXp"), techPerk(state, "gradeCap"));
 }
 // A day's teaching in `subject` from these teachers in a room of this level: its gain in grade
 // points (the level bonus + each teacher's, times 1 + `boost`) and the ceiling nobody learns past
-// — the best teacher's grade, or NO_TEACHER_CAP without one (and never below it).
-function lessonFrom(subject, teachers, level, boost) {
+// — the best teacher's grade, or NO_TEACHER_CAP without one (and never below it), plus `capBonus`.
+function lessonFrom(subject, teachers, level, boost, capBonus = 0) {
   if (!subject) return { subject: null, gain: 0, ceiling: 0, levelBonus: 0, teachers };
   const levelBonus = ROOM_STAT_BONUS_BY_LEVEL[level - 1];
   const base = levelBonus + teachers.reduce((sum, t) => sum + teachingBonus(t.grades[subject]), 0);
   return {
     subject,
     gain: Math.round(base * (1 + boost)),
-    ceiling: Math.max(NO_TEACHER_CAP, ...teachers.map((t) => t.grades[subject])),
+    ceiling: Math.min(100, Math.max(NO_TEACHER_CAP, ...teachers.map((t) => t.grades[subject])) + capBonus),
     levelBonus,
     teachers,
   };
@@ -1810,6 +1818,7 @@ export function startNightBattle(state) {
     });
   for (const s of students) {
     s.hitChance = Math.min(0.95, s.hitChance + techPerk(state, "watchHit"));
+    s.chargeRate = 1 + techPerk(state, "abilityCharge");
     s.baseArmorMult = s.armorMult; // before formations (applyFormations)
     s.baseCritChance = s.critChance;
   }
@@ -1827,7 +1836,7 @@ export function startNightBattle(state) {
   const gateMax = gateHp(state);
 
   const b = {
-    size, rows: ENTRANCE_ROWS, condition, lamps,
+    size, rows: ENTRANCE_ROWS, condition, lamps, thorns: techPerk(state, "wallThorns"),
     zStats: zombieStatsForDay(state.day),
     waves: Array.from({ length: waveCount }, (_, i) => queue.slice(i * perWave, (i + 1) * perWave)),
     wave: 0, waveSpawned: 0, waveTick: 0,
@@ -1971,6 +1980,12 @@ export function battleTick(state, b) {
         wall.destroyed = true;
         events.push({ type: "destroyed", at: [ahead, z.col] });
       }
+      if (b.thorns) {
+        // Barbed Walls: the wall bites back
+        z.hp -= b.thorns;
+        events.push({ type: "trap", at: [z.row, z.col], dmg: b.thorns });
+        if (z.hp <= 0) killZombie(b, z, events);
+      }
       return false;
     }
     // straight ahead if it's clear, otherwise try to shuffle diagonally around whoever's in the way
@@ -2097,7 +2112,7 @@ function checkEnrage(b, events) {
 // Charges a defender's ability; a "ready" event when it fills up.
 function chargeAbility(s, amount, events) {
   if (s.downed || s.charge >= ABILITY_CHARGE.full) return;
-  s.charge = Math.min(ABILITY_CHARGE.full, s.charge + amount);
+  s.charge = Math.min(ABILITY_CHARGE.full, s.charge + amount * (s.chargeRate || 1));
   if (s.charge >= ABILITY_CHARGE.full) events.push({ type: "ready", at: [s.row, s.col], id: s.id });
 }
 // Who a ready ability would work on right now (null: nothing to do — it isn't spent).
@@ -2663,6 +2678,7 @@ export function advanceTurn(state) {
     // The school's most charismatic student keeps spirits up.
     const bestCha = aliveChars(state).filter((c) => c.role === "student").reduce((m, c) => Math.max(m, c.grades.SocialStudies), 0);
     if (bestCha >= TUNE.moralePerCha) adjustHappiness(state, Math.floor(bestCha / TUNE.moralePerCha));
+    if (techPerk(state, "dailyHappiness")) adjustHappiness(state, techPerk(state, "dailyHappiness"));
     rollRandomEvent(state);
     moveHorde(state);
     rollMapDrop(state);
@@ -3024,8 +3040,9 @@ export function canScoutHex(state, q, r) {
 // normal setTeamLocation/setExploreTeam flow afterward. Every new tile risks a zombie encounter
 // that grows more likely the farther it is from the school (more encounter types come later).
 // Scouting costs double for every ring further from the school fence (see SCOUT_STAMINA_COST).
-export function scoutCost(q, r) {
-  return SCOUT_STAMINA_COST * 2 ** (hexDistance(q, r) - SCHOOL_RADIUS - 1);
+export function scoutCost(q, r, state = null) {
+  const base = SCOUT_STAMINA_COST * 2 ** (hexDistance(q, r) - SCHOOL_RADIUS - 1);
+  return state ? Math.max(1, Math.round(base * (1 - techPerk(state, "scoutCost")))) : base;
 }
 
 // Chance a scout runs into a zombie: +10% per ring out, more next to a nest, less for a sneaky
@@ -3070,7 +3087,7 @@ function runOut(state, c, q, r, cost) {
 export function scoutHex(state, studentId, q, r) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student" || !c.alive || c.infection) return null;
-  const cost = scoutCost(q, r);
+  const cost = scoutCost(q, r, state);
   if (c.stamina < cost) return null;
   if (!canScoutHex(state, q, r)) return null;
 
@@ -3201,7 +3218,7 @@ export function collectDrop(state, studentId, q, r) {
   const c = getChar(state, studentId);
   const drop = dropAt(state, q, r);
   if (!c || !drop || c.role !== "student" || !c.alive || c.infection) return null;
-  const cost = scoutCost(q, r);
+  const cost = scoutCost(q, r, state);
   if (c.stamina < cost) return null;
   const { ambushed, encountered } = runOut(state, c, q, r, cost);
   if (ambushed) return { ambushed: true, encountered: true };

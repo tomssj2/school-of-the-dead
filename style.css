@@ -602,30 +602,6 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
   .floor-grid, .floor1-grid, .floor3-grid, .floor2-grid { grid-template-columns: 1fr; }
 }
 
-.tech-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(6, auto); gap: 10px; margin: 4px 0 14px; }
-@container app (max-width: 700px) {
-  .tech-grid { grid-template-columns: 1fr; }
-}
-/* Each branch is a column whose rows are the grid's own (subgrid), so tier N lines up across branches. */
-.tech-branch { display: grid; grid-row: span 6; grid-template-rows: subgrid; gap: 10px; }
-.tech-branch-head { padding: 4px 2px 2px; font-size: 14px; }
-.tech-branch-head .muted { font-size: 12px; }
-.tech-tier {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 700;
-  margin-right: 6px;
-}
-.tech-owned .tech-tier { background: var(--accent); border-color: var(--accent); color: #06210f; }
-.tech-locked { opacity: 0.55; }
 
 .rescue-progress { height: 10px; background: #10131a; border-radius: 5px; overflow: hidden; margin: 12px 0 6px; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5); }
 .rescue-progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--bar-other), var(--bar-other-hi)); transition: width 0.3s ease; }
@@ -648,11 +624,7 @@ details summary { cursor: pointer; color: var(--accent); margin-top: 8px; }
 .victory-card .gameover-title { color: #f4c430; }
 .victory-card .btn-big + .btn-big { margin-top: 8px; }
 .victory-survivors { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin: 10px 0; }
-.tech-node { margin: 0; }
-.tech-node.tech-owned { border-color: var(--accent, #4caf7d); opacity: 0.85; }
-.tech-node-main { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .tech-icon { font-size: 16px; }
-.tech-effect { font-size: 12.5px; color: #d9d9d9; margin-top: 6px; }
 
 .room {
   background-color: var(--panel-2);
@@ -3305,3 +3277,80 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
   background: #1b1f2a; border: 1px solid #5a6170; filter: grayscale(1) brightness(0.8);
 }
 .cm-ms.done { border-color: #e8b830; filter: none; box-shadow: 0 0 6px rgba(232, 184, 48, 0.55); }
+
+/* ===== Research: the talent tree (ui.js renderResearch) =====
+   Three paths side by side, one per turn, in that turn's colour (--path). Each: a header with
+   progress, the trunk, a fork, then two branch columns. Every node is the same size; the links
+   between them light up as the path is learned. */
+.tt-paths { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.tt-path {
+  --path: #f4c542;
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 10px 10px 12px; border-radius: 12px; border: 1px solid var(--border);
+  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--path) 12%, transparent), transparent 60%), rgba(255, 255, 255, 0.02);
+}
+.tt-path-explore { --path: #f08a3a; }
+.tt-path-night { --path: #7d95e8; }
+.tt-path-head { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-rows: auto 6px; column-gap: 10px; row-gap: 8px; align-items: center; margin-bottom: 12px; }
+.tt-path-icon { line-height: 0; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--path) 60%, transparent)); }
+.tt-path-title { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tt-path-title b { font-size: 15px; color: var(--path); }
+.tt-path-title .muted { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt-path-count { font-size: 12px; color: var(--muted); }
+.tt-path-count b { color: var(--text); font-size: 14px; }
+.tt-path-bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.4); overflow: hidden; }
+.tt-path-bar i { display: block; height: 100%; background: var(--bar-other); transition: width 0.3s; }
+
+.tt-trunk { display: flex; flex-direction: column; align-items: center; }
+.tt-trunk .tt-node { width: calc(50% - 5px); }
+.tt-branches { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; }
+.tt-branch { display: flex; flex-direction: column; align-items: stretch; }
+.tt-branch-label {
+  display: flex; align-items: center; justify-content: center; gap: 5px; height: 24px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--path) 45%, var(--border)); background: color-mix(in srgb, var(--path) 10%, transparent);
+  font-size: 12px; font-weight: 700;
+}
+.tt-branch-label .muted { font-weight: 400; font-size: 11px; }
+
+/* the lines: a stem between nodes, and the fork under the trunk */
+.tt-link { display: block; align-self: center; width: 2px; height: 14px; background: #3a4153; }
+.tt-link.lit, .tt-fork.lit::before, .tt-fork i.lit::before, .tt-fork i.lit::after { background: var(--path); box-shadow: 0 0 6px var(--path); }
+.tt-fork { position: relative; display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; height: 24px; }
+.tt-fork::before { content: ""; position: absolute; left: calc(50% - 1px); top: 0; height: 12px; width: 2px; background: #3a4153; }
+.tt-fork i { position: relative; }
+.tt-fork i::before { content: ""; position: absolute; left: calc(50% - 1px); top: 10px; bottom: 0; width: 2px; background: #3a4153; }
+.tt-fork i::after { content: ""; position: absolute; top: 10px; height: 2px; background: #3a4153; }
+.tt-fork i:first-child::after { left: 50%; right: -6px; }
+.tt-fork i:last-child::after { left: -6px; right: 50%; }
+
+/* a node */
+.tt-node {
+  position: relative; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; column-gap: 7px;
+  box-sizing: border-box; height: 58px; padding: 6px 8px 6px 6px; text-align: left;
+  border-radius: 10px; border: 1px solid var(--border); background: linear-gradient(180deg, #252b37, #1d222b);
+  color: var(--text); font: inherit; cursor: default;
+}
+.tt-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); line-height: 0; }
+.tt-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tt-name { font-size: 12px; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding-right: 22px; }
+.tt-short { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt-cost {
+  position: absolute; top: -8px; right: 6px; display: inline-flex; align-items: center; gap: 2px; height: 16px; padding: 0 5px;
+  border-radius: 999px; border: 1px solid var(--border); background: #1a1e26; font-size: 10.5px; font-weight: 700; line-height: 1;
+}
+.tt-cost .ri svg { width: 12px; height: 12px; }
+/* learned: lit in the path's colour */
+.tt-owned { border-color: var(--path); background: linear-gradient(180deg, color-mix(in srgb, var(--path) 20%, #252b37), color-mix(in srgb, var(--path) 8%, #1d222b)); box-shadow: 0 0 10px color-mix(in srgb, var(--path) 35%, transparent); }
+.tt-owned .tt-icon { background: color-mix(in srgb, var(--path) 22%, rgba(0, 0, 0, 0.35)); }
+.tt-owned .tt-cost { border-color: var(--path); color: var(--path); }
+/* next up and affordable: click to learn */
+.tt-ready { cursor: pointer; border-color: color-mix(in srgb, var(--path) 70%, var(--border)); animation: tt-pulse 1.8s ease-in-out infinite; }
+.tt-ready:hover { transform: translateY(-1px); background: linear-gradient(180deg, #2c3341, #222833); }
+.tt-ready .tt-cost { border-color: var(--bar-other); color: #bfe6ff; }
+@keyframes tt-pulse { 50% { box-shadow: 0 0 12px color-mix(in srgb, var(--path) 45%, transparent); } }
+/* next up but not enough research yet */
+.tt-poor .tt-cost { color: #ff9f43; border-color: rgba(255, 159, 67, 0.55); }
+/* behind a node not learned yet */
+.tt-locked { opacity: 0.45; }
+.tt-locked .tt-icon { filter: grayscale(1); }
+html[data-gfx="low"] .tt-ready, html[data-gfx="medium"] .tt-ready { animation: none; }
