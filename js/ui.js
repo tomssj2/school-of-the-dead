@@ -50,9 +50,10 @@ const RESOURCE_ICON = { food: ri("food"), materials: ri("materials"), medicine: 
 // At least 16px, so a 16x16 icon never loses pixels (style.css .ri-em).
 const pxe = (name) => `<span class="ri ri-em">${pixelIcon(name, 16)}</span>`;
 
-// Combat pixel icons (scenes.js ICONS) in place of the data's emoji — roles, abilities, night
-// actions, formations, defender roles and zombie types — so every template that prints .icon /
-// .badge shows the pixel art. (Only the UI reads these; nothing is saved with them.)
+// Pixel icons (scenes.js ICONS) in place of the data's emoji, so every template that prints
+// .icon / .badge shows the pixel art. The emoji is kept as .emoji: game.js writes that into log
+// lines (saved as plain text), and pixelizeText() turns it back into the icon when shown.
+// Tables keyed by id, or arrays of { id } (the tech tree, dishes).
 const ICON_SWAPS = [
   [EXPLORE_ROLES, "icon", { fighter: "role_fighter", scout: "role_scout", support: "role_support" }],
   [BATTLE_ABILITIES, "icon", { fighter: "ab_cleave", scout: "ab_headshot", support: "ab_rally" }],
@@ -60,14 +61,33 @@ const ICON_SWAPS = [
   [FORMATIONS, "icon", { guarded: "form_guarded", shieldWall: "form_shieldWall", crossfire: "form_crossfire" }],
   [DEFENDER_ROLES, "icon", { PE: "dr_brawler", Gymnastics: "dr_marksman", Biology: "dr_tank", Physics: "dr_engineer", History: "dr_spotter", SocialStudies: "dr_rallier" }],
   [ZOMBIE_TYPES, "badge", { runner: "z_runner", brute: "z_brute", spitter: "z_spitter", boss: "z_boss" }],
+  [INGREDIENTS, "icon", { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "flour", eggs: "eggs", milk: "milk", mutton: "mutton", canned_meat: "canned_meat", spices: "spices", coffee: "coffee" }],
+  [PRODUCERS, "icon", { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "wheat", chicken: "chicken", cow: "cow", sheep: "sheep" }],
+  [DISHES, "icon", { shepherds_stew: "shepherds_stew", fresh_bread: "fresh_bread", firehouse_chili: "firehouse_chili", scholars_breakfast: "scholars_breakfast" }],
+  [TECH_TREE, "icon", Object.fromEntries(TECH_TREE.map((t) => [t.id, t.id]))],
+  [YARD_JOBS, "icon", { cars: "yard_cars", appliances: "yard_appliances", machinery: "yard_machinery", weapons: "yard_weapons", armor: "yard_armor", traps: "yard_traps" }],
+  [MAP_DROPS, "icon", { crate: "crate", wreck: "wreck", survivor: "survivor" }],
 ];
-for (const [table, field, names] of ICON_SWAPS) for (const [key, name] of Object.entries(names)) if (table[key]) table[key][field] = pxe(name);
+const EMOJI_PIXEL = new Map(); // emoji → pixel icon, for text that was saved with the emoji
+for (const [table, field, names] of ICON_SWAPS) {
+  for (const [key, name] of Object.entries(names)) {
+    const entry = Array.isArray(table) ? table.find((x) => x.id === key) : table[key];
+    if (!entry || entry.emoji) continue; // (already swapped)
+    entry.emoji = entry[field];
+    entry[field] = pxe(name);
+    // only the tables game.js writes into logs, so an unrelated 🔥 or 🎯 in a log line stays put
+    const logged = table === INGREDIENTS || table === DISHES || table === MAP_DROPS;
+    if (logged && entry.emoji && !EMOJI_PIXEL.has(entry.emoji)) EMOJI_PIXEL.set(entry.emoji, entry[field]);
+  }
+}
+// Escaped log/report text with its emoji swapped for the pixel icons (longest emoji first).
+const EMOJI_KEYS = [...EMOJI_PIXEL.keys()].sort((a, b) => b.length - a.length);
+const pixelizeText = (html) => EMOJI_KEYS.reduce((out, e) => (out.includes(e) ? out.split(e).join(EMOJI_PIXEL.get(e)) : out), html);
 for (const place of [...LOCATIONS, ...LANDMARKS]) LOCATION_ICON[place.id] = pxe(place.id);
 // A boss (raid bosses, boss nights, the horde's leader) wears the crown; a death is a skull.
 const BOSS_ICON = pxe("z_boss");
 const SKULL_ICON = pxe("skull");
-// The map's supply drops, drawn at render time — their emoji also go into saved log lines.
-const DROP_ICON = { crate: pxe("crate"), wreck: pxe("wreck"), survivor: pxe("survivor") };
+const DROP_ICON = Object.fromEntries(Object.entries(MAP_DROPS).map(([k, d]) => [k, d.icon]));
 
 // Expedition teams 1-3 and the raid squad each get a colour for their route, markers and chips.
 const TEAM_COLORS = ["#4caf7d", "#3fa7d6", "#e0a536", "#e0455f"];
@@ -763,7 +783,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
 // Each tab is [id, label, pixel icon].
 const LEFT_TABS_BY_TURN = {
   1: [["floor1", "Lobby", "lobby"], ["floor2", "Classrooms", "classrooms"], ["floor3", "Facilities", "facilities"]],
-  2: [["citymap", "City Map", "map"], ["farm", "Farm", "farm"], ["scrapyard", "Scrapyard", "scrapyard"]],
+  2: [["citymap", "City Map", "map"], ["farm", "Farm", "tractor"], ["scrapyard", "Scrapyard", "scrapyard"]],
   3: [["defense", "Night Watch", "lantern"], ["assault", "Assault", "assault"], ["event", "Event", "dice"]],
 };
 const RIGHT_TABS = [["roster", "Roster", "roster"], ["armory", "Armory", "armory"], ["research", "Research", "tech"]];
@@ -1606,7 +1626,7 @@ export function renderScoutReport(state, report) {
   if (result.drop) {
     const d = MAP_DROPS[result.drop.kind];
     title = `${DROP_ICON[result.drop.kind]} ${d.name}`;
-    body = `${esc(scoutName)} made it there and back: ${esc(result.drop.text)}.`;
+    body = `${esc(scoutName)} made it there and back: ${pixelizeText(esc(result.drop.text))}.`;
   } else if (result.location) {
     title = `Discovered: ${esc(result.location.name)}`;
     body = `${esc(scoutName)} found the ${esc(result.location.name)}. ${esc(result.location.desc)} Send a team there any day.`;
@@ -1900,7 +1920,7 @@ export function renderExpeditionReport(state, anim) {
     const leader = getChar(state, t.memberIds[0]);
     const tag = t.success ? `<span class="tag tag-ok">✅ Success</span>` : `<span class="tag tag-injured">⚠ Struggled</span>`;
     const details = `${t.encounter ? `<div class="exp-enc ${t.encounter.ok ? "exp-enc-ok" : "exp-enc-bad"}">${EXPEDITION_ENCOUNTERS.find((e) => e.id === t.encounter.id)?.icon || ""} ${esc(t.encounter.text)} (${t.encounter.ok ? `+${Math.round(ENCOUNTER_EFFECT.good * 100)}` : `−${Math.round(-ENCOUNTER_EFFECT.bad * 100)}`}% odds)</div>` : ""}
-      <div class="exp-finds">${lootChips(t.loot)}${t.finds.map((f) => `<span class="exp-chip">${esc(f)}</span>`).join("")}${t.recruit ? `<span class="exp-chip exp-good">🙋 ${esc(t.recruit)} wants to join</span>` : ""}</div>
+      <div class="exp-finds">${lootChips(t.loot)}${t.finds.map((f) => `<span class="exp-chip">${pixelizeText(esc(f))}</span>`).join("")}${t.recruit ? `<span class="exp-chip exp-good">🙋 ${esc(t.recruit)} wants to join</span>` : ""}</div>
       ${t.hurt.length ? `<div class="exp-hurt">🩹 ${t.hurt.map(esc).join(", ")}</div>` : ""}
       ${t.lost.length ? `<div class="exp-bad">${SKULL_ICON} Lost: ${t.lost.map(esc).join(", ")}</div>` : ""}
       ${t.nearNest ? `<div class="muted">A zombie nest next door made it harder.</div>` : ""}`;
@@ -4206,7 +4226,7 @@ function logCategory(msg) {
 
 export function renderLog(state) {
   const items = state.log
-    .map((e) => `<li class="${logCategory(e.msg)}"><span class="log-tag">D${e.day}T${e.turn}</span> ${esc(e.msg)}</li>`)
+    .map((e) => `<li class="${logCategory(e.msg)}"><span class="log-tag">D${e.day}T${e.turn}</span> ${pixelizeText(esc(e.msg))}</li>`)
     .join("");
   return `<div class="card"><h2>Log</h2><ul class="log-list">${items || '<li class="muted">Nothing yet.</li>'}</ul></div>`;
 }
@@ -4217,7 +4237,7 @@ export function renderLog(state) {
 export function renderDayRecap(recap) {
   const items = recap.entries
     .filter((e) => !/resolved\.$|begins\.$/.test(e.msg))
-    .map((e) => `<li class="${logCategory(e.msg)}">${esc(e.msg)}</li>`)
+    .map((e) => `<li class="${logCategory(e.msg)}">${pixelizeText(esc(e.msg))}</li>`)
     .join("");
   return `
   <div class="modal-overlay" data-action="close-day-recap">

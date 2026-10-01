@@ -1070,7 +1070,7 @@ export function cookDish(state, dishId) {
   for (const [id, n] of Object.entries(dish.ingredients)) state.pantry[id] -= n;
   state.resources.food -= dish.food;
   state.dishesToday.push(dish.id);
-  addLog(state, `The cafeteria serves ${dish.icon} ${dish.name} — ${dish.desc}`);
+  addLog(state, `The cafeteria serves ${dish.emoji ?? dish.icon} ${dish.name} — ${dish.desc}`);
   return true;
 }
 
@@ -1531,8 +1531,8 @@ export function resolveExploration(state) {
     if (ingredient) {
       ingredientsFound.push(ingredient);
       const info = INGREDIENTS[ingredient.id];
-      report.finds.push(`${info.icon} ${info.name} ×${ingredient.qty}`);
-      addLog(state, `The team brought back ${info.icon} ${info.name} ×${ingredient.qty} from the ${location.name} for the pantry.`);
+      report.finds.push(`${info.emoji ?? info.icon} ${info.name} ×${ingredient.qty}`);
+      addLog(state, `The team brought back ${info.emoji ?? info.icon} ${info.name} ×${ingredient.qty} from the ${location.name} for the pantry.`);
     }
     const stock = rollExpeditionStock(state, location, success);
     if (stock) {
@@ -1593,7 +1593,7 @@ export function resolveExploration(state) {
   state.resources.food += gain;
   for (const c of state.characters) if (c.farmToday && c.alive) c.stamina = Math.max(0, c.stamina - FARM_STAMINA_COST);
   const { produced, kept } = resolveFarm(state);
-  const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
+  const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
   if (farmWorkers) addLog(state, `The Farm brings in ${gain} food${goods ? ` and ${goods}` : ""} from ${farmWorkers} student(s)${kept.length ? ` — ${kept.join(", ")}` : ""}.`);
   // the Scrapyard: each worker's own haul, then whatever the crews collect from piles and benches
   const scrapyardWorkers = state.characters.filter((c) => c.scrapyardToday && c.alive);
@@ -3098,7 +3098,7 @@ function rollHexFind(state, scout, q, r) {
     const id = pick(SCAVENGED_INGREDIENTS);
     const n = randInt(1, 2);
     state.pantry[id] = (state.pantry[id] || 0) + n;
-    text = `${INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n} for the pantry`;
+    text = `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n} for the pantry`;
   } else if (type === "seeds") {
     const id = pick(FARM_CROPS);
     const n = randInt(1, 2);
@@ -3170,7 +3170,7 @@ export function rollMapDrop(state, force = false) {
   const [q, r] = pick(spots);
   const kind = weightedPick(Object.fromEntries(Object.entries(MAP_DROPS).map(([k, d]) => [k, d.weight])));
   state.mapDrops.push({ q, r, kind, expires: state.day + MAP_DROP_DAYS - 1 });
-  addLog(state, `${MAP_DROPS[kind].icon} A ${MAP_DROPS[kind].name.toLowerCase()} turned up on the map — it won't be there for long.`);
+  addLog(state, `${MAP_DROPS[kind].emoji ?? MAP_DROPS[kind].icon} A ${MAP_DROPS[kind].name.toLowerCase()} turned up on the map — it won't be there for long.`);
 }
 
 // A runner goes to grab a drop: the same stamina and zombie risk as scouting that block.

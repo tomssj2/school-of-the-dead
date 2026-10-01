@@ -2449,6 +2449,640 @@ const ICONS = {
     "................",
     "................",
   ], { w: "#eee8d8", W: "#ffffff", k: "#2c2430" }),
+  // ---- the pantry, the Farm and the Scrapyard (16x16) ----
+  potatoes: () => {
+    const g = blank(16);
+    for (const [cx, cy, rx, ry] of [[6, 7.5, 4.3, 3.3], [10.4, 10.6, 3.7, 2.9]]) {
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry;
+        if (dx * dx + dy * dy <= 1) g[y][x] = dx + dy < -0.7 ? "#e8bc84" : dx + dy > 0.8 ? "#8a5a30" : "#c9935a";
+      }
+    }
+    for (const [x, y] of [[5, 7], [7, 9], [10, 10], [12, 11]]) g[y][x] = "#6b4220";
+    return g;
+  },
+  tomatoes: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 9.2, r = Math.hypot(dx, dy * 1.1);
+      if (r <= 5.4) g[y][x] = dx + dy < -3.5 ? "#ff9a8a" : dx + dy > 3.5 ? "#a82a2a" : "#e04040";
+    }
+    for (const [x, y] of [[7, 3], [8, 3], [6, 4], [7, 4], [8, 4], [9, 4], [5, 5], [10, 5], [8, 2]]) g[y][x] = "#4caf50";
+    return g;
+  },
+  flour: () => ascii([
+    "................",
+    "................",
+    "......w..w......",
+    ".....wwwwww.....",
+    "......kkkk......",
+    ".....wwwwww.....",
+    "....wWwwwwww....",
+    "...wWwwwwwwws...",
+    "...wWwwyywwws...",
+    "...wwwyYyywws...",
+    "...wwwwyywwws...",
+    "...wwwwwwwwws...",
+    "....wwwwwwws....",
+    ".....sssssss....",
+    "................",
+    "................",
+  ], { w: "#efe6d2", W: "#ffffff", s: "#c9b994", k: "#a8753f", y: "#e8c14a", Y: "#f7e08a" }),
+  eggs: () => {
+    const g = blank(16);
+    for (const [cx, cy] of [[6, 8.5], [10.5, 9.5]]) {
+      for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+        const dx = (x + 0.5 - cx) / 3.1, dy = (y + 0.5 - cy) / 4.1;
+        if (dx * dx + dy * dy <= 1) g[y][x] = dx + dy < -0.6 ? "#ffffff" : dx + dy > 0.7 ? "#d9c9a8" : "#f4ead6";
+      }
+    }
+    return g;
+  },
+  milk: () => ascii([
+    "................",
+    "......bbbb......",
+    "......bBbb......",
+    "......wwww......",
+    "......wWww......",
+    ".....wWwwwg.....",
+    "....wWwwwwwg....",
+    "....wWwwwwwg....",
+    "....wbbbbbbg....",
+    "....wbBbbbbg....",
+    "....wbbbbbbg....",
+    "....wWwwwwwg....",
+    "....wwwwwwwg....",
+    ".....gggggg.....",
+    "................",
+    "................",
+  ], { b: "#3f7fd6", B: "#7fb0f0", w: "#f4f6f8", W: "#ffffff", g: "#c9d2dc" }),
+  mutton: () => {
+    const g = blank(16);
+    rod(g, 3.2, 12.8, 7, 9, 0.9, "#f0ece2");
+    disk(g, 2.6, 12.2, 1.1, "#f0ece2");
+    disk(g, 3.8, 13.4, 1.1, "#f0ece2");
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 9.6, dy = y + 0.5 - 6.4, r = Math.hypot(dx, dy);
+      if (r <= 4.6) g[y][x] = r > 3.6 ? "#8a3a2a" : dx + dy < -2 ? "#f08a7a" : "#c8584a";
+    }
+    return g;
+  },
+  canned_meat: () => ascii([
+    "................",
+    "................",
+    "................",
+    "...........kk...",
+    "..........k..k..",
+    "..bbbbbbbbbbbb..",
+    "..bBBBBBBBBBBb..",
+    "..byyyyyyyyyyb..",
+    "..byppppppppyb..",
+    "..bypPppppppyb..",
+    "..byyyyyyyyyyb..",
+    "..bbbbbbbbbbbb..",
+    "..dddddddddddd..",
+    "................",
+    "................",
+    "................",
+  ], { k: "#b6bcc4", b: "#3f6fb5", B: "#7fa8e8", d: "#2a4a80", y: "#f2c14e", p: "#e8909a", P: "#ffc0c8" }),
+  spices: () => {
+    const g = blank(16);
+    for (let i = 0; i <= 20; i++) {
+      const t = i / 20, x = 4 + t * 8, y = 4.5 + Math.sin(t * Math.PI) * 6 + t * 2;
+      disk(g, x, y, 2.1 - t * 1.3, t < 0.5 ? "#e03a2a" : "#c02a20");
+    }
+    for (const [x, y] of [[4, 5], [5, 4]]) g[y][x] = "#ff8a7a";
+    rod(g, 4, 4.6, 2.4, 2.2, 0.6, "#4caf50");
+    return g;
+  },
+  coffee: () => ascii([
+    "................",
+    "......w..w......",
+    ".......w..w.....",
+    "......w..w......",
+    "................",
+    "...mmmmmmmmm....",
+    "...mccccccccm...",
+    "...mMmmmmmmmmmm.",
+    "...mMmmmmmmmm.m.",
+    "...mMmmmmmmmm.m.",
+    "...mMmmmmmmmmmm.",
+    "...mmmmmmmmmm...",
+    "....mmmmmmmm....",
+    "..ssssssssssss..",
+    "................",
+    "................",
+  ], { w: "#c9ced4", m: "#e9edf0", M: "#ffffff", c: "#6b4220", s: "#9aa3ad" }),
+  wheat: () => ascii([
+    "................",
+    ".......y........",
+    "......yYy.......",
+    "..y...yyy...y...",
+    ".yYy..yYy..yYy..",
+    ".yyy..yyy..yyy..",
+    ".yYy..yYy..yYy..",
+    "..yy..yyy..yy...",
+    "...g...g...g....",
+    "...g...g...g....",
+    "....g..g..g.....",
+    ".....g.g.g......",
+    "......ggg.......",
+    ".....rrrrr......",
+    "......ggg.......",
+    "................",
+  ], { y: "#e8c14a", Y: "#f7e08a", g: "#b8a24a", r: "#c0583a" }),
+  chicken: () => ascii([
+    "................",
+    "................",
+    "....rr..........",
+    "...wwww.........",
+    "..owkww.........",
+    "...wwww.........",
+    "....wwwwwwww.ww.",
+    "....wwwwwwwwwww.",
+    "....wWWWWwwwwww.",
+    "....wwWWwwwwww..",
+    ".....wwwwwwww...",
+    ".......y..y.....",
+    "......yy.yy.....",
+    "................",
+    "................",
+    "................",
+  ], { r: "#e04040", w: "#f4f4f4", W: "#d9dde2", k: "#2c2c34", o: "#f2a03a", y: "#e8a03a" }),
+  cow: () => ascii([
+    "................",
+    "................",
+    "..h..........h..",
+    "..hh........hh..",
+    ".ee.wwwwwwww.ee.",
+    ".eeewkkwwwwweee.",
+    "....wkkwwkkw....",
+    "....wwkwwwww....",
+    "....wwwwwwww....",
+    "....pppppppp....",
+    "....pPpkkppp....",
+    "....pppppppp....",
+    ".....pppppp.....",
+    "................",
+    "................",
+    "................",
+  ], { h: "#d9cfc0", e: "#f0ece2", w: "#f4f4f4", k: "#2c2c34", p: "#f0a8b0", P: "#ffd0d6" }),
+  // A fluffy sheep with a black face, facing left.
+  sheep: () => {
+    const g = blank(16);
+    for (const x of [6, 7, 11, 12]) for (const y of [11, 12, 13]) g[y][x] = "#3a3436";
+    for (const [cx, cy] of [[7, 6.5], [10.5, 6.2], [12.6, 8.6], [10, 9.8], [6.8, 9.6]]) disk(g, cx, cy, 2.7, "#f4f1e6");
+    for (const [x, y] of [[6, 4], [7, 4], [10, 4], [5, 5]]) g[y][x] = "#ffffff";
+    for (let y = 5; y <= 9; y++) for (let x = 1; x <= 4; x++) if (!(y === 9 && x === 1)) g[y][x] = "#3a3436";
+    g[5][4] = "#3a3436";
+    g[4][3] = "#3a3436";
+    g[6][2] = "#f4f1e6";
+    return g;
+  },
+  // The Farm tab: a green tractor — cab, hood, big back wheel, small front one.
+  tractor: () => {
+    const g = blank(16);
+    for (let y = 2; y <= 5; y++) for (let x = 3; x <= 7; x++) g[y][x] = x === 3 || x === 7 || y === 2 ? "#3a3f48" : "#bfe3f5";
+    for (let y = 2; y <= 5; y++) g[y][11] = "#3a3f48";
+    for (let y = 6; y <= 9; y++) for (let x = 2; x <= 13; x++) g[y][x] = y === 6 ? "#8ad48a" : y === 9 ? "#2e8a3a" : "#4caf50";
+    disk(g, 4.5, 10.5, 3.6, "#2c2c34");
+    disk(g, 4.5, 10.5, 1.5, "#9aa3ad");
+    disk(g, 11.8, 11.8, 2.3, "#2c2c34");
+    g[11][11] = "#9aa3ad";
+    g[12][12] = "#9aa3ad";
+    return g;
+  },
+  // Dishes.
+  shepherds_stew: () => ascii([
+    "................",
+    "................",
+    "....w...w.......",
+    ".....w...w......",
+    "....w...w.......",
+    "................",
+    "..ssssssssssss..",
+    "..sOsbbobbsbbs..",
+    "..bbbbbbbbbbbb..",
+    "..wWwwwwwwwwwd..",
+    "...wWwwwwwwwd...",
+    "....wwwwwwwd....",
+    ".....dddddd.....",
+    "................",
+    "................",
+    "................",
+  ], { s: "#a0603a", b: "#7a4a2a", O: "#f08a24", o: "#6aa84f", w: "#e9edf0", W: "#ffffff", d: "#9aa3ad" }),
+  fresh_bread: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    ".....yyyyyy.....",
+    "...yyYyyYyyyy...",
+    "..yyYyyYyyYyyy..",
+    ".yyyyyyyyyyyyyy.",
+    ".yyYyyyYyyyYyyb.",
+    ".yyyyyyyyyyyyyb.",
+    ".bbbbbbbbbbbbbb.",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { y: "#e8b04a", Y: "#f6d58a", b: "#b77b34" }),
+  firehouse_chili: () => ascii([
+    "................",
+    "................",
+    "......F.........",
+    ".....FfF..F.....",
+    "......f..FfF....",
+    "................",
+    "...rrrrrrrrrr...",
+    ".kkRrrrRrrrrrkk.",
+    ".kkkkkkkkkkkkkk.",
+    "..kKkkkkkkkkkk..",
+    "..kKkkkkkkkkkk..",
+    "..kkkkkkkkkkkk..",
+    "...kkkkkkkkkk...",
+    "................",
+    "................",
+    "................",
+  ], { F: "#f08a24", f: "#ffd06a", r: "#c0392b", R: "#e8705e", k: "#3a3f48", K: "#6b7380" }),
+  scholars_breakfast: () => {
+    const g = blank(16);
+    rod(g, 11.5, 11.5, 15, 15, 0.9, "#5a3b24");
+    disk(g, 7.5, 7.5, 6.1, "#3a3f48");
+    disk(g, 7.5, 7.5, 5, "#5b616d");
+    disk(g, 7, 7.2, 3.2, "#ffffff");
+    disk(g, 7.4, 7.4, 1.4, "#f2c14e");
+    g[6][6] = "#fff0a8";
+    for (const [x, y] of [[9, 10], [10, 10], [11, 9], [10, 11]]) g[y][x] = "#c0583a";
+    return g;
+  },
+  // Tech tree.
+  whetstones: () => {
+    const g = blank(16);
+    rod(g, 2.5, 12, 13.5, 8, 1.8, (t, side) => (side < -0.6 ? "#b6bcc4" : side > 0.8 ? "#5b616d" : "#8a93a0"));
+    for (const [x, y, c] of [[9, 3, "#fff0a8"], [11, 2, "#ffd06a"], [12, 4, "#fff0a8"], [10, 5, "#ffd06a"], [7, 4, "#ffd06a"]]) g[y][x] = c;
+    return g;
+  },
+  archery_club: () => ascii([
+    "................",
+    "......f.f.f.....",
+    ".....fFfFfFf....",
+    "......s.s.s.....",
+    "......s.s.s.....",
+    ".....qqqqqqq....",
+    ".....qQqqqqq....",
+    ".....qQqqqqq....",
+    ".....qQqqqqq....",
+    ".....qqqqqqq....",
+    ".....qQqqqqq....",
+    ".....qQqqqqq....",
+    ".....qqqqqqq....",
+    "......qqqqq.....",
+    "................",
+    "................",
+  ], { f: "#d64545", F: "#ff8a7a", s: "#d8b07a", q: "#8a5a3a", Q: "#c99a5e" }),
+  fortified_works: () => ascii([
+    "................",
+    "................",
+    "................",
+    ".bbbbbb.bbbbbbb.",
+    ".bBbbbb.bBbbbbb.",
+    "................",
+    ".bbb.bbbbbb.bbb.",
+    ".bBb.bBbbbb.bBb.",
+    "................",
+    ".bbbbbb.bbbbbbb.",
+    ".bBbbbb.bBbbbbb.",
+    "................",
+    ".bbb.bbbbbb.bbb.",
+    ".bBb.bBbbbb.bBb.",
+    "................",
+    "................",
+  ], { b: "#b8583a", B: "#e08a62" }),
+  field_medics: () => ascii([
+    "................",
+    "................",
+    "................",
+    ".....wwwwww.....",
+    "....wWwwwwww....",
+    "...wWwwrrwwww...",
+    "...wWwrrrrwww...",
+    "..wWwwwrrwwwww..",
+    "..wwwwwwwwwwwd..",
+    "..wwwwwwwwwwwd..",
+    ".ssssssssssssss.",
+    ".dddddddddddddd.",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { w: "#f4f4f4", W: "#ffffff", r: "#d64545", d: "#b9c3cc", s: "#d9dde2" }),
+  last_stand: () => ascii([
+    "................",
+    "..k.............",
+    "..krrrrrrrr.....",
+    "..kRrrrrrrrr....",
+    "..kRrrrrrrr.r...",
+    "..krrrrrrrrr....",
+    "..krrrrr.rr.....",
+    "..k.............",
+    "..k.............",
+    "..k.............",
+    "..k.............",
+    "..k.............",
+    ".kkk............",
+    "kkkkk...........",
+    "................",
+    "................",
+  ], { k: "#8a5a3a", r: "#d64545", R: "#ff8a7a" }),
+  scouts_eye: () => {
+    const g = blank(16);
+    rod(g, 2.5, 13.5, 6.5, 9.5, 1.3, "#8a5a3a");
+    rod(g, 6.2, 9.8, 10.5, 5.5, 1.7, (t, side) => (side < -0.5 ? "#f2d07a" : "#c9a24a"));
+    rod(g, 10.2, 5.8, 13.4, 2.6, 2.1, (t, side) => (side < -0.6 ? "#f2d07a" : "#b8862a"));
+    disk(g, 13.6, 2.4, 1.1, "#7fc8f0");
+    return g;
+  },
+  deep_pockets: () => ascii([
+    "................",
+    "......kkkk......",
+    ".....k....k.....",
+    "...gggggggggg...",
+    "..gGgggggggggg..",
+    "..gGgggggggggg..",
+    "..gGkkkkkkkkgg..",
+    "..gGgggggggggg..",
+    "..gGgPPPPPPggg..",
+    "..gGgPppppPggg..",
+    "..gGgPppppPggg..",
+    "..gggPPPPPPggg..",
+    "..gggggggggggg..",
+    "...dddddddddd...",
+    "................",
+    "................",
+  ], { k: "#5a3b24", g: "#6b7f4a", G: "#93a86a", P: "#556a3a", p: "#7a8f5a", d: "#4a5632" }),
+  treasure_hunters: () => ascii([
+    "................",
+    "................",
+    "................",
+    "...bbbbbbbbbb...",
+    "..bBbbbbbbbbbb..",
+    "..bbbbbbbbbbbb..",
+    "..yyyyyyyyyyyy..",
+    "..bbbbbyybbbbb..",
+    "..bbbbbykbbbbb..",
+    "..bBbbbbbbbbbb..",
+    "..bBbbbbbbbbbb..",
+    "..bbbbbbbbbbbb..",
+    "..yyyyyyyyyyyy..",
+    "................",
+    "................",
+    "................",
+  ], { b: "#8a5a3a", B: "#b8834a", y: "#e8c14a", k: "#2c2c34" }),
+  word_of_mouth: () => ascii([
+    "................",
+    "................",
+    "...wwwwwwwwww...",
+    "..wWwwwwwwwwww..",
+    "..wwwwwwwwwwww..",
+    "..wwkkwkkwkkww..",
+    "..wwkkwkkwkkww..",
+    "..wwwwwwwwwwww..",
+    "..wwwwwwwwwwwd..",
+    "...wwwwwwwwwd...",
+    "....wwd.........",
+    "....wd..........",
+    "....d...........",
+    "................",
+    "................",
+    "................",
+  ], { w: "#f4f4f4", W: "#ffffff", k: "#5a6478", d: "#c9d2dc" }),
+  ghost_walkers: () => ascii([
+    "................",
+    "......wwww......",
+    ".....wWwwww.....",
+    "....wWwwwwww....",
+    "....wwwwwwww....",
+    "....wkkwwkkw....",
+    "....wkkwwkkw....",
+    "....wwwwwwww....",
+    "....wwwkkwww....",
+    "....wwwwwwww....",
+    "....wwwwwwww....",
+    "....wwwwwwww....",
+    "....w.ww.ww.....",
+    "................",
+    "................",
+    "................",
+  ], { w: "#dfe8f2", W: "#ffffff", k: "#3a3f58" }),
+  study_groups: () => {
+    const g = ascii([
+      "................",
+      "................",
+      "..bbbbbbbbbb....",
+      "..bwwwwwwwwb....",
+      "..bwkkkkkkwb....",
+      "..bwwwwwwwwb....",
+      "..bwkkkkwwwb....",
+      "..bwwwwwwwwb....",
+      "..bwkkkkkkwb....",
+      "..bwwwwwwwwb....",
+      "..bwkkkwwwwb....",
+      "..bwwwwwwwwb....",
+      "..bbbbbbbbbb....",
+      "................",
+      "................",
+      "................",
+    ], { b: "#3f6fb5", w: "#f4f1e6", k: "#8a93a8" });
+    rod(g, 9.5, 12.5, 13.6, 4.4, 0.8, "#f2c14e");
+    g[13][9] = "#3a2a1a";
+    g[3][13] = "#f08a9a";
+    return g;
+  },
+  power_naps: () => ascii([
+    "..........zzz...",
+    "............z...",
+    "...........z....",
+    "..........zzz...",
+    "......zz........",
+    ".......z........",
+    "......zz........",
+    "................",
+    "..wwwwwwwwwwww..",
+    ".wWWwwwwwwwwwww.",
+    ".wWwwwwwwwwwwwd.",
+    ".wwwwwwwwwwwwwd.",
+    "..wwwwwwwwwwdd..",
+    "................",
+    "................",
+    "................",
+  ], { z: "#9cc2ff", w: "#e9edf0", W: "#ffffff", d: "#b9c3cc" }),
+  school_spirit: () => ascii([
+    "................",
+    "..k.............",
+    "..kbbb..........",
+    "..kbBbbbb.......",
+    "..kbbbbbbbbb....",
+    "..kbbwwbbbbbbbb.",
+    "..kbbbbbbbbb....",
+    "..kbbbbbb.......",
+    "..kbbb..........",
+    "..k.............",
+    "..k.............",
+    "..k.............",
+    "..k.............",
+    "..k.............",
+    "................",
+    "................",
+  ], { k: "#8a5a3a", b: "#d64545", B: "#ff8a7a", w: "#f4f4f4" }),
+  home_economics: () => ascii([
+    "................",
+    "................",
+    "....ww.ww.ww....",
+    "...wwwwwwwwww...",
+    "..wWwwwwwwwwww..",
+    "..wWwwwwwwwwwd..",
+    "...wwwwwwwwwd...",
+    "....wwwwwwww....",
+    "....wwwwwwww....",
+    "....wwwwwwww....",
+    "....ssssssss....",
+    "....wwwwwwww....",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { w: "#f4f4f4", W: "#ffffff", d: "#c9d2dc", s: "#d9dde2" }),
+  honor_roll: () => {
+    const g = blank(16);
+    const pts = [];
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? 2.9 : 6.6;
+      pts.push([8 + Math.cos(a) * r, 8.6 + Math.sin(a) * r]);
+    }
+    const inside = (x, y) => {
+      let c = false;
+      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const [xi, yi] = pts[i], [xj, yj] = pts[j];
+        if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    };
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (inside(x + 0.5, y + 0.5)) g[y][x] = x + y < 14 ? "#fff0a8" : x + y > 18 ? "#c99a2e" : "#f2c14e";
+    }
+    return g;
+  },
+  // Scrapyard jobs.
+  yard_cars: () => ascii([
+    "................",
+    "................",
+    "................",
+    "....bbbbbb......",
+    "..bbggbbgbbbb...",
+    ".bbbbbbbbbbbbb..",
+    ".bBbbbbbbbbbbb..",
+    "..rrrrrrr.......",
+    ".rrggrrrggrrrrr.",
+    ".rrrrrrrrrrrrrr.",
+    ".rRrrrrxrrrrrrr.",
+    ".rrrrrrrrrrrrrr.",
+    "..oo.......oo...",
+    "................",
+    "................",
+    "................",
+  ], { b: "#5a7fa8", B: "#8aaad0", g: "#2c3440", r: "#a8643a", R: "#d08a5a", x: "#6b3a1a", o: "#1a1a22" }),
+  yard_appliances: () => ascii([
+    "................",
+    "...wwwwwwwwww...",
+    "...wWwwwwkkkw...",
+    "...wwwwwwwwww...",
+    "...ssssssssss...",
+    "...wwwwwwwwww...",
+    "...wwwggggwww...",
+    "...wwgGggggww...",
+    "...wwggggggww...",
+    "...wwggggggww...",
+    "...wwwggggwww...",
+    "...wwwwwwwwww...",
+    "...wwwwwwwwwd...",
+    "...dddddddddd...",
+    "................",
+    "................",
+  ], { w: "#e9edf0", W: "#ffffff", d: "#b9c3cc", s: "#c9d2dc", k: "#5a6478", g: "#5f8fb0", G: "#bfe3f5" }),
+  yard_machinery: () => {
+    const g = ascii([
+    "................",
+    "................",
+    "....kk....kk....",
+    "....kk....kk....",
+    "..ssssssssssss..",
+    "..sSssssssssss..",
+    "..ssddssddssss..",
+    "..ssddssddsssk..",
+    "..ssssssssssskk.",
+    "..sSssssssssss..",
+    "..ssssssssssss..",
+    "...dddddddddd...",
+    "....kk....kk....",
+    "................",
+    "................",
+    "................",
+    ], { s: "#8a93a0", S: "#c9ced4", d: "#4a4f5a", k: "#3a3f48" });
+    disk(g, 2.6, 8.6, 2.3, "#3a3f48");
+    disk(g, 2.6, 8.6, 0.9, "#c9ced4");
+    return g;
+  },
+  yard_weapons: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    ".kkkkkkkkkkkkk..",
+    "kKKKKKKKKkkkkkk.",
+    ".kkkkkkkkkkkkk..",
+    "....kkkkkkkk....",
+    ".....kkkkkk.....",
+    ".....kkkkkk.....",
+    "....kkkkkkkk....",
+    "...kkkkkkkkkk...",
+    "...dddddddddd...",
+    "................",
+    "................",
+    "................",
+  ], { k: "#5b616d", K: "#a9b1ba", d: "#3a3f48" }),
+  yard_armor: () => ascii([
+    "................",
+    "................",
+    "...ss......ss...",
+    "..sSs......sss..",
+    "..sSsssssssss...",
+    "..sSssssssssss..",
+    "...sSsssssssss..",
+    "...sSssrrsssss..",
+    "...sSssrrssss...",
+    "...sssssssssss..",
+    "....sssssssss...",
+    "....sssssssss...",
+    ".....sssssss....",
+    "................",
+    "................",
+    "................",
+  ], { s: "#8a93a0", S: "#d0d6dc", r: "#c9a24a" }),
+  yard_traps: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = (y + 0.5 - 9) * 1.5, r = Math.hypot(dx, dy);
+      if (r >= 5.4 && r <= 6.6) g[y][x] = dy < 0 ? "#c9ced4" : "#8a93a0";
+    }
+    for (const x of [3, 5, 7, 9, 11, 13]) { g[8][x] = "#e6eaee"; g[10][x - 1] = "#8a93a0"; }
+    for (let x = 5; x <= 10; x++) g[9][x] = "#6b7380";
+    g[9][7] = "#c9a24a";
+    g[9][8] = "#c9a24a";
+    return g;
+  },
   // ---- tab and turn-button icons (16x16, shown at 16px) — one per tab ----
   // Lobby: the school's front doors.
   lobby: () => ascii([
@@ -2539,25 +3173,6 @@ const ICONS = {
     g[8][8] = "#3a3f48";
     return g;
   },
-  // Farm: a sheaf of wheat.
-  farm: () => ascii([
-    "................",
-    ".......y........",
-    "......yYy.......",
-    "..y...yyy...y...",
-    ".yYy..yYy..yYy..",
-    ".yyy..yyy..yyy..",
-    ".yYy..yYy..yYy..",
-    "..yy..yyy..yy...",
-    "...g...g...g....",
-    "...g...g...g....",
-    "....g..g..g.....",
-    ".....g.g.g......",
-    "......ggg.......",
-    ".....rrrrr......",
-    "......ggg.......",
-    "................",
-  ], { y: "#e8c14a", Y: "#f7e08a", g: "#b8a24a", r: "#c0583a" }),
   // Scrapyard: a tyre leaning on a rusty plate.
   scrapyard: () => {
     const g = blank(16);
