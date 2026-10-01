@@ -14,7 +14,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -1210,6 +1210,27 @@ root.addEventListener("click", (e) => {
       G.resolveFacilityRaid(state);
       render();
       break;
+    // squad pickers: a tile toggles that student in or out of the squad
+    case "clear-toggle": {
+      if (!clearRoom) break;
+      const id = el.dataset.id;
+      clearRoom.ids = clearRoom.ids.includes(id) ? clearRoom.ids.filter((x) => x !== id) : [...clearRoom.ids, id].slice(0, ROOM_FIGHT_SQUAD);
+      render();
+      break;
+    }
+    case "nest-toggle": {
+      if (!openNest) break;
+      const id = el.dataset.id;
+      openNest.ids = openNest.ids.includes(id) ? openNest.ids.filter((x) => x !== id) : [...openNest.ids, id].slice(0, NEST_CLEAR_MAX);
+      render();
+      break;
+    }
+    case "raid-toggle": {
+      const c = G.getChar(state, el.dataset.id);
+      if (c) G.setExploreTeam(state, c.id, c.exploreTeam === G.RAID_TEAM ? null : G.RAID_TEAM);
+      render();
+      break;
+    }
     case "assault-toggle": {
       // who runs the horde down: tonight's defenders still standing, all of them unless unpicked
       const id = el.dataset.id;
@@ -1828,20 +1849,6 @@ root.addEventListener("change", (e) => {
     case "set-team-location": {
       const teamIndex = Number(el.dataset.team);
       G.setTeamLocation(state, teamIndex, el.value || null);
-      render();
-      break;
-    }
-    case "toggle-clear-member": {
-      if (!clearRoom) break;
-      const id = el.dataset.id;
-      clearRoom.ids = el.checked ? [...clearRoom.ids, id].slice(0, ROOM_FIGHT_SQUAD) : clearRoom.ids.filter((x) => x !== id);
-      render();
-      break;
-    }
-    case "toggle-nest-member": {
-      if (!openNest) break;
-      const id = el.dataset.id;
-      openNest.ids = el.checked ? [...openNest.ids, id].slice(0, 3) : openNest.ids.filter((x) => x !== id);
       render();
       break;
     }

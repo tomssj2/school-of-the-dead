@@ -505,39 +505,76 @@ function renderBoardedRoom(state, roomKey, scene, cls = "") {
   </div>`;
 }
 
+// ----- squad pickers (clear a room, burn a nest, raid a landmark) -----
+// One student as a tile: portrait, name and level, HP and stamina bars. Picked ones get a ✓ and
+// a blue outline; `reason` greys a tile out and says why (in place of the level).
+function squadTile(state, c, { picked = false, reason = null, action, cost = 0 }) {
+  const pct = (a, b) => Math.max(0, Math.round((a / b) * 100));
+  return `<button class="sq-tile ${picked ? "sq-on" : ""} ${reason ? "sq-off" : ""}" ${reason ? 'aria-disabled="true"' : `data-action="${action}" data-id="${c.id}"`} ${tipAttr({
+    title: `${esc(c.name)} · Lv${overallLevel(c)}`,
+    rows: [["❤ HP", `${c.hp}/${c.maxHp}`], ["⚡ Stamina", `${c.stamina}/${c.maxStamina}${cost ? ` → ${Math.max(0, c.stamina - cost)}` : ""}`],
+      ["STR · DEX", `${effectiveGrade(state, c, "PE")} · ${effectiveGrade(state, c, "Gymnastics")}`]],
+    notes: [reason || (picked ? "Click to leave them behind" : "Click to take them")],
+  })}>
+    ${picked ? '<span class="sq-check">✓</span>' : ""}
+    <span class="sq-sprite">${characterSprite(c, 34)}</span>
+    <span class="sq-name">${esc(shortName(c))}</span>
+    <span class="sq-lv">${reason ? esc(reason) : `Lv${overallLevel(c)}`}</span>
+    <span class="sq-bar sq-hp"><i style="width:${pct(c.hp, c.maxHp)}%"></i></span>
+    <span class="sq-bar sq-stam"><i style="width:${pct(c.stamina, c.maxStamina)}%"></i></span>
+  </button>`;
+}
+// The picked first, then whoever can go (strongest STR + DEX first), then whoever can't.
+function squadGrid(state, entries, opts) {
+  const rank = ({ c, picked, reason }) => (picked ? 0 : reason ? 2 : 1) * 1000 - (c.grades.PE + c.grades.Gymnastics) / 10;
+  const tiles = [...entries].sort((a, b) => rank(a) - rank(b)).map((e) => squadTile(state, e.c, { ...opts, ...e })).join("");
+  return `<div class="sq-grid">${tiles || '<p class="muted">Nobody can go.</p>'}</div>`;
+}
+const BOARDED_SCENE = (roomKey) => (roomKey.startsWith("classroom:") ? "classroom_empty" : roomKey);
+
 // Picking a squad to clear a boarded-up room: who's inside, what it costs, and the odds.
 export function renderClearRoomModal(state, clear) {
   const b = BOARDED_ROOMS[clear.roomKey];
   const squad = clear.ids.map((id) => getChar(state, id)).filter(canFightForRoom);
   const afford = state.resources.materials >= b.cost;
-  const rows = state.characters
+  const entries = state.characters
     .filter((c) => c.role === "student" && c.alive && !c.infection)
     .map((c) => {
-      const able = canFightForRoom(c);
       const picked = clear.ids.includes(c.id);
-      const full = !picked && clear.ids.length >= ROOM_FIGHT_SQUAD;
-      return `<label class="check-row ${able ? "" : "check-row-disabled"}">
-        <input type="checkbox" data-action="toggle-clear-member" data-id="${c.id}" ${picked ? "checked" : ""} ${!able || full ? "disabled" : ""}/>
-        <span class="assign-who">${nameTag(c)} — Lv${overallLevel(c)} ${statusTag(c)}${able ? "" : ' <span class="tag tag-injured">too tired</span>'}</span>${hpBar(c)}
-      </label>`;
-    })
-    .join("");
+      const reason = picked ? null : c.hp <= 1 ? "too hurt" : c.stamina < ROOM_FIGHT_STAMINA ? "too tired" : squad.length >= ROOM_FIGHT_SQUAD ? "squad full" : null;
+      return { c, picked, reason };
+    });
   const pct = Math.round(roomFightOdds(state, clear.roomKey, squad) * 100);
-  const zombies = b.zombies.map((z) => `<div class="clear-zombie">${zombieSprite(z.look, 44)}<span>${z.type === "walker" ? "Walker" : z.type === "runner" ? "Runner" : "Brute"}</span></div>`).join("");
+  const zombieName = (t) => ({ walker: "Walker", runner: "Runner", brute: "Brute" }[t] || t);
+  const raiders = b.zombies.map((z, i) => `<span class="fr-raider" style="--i:${i}">${zombieSprite(z.look, 44)}</span>`).join("");
+  const tally = {};
+  for (const z of b.zombies) tally[z.type] = (tally[z.type] || 0) + 1;
+  const inside = Object.entries(tally).map(([t, n]) => `${n} ${zombieName(t)}${n > 1 ? "s" : ""}`).join(" · ");
+  const how = {
+    title: "🔨 Clearing a room",
+    rows: [["Squad", `up to ${ROOM_FIGHT_SQUAD}`], ["Stamina", `${ROOM_FIGHT_STAMINA} each`], ["If they win", `${b.cost} scrap boards it up`]],
+    notes: ["Lose and they fall back — nothing spent", "Nobody dies in here: anyone who goes down is dragged out"],
+  };
+  const verdict = squad.length
+    ? `<div class="mission-success ${pct >= 70 ? "mission-good" : pct >= 40 ? "mission-ok" : "mission-bad"}">Chance to clear it: <b>${pct}%</b></div>`
+    : `<div class="mission-success mission-bad">Pick who goes in.</div>`;
   return `<div class="modal-overlay" data-action="close-clear-room">
-    <div class="char-card mission-card" data-action="noop">
+    <div class="char-card mission-card sq-card" data-action="noop">
       <button class="cc-close" data-action="close-clear-room" title="Close">✕</button>
-      <h3>🔨 Clear out ${esc(roomLabel(clear.roomKey))}</h3>
-      <p class="muted">Pick up to ${ROOM_FIGHT_SQUAD} students (${ROOM_FIGHT_STAMINA} stamina each) to fight their way in. Win, and ${b.cost} scrap boards the broken windows back up — the room is yours. Lose, and they fall back with nothing spent. Nobody dies in here: anyone who goes down gets dragged out.</p>
-      <div class="mini-label">Still inside</div>
-      <div class="clear-zombies">${zombies}</div>
-      <div class="mission-stats-row"><span class="${afford ? "" : "plot-warn"}">${ri("materials")} ${state.resources.materials}/${b.cost} scrap</span></div>
-      ${squad.length ? `<div class="mission-success ${pct >= 70 ? "mission-good" : pct >= 40 ? "mission-ok" : "mission-bad"}">Chance to clear it: <b>${pct}%</b></div>` : ""}
-      <div class="mini-label">Squad (${squad.length}/${ROOM_FIGHT_SQUAD})</div>
-      <div class="check-list">${rows}</div>
+      <div class="room-scene fr-banner sq-banner" style="background-image:${sceneBackground(`${BOARDED_SCENE(clear.roomKey)}@1`)}">
+        <div class="fr-raiders">${raiders}</div>
+        <div class="scene-top"><div class="scene-plaque">🔨 Clear out ${esc(roomLabel(clear.roomKey))}</div></div>
+      </div>
+      <div class="stat-row farm-pill">
+        <span class="stat-pill">🧟 ${inside} inside ${infoDot(how)}</span>
+        <span class="${afford ? "farm-ready-ok" : "plot-warn"}">${ri("materials")} ${state.resources.materials}/${b.cost}</span>
+        <span class="mini-label">Squad (${squad.length}/${ROOM_FIGHT_SQUAD})</span>
+      </div>
+      ${squadGrid(state, entries, { action: "clear-toggle", cost: ROOM_FIGHT_STAMINA })}
+      ${verdict}
       <div class="row-actions">
         <button class="btn btn-sm" data-action="close-clear-room">Not now</button>
-        <button class="btn btn-primary" data-action="go-clear-room" ${squad.length && afford ? "" : "disabled"}>${afford ? "⚔ Go in" : `Need ${b.cost - state.resources.materials} more scrap`}</button>
+        <button class="btn btn-primary" data-action="go-clear-room" ${squad.length && afford ? "" : "disabled"}>${afford ? `⚔ Go in (${squad.length})` : `Need ${b.cost - state.resources.materials} more scrap`}</button>
       </div>
     </div>
   </div>`;
@@ -977,6 +1014,48 @@ function renderWarningCounter(all, turn = 1) {
   </div>`;
 }
 
+// Turn 1's lazy: students not in a class or anything else today, though a classroom with a free
+// seat would teach them (or who just finished in their room — `finished` holds why), and
+// teachers with no post while some room has a teacher slot open (`openFloor`: the first such
+// room's floor tab).
+const POST_FLOOR = (post) => (post.startsWith("classroom:") ? "floor2" : ["research", "crafting", "radio"].includes(post) ? "floor3" : "floor1");
+function turnOneLazy(state) {
+  const posted = (post) => state.characters.filter((c) => c.role === "teacher" && c.alive && c.post === post).length;
+  const students = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection);
+  const wouldLearn = (c, lesson) => (lesson.subject ? Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[lesson.subject], 100 - c.grades[lesson.subject])) : 0);
+  const lessons = Object.fromEntries(CLASSROOM_IDS.filter((id) => !isBoarded(state, `classroom:${id}`)).map((id) => [id, classroomLesson(state, id)]));
+  const freeSeats = (id) => state.rooms.classrooms[id].seats.filter((x) => !x).length;
+  const busyToday = (c) => c.gymToday || c.restToday || c.infirmaryToday || c.radioToday || c.researchToday || c.craftingToday;
+  const finished = Object.fromEntries((state.finishedJobs || []).map((f) => [f.id, f.why]));
+  const lazy = students.filter((c) => !c.seat && !busyToday(c)
+    && (finished[c.id] || Object.entries(lessons).some(([id, lesson]) => freeSeats(id) && wouldLearn(c, lesson) > 0)));
+  const openPosts = [...CLASSROOM_IDS.map((id) => `classroom:${id}`), "gym:PE", "gym:Gymnastics", "cafeteria", "infirmary", "research", "crafting", "radio"]
+    .filter((post) => !isBoarded(state, post) && roomState(state, postRoomKey(post)).teacherCapacity > posted(post));
+  const idle = state.characters.filter((c) => c.role === "teacher" && c.alive && !c.infection && !c.post);
+  return { students: lazy, teachers: openPosts.length ? idle : [], finished, openFloor: openPosts.length ? POST_FLOOR(openPosts[0]) : null };
+}
+
+// A Turn 1 floor's title row: lazy students on the left, the floor's name in the middle, lazy
+// teachers on the right — each an orange chip listing who (or a quiet ✓ when there's nobody).
+function floorHead(state, title) {
+  const lazy = turnOneLazy(state);
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const chip = (list, word, icon, tab, why, nameOf) => list.length
+    ? `<button class="ov-chip ov-chip-bad" ${tab ? `data-action="set-tab" data-tab="${tab}"` : ""} ${tipAttr({
+        title: `😴 ${plural(list.length, `lazy ${word}`)}`,
+        notes: [...list.slice(0, 10).map(nameOf), ...(list.length > 10 ? [`…and ${list.length - 10} more`] : []), why],
+      })}>😴 <b>${list.length}</b> lazy ${word}${list.length === 1 ? "" : "s"}</button>`
+    : `<span class="ov-chip ov-chip-ok">✓ No lazy ${word}s</span>`;
+  const students = chip(lazy.students, "student", "🎒", "floor2", "Not in a class or anything else today, though a classroom with a free seat would teach them",
+    (c) => `🎒 ${esc(c.name)}${lazy.finished[c.id] ? ` · ✓ done (${lazy.finished[c.id]})` : ""}`);
+  const teachers = chip(lazy.teachers, "teacher", "👩‍🏫", lazy.openFloor, "No post, though a room has a teacher slot open", (t) => `👩‍🏫 ${esc(t.name)}`);
+  return `<div class="ov-head floor-head">
+    <div class="ov-head-left">${students}</div>
+    <h2>${title}</h2>
+    <div class="ov-head-right">${teachers}</div>
+  </div>`;
+}
+
 function renderTurn1Overview(state) {
   const count = (flag, value = true) => state.characters.filter((c) => c.alive && (value === true ? c[flag] : c[flag] === value)).length;
   const posted = (post) => state.characters.filter((c) => c.role === "teacher" && c.alive && c.post === post).length;
@@ -1011,10 +1090,7 @@ function renderTurn1Overview(state) {
   const lessons = Object.fromEntries(CLASSROOM_IDS.filter((id) => !isBoarded(state, `classroom:${id}`)).map((id) => [id, classroomLesson(state, id)]));
   const freeSeats = (id) => state.rooms.classrooms[id].seats.filter((s) => !s).length;
   const unseated = students.filter((c) => !c.seat);
-  // lazy: not in a class and not doing anything else today, though a classroom with a free seat would teach them
-  const busyToday = (c) => c.gymToday || c.restToday || c.infirmaryToday || c.radioToday || c.researchToday || c.craftingToday;
-  const finished = Object.fromEntries((state.finishedJobs || []).map((f) => [f.id, f.why]));
-  const lazy = unseated.filter((c) => !busyToday(c) && (finished[c.id] || Object.entries(lessons).some(([id, lesson]) => freeSeats(id) && wouldLearn(c, lesson) > 0)));
+  const { students: lazy, teachers: lazyTeachers, finished } = turnOneLazy(state);
 
   const locked = (key, scene, tab) => overviewCard({ tab, scene: `${scene}@1`, name: BOARDED_ROOMS[key].name, big: "Boarded up", locked: true, meta: `${BOARDED_ROOMS[key].cost} scrap to clear`,
     notes: [state.resources.materials >= BOARDED_ROOMS[key].cost ? tip("clear", "🔓 Enough scrap to clear it") : null] });
@@ -1074,11 +1150,6 @@ function renderTurn1Overview(state) {
     big: `+${craftingToday(state)}`, unit: "fortification a day", used: posted("crafting"), cap: state.rooms.crafting.teacherCapacity, meta: plural(posted("crafting"), "teacher"),
     notes: [posted("crafting") ? null : bad("noTeacher", "No teacher"), teacherNote("crafting"), upgradeNote("crafting")] });
 
-  // lazy teachers: no post, though some room has a teacher slot open
-  const posts = [...CLASSROOM_IDS.map((id) => `classroom:${id}`), "gym:PE", "gym:Gymnastics", "cafeteria", "infirmary", "research", "crafting", "radio"]
-    .filter((post) => !isBoarded(state, post));
-  const slotOpen = posts.some((post) => roomState(state, postRoomKey(post)).teacherCapacity > posted(post));
-  const lazyTeachers = slotOpen ? idleTeachers : [];
   const lazyCount = lazy.length + lazyTeachers.length;
   const names = [...lazy.map((c) => `🎒 ${esc(c.name)}${finished[c.id] ? ` · ✓ done (${finished[c.id]})` : ""}`), ...lazyTeachers.map((t) => `👩‍🏫 ${esc(t.name)}`)];
   const lazyPill = lazyCount
@@ -1558,27 +1629,20 @@ export function renderNestModal(state, nest) {
   const { q, r, ids } = nest;
   const candidates = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection);
   const squad = ids.map((id) => getChar(state, id)).filter(Boolean);
-  const rows = candidates
-    .map((c) => {
-      const tired = c.stamina < NEST_CLEAR_STAMINA;
-      const picked = ids.includes(c.id);
-      const full = !picked && ids.length >= NEST_CLEAR_MAX;
-      return `<label class="check-row ${tired ? "check-row-disabled" : ""}">
-        <input type="checkbox" data-action="toggle-nest-member" data-id="${c.id}" ${picked ? "checked" : ""} ${tired || full ? "disabled" : ""}/>
-        <span class="assign-who">${nameTag(c)} — Lv${overallLevel(c)} ${statusTag(c)}${tired ? ' <span class="tag tag-injured">too tired</span>' : ""}</span>${staminaBar(c)}
-      </label>`;
-    })
-    .join("");
+  const entries = candidates.map((c) => {
+    const picked = ids.includes(c.id);
+    return { c, picked, reason: picked ? null : c.stamina < NEST_CLEAR_STAMINA ? "too tired" : ids.length >= NEST_CLEAR_MAX ? "squad full" : null };
+  });
   const pct = Math.round(nestClearChance(state, squad) * 100);
   return `<div class="modal-overlay" data-action="close-nest">
-    <div class="char-card mission-card" data-action="noop">
+    <div class="char-card mission-card sq-card" data-action="noop">
       <button class="cc-close" data-action="close-nest" title="Close">✕</button>
       <div class="scout-report-tile hex-nest">${hexTile(hexTileKey(q, r))}<span class="hex-badge hex-badge-nest">🧟 Nest</span></div>
       <h3>🧟 Zombie Nest — ${TERRAIN_NAMES[hexTerrain(q, r)]}</h3>
       <p class="muted">While it's here, scouting next to it is more dangerous and locations beside it are riskier to raid. Send up to ${NEST_CLEAR_MAX} students (${NEST_CLEAR_STAMINA} stamina each) to burn it out — win and there's scrap, maybe gear, in the pile.</p>
       ${squad.length ? `<div class="mission-success ${pct >= 60 ? "mission-good" : pct >= 35 ? "mission-ok" : "mission-bad"}">Chance to clear it: <b>${pct}%</b></div>` : ""}
       <div class="mini-label">Squad (${squad.length}/${NEST_CLEAR_MAX})</div>
-      <div class="check-list">${rows}</div>
+      ${squadGrid(state, entries, { action: "nest-toggle", cost: NEST_CLEAR_STAMINA })}
       <div class="row-actions">
         <button class="btn btn-sm" data-action="close-nest">Not now</button>
         <button class="btn btn-primary" data-action="attack-nest" ${squad.length ? "" : "disabled"}>🔥 Burn it out</button>
@@ -1624,31 +1688,19 @@ export function renderRaidModal(state, landmarkId) {
       <button class="btn btn-primary" data-action="plan-raid" data-landmark="${lm.id}">☠ Plan a raid</button>
     </div>`;
   } else {
-    const rows = state.characters
+    const entries = state.characters
       .filter((c) => c.role === "student" && c.alive && !c.infection)
       .map((c) => {
-        const lvl = overallLevel(c);
         const onSquad = c.exploreTeam === RAID_TEAM;
-        const reason = onSquad
-          ? null
-          : lvl < lm.minLevel
-          ? `needs Lv${lm.minLevel}`
-          : c.exploreTeam !== null
-          ? `on Team ${c.exploreTeam + 1}`
-          : c.farmToday || c.scrapyardToday
-          ? "working outside"
-          : c.stamina <= 0
-          ? "exhausted"
-          : !onSquad && squad.length >= RAID_MAX_TEAM
-          ? "squad full"
+        const reason = onSquad ? null
+          : overallLevel(c) < lm.minLevel ? `needs Lv${lm.minLevel}`
+          : c.exploreTeam !== null ? `on Team ${c.exploreTeam + 1}`
+          : c.farmToday || c.scrapyardToday ? "working outside"
+          : c.stamina <= 0 ? "exhausted"
+          : squad.length >= RAID_MAX_TEAM ? "squad full"
           : null;
-        return `<label class="check-row ${reason ? "check-row-disabled" : ""}">
-          <input type="checkbox" data-action="toggle-team-member" data-team="${RAID_TEAM}" data-id="${c.id}" ${onSquad ? "checked" : ""} ${reason ? "disabled" : ""}/>
-          <span class="assign-who">${nameTag(c)} — Lv${lvl} ${statusTag(c)}${reason ? ` <span class="tag tag-injured">${reason}</span>` : ""}</span>${hpBar(c)}
-        </label>`;
-      })
-      .sort((x, y) => x.includes("check-row-disabled") - y.includes("check-row-disabled"))
-      .join("");
+        return { c, picked: onSquad, reason };
+      });
     let verdict = `<p class="muted">Pick at least ${lm.minTeam} students to see how the fight might go.</p>`;
     if (squad.length) {
       const est = raidEstimate(state, lm, squad);
@@ -1658,7 +1710,7 @@ export function renderRaidModal(state, landmarkId) {
     }
     body = `${verdict}
       <div class="mini-label">Raid squad (${squad.length}/${RAID_MAX_TEAM})</div>
-      <div class="check-list">${rows}</div>
+      ${squadGrid(state, entries, { action: "raid-toggle" })}
       <p class="muted">The raid launches with the day's expeditions. Anyone who goes down is patched up with ${MEDICINE_PER_STABILIZE} medicine if you have it — otherwise they might not make it.</p>
       <div class="row-actions">
         <button class="btn btn-danger btn-sm" data-action="clear-raid">Call off</button>
@@ -3173,7 +3225,7 @@ export function renderFloor1(state) {
   const served = state.dishesToday.map((id) => DISHES.find((d) => d.id === id)).filter(Boolean);
   return `
   <div class="card">
-    <h2>Floor 1 — Lobby</h2>
+    ${floorHead(state, "Floor 1 — Lobby")}
     <div class="floor-grid floor1-grid">
       ${renderTrainingRoom(state, "PE")}
       ${renderTrainingRoom(state, "Gymnastics")}
@@ -3327,7 +3379,7 @@ export function renderMenuModal(state) {
 
 export function renderFloor2(state) {
   const rooms = CLASSROOM_IDS.map((roomId) => renderClassroom(state, roomId)).join("");
-  return `<div class="card"><h2>Floor 2 — Classrooms</h2>
+  return `<div class="card">${floorHead(state, "Floor 2 — Classrooms")}
   <p class="room-tagline">The teacher posted in a room picks its subject</p>
   <div class="floor2-grid">${rooms}</div></div>`;
 }
@@ -3553,7 +3605,7 @@ export function renderFloor3(state) {
 
   return `
   <div class="card">
-    <h2>Floor 3 — Headmaster's Office &amp; Special Rooms</h2>
+    ${floorHead(state, "Floor 3 — Headmaster's Office &amp; Special Rooms")}
     <div class="floor1-grid floor3-grid">
       ${office}
       ${radio}
