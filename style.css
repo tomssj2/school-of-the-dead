@@ -2286,13 +2286,13 @@ button.ex-team:hover { border-color: var(--team); }
 body.nw-dragging .ex-rtab { border-style: dashed; border-bottom-style: solid; }
 .ex-rtab.nw-drop-over { background: color-mix(in srgb, var(--role) 40%, transparent); }
 /* the chosen role's students: portrait, power, then HP and stamina bars */
-.ex-rt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; max-height: 224px; /* three rows, then it scrolls */ overflow-y: auto; scrollbar-width: thin; align-content: start; }
+.ex-rt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; max-height: 427px; /* six rows, then it scrolls */ overflow-y: auto; scrollbar-width: thin; align-content: start; }
 .ex-rt {
   position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 3px 4px 4px; overflow: hidden;
   border: 1px solid var(--border); border-radius: 6px; background: rgba(0, 0, 0, 0.25); cursor: grab;
 }
 .ex-rt:hover { border-color: var(--role); }
-.ex-rt-sprite { display: grid; place-items: center; height: 38px; }
+.ex-rt-sprite { display: grid; place-items: center; height: 34px; }
 .ex-rt-power { text-align: center; font-size: 11px; font-weight: 700; color: #e6e9ef; line-height: 1.1; }
 .ex-rt-power::before { content: "⚔ "; font-size: 9px; color: var(--role); }
 .ex-rt-bar { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }

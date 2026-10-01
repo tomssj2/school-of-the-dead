@@ -748,7 +748,8 @@ function mapFit(map) {
   const ch = map.clientHeight;
   const s = Math.min(cw / vw, ch / vh, 3.5);
   // zoom 1 is the part worth showing; it can pull back to the whole map (the raids in its corners)
-  const zMin = Math.min(1, Math.min(cw / WORLD_W, ch / WORLD_H) / s);
+  // (fully out, the town fills the frame — a sliver cropped rather than empty bars)
+  const zMin = Math.min(1, Math.max(cw / WORLD_W, ch / WORLD_H) / s);
   return { vx, vy, vw, vh, cw, ch, s, zMin };
 }
 
