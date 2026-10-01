@@ -5,7 +5,7 @@
 //
 // UI size: the game is laid out for a 1080p window (DESIGN_W × DESIGN_H CSS pixels) and zoomed to
 // fit whatever window it's in — 0.67× at 720p, 2× at 4K — so every screen shows the same layout.
-// UI Size (80–125%) then shrinks or enlarges it on top of that. The app is a frame as tall as the
+// UI Size (a slider, 50–200%) then shrinks or enlarges it on top of that. The app is a frame as tall as the
 // window (--frame-h), anchored to the top: the page itself never scrolls, long screens scroll
 // inside their content area.
 const GFX_KEY = "school-apocalypse-gfx";
@@ -37,12 +37,15 @@ export function setGraphics(level) {
 }
 
 const SIZE_KEY = "school-apocalypse-uisize";
-export const UI_SIZES = [80, 90, 100, 110, 125];
+export const UI_SIZE = { min: 50, max: 200, step: 5 };
+const fitUiSize = (v) => Math.min(UI_SIZE.max, Math.max(UI_SIZE.min, Math.round(v / UI_SIZE.step) * UI_SIZE.step));
+let uiSizeNow = null; // this visit's size, in case storage is blocked
 
 export function getUiSize() {
+  if (uiSizeNow !== null) return uiSizeNow;
   try {
     const v = Number(localStorage.getItem(SIZE_KEY));
-    return UI_SIZES.includes(v) ? v : 100;
+    return v ? fitUiSize(v) : 100;
   } catch {
     return 100;
   }
@@ -61,11 +64,12 @@ export function applyUiScale() {
 }
 
 export function setUiSize(size) {
-  if (!UI_SIZES.includes(Number(size))) return;
+  if (!Number.isFinite(Number(size))) return;
+  uiSizeNow = fitUiSize(Number(size));
   try {
-    localStorage.setItem(SIZE_KEY, String(size));
+    localStorage.setItem(SIZE_KEY, String(uiSizeNow));
   } catch {
-    // storage blocked — the choice isn't remembered
+    // storage blocked — the choice lasts for this visit
   }
   applyUiScale();
 }

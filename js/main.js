@@ -1868,6 +1868,18 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// the UI Size slider: the number follows the drag, the size changes when it's let go ("change")
+root.addEventListener("input", (e) => {
+  if (e.target.dataset?.action !== "set-ui-size") return;
+  const out = e.target.parentElement.querySelector(".ui-size-val");
+  if (out) out.textContent = `${e.target.value}%`;
+});
+root.addEventListener("dblclick", (e) => {
+  if (e.target.dataset?.action !== "set-ui-size") return;
+  setUiSize(100);
+  render();
+});
+
 root.addEventListener("change", (e) => {
   const el = e.target.closest("[data-action]");
   if (!el) return;

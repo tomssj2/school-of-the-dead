@@ -3043,6 +3043,9 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 /* ===== Graphics menu option ===== */
 .options-gfx { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: default; }
 .options-gfx:hover { background: none; }
+.ui-size-ctl { display: inline-flex; align-items: center; gap: 8px; }
+.ui-size-slider { width: 140px; margin: 0; accent-color: var(--bar-other); cursor: pointer; }
+.ui-size-val { min-width: 38px; text-align: right; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .gfx-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .gfx-opt { background: none; border: none; color: var(--muted); font: inherit; font-size: 12px; padding: 3px 9px; cursor: pointer; }
 .gfx-opt + .gfx-opt { border-left: 1px solid var(--border); }

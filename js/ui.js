@@ -30,7 +30,7 @@ import { zombieSprite, hordeSprite } from "./zombies.js";
 import { courtyardBackground, structureSprite } from "./nightwatch.js";
 import { characterSprite } from "./sprite.js";
 import { getBest, isBestRun } from "./score.js";
-import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZES } from "./graphics.js";
+import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZE } from "./graphics.js";
 import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
 import { isSoundEnabled } from "./sound.js";
 
@@ -792,7 +792,10 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
           <button class="options-item" data-action="reset-game">🔄 New Game</button>
           ${getBest() ? `<div class="options-item options-note">🏆 Best run: day ${getBest().day}</div>` : ""}
           <label class="options-item options-gfx">🔍 UI Size
-            <select class="res-select" data-action="set-ui-size">${UI_SIZES.map((size) => `<option value="${size}" ${getUiSize() === size ? "selected" : ""}>${size}%</option>`).join("")}</select>
+            <span class="ui-size-ctl">
+              <input type="range" class="ui-size-slider" min="${UI_SIZE.min}" max="${UI_SIZE.max}" step="${UI_SIZE.step}" value="${getUiSize()}" data-action="set-ui-size" title="Drag, then let go — double-click for 100%">
+              <output class="ui-size-val">${getUiSize()}%</output>
+            </span>
           </label>
           <div class="options-item options-gfx">🎨 Graphics
             <span class="gfx-seg">${GFX_LEVELS.map((level) => `<button class="gfx-opt ${getGraphics() === level ? "on" : ""}" data-action="set-gfx" data-gfx="${level}">${level[0].toUpperCase() + level.slice(1)}</button>`).join("")}</span>
