@@ -64,7 +64,7 @@ const LOCATION_ICON = {
 // Resources as small inline pixel icons (the same art as the HUD): ri("materials"), ri("food")…
 // Any pixelIcon name works too (ri("population"), ri("mood_happy")).
 const RES_PIXEL = { materials: "scrap" };
-const ri = (key, size = 14) => `<span class="ri">${pixelIcon(RES_PIXEL[key] || key, size)}</span>`;
+const ri = (key, size = 16) => `<span class="ri">${pixelIcon(RES_PIXEL[key] || key, size)}</span>`;
 const RESOURCE_ICON = { food: ri("food"), materials: ri("materials"), medicine: ri("medicine"), research: ri("research"), serum: ri("serum") };
 // An icon that sizes with the text around it, like the emoji it replaces.
 // At least 16px, so a 16x16 icon never loses pixels (style.css .ri-em).
@@ -680,7 +680,7 @@ function hudTips(state) {
   return {
     population: { title: `${ri("population")} Population`, rows: [["Students", `${pop - teachers}`], ["Teachers", `${teachers}`]], total: ["Everyone alive", `${pop}`],
       notes: ["Found on expeditions or through the Radio Station", `Students who reach level ${PROMOTE_LEVEL_THRESHOLD} can be promoted to teachers`] },
-    happiness: { title: `<span class="ri">${moodIcon(state.happiness, 14)}</span> Morale`, rows: [["Now", `${state.happiness}`]], notes: ["Rises with won battles and new recruits", "Falls with failed missions and deaths", "Tilts random events toward good or bad"] },
+    happiness: { title: `<span class="ri">${moodIcon(state.happiness, 16)}</span> Morale`, rows: [["Now", `${state.happiness}`]], notes: ["Rises with won battles and new recruits", "Falls with failed missions and deaths", "Tilts random events toward good or bad"] },
     food: { title: `${ri("food")} Food`, rows: [["On hand", `${r.food}`], ["Eaten tonight", `−${pop}`]], total: ["Left after tonight", `${r.food - pop}`], notes: ["Grown at the Farm, found on expeditions"] },
     materials: { title: `${ri("materials")} Scrap`, rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
     medicine: { title: `${ri("medicine")} Medicine`, rows: [["On hand", `${r.medicine}`]], notes: [`Treating a patient costs ${INFIRMARY_MEDICINE_PER_PATIENT}`, "Saving a defender who goes down costs 5 (automatic)", "Found on expeditions"] },
@@ -725,7 +725,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
         ${tipAttr(state.rescue
           ? { title: "🚁 Rescue", rows: [["Helicopter lands", `day ${state.rescue.day}`]], notes: ["Evacuate or hold out when it lands", "Click to go to the Radio Station"] }
           : { title: "📻 Radio Station", rows: [["Upgrades", `${stage}/${RADIO_UPGRADES.length}`], ["Recruit chance", `${Math.round(radioRecruitChance(state) * 100)}% a day`]], notes: ["Level 5 — satellite communications — calls the rescue helicopter", "Click to go to the Radio Station"] })}>
-        <span class="hud-icon" style="--tile:${HUD_TILE.antenna}">${pixelIcon("antenna", 20)}</span>
+        <span class="hud-icon" style="--tile:${HUD_TILE.antenna}">${pixelIcon("antenna", 32)}</span>
         <span class="hud-val"><span class="hud-num"><b>${state.rescue ? `Day ${state.rescue.day}` : "Radio"}</b></span><small>${state.rescue ? "Evac" : `${stage}/${RADIO_UPGRADES.length}`}</small></span>
         <span class="hud-rescue-bars">${RADIO_UPGRADES.map((_, i) => `<i class="${i < stage ? "on" : ""}"></i>`).join("")}</span>
       </button>`;
@@ -733,7 +733,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
   <header class="hud ${infected || r.serum || served.length > 1 ? "hud-tight" : ""}">
     <div class="hud-left">
       <details class="options-dropdown menu-dropdown">
-        <summary class="hud-menu" title="Menu">${pixelIcon("menu", 20)}</summary>
+        <summary class="hud-menu" title="Menu">${pixelIcon("menu", 24)}</summary>
         <div class="options-menu">
           <button class="options-item ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
           <button class="options-item ${activeTab === "itemlist" ? "active" : ""}" data-action="set-tab" data-tab="itemlist">📖 Item List</button>
@@ -753,20 +753,20 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
         </div>
       </details>
       <div class="hud-group">
-        ${hudStat(floaties, "population", pixelIcon("population", 20), HUD_TILE.population, pop, "Population", tips.population)}
-        ${hudStat(floaties, "happiness", moodIcon(state.happiness, 20), HUD_TILE.mood, state.happiness, "Morale", tips.happiness)}
+        ${hudStat(floaties, "population", pixelIcon("population", 32), HUD_TILE.population, pop, "Population", tips.population)}
+        ${hudStat(floaties, "happiness", moodIcon(state.happiness, 32), HUD_TILE.mood, state.happiness, "Morale", tips.happiness)}
       </div>
     </div>
     <div class="hud-center">${rescue}</div>
     <div class="hud-right">
       <div class="hud-group">
-        ${hudStat(floaties, "food", pixelIcon("food", 20), HUD_TILE.food, r.food, "Food", tips.food,
+        ${hudStat(floaties, "food", pixelIcon("food", 32), HUD_TILE.food, r.food, "Food", tips.food,
           { sub: `<span class="tb-sub">−${pop}</span>`, cls: r.food < pop ? "tb-warn" : "", extra: meals })}
-        ${hudStat(floaties, "materials", pixelIcon("scrap", 20), HUD_TILE.scrap, r.materials, "Scrap", tips.materials)}
-        ${hudStat(floaties, "medicine", pixelIcon("medicine", 20), HUD_TILE.medicine, r.medicine, "Meds", tips.medicine)}
-        ${hudStat(floaties, "research", pixelIcon("research", 20), HUD_TILE.research, r.research, "Research", tips.research)}
-        ${infected ? hudStat(floaties, null, pixelIcon("virus", 20), HUD_TILE.virus, infected, "Infected", tips.infected, { cls: "tb-infected hud-compact" }) : ""}
-        ${r.serum ? hudStat(floaties, "serum", pixelIcon("serum", 20), HUD_TILE.serum, r.serum, "Serum", tips.serum, { cls: "hud-compact" }) : ""}
+        ${hudStat(floaties, "materials", pixelIcon("scrap", 32), HUD_TILE.scrap, r.materials, "Scrap", tips.materials)}
+        ${hudStat(floaties, "medicine", pixelIcon("medicine", 32), HUD_TILE.medicine, r.medicine, "Meds", tips.medicine)}
+        ${hudStat(floaties, "research", pixelIcon("research", 32), HUD_TILE.research, r.research, "Research", tips.research)}
+        ${infected ? hudStat(floaties, null, pixelIcon("virus", 32), HUD_TILE.virus, infected, "Infected", tips.infected, { cls: "tb-infected hud-compact" }) : ""}
+        ${r.serum ? hudStat(floaties, "serum", pixelIcon("serum", 32), HUD_TILE.serum, r.serum, "Serum", tips.serum, { cls: "hud-compact" }) : ""}
       </div>
     </div>
   </header>`;
@@ -3344,7 +3344,7 @@ export function renderQuarantineModal(state) {
       <button class="cc-close" data-action="close-quarantine" title="Close">✕</button>
       <div class="q-header">
         <h3>🦠 Quarantine</h3>
-        <span class="q-serum ${serum ? "" : "q-serum-none"}" title="Antiviral serum — each vial cures one infected person">${pixelIcon("serum", 18)} <b>${serum}</b> serum</span>
+        <span class="q-serum ${serum ? "" : "q-serum-none"}" title="Antiviral serum — each vial cures one infected person">${pixelIcon("serum", 16)} <b>${serum}</b> serum</span>
       </div>
       <p class="muted">Each serum cures one person. Anyone not cured by the end of their last day dies. Click someone to see their full card.</p>
       <div class="q-list">${rows || '<p class="muted">Nobody in quarantine.</p>'}</div>
@@ -4009,7 +4009,7 @@ export function renderResearch(state) {
 
   return `
   <div class="card">
-    <h2>${ri("research", 18)} Research</h2>
+    <h2>${ri("research")} Research</h2>
     <p class="room-tagline">Permanent buffs for the whole school · each branch unlocks top to bottom ${infoDot("Research comes from the teachers posted in the Research Room (Floor 3).")}</p>
     <div class="summary-list">
       <div>Research banked: <b>${state.resources.research}</b></div>

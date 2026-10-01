@@ -147,7 +147,7 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 3px 10px 3px 3px;
+  padding: 1px 10px 1px 1px; /* the 32px icon tile + 1px + border = the 36px menu button */
   border-radius: 9px;
   background: rgba(0, 0, 0, 0.24);
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -159,8 +159,8 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
 .hud-icon {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 32px; /* HUD icons are 16x16 shown at exactly 2x */
+  height: 32px;
   border-radius: 7px;
   background: var(--tile, #2d3442);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -2px 0 rgba(0, 0, 0, 0.35);
@@ -225,7 +225,8 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
 /* A resource's pixel icon inline in text (ui.js ri()). */
 .ri { display: inline-flex; vertical-align: -0.15em; }
 .ri .px-icon { filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.35)); }
-.ri-em .px-icon { width: max(16px, 1.3em); height: max(16px, 1.3em); }
+/* 16px, or 32px once the text is big enough — a 16x16 icon only at whole-number scales */
+.ri-em .px-icon { width: 16px; height: 16px; width: max(16px, round(down, 1.3em, 16px)); height: max(16px, round(down, 1.3em, 16px)); }
 
 /* Evacuation countdown, with a pip per antenna stage repaired. */
 .hud-rescue { cursor: pointer; border-color: rgba(224, 165, 54, 0.4); transition: background 0.12s, transform 0.12s; }

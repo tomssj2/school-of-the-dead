@@ -2115,28 +2115,39 @@ const ICONS = {
     "............",
     "............",
   ], { a: "#e8d8b0", b: "#cdb98c", X: "#d64545", r: "#d64545" }),
+  // The Radio Station's mast (16x16): a lattice tower, its red light and the signal going out.
   antenna: () => ascii([
-    "............",
-    ".....R......",
-    "..w..s..w...",
-    ".w...s...w..",
-    ".w..sss..w..",
-    "..w.s.s.w...",
-    "....s.s.....",
-    "...s...s....",
-    "...sssss....",
-    "..s.....s...",
-    "..s.....s...",
-    "............",
-  ], { R: "#ff5a4a", s: "#c9ccd2", w: "#7fc8f0" }),
+    "................",
+    ".......RR.......",
+    "..w....rr....w..",
+    ".w..w..ss..w..w.",
+    ".w..w..ss..w..w.",
+    "..w....ss....w..",
+    ".......ss.......",
+    "......sSss......",
+    "......s.xs......",
+    ".....sSssss.....",
+    ".....s.xx.s.....",
+    "....sSssssss....",
+    "....s.x..x.s....",
+    "...sSssssssss...",
+    "................",
+    "................",
+  ], { R: "#ff7a6a", r: "#d64545", s: "#b6bcc4", S: "#e6eaee", x: "#8a93a0", w: "#7fc8f0" }),
+  // The infection (16x16): a shaded green virus with knobbed spikes.
   virus: () => {
-    const g = disk(blank(), 6, 6, 3.1, "#6fbf4a");
+    const g = blank(16);
     for (let a = 0; a < 8; a++) {
-      const x = Math.round(5.5 + Math.cos((a * Math.PI) / 4) * 4.6);
-      const y = Math.round(5.5 + Math.sin((a * Math.PI) / 4) * 4.6);
-      g[y][x] = "#b8ec8a";
+      const ang = (a * Math.PI) / 4 + Math.PI / 8;
+      const [cx, cy] = [8 + Math.cos(ang) * 6, 8 + Math.sin(ang) * 6];
+      rod(g, 8, 8, cx, cy, 0.6, "#5a9a3a");
+      disk(g, cx, cy, 1.1, Math.cos(ang) + Math.sin(ang) < 0 ? "#c8f09a" : "#8ad13a");
     }
-    for (const [x, y] of [[5, 5], [7, 6], [5, 7]]) g[y][x] = "#3e7a2a";
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 8, dy = y + 0.5 - 8;
+      if (Math.hypot(dx, dy) <= 4.4) g[y][x] = dx + dy < -2.8 ? "#b8ec8a" : dx + dy > 3 ? "#3e7a2a" : "#6fbf4a";
+    }
+    for (const [x, y] of [[6, 8], [9, 6], [9, 9]]) g[y][x] = "#3e7a2a";
     return g;
   },
   // Morale, best to worst (moodIcon picks one).
