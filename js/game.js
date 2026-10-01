@@ -3148,6 +3148,11 @@ function rollHexFind(state, scout, q, r) {
     const id = pick(["chicken", "chicken", "sheep"]);
     addStock(state, id, 1);
     text = `a stray ${PRODUCERS[id].stockName.toLowerCase()} — led back to the farm`;
+  } else if (type === "notes") {
+    // notebooks, textbooks, a doctor's files — research for the tree
+    const amt = randInt(5, 12);
+    state.resources.research += amt;
+    text = `notes and textbooks worth studying: +${amt} research`;
   } else if (type === "survivor") {
     const recruit = makeCharacter(rollRecruitRole(state), pick(["M", "F"]));
     text = addRecruit(state, recruit)

@@ -715,7 +715,7 @@ export const ROOM_TEACHER_LEVELS = [5];
 export const roomUpgradeCost = (level) => 20 * level; // from `level` to the next: 20, 40, 60, 80
 export const ROOM_REPAIR_COST = 10; // scrap per worker slot a facility raid broke
 export const CAFETERIA_RATIONS_BY_LEVEL = [6, 8, 10, 12, 14]; // food the cooks stretch the rations by
-export const RESEARCH_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra research a day while staffed
+export const RESEARCH_BONUS_BY_LEVEL = [3, 4, 5, 6, 8]; // research a day on top of INT, while anyone works there
 // The Headmaster's Office (no levels): students it puts forward for promotion, and survivors who
 // can wait there to join (a newcomer is turned away when it's full — legendary ones always fit).
 export const OFFICE_PROMOTION_SLOTS = 8;
@@ -972,7 +972,7 @@ export const LOCATIONS = [
     desc: "Shelves of medicine, if the shambling customers haven't gotten to it first.",
     difficulty: 2,
     danger: 2,
-    rewards: { food: 2, materials: 2, medicine: 14 },
+    rewards: { food: 2, materials: 2, medicine: 14, research: 8 },
     serumChance: 0.1,
     hex: { q: 3, r: -2 }, // distance 3
   },
@@ -1004,7 +1004,7 @@ export const LOCATIONS = [
     desc: "A walk-in clinic with its ambulance still in the bay. A taste of what the General Hospital holds.",
     difficulty: 4,
     danger: 3,
-    rewards: { food: 2, materials: 6, medicine: 20 },
+    rewards: { food: 2, materials: 6, medicine: 20, research: 14 },
     serumChance: 0.12,
     lootBias: "armor",
     hex: { q: -2, r: -3 }, // distance 5
@@ -1082,7 +1082,7 @@ export const LOCATIONS = [
     desc: "The crews left in a hurry. Their turnout gear and medical kits are still on the hooks.",
     difficulty: 4,
     danger: 3,
-    rewards: { food: 4, materials: 16, medicine: 14 },
+    rewards: { food: 4, materials: 16, medicine: 14, research: 10 },
     serumChance: 0.1,
     lootBias: "armor",
     hex: { q: 3, r: -5 }, // distance 5
@@ -1113,7 +1113,7 @@ export const LOCATIONS = [
     desc: "Aisle after aisle of pallets for the whole city's stores. Big, dark and very, very crowded.",
     difficulty: 5,
     danger: 5,
-    rewards: { food: 32, materials: 26, medicine: 4 },
+    rewards: { food: 32, materials: 26, medicine: 4, research: 16 },
     ingredientBonus: 0.4,
     hex: { q: 4, r: 2 }, // distance 6
   },
@@ -1153,16 +1153,16 @@ export const LOCATIONS = [
 // ===== Exploring the map =====
 // Every hex that isn't a location has a terrain (worked out from its position by map.js), and
 // scouting it always turns something up — weighted by terrain below. "cache" is a small stash of
-// the terrain's CACHE_RESOURCE; "nest" is a zombie nest that makes the hexes around it more
+// the terrain's CACHE_RESOURCE; "notes" are worth a little research; "nest" is a zombie nest that makes the hexes around it more
 // dangerous until a squad clears it out.
 export const HEX_FINDS = {
-  street: { cache: 40, gear: 25, survivor: 10, nest: 20, ingredient: 5 },
-  apartments: { cache: 30, ingredient: 20, survivor: 20, gear: 10, nest: 20 },
-  shops: { cache: 40, ingredient: 30, gear: 15, nest: 15 },
-  parking: { cache: 35, gear: 30, survivor: 10, nest: 25 },
-  houses: { cache: 25, seeds: 25, ingredient: 15, animal: 10, survivor: 15, nest: 10 },
+  street: { cache: 40, gear: 25, survivor: 10, nest: 20, ingredient: 5, notes: 15 },
+  apartments: { cache: 30, ingredient: 20, survivor: 20, gear: 10, nest: 20, notes: 25 },
+  shops: { cache: 40, ingredient: 30, gear: 15, nest: 15, notes: 15 },
+  parking: { cache: 35, gear: 30, survivor: 10, nest: 25, notes: 10 },
+  houses: { cache: 25, seeds: 25, ingredient: 15, animal: 10, survivor: 15, nest: 10, notes: 15 },
   park: { seeds: 35, animal: 20, cache: 15, survivor: 10, nest: 20 },
-  ruins: { gear: 30, cache: 25, survivor: 10, nest: 35 },
+  ruins: { gear: 30, cache: 25, survivor: 10, nest: 35, notes: 25 },
   woods: { animal: 30, seeds: 20, cache: 15, nest: 35 },
   field: { seeds: 40, animal: 30, cache: 20, nest: 10 },
   river: { cache: 45, gear: 25, ingredient: 10, nest: 20 },
