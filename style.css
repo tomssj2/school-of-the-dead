@@ -1622,6 +1622,15 @@ body.nw-dragging .nw-roster { border-color: rgba(214, 69, 69, 0.45); }
 .nw-chip-on { border-color: rgba(79, 163, 255, 0.7); background: rgba(79, 163, 255, 0.14); }
 .nw-chip-hurt .nw-chip-name { color: var(--warn); }
 .nw-roster-empty { grid-column: 1 / -1; margin: 6px 0; text-align: center; }
+/* the roster's tabs, one per defender role */
+.nw-rtabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.nw-rtab { justify-content: center; }
+.nw-rtab-brawler { --role: #d96b5b; }
+.nw-rtab-marksman { --role: #5bbf7a; }
+.nw-rtab-tank { --role: #6f9be8; }
+.nw-rtab-engineer { --role: #e0a536; }
+.nw-rtab-spotter { --role: #a87bd9; }
+.nw-rtab-rallier { --role: #4fc3c3; }
 .nw-side .btn-big { margin-top: auto; }
 .nw-enemy-icon { display: flex; align-items: center; justify-content: center; }
 .nw-enemy-icon svg { height: 28px; width: auto; }

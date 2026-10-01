@@ -1480,14 +1480,15 @@ function renderTeamCard(state, i) {
   </div>`;
 }
 
-// Which role the Exploration tab's role window shows, and the Night Watch roster (main.js flips
-// them: set-role-tab, data-where="night" for the Night Watch).
+// Which expedition role the Exploration tab's role window shows, and which defender role
+// (DEFENDER_ROLES id) the Night Watch roster shows (main.js flips them: set-role-tab, with
+// data-where="night" for the Night Watch).
 let roleTab = "fighter";
-let nightRoleTab = "fighter";
+let nightRoleTab = "brawler";
 export function setRoleTab(role, where) {
-  if (!EXPLORE_ROLES[role]) return;
-  if (where === "night") nightRoleTab = role;
-  else roleTab = role;
+  if (where === "night") {
+    if (Object.values(DEFENDER_ROLES).some((r) => r.id === role)) nightRoleTab = role;
+  } else if (EXPLORE_ROLES[role]) roleTab = role;
 }
 
 // The expedition roles (EXPLORE_ROLES), one at a time: a tab per role next to "Roles" — drop a
@@ -3253,24 +3254,29 @@ function formationLinks(links) {
   }).join("");
 }
 
-// The side panel's roster: the students who could stand watch tonight, one expedition role at a
-// time (tabs, as on the City Map), draggable onto the steps (a click posts them to the first free
-// square, or takes them off). Those on watch first, then the strongest in the role.
+// The side panel's roster: the students who could stand watch tonight, one defender role at a
+// time (a tab per DEFENDER_ROLES role — Brawler, Marksman, Tank, …), draggable onto the steps (a
+// click posts them to the first free square, or takes them off). Those on watch first, then the
+// best at the role's subject.
 const nightAvailable = (state) => state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
+const nightRoleSubject = () => Object.keys(DEFENDER_ROLES).find((s) => DEFENDER_ROLES[s].id === nightRoleTab) || "PE";
 function nightRosterHead(state) {
   const available = nightAvailable(state);
-  const tabs = Object.entries(EXPLORE_ROLES).map(([role, r]) => {
-    const list = available.filter((c) => exploreRole(c) === role);
+  const tabs = Object.entries(DEFENDER_ROLES).map(([subject, r]) => {
+    const list = available.filter((c) => defenderRole(state, c) === r);
     const onWatch = list.filter((c) => c.defending).length;
-    return `<button class="ex-rtab ex-role-${role} ${role === nightRoleTab ? "active" : ""}" data-action="set-role-tab" data-where="night" data-role="${role}" data-drop-role="${role}"
-      title="${r.name}: ${list.length} free tonight, ${onWatch} on watch — drop a student here to make them one">${r.icon}<b>${list.length}</b></button>`;
+    return `<button class="ex-rtab nw-rtab nw-rtab-${r.id} ${r.id === nightRoleTab ? "active" : ""}" data-action="set-role-tab" data-where="night" data-role="${r.id}" ${tipAttr({
+      title: `${r.icon} ${r.name}s`, rows: [["Free tonight", `${list.length}`], ["On watch", `${onWatch}`]],
+      notes: [r.desc, `Students whose best subject is ${STAT_OF_SUBJECT[subject]}`],
+    })}>${r.icon}<b>${list.length}</b></button>`;
   }).join("");
-  return `<div class="ex-roles-head"><span class="mini-label">Defenders — drag onto the steps</span><span class="ex-rtabs">${tabs}</span></div>`;
+  return `<div class="mini-label">Defenders — drag onto the steps</div><div class="nw-rtabs">${tabs}</div>`;
 }
 function nightRoster(state) {
+  const subject = nightRoleSubject();
   return nightAvailable(state)
-    .filter((c) => exploreRole(c) === nightRoleTab)
-    .sort((a, b) => (b.defending - a.defending) || memberPower(state, b) - memberPower(state, a))
+    .filter((c) => defenderRole(state, c).id === nightRoleTab)
+    .sort((a, b) => (b.defending - a.defending) || effectiveGrade(state, b, subject) - effectiveGrade(state, a, subject))
     .map((c) => {
       const eq = c.equipment || {};
       const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean).map(itemIcon).join("") || "👊";
@@ -3279,7 +3285,7 @@ function nightRoster(state) {
         title="${esc(c.name)}, ${role.name.toLowerCase()} (${role.desc}) — ${c.defending ? "on watch: click to take them off" : "click to post them, or drag onto the steps"}">
         <span class="nw-chip-sprite">${characterSprite(c, 22)}</span>
         <span class="nw-chip-name">${role.icon} ${esc(shortName(c))}</span>
-        <span class="nw-chip-stats">💪${effectiveGrade(state, c, "PE")} 🤸${effectiveGrade(state, c, "Gymnastics")}</span>
+        <span class="nw-chip-stats">${subject === "PE" || subject === "Gymnastics" ? "" : `<b>${STAT_OF_SUBJECT[subject]} ${effectiveGrade(state, c, subject)}</b> `}💪${effectiveGrade(state, c, "PE")} 🤸${effectiveGrade(state, c, "Gymnastics")}</span>
         <span class="nw-chip-gear">${gear}</span>
       </div>`;
     })
