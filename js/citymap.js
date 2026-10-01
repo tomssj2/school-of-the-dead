@@ -5,7 +5,7 @@
 
 import { MAP_RADIUS, isSchoolHex, hexTerrain, hexDistance, locationAt, tilePixels, hexTileKey, LAIR_W, LAIR_H } from "./map.js";
 import { LOCATIONS, LANDMARKS } from "./data.js";
-import { shadowOf, lightOf } from "./sprite.js";
+import { shadowOf, lightOf, mix } from "./sprite.js";
 import { lightUp, DUSK } from "./lighting.js";
 
 // ---------- geometry: world pixels <-> hexes ----------
@@ -124,6 +124,14 @@ function painter(w, h) {
     light(l) {
       lights.push(l);
     },
+    // darken what's already at (x, y) to `f` of its brightness (a shadow falling on it)
+    shade(x, y, f) {
+      x = Math.round(x);
+      y = Math.round(y);
+      if (x < 0 || y < 0 || x >= w || y >= h) return;
+      const v = buf[y * w + x];
+      buf[y * w + x] = ((255 << 24) | (Math.round(((v >>> 16) & 255) * f) << 16) | (Math.round(((v >>> 8) & 255) * f) << 8) | Math.round((v & 255) * f)) >>> 0;
+    },
     rect(x0, y0, x1, y1, hex) {
       const c = col(hex);
       for (let y = Math.max(0, Math.round(y0)); y <= Math.min(h - 1, Math.round(y1)); y++)
@@ -206,6 +214,7 @@ const CARS = ["#b03030", "#3f6fb5", "#e0a536", "#f4f4f4", "#4caf7d", "#2a2d33", 
 
 function tree(p, x, y, big, leaf = "#3f7a42") {
   const rad = big ? 2.6 : 1.9;
+  for (let d = 1; d <= 2; d++) for (let a = 0; a < 12; a++) p.shade(x + d + Math.cos((a / 12) * Math.PI * 2) * rad * 0.8, y + d + Math.sin((a / 12) * Math.PI * 2) * rad * 0.8, 0.75);
   p.disc(x + 1, y + 1, rad, "#1f3a22");
   p.disc(x, y, rad, leaf);
   p.disc(x - 0.7, y - 0.7, rad * 0.45, lightOf(leaf));
@@ -215,14 +224,43 @@ function speckle(p, a, hex, n, rnd) {
   for (let i = 0; i < n; i++) p.dot(a.x0 + rnd() * (a.x1 - a.x0), a.y0 + rnd() * (a.y1 - a.y0), hex);
 }
 
-// A flat roof from above: lit top edge, shaded right and bottom, and a shadow on the ground.
-function building(p, x0, y0, x1, y1, c) {
-  p.rect(x0 + 1, y1 + 1, x1 + 1, y1 + 1, "#2c3038");
-  p.rect(x1 + 1, y0 + 1, x1 + 1, y1 + 1, "#2c3038");
+// A building from above, the low sun behind it: its shadow stretched out down and to the right
+// (`tall` sets how far), a roof with a lit edge and a parapet, vents and an air-conditioning unit
+// or two on it, and its front wall along the bottom with a row of windows, some lit for the night.
+function building(p, x0, y0, x1, y1, c, tall = 3) {
+  for (let d = 1; d <= tall; d++) {
+    const f = 0.5 + (d / (tall + 1)) * 0.35;
+    for (let y = y0 + d; y <= y1 + d; y++) p.shade(x1 + d, y, f);
+    for (let x = x0 + d; x < x1 + d; x++) p.shade(x, y1 + d, f);
+  }
   p.rect(x0, y0, x1, y1, c);
   p.rect(x0, y0, x1, y0, lightOf(c));
+  p.rect(x0, y0, x0, y1, mix(c, "#fff4dc", 0.12));
   p.rect(x1, y0, x1, y1, shadowOf(c));
-  p.rect(x0, y1, x1, y1, shadowOf(c));
+  const seed = x0 * 31 + y0 * 7;
+  for (let y = y0 + 1; y < y1 - 2; y++) for (let x = x0 + 1; x < x1; x++) {
+    const n = hash2(x, y, seed & 1023);
+    if (n < 0.06) p.dot(x, y, shadowOf(c));
+    else if (n > 0.96) p.dot(x, y, lightOf(c));
+  }
+  if (x1 - x0 >= 5 && y1 - y0 >= 6) {
+    const ax = x0 + 2 + Math.floor(hash2(x0, y0, 61) * Math.max(1, x1 - x0 - 5));
+    const ay = y0 + 2 + Math.floor(hash2(x0, y0, 62) * Math.max(1, y1 - y0 - 7));
+    p.rect(ax, ay, ax + 1, ay + 1, "#c4c8d0");
+    p.dot(ax + 1, ay + 1, "#7a808a");
+    p.dot(x1 - 2, y0 + 2, "#3a3f48");
+  }
+  // the front wall: two rows, a window every other pixel
+  if (y1 - y0 >= 5) {
+    const wall = mix(c, "#2a2430", 0.5);
+    p.rect(x0, y1 - 1, x1, y1, wall);
+    p.rect(x0, y1 - 2, x1, y1 - 2, shadowOf(c));
+    for (let x = x0 + 1; x < x1; x += 2) {
+      const lit = hash2(x, y1, 63) < 0.28;
+      if (lit) p.glowDot(x, y1 - 1, "#ffcf7a");
+      else p.dot(x, y1 - 1, "#1e2230");
+    }
+  } else p.rect(x0, y1, x1, y1, shadowOf(c));
 }
 
 function car(p, x, y, c, vertical) {
@@ -314,11 +352,18 @@ const LOTS = {
     speckle(p, a, "#6fae6a", 10, rnd);
     const house = (x, y) => {
       const c = HOUSE_ROOFS[Math.floor(rnd() * HOUSE_ROOFS.length)];
-      p.rect(x + 1, y + 5, x + 6, y + 5, "#3f6f3a");
+      for (let d = 1; d <= 2; d++) {
+        for (let yy = y + d; yy <= y + 4 + d; yy++) p.shade(x + 5 + d, yy, 0.6 + d * 0.12);
+        for (let xx = x + d; xx <= x + 5 + d; xx++) p.shade(xx, y + 4 + d, 0.6 + d * 0.12);
+      }
       p.rect(x, y, x + 5, y + 2, lightOf(c));
       p.rect(x, y + 2, x + 5, y + 4, c);
       p.rect(x, y + 2, x + 5, y + 2, shadowOf(c));
-      p.rect(x + 1, y + 5, x + 2, y + 7, "#8a8e96");
+      p.rect(x, y + 4, x + 5, y + 4, mix(c, "#2a2430", 0.45));
+      p.dot(x + 1, y + 4, rnd() < 0.5 ? "#ffcf7a" : "#1e2230");
+      p.dot(x + 4, y + 4, "#1e2230");
+      if (rnd() < 0.4) p.glowDot(x + 1, y + 4, "#ffcf7a");
+      p.rect(x + 2, y + 5, x + 3, y + 7, "#8a8e96");
     };
     house(a.x0 + 1, a.y0 + 1);
     house(a.x1 - 6, a.y0 + 4);
@@ -411,7 +456,9 @@ export function cityBaseUrl() {
       if (NATURE.has(z) || z === "school" || z === "river") {
         LOTS[z](p, full, rnd);
       } else {
-        p.rect(full.x0, full.y0, full.x1, full.y1, "#8a8e96"); // sidewalk
+        // the sidewalk, paved in slabs
+        p.rect(full.x0, full.y0, full.x1, full.y1, "#8a8e96");
+        for (let x = full.x0; x <= full.x1; x += 3) for (let y = full.y0; y <= full.y1; y += 3) p.dot(x, y, "#7a7e86");
         LOTS[z](p, { x0: full.x0 + 3, y0: full.y0 + 3, x1: full.x1 - 3, y1: full.y1 - 3 }, rnd);
       }
     }
@@ -441,6 +488,29 @@ export function cityBaseUrl() {
       const y = LY(j);
       p.rect(LX(i) - 2, y - (k === 2 ? 2 : 1), LX(i + 1) + 1, y + 1, ROAD[k]);
       segments.push({ v: false, k, y, x0: LX(i), x1: LX(i + 1) });
+    }
+  }
+  // the asphalt: grit, cracks and the odd manhole cover
+  for (const s of segments) {
+    const [rx0, ry0, rx1, ry1] = s.v ? [s.x - (s.k === 2 ? 2 : 1), s.y0 - 2, s.x + 1, s.y1 + 1] : [s.x0 - 2, s.y - (s.k === 2 ? 2 : 1), s.x1 + 1, s.y + 1];
+    for (let y = ry0; y <= ry1; y++) for (let x = rx0; x <= rx1; x++) {
+      const n = hash2(x, y, 77);
+      if (n < 0.07) p.shade(x, y, 0.82);
+      else if (n > 0.95) p.dot(x, y, s.k === 3 ? "#6b675f" : "#4e525a");
+    }
+    const rnd = rngFor(hash2(rx0, ry0, 78) * 4294967296);
+    if (rnd() < 0.3) {
+      let [cx, cy] = [rx0 + Math.floor(rnd() * (rx1 - rx0 + 1)), ry0 + Math.floor(rnd() * (ry1 - ry0 + 1))];
+      for (let k = 0; k < 5; k++) {
+        p.shade(cx, cy, 0.6);
+        if (s.v) cy += 1; else cx += 1;
+        if (rnd() < 0.5) { if (s.v) cx += rnd() < 0.5 ? -1 : 1; else cy += rnd() < 0.5 ? -1 : 1; }
+      }
+    }
+    if (s.k === 2 && rnd() < 0.25) {
+      const [mx, my] = s.v ? [s.x - 1, s.y0 + 12] : [s.x0 + 12, s.y - 1];
+      p.rect(mx, my, mx + 1, my + 1, "#2c3038");
+      p.dot(mx, my, "#5a5e66");
     }
   }
   // the streetlights along the avenues, coming on at dusk
@@ -493,8 +563,13 @@ export function cityBaseUrl() {
     const t = tilePixels(hexTileKey(place.hex.q, place.hex.r));
     const x0 = Math.round(x - t.w / 2);
     const y0 = Math.round(y - t.h / 2);
-    p.rect(x0 - 1, y0 - 1, x0 + t.w, y0 + t.h, "#22262d");
-    for (let ty = 0; ty < t.h; ty++) for (let tx = 0; tx < t.w; tx++) if (t.g[ty][tx]) p.dot(x0 + tx, y0 + ty, t.g[ty][tx]);
+    // its tarmac becomes a paved square, so it sits in the town rather than in a frame
+    for (let ty = 0; ty < t.h; ty++) for (let tx = 0; tx < t.w; tx++) {
+      const c = t.g[ty][tx];
+      if (!c) continue;
+      if (c === "#3b3f47") p.dot(x0 + tx, y0 + ty, (tx + ty * 2) % 4 === 0 ? "#7a7e86" : hash2(tx, ty, 79) < 0.08 ? "#80848c" : "#8a8e96");
+      else p.dot(x0 + tx, y0 + ty, c);
+    }
   }
 
   // 4b. the raids, past the edge: each compound on its grounds, behind a fence with a gate
