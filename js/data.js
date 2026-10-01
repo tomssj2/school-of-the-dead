@@ -721,7 +721,10 @@ export const RESEARCH_BONUS_BY_LEVEL = [3, 4, 5, 6, 8]; // research a day on top
 export const OFFICE_PROMOTION_SLOTS = 8;
 export const OFFICE_RECRUIT_SLOTS = 8;
 export const CRAFTING_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra fortification per crafter
-const roomSlots = (label, base, per = 0) => ({ label, base, per });
+// Slots: `base` at level 1 and `per` more each level — or, with `by`, exactly by[level - 1].
+const roomSlots = (label, base, per = 0, by = null) => ({ label, base, per, by });
+// The student slots of the Research Room, the Radio Station and the Crafting Room, by level.
+export const HELPER_SLOTS_BY_LEVEL = [1, 2, 4, 6, 8];
 const training = (name, ref) => ({
   name, ref, students: roomSlots("Student slots", GYM_CAPACITY, 3), teachers: roomSlots("Teacher slots", GYM_MAX_TEACHERS),
   perks: [{ label: "Room bonus", by: ROOM_STAT_BONUS_BY_LEVEL, fmt: (v) => `+${v} a session` }],
@@ -748,14 +751,14 @@ export const ROOM_LEVELS = {
     ],
   },
   research: {
-    name: "Research Room", students: roomSlots("Assistants", 1, 1), teachers: roomSlots("Researchers", RESEARCH_ROOM_TEACHERS),
+    name: "Research Room", students: roomSlots("Assistants", 1, 1, HELPER_SLOTS_BY_LEVEL), teachers: roomSlots("Researchers", RESEARCH_ROOM_TEACHERS),
     perks: [{ label: "Bonus research", by: RESEARCH_BONUS_BY_LEVEL, fmt: (v) => `+${v} a day` }],
   },
   radio: {
-    name: "Radio Station", students: roomSlots("On-air students", 1, 1), teachers: roomSlots("Teachers", 1),
+    name: "Radio Station", students: roomSlots("On-air students", 1, 1, HELPER_SLOTS_BY_LEVEL), teachers: roomSlots("Teachers", 1),
   },
   crafting: {
-    name: "Crafting Room", students: roomSlots("Helpers", 1, 1), teachers: roomSlots("Crafters", 1),
+    name: "Crafting Room", students: roomSlots("Helpers", 1, 1, HELPER_SLOTS_BY_LEVEL), teachers: roomSlots("Crafters", 1),
     perks: [{ label: "Bonus fortification", by: CRAFTING_BONUS_BY_LEVEL, fmt: (v) => `+${v} per crafter` }],
   },
   farm: {

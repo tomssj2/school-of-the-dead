@@ -7,7 +7,7 @@ import {
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
   NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_ROLES, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
-  RESEARCH_ROOM_INT_PER_POINT, RESEARCH_BONUS_BY_LEVEL, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
+  RESEARCH_ROOM_INT_PER_POINT, RESEARCH_BONUS_BY_LEVEL, HELPER_SLOTS_BY_LEVEL, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ENTRANCE_GRID_SIZE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
   RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
@@ -261,7 +261,7 @@ function renderRadioUpgradeModal(state) {
       <button class="cc-close" data-action="close-upgrade" title="Close">✕</button>
       <h3>Radio Station</h3>
       <div class="upg-level"><span>${level >= RADIO_UPGRADES.length ? `Level ${level} · <b>Max</b>` : `Level ${level} → <b>Level ${level + 1}</b>`}</span><span class="upg-pips">${pips}</span></div>
-      <p class="muted upg-note">Each level adds an on-air student slot (${room.studentCapacity} now); an assistant teacher joins at level 5.</p>
+      <p class="muted upg-note">Each level adds on-air student slots (${room.studentCapacity} now, ${HELPER_SLOTS_BY_LEVEL[HELPER_SLOTS_BY_LEVEL.length - 1]} at level ${HELPER_SLOTS_BY_LEVEL.length}); an assistant teacher joins at level 5.</p>
       <div class="radio-list">${rows}</div>
     </div>
   </div>`;
@@ -289,7 +289,7 @@ function radioTrack(state) {
   else {
     const up = RADIO_UPGRADES[level];
     const affordable = Object.entries(up.cost || {}).every(([res, amt]) => (state.resources[res] || 0) >= amt);
-    next = `<span class="rt-next-text"><span>Next: <b>${esc(up.name.replace("Increase range", "Range").replace("Satellite communications", "Satellite"))}</b></span><small>${up.id === "satellite" ? "Calls the helicopter" : `${Math.round(up.baseChance * 100)}% a day · +1 on-air slot`}</small></span>
+    next = `<span class="rt-next-text"><span>Next: <b>${esc(up.name.replace("Increase range", "Range").replace("Satellite communications", "Satellite"))}</b></span><small>${up.id === "satellite" ? "Calls the helicopter" : `${Math.round(up.baseChance * 100)}% a day · +${HELPER_SLOTS_BY_LEVEL[level] - HELPER_SLOTS_BY_LEVEL[level - 1]} on-air slot${HELPER_SLOTS_BY_LEVEL[level] - HELPER_SLOTS_BY_LEVEL[level - 1] === 1 ? "" : "s"}`}</small></span>
       <button class="btn btn-sm btn-primary rt-build" data-action="radio-upgrade" ${affordable ? "" : "disabled"} title="${affordable ? "Build it now" : "Not enough yet"}">${costLabel(up.cost)}</button>`;
   }
   return `<div class="radio-track"><span class="rt-stages">${stages}</span><span class="rt-info">${next}</span></div>`;

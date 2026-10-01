@@ -803,10 +803,11 @@ export function roomLevelStats(key, level) {
   const def = ROOM_LEVELS[roomType(key)];
   const rows = [];
   const slot = (id, s, value) => rows.push({ id, label: s.label, value, text: String(value) });
-  if (def.students) slot("students", def.students, def.students.base + def.students.per * (level - 1));
+  const at = (s) => (s.by ? s.by[level - 1] : s.base + s.per * (level - 1));
+  if (def.students) slot("students", def.students, at(def.students));
   if (def.teachers) slot("teachers", def.teachers, def.teachers.base + ROOM_TEACHER_LEVELS.filter((l) => level >= l).length);
-  if (def.plots) slot("plots", def.plots, def.plots.base + def.plots.per * (level - 1));
-  if (def.pens) slot("pens", def.pens, def.pens.base + def.pens.per * (level - 1));
+  if (def.plots) slot("plots", def.plots, at(def.plots));
+  if (def.pens) slot("pens", def.pens, at(def.pens));
   for (const p of def.perks || []) {
     const value = p.by[level - 1];
     rows.push({ id: p.label, label: p.label, value, text: p.fmt(value) });
