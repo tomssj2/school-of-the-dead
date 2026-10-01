@@ -1517,8 +1517,8 @@ function renderRoleWindows(state) {
           "Drag onto a team slot, or onto another role's tab",
         ],
       })}>
-      <span class="ex-rt-sprite">${characterSprite(c, 34)}</span>
-      <span class="ex-rt-power">${power}</span>
+      <span class="ex-rt-sprite">${characterSprite(c, 40)}</span>
+      <span class="ex-rt-line"><span class="ex-rt-name">${esc(shortName(c))}</span><span class="ex-rt-power">${power}</span></span>
       <span class="ex-rt-bar ex-rt-hp"><i style="width:${pct(c.hp, c.maxHp)}%"></i></span>
       <span class="ex-rt-bar ex-rt-stam"><i style="width:${pct(c.stamina, c.maxStamina)}%"></i></span>
     </span>`;

@@ -2286,14 +2286,23 @@ button.ex-team:hover { border-color: var(--team); }
 body.nw-dragging .ex-rtab { border-style: dashed; border-bottom-style: solid; }
 .ex-rtab.nw-drop-over { background: color-mix(in srgb, var(--role) 40%, transparent); }
 /* the chosen role's students: portrait, power, then HP and stamina bars */
-.ex-rt-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; max-height: 427px; /* six rows, then it scrolls */ overflow-y: auto; scrollbar-width: thin; align-content: start; }
+/* each tile: portrait, name, power, then HP and stamina bars — at most five rows, then it scrolls */
+.ex-rt-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr); grid-auto-rows: 83px; gap: 5px; align-content: start;
+  max-height: calc(5 * 83px + 4 * 5px); overflow-y: auto; scrollbar-width: thin;
+}
+.explore-side > .ex-role { flex: 0 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .ex-rt {
-  position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 3px 4px 4px; overflow: hidden;
+  position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 1px; padding: 3px 4px 4px; overflow: hidden;
   border: 1px solid var(--border); border-radius: 6px; background: rgba(0, 0, 0, 0.25); cursor: grab;
 }
 .ex-rt:hover { border-color: var(--role); }
-.ex-rt-sprite { display: grid; place-items: center; height: 34px; }
-.ex-rt-power { text-align: center; font-size: 11px; font-weight: 700; color: #e6e9ef; line-height: 1.1; }
+.ex-rt-sprite { display: grid; place-items: center; overflow: hidden; height: 40px; }
+.ex-rt-sprite svg { width: 32px; height: 40px; }
+.ex-rt-line { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
+.ex-rt-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; font-weight: 600; line-height: 11px; color: #d6dbe4; }
+.ex-rt-power { flex: none; text-align: center; font-size: 11px; font-weight: 700; color: #e6e9ef; line-height: 11px; }
+.ex-rt > * { flex: none; }
 .ex-rt-power::before { content: "⚔ "; font-size: 9px; color: var(--role); }
 .ex-rt-bar { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 .ex-rt-bar i { display: block; height: 100%; }
@@ -3243,7 +3252,7 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
   display: flex; align-items: center; gap: 18px; padding: 7px 12px;
   border: 1px solid var(--border); border-radius: 10px; background: rgba(255, 255, 255, 0.03);
 }
-.cm-legend { display: flex; flex: 1; flex-wrap: nowrap; gap: 14px; justify-content: space-between; }
+.cm-legend { display: flex; flex: 1; flex-wrap: nowrap; gap: 14px; justify-content: space-between; margin: 0; padding: 0; background: none; border-radius: 0; }
 .cm-progress { flex: 1; min-width: 240px; display: flex; align-items: center; gap: 12px; cursor: help; }
 .cm-progress-label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 12.5px; }
 .cm-progress-label b { color: #fff; }
