@@ -34,7 +34,7 @@ import { hexTerrain, TERRAIN_NAMES, locationAt, isSchoolHex, SCHOOL_RADIUS, MAP_
 import {
   makeCharacter, makeLegendaryCharacter, capTeacherGrades, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, fitName, teachingBonus,
-  bestClassroomSubjectFor, emptyEquipment, makeItem, makeLegendaryItem, maxStaminaFor, skillCount,
+  bestClassroomSubjectFor, emptyEquipment, makeItem, makeLegendaryItem, maxStaminaFor, skillCount, gradeCap,
 } from "./characters.js";
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -582,7 +582,7 @@ export function gymLesson(state, side) {
 export function trainingGain(state, c, side) {
   const lesson = gymLesson(state, side);
   if (!c || !lesson.subject) return 0;
-  return Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[side], 100 - c.grades[side]));
+  return Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[side], gradeCap(c, side) - c.grades[side]));
 }
 
 // What one outside worker brings in today: the facility's base yield, plus 1 for every
@@ -1181,13 +1181,14 @@ const gainExpAll = (state, list, amount) => list.forEach((c) => gainExp(state, c
 function grantXp(state, charId, subject, amount) {
   const c = getChar(state, charId);
   if (!c || !c.alive) return;
-  if (c.grades[subject] >= 100) return;
+  const cap = gradeCap(c, subject);
+  if (c.grades[subject] >= cap) return;
   const learning = 1 + c.grades.Physics * TUNE.xpPerInt + skillBonus(c, "Physics");
   c.xp[subject] += amount * traitGrowthMultiplier(c, subject) * dishMultiplier(state, "xp") * (1 + techPerk(state, "xp")) * learning;
   let guard = 0;
-  while (c.xp[subject] >= xpThreshold(c.grades[subject]) && c.grades[subject] < 100 && guard < 50) {
+  while (c.xp[subject] >= xpThreshold(c.grades[subject]) && c.grades[subject] < cap && guard < 50) {
     c.xp[subject] -= xpThreshold(c.grades[subject]);
-    c.grades[subject] = Math.min(100, c.grades[subject] + 1);
+    c.grades[subject] = Math.min(cap, c.grades[subject] + 1);
     guard++;
   }
   refreshMaxStats(c);
@@ -1370,7 +1371,7 @@ export function classGain(state, c) {
   if (!c || !c.seat || !c.alive || c.infection) return 0;
   const lesson = classroomLesson(state, c.seat.room);
   if (!lesson.subject) return 0;
-  return Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[lesson.subject], 100 - c.grades[lesson.subject]));
+  return Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[lesson.subject], gradeCap(c, lesson.subject) - c.grades[lesson.subject]));
 }
 
 // ---------- TURN 1: training ----------

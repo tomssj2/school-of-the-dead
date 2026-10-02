@@ -3598,3 +3598,22 @@ html[data-gfx="low"] .tt-ready, html[data-gfx="medium"] .tt-ready { animation: n
 .sk-locked-grade, .sk-locked-order { opacity: 0.42; }
 .sk-node:disabled { cursor: default; }
 html[data-gfx="medium"] .sk-buyable { animation: none; }
+
+/* a student's second subject (up to A) in silver, next to the favourite's gold */
+.chip.chip-second { border-color: #c9ccd2; color: #e6e9ef; font-weight: 600; }
+.chip.chip-second::after { content: ""; position: absolute; top: -3px; right: -3px; width: 7px; height: 7px; border-radius: 50%; background: #c9ccd2; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
+
+/* Grade caps: favourite (★ gold, up to S), second (☆ silver, up to A), the rest stop at B */
+.cs-second { border-color: rgba(201, 204, 210, 0.45); box-shadow: inset 3px 0 0 var(--stat), 0 0 0 1px rgba(201, 204, 210, 0.18); }
+.cs-star-second { color: #c9ccd2; }
+.cs-cap { margin-left: auto; white-space: nowrap; }
+.cs-cap b { font-size: 12.5px; font-weight: 800; }
+.cs-cap-full { color: #ff9f43 !important; }
+.cs-bar { position: relative; }
+.cs-bar-cap { position: absolute; top: 0; bottom: 0; right: 0; background: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.55) 0 3px, rgba(0, 0, 0, 0.25) 3px 6px); border-left: 2px solid rgba(255, 255, 255, 0.7); }
+.sk-col-second { border-color: rgba(201, 204, 210, 0.4); box-shadow: inset 0 3px 0 var(--stat), 0 0 0 1px rgba(201, 204, 210, 0.15); }
+.sk-best.sk-second { color: #c9ccd2; }
+.sk-capped { opacity: 0.3; border-style: dashed; background: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.25) 0 4px, transparent 4px 8px); }
+.sk-capped .sk-tier { text-decoration: line-through; }
+.cc2-focus { padding: 2px 9px; border-radius: 999px; background: rgba(14, 16, 22, 0.75); border: 1px solid rgba(244, 197, 66, 0.55); color: #f4c542; font-size: 12px; font-weight: 600; cursor: help; }
+.cc2-focus i { font-style: normal; margin-left: 4px; color: #c9ccd2; }

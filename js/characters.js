@@ -154,6 +154,26 @@ export function gradeLetter(value) {
   return value >= 100 ? "S" : "F";
 }
 
+// ---------- a student's grade caps ----------
+// Nobody masters everything: every student has a favourite subject (the only one that can reach
+// S), a second one (up to A), and the other four top out at B. They're picked when the student
+// arrives — a talent's subject first, then whatever they're already best at — and their grades are
+// held to them (classes, training and experience all stop there). Teachers aren't capped this way.
+export const STUDENT_CAPS = { favorite: GRADE_RANGES.S[1], secondary: GRADE_RANGES.A[1], other: GRADE_RANGES.B[1] };
+export function gradeCap(c, subject) {
+  if (!c || c.role !== "student" || !c.favorite) return 100;
+  return subject === c.favorite ? STUDENT_CAPS.favorite : subject === c.secondary ? STUDENT_CAPS.secondary : STUDENT_CAPS.other;
+}
+export const gradeCapLetter = (c, subject) => gradeLetter(gradeCap(c, subject));
+export function assignStudentFocus(c) {
+  if (!c || c.role !== "student") return;
+  const talents = (c.traits || []).map((id) => TRAITS.find((t) => t.id === id)?.subject).filter(Boolean);
+  const order = SUBJECTS.map((s) => [s, (talents.includes(s) ? 1000 : 0) + c.grades[s] + Math.random() * 0.5]).sort((a, b) => b[1] - a[1]).map(([s]) => s);
+  c.favorite = order[0];
+  c.secondary = order[1];
+  for (const s of SUBJECTS) c.grades[s] = Math.min(c.grades[s], gradeCap(c, s));
+}
+
 // Bumps a numeric grade up one letter tier (e.g. F -> D, A -> S), re-rolling within the new
 // tier's range. Since tier ranges are contiguous, the result always exceeds the old tier.
 function bumpTier(value) {
@@ -263,7 +283,7 @@ export function makeCharacter(role, gender) {
 
   const id = nextId();
   const rawName = randomName(gender);
-  return {
+  const c = {
     id,
     name: role === "teacher" ? withTeacherHonorific(rawName, gender) : rawName,
     gender, // 'M' | 'F'
@@ -294,6 +314,11 @@ export function makeCharacter(role, gender) {
     defending: false, // this turn's defense assignment (students only)
     log: [],
   };
+  // a student's favourite and second subjects (their grade caps)
+  assignStudentFocus(c);
+  c.maxHp = c.hp = maxHpFor(c.grades);
+  c.maxStamina = c.stamina = maxStaminaFor(c);
+  return c;
 }
 
 // A named, rare survivor found by winning a Turn 3 Assault boss fight — every grade is a tier
@@ -305,6 +330,7 @@ export function makeLegendaryItem(template = pick(LEGENDARY_ITEM_TEMPLATES)) {
 export function makeLegendaryCharacter(role, gender) {
   const c = makeCharacter(role, gender);
   for (const s of SUBJECTS) c.grades[s] = bumpTier(c.grades[s]);
+  assignStudentFocus(c); // (the bump may have pushed a grade past its cap)
   c.legendary = true;
   if (role === "student") c.level = 5; // a legendary survivor arrives seasoned
   capTeacherGrades(c); // a legendary teacher's specialty is S, the rest A at most

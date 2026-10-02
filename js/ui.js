@@ -13,7 +13,7 @@ import {
   RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
 } from "./data.js";
 import {
-  overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus,
+  overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus, gradeCap, gradeCapLetter,
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
@@ -320,20 +320,15 @@ function statChips(c, focus = null) {
       }).join("")}
     </div>`;
   }
-  const studentStats = [
-    ["STR", "Strength (PE)", c.grades.PE],
-    ["DEX", "Dexterity (Gymnastics)", c.grades.Gymnastics],
-    ["CON", "Constitution (Biology)", c.grades.Biology],
-    ["INT", "Intelligence (Physics)", c.grades.Physics],
-    ["WIS", "Wisdom (History)", c.grades.History],
-    ["CHA", "Charisma (Social Studies)", c.grades.SocialStudies],
-  ];
-  const best = Math.max(...studentStats.map(([, , v]) => v));
+  // their favourite subject in gold (it can reach S), their second in silver (A); the rest stop at B
   return `<div class="stat-chips">
-    ${studentStats
-      .map(([label, title, val]) => {
-        const top = val === best;
-        return `<span class="chip ${top ? "chip-specialty" : ""} ${[].concat(focus).includes(label) ? "chip-focus" : ""}" title="${title}${top ? " (highest)" : ""}">${label} ${val}</span>`;
+    ${SUBJECTS
+      .map((s) => {
+        const label = STAT_OF_SUBJECT[s];
+        const val = c.grades[s];
+        const kind = s === c.favorite ? "chip-specialty" : s === c.secondary ? "chip-second" : "";
+        const why = s === c.favorite ? "favourite — can reach S" : s === c.secondary ? "second subject — up to A" : "up to B";
+        return `<span class="chip ${kind} ${[].concat(focus).includes(label) ? "chip-focus" : ""}" title="${STAT_LABEL[label]} (${SUBJECT_LABEL[s]}) ${val} · ${why}">${label} ${val}</span>`;
       })
       .join("")}
   </div>`;
@@ -1216,7 +1211,7 @@ const POST_FLOOR = (post) => (post.startsWith("classroom:") ? "floor2" : ["resea
 function turnOneLazy(state) {
   const posted = (post) => state.characters.filter((c) => c.role === "teacher" && c.alive && c.post === post).length;
   const students = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection);
-  const wouldLearn = (c, lesson) => (lesson.subject ? Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[lesson.subject], 100 - c.grades[lesson.subject])) : 0);
+  const wouldLearn = (c, lesson) => (lesson.subject ? Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[lesson.subject], gradeCap(c, lesson.subject) - c.grades[lesson.subject])) : 0);
   const lessons = Object.fromEntries(CLASSROOM_IDS.filter((id) => !isBoarded(state, `classroom:${id}`)).map((id) => [id, classroomLesson(state, id)]));
   const freeSeats = (id) => state.rooms.classrooms[id].seats.filter((x) => !x).length;
   const busyToday = (c) => c.gymToday || c.restToday || c.infirmaryToday || c.radioToday || c.researchToday || c.craftingToday;
@@ -1280,7 +1275,7 @@ function renderTurn1Overview(state) {
     return cost !== null && state.resources.materials >= cost ? tip("upgrade", `⬆ Upgrade can be bought · ${ri("materials")} ${cost}`) : null;
   };
   // what a classroom would teach a student today (0: nothing — no teacher, or at its limit)
-  const wouldLearn = (c, lesson) => (lesson.subject ? Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[lesson.subject], 100 - c.grades[lesson.subject])) : 0);
+  const wouldLearn = (c, lesson) => (lesson.subject ? Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[lesson.subject], gradeCap(c, lesson.subject) - c.grades[lesson.subject])) : 0);
   const lessons = Object.fromEntries(CLASSROOM_IDS.filter((id) => !isBoarded(state, `classroom:${id}`)).map((id) => [id, classroomLesson(state, id)]));
   const freeSeats = (id) => state.rooms.classrooms[id].seats.filter((s) => !s).length;
   const unseated = students.filter((c) => !c.seat);
@@ -2726,7 +2721,7 @@ function renderTurn3Summary(state) {
   const cls = today?.classes;
   const lessons = Object.fromEntries(CLASSROOM_IDS.filter((id) => !isBoarded(state, `classroom:${id}`)).map((id) => [id, classroomLesson(state, id)]));
   const freeSeat = (id) => state.rooms.classrooms[id].seats.some((s) => !s);
-  const wouldLearn = (c, l) => (l.subject ? Math.max(0, Math.min(l.gain, l.ceiling - c.grades[l.subject], 100 - c.grades[l.subject])) : 0);
+  const wouldLearn = (c, l) => (l.subject ? Math.max(0, Math.min(l.gain, l.ceiling - c.grades[l.subject], gradeCap(c, l.subject) - c.grades[l.subject])) : 0);
   const finished = (state.finishedJobs || []).filter((f) => G_alive(state, f.id));
   const couldJoin = students.filter((c) => !c.seat && !c.keepJobs && Object.entries(lessons).some(([id, l]) => freeSeat(id) && wouldLearn(c, l) > 0)).length;
   const showRoom = CLASSROOM_IDS.find((id) => lessons[id]?.subject) ?? CLASSROOM_IDS[0];
@@ -3110,9 +3105,10 @@ function lessonEntry(c, reason, lesson) {
   if (reason || !lesson.subject) return { c, reason };
   const stat = STAT_OF_SUBJECT[lesson.subject];
   const now = c.grades[lesson.subject];
-  const gain = Math.max(0, Math.min(lesson.gain, lesson.ceiling - now, 100 - now));
+  const cap = gradeCap(c, lesson.subject);
+  const gain = Math.max(0, Math.min(lesson.gain, lesson.ceiling - now, cap - now));
   if (!gain) {
-    return { c, maxed: `${stat}: MAX`, maxedWhy: now >= 100 ? `${stat} is already 100` : `${stat} ${now} — the teacher here can't take them past ${lesson.ceiling}` };
+    return { c, maxed: `${stat}: MAX`, maxedWhy: now >= cap ? `${stat} ${now} — as far as they can go (${gradeCapLetter(c, lesson.subject)}${lesson.subject === c.favorite ? ", their favourite" : lesson.subject === c.secondary ? ", their second subject" : ""})` : `${stat} ${now} — the teacher here can't take them past ${lesson.ceiling}` };
   }
   return { c, value: now, hint: `<span class="pk-gain" title="What they'd learn here today">${stat} ${now} → <b>${now + gain}</b></span>` };
 }
@@ -3531,7 +3527,7 @@ function renderTrainingRoom(state, side) {
         students.map((s) => personTile(s, {
           extra: gainLine(s.grades[side], s.grades[side] + trainingGain(state, s, side), "max"),
           remove: "remove-gym",
-          title: `${s.name} — ${info.gains} ${s.grades[side]} → ${s.grades[side] + trainingGain(state, s, side)} after today's session${s.grades[side] >= lesson.ceiling ? ` (at the limit of ${lesson.ceiling})` : ""}`,
+          title: `${s.name} — ${info.gains} ${s.grades[side]} → ${s.grades[side] + trainingGain(state, s, side)} after today's session${trainingGain(state, s, side) ? "" : ` (${stopWhy(s, side, lesson.ceiling)})`}`,
         })),
         room.studentCapacity - students.length,
         `data-action="open-picker" data-kind="gym-student" data-post="${side}"`
@@ -3765,7 +3761,7 @@ function renderClassroom(state, roomId) {
     const grade = subject ? occ.grades[subject] : null;
     return personTile(occ, {
       remove: "unseat",
-      title: `${occ.name}${lesson.subject ? ` — ${STAT_OF_SUBJECT[subject]} ${grade} → ${grade + classGain(state, occ)} after today's class${grade >= lesson.ceiling ? ` (at the limit of ${lesson.ceiling})` : ""}` : ""}`,
+      title: `${occ.name}${lesson.subject ? ` — ${STAT_OF_SUBJECT[subject]} ${grade} → ${grade + classGain(state, occ)} after today's class${classGain(state, occ) ? "" : ` (${stopWhy(occ, subject, lesson.ceiling)})`}` : ""}`,
       extra: lesson.subject ? gainLine(grade, grade + classGain(state, occ), "max") : "",
     });
   };
@@ -4703,33 +4699,41 @@ function cardScene(state, c) {
 }
 
 // ----- Stats: six cards, one a stat — its grade, the value with gear, a bar, what it does -----
+// A student's favourite subject can reach S, their second A, the rest stop at B (characters.js gradeCap).
+// Why a lesson adds nothing: they're at their own limit, or past what this teacher can take them to.
+const stopWhy = (c, s, ceiling) => (gradeCap(c, s) <= ceiling ? `at their limit of ${gradeCapLetter(c, s)} (${gradeCap(c, s)})` : `the teacher here only takes them to ${ceiling}`);
+const focusNote = (c, s) => (s === c.favorite ? "★ Their favourite subject — the only one that can reach S"
+  : s === c.secondary ? "☆ Their second subject — can reach A"
+  : `Stops at B (${gradeCap(c, s)}) — only their favourite and second subject go higher`);
 function renderStatsTab(state, c) {
   const isTeacher = c.role === "teacher";
-  const best = Math.max(...SUBJECTS.map((s) => c.grades[s]));
   const cards = SUBJECTS.map((s) => {
     const stat = STAT_OF_SUBJECT[s];
     const val = c.grades[s];
     const letter = gradeLetter(val);
     const gear = isTeacher ? 0 : equipmentBonus(c, stat);
     const total = val + gear;
-    const star = isTeacher ? s === c.teachSubject : val === best;
+    const cap = gradeCap(c, s);
+    const capLetter = gradeLetter(cap);
+    const star = isTeacher ? s === c.teachSubject : s === c.favorite;
+    const second = !isTeacher && s === c.secondary;
     const uses = STAT_GUIDE[stat] || [];
     const tip = tipAttr({
       title: `${pxe(STAT_PIXEL[stat])} ${STAT_LABEL[stat]} (${stat}) — ${SUBJECT_LABEL[s]}`,
-      rows: isTeacher ? [["Grade", letter], ["Teaches a day", `+${teachingBonus(val)}`]] : [["Grade", `${letter} · ${val}`], ...(gear ? [["From gear", `+${gear}`]] : []), ...uses.map(([what, where]) => [what, where, "tip-where"])],
-      notes: isTeacher ? [star ? "🌟 Their specialty — always their best grade" : "Posted to a classroom, every seated student learns this much a day, up to their grade"] : [star ? "★ Their best stat — the skill tree to focus on" : esc(STAT_EFFECTS[stat] || "")],
+      rows: isTeacher ? [["Grade", letter], ["Teaches a day", `+${teachingBonus(val)}`]] : [["Grade", `${letter} · ${val}`], ["Can reach", `${capLetter} · ${cap}${val >= cap ? " ✓" : ""}`], ...(gear ? [["From gear", `+${gear}`]] : []), ...uses.map(([what, where]) => [what, where, "tip-where"])],
+      notes: isTeacher ? [star ? "🌟 Their specialty — always their best grade" : "Posted to a classroom, every seated student learns this much a day, up to their grade"] : [focusNote(c, s), ...(val >= cap ? ["At their limit — classes and training won't raise it, gear still does"] : []), esc(STAT_EFFECTS[stat] || "")],
     });
-    return `<div class="cs-card ${star ? "cs-best" : ""}" style="--stat:${STAT_COLOR[stat]}" ${tip}>
+    return `<div class="cs-card ${star ? "cs-best" : ""} ${second ? "cs-second" : ""}" style="--stat:${STAT_COLOR[stat]}" ${tip}>
       <div class="cs-head">
         <span class="cs-icon">${pixelIcon(STAT_PIXEL[stat], 16)}</span>
         <span class="cs-name"><b>${stat}</b><small>${SUBJECT_LABEL[s]}</small></span>
-        ${star ? `<span class="cs-star">${isTeacher ? "🌟" : "★"}</span>` : ""}
+        ${star ? `<span class="cs-star">${isTeacher ? "🌟" : "★"}</span>` : second ? '<span class="cs-star cs-star-second">☆</span>' : ""}
         <span class="cs-grade grade-letter-${letter}">${letter}</span>
       </div>
       ${isTeacher
         ? `<div class="cs-value"><b>+${teachingBonus(val)}</b><small>a day when teaching</small></div>`
-        : `<div class="cs-value"><b>${total}</b>${gear ? `<small class="cs-gear">+${gear} gear</small>` : "<small>/ 100</small>"}</div>
-           <div class="cs-bar"><i style="width:${Math.min(100, val)}%"></i>${gear ? `<i class="cs-bar-gear" style="width:${Math.min(100 - Math.min(100, val), gear)}%"></i>` : ""}</div>`}
+        : `<div class="cs-value"><b>${total}</b>${gear ? `<small class="cs-gear">+${gear} gear</small>` : ""}<small class="cs-cap ${val >= cap ? "cs-cap-full" : ""}">${val >= cap ? "maxed at" : "up to"} <b class="grade-letter-${capLetter}">${capLetter}</b></small></div>
+           <div class="cs-bar"><i style="width:${Math.min(100, val)}%"></i>${gear ? `<i class="cs-bar-gear" style="width:${Math.min(100 - Math.min(100, val), gear)}%"></i>` : ""}${cap < 100 ? `<span class="cs-bar-cap" style="left:${cap}%"></span>` : ""}</div>`}
       ${isTeacher ? "" : `<div class="cs-uses">${uses.slice(0, 2).map(([what]) => `<span>${esc(what)}</span>`).join("")}</div>`}
     </div>`;
   }).join("");
@@ -4789,6 +4793,7 @@ function skillNodeStatus(c, subject, tier, path) {
   if ((c.skills || []).includes(key)) return "owned";
   const gradeIdx = GRADE_TIERS.indexOf(gradeLetter(c.grades[subject]));
   const nodeIdx = GRADE_TIERS.indexOf(tier);
+  if (nodeIdx > GRADE_TIERS.indexOf(gradeCapLetter(c, subject))) return "capped";
   if (gradeIdx < nodeIdx) return "locked-grade";
   const posInPath = path.findIndex((n) => n.tier === tier);
   if (posInPath > 0) {
@@ -4802,38 +4807,41 @@ function skillNodeStatus(c, subject, tier, path) {
 // ----- Skills: a column a subject, like the Research tree — five skills from D to S, lit in the
 // subject's colour as they're learned, the next one glowing when there's a point to spend -----
 function renderSkillsTab(c) {
-  const best = Math.max(...SUBJECTS.map((s) => c.grades[s]));
   const points = availableSkillPoints(c);
   const cols = SUBJECTS.map((s) => {
     const stat = STAT_OF_SUBJECT[s];
     const letter = gradeLetter(c.grades[s]);
+    const capLetter = gradeCapLetter(c, s);
     const path = SKILL_TREE[s];
     const effect = SKILL_EFFECTS[s];
     const owned = (c.skills || []).filter((k) => k.startsWith(`${s}:`)).length;
-    const top = c.grades[s] === best;
+    const reachable = path.filter((n) => GRADE_TIERS.indexOf(n.tier) <= GRADE_TIERS.indexOf(capLetter)).length;
+    const top = s === c.favorite;
+    const second = s === c.secondary;
     const nodes = path.map((node, i) => {
       const status = skillNodeStatus(c, s, node.tier, path);
       const lit = status === "owned";
-      const why = status === "locked-grade" ? `Needs ${node.tier} in ${SUBJECT_LABEL[s]}` : status === "locked-order" ? `After ${path[i - 1].name}` : status === "locked-points" ? "Needs a skill point" : status === "buyable" ? "Click to learn · 1 point" : "Learned";
+      const why = status === "capped" ? `${SUBJECT_LABEL[s]} stops at ${capLetter} for them — ${node.tier === "S" ? "only their favourite subject reaches S" : "only their favourite and second subject go past B"}`
+        : status === "locked-grade" ? `Needs ${node.tier} in ${SUBJECT_LABEL[s]}` : status === "locked-order" ? `After ${path[i - 1].name}` : status === "locked-points" ? "Needs a skill point" : status === "buyable" ? "Click to learn · 1 point" : "Learned";
       const tip = tipAttr({ title: `${node.name} · ${node.tier}`, rows: [["Effect", `+${Math.round(effect.per * 100)}% ${effect.what}`]], notes: [esc(node.desc), why] });
       return `${i ? `<i class="sk-link ${lit ? "lit" : ""}"></i>` : ""}<button type="button" class="sk-node sk-${status}" ${status === "buyable" ? `data-action="buy-skill" data-id="${c.id}" data-subject="${s}" data-tier="${node.tier}"` : "disabled"} ${tip}>
         <span class="sk-tier grade-letter-${node.tier}">${lit ? "✓" : node.tier}</span>
         <span class="sk-name">${esc(node.name)}</span>
-        <span class="sk-why">${lit ? `+${Math.round(effect.per * 100)}%` : status === "buyable" ? "Learn" : status === "locked-points" ? "No points" : status === "locked-grade" ? `needs ${node.tier}` : "🔒"}</span>
+        <span class="sk-why">${lit ? `+${Math.round(effect.per * 100)}%` : status === "buyable" ? "Learn" : status === "locked-points" ? "No points" : status === "locked-grade" ? `needs ${node.tier}` : status === "capped" ? `✕ max ${capLetter}` : "🔒"}</span>
       </button>`;
     }).join("");
-    return `<section class="sk-col ${top ? "sk-col-best" : ""}" style="--stat:${STAT_COLOR[stat]}">
-      <header class="sk-head" ${tipAttr({ title: `${pxe(STAT_PIXEL[stat])} ${SUBJECT_LABEL[s]} (${stat})`, rows: [["Each skill", `+${Math.round(effect.per * 100)}% ${effect.what}`], ["Learned", `${owned}/${path.length}${owned ? ` · +${Math.round(effect.per * owned * 100)}% now` : ""}`]], notes: [top ? "★ Their best subject — the tree to focus on" : "A skill opens once their grade reaches its letter"] })}>
+    return `<section class="sk-col ${top ? "sk-col-best" : ""} ${second ? "sk-col-second" : ""}" style="--stat:${STAT_COLOR[stat]}">
+      <header class="sk-head" ${tipAttr({ title: `${pxe(STAT_PIXEL[stat])} ${SUBJECT_LABEL[s]} (${stat})`, rows: [["Each skill", `+${Math.round(effect.per * 100)}% ${effect.what}`], ["Can reach", `${capLetter} · ${reachable} of ${path.length} skills`], ["Learned", `${owned}/${reachable}${owned ? ` · +${Math.round(effect.per * owned * 100)}% now` : ""}`]], notes: [c.role === "student" ? focusNote(c, s) : "A skill opens once their grade reaches its letter", ...(top ? ["The tree to focus on"] : [])] })}>
         <span class="sk-icon">${pixelIcon(STAT_PIXEL[stat], 16)}</span>
-        <b class="sk-stat">${stat}${top ? ' <span class="sk-best">★</span>' : ""}</b>
+        <b class="sk-stat">${stat}${top ? ' <span class="sk-best">★</span>' : second ? ' <span class="sk-best sk-second">☆</span>' : ""}</b>
         <span class="sk-grade grade-letter-${letter}">${letter}</span>
         <span class="sk-effect">+${Math.round(effect.per * 100)}% ${effect.what}</span>
-        <span class="sk-bar"><i style="width:${(owned / path.length) * 100}%"></i></span>
+        <span class="sk-bar"><i style="width:${(owned / Math.max(1, reachable)) * 100}%"></i></span>
       </header>
       <div class="sk-path">${nodes}</div>
     </section>`;
   }).join("");
-  return `<div class="sk-top">${points ? `<span class="sk-points">✨ <b>${points}</b> skill point${points === 1 ? "" : "s"} to spend</span>` : '<span class="muted">No skill points — they come with every level</span>'}<span class="muted">Each subject's skills open as its grade climbs from D to S</span></div>
+  return `<div class="sk-top">${points ? `<span class="sk-points">✨ <b>${points}</b> skill point${points === 1 ? "" : "s"} to spend</span>` : '<span class="muted">No skill points — they come with every level</span>'}<span class="muted">${c.role === "student" && c.favorite ? `Skills open as a grade climbs — ★ ${SUBJECT_LABEL[c.favorite]} up to S, ☆ ${SUBJECT_LABEL[c.secondary]} up to A, the rest up to B` : "Each subject's skills open as its grade climbs from D to S"}</span></div>
     <div class="sk-grid">${cols}</div>`;
 }
 
@@ -4918,6 +4926,7 @@ export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
           <div class="cc2-tags">
             <span class="cc2-role">${isTeacher ? "🎓 Teacher" : `🎒 Student · Lv ${level}`}</span>
             ${statusTag(c, state)}
+            ${!isTeacher && c.favorite ? `<span class="cc2-focus" ${tipAttr({ title: "★ Favourite and ☆ second subject", rows: [[`★ ${SUBJECT_LABEL[c.favorite]}`, "up to S"], [`☆ ${SUBJECT_LABEL[c.secondary]}`, "up to A"], ["Everything else", "up to B"]], notes: ["Picked when they arrived — their talents and best grades"] })}>★ ${SUBJECT_LABEL[c.favorite]} <i>☆ ${SUBJECT_LABEL[c.secondary]}</i></span>` : ""}
             ${!isTeacher && points ? `<button class="cc2-points" data-action="set-card-tab" data-tab="skills">✨ ${points} skill point${points === 1 ? "" : "s"}</button>` : ""}
           </div>
           ${traits ? `<div class="cc2-traits">${traits}</div>` : ""}
