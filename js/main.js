@@ -1449,6 +1449,12 @@ root.addEventListener("click", (e) => {
         }
       }
       break;
+    case "auto-equip": {
+      const n = G.autoEquip(state, el.dataset.id);
+      flash(n ? `🎒 Equipped ${n} item${n === 1 ? "" : "s"}` : "Nothing better in the Armory for them");
+      render();
+      break;
+    }
     case "open-card":
       e.preventDefault(); // stop a click inside a <label> from also toggling its checkbox
       closeMissionModal();

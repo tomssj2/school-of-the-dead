@@ -4670,178 +4670,171 @@ function formatBonuses(bonuses) {
   return Object.entries(bonuses).map(([k, v]) => `+${v} ${k}`).join("  ") || "no bonus";
 }
 
+// ---------- the character card ----------
+// A banner of the room they're in (lit like every other scene) with them standing in it, their
+// name, role and talents beside them; a strip of what matters at a glance (level, fight power, HP,
+// stamina — or a teacher's specialty and post); then the tabs: their stats as six cards, their
+// gear as six slots with Auto-equip, and their skill tree, laid out like the Research tree.
+
+const STAT_PIXEL = { STR: "arm", DEX: "acrobat", CON: "heart", INT: "research", WIS: "dr_spotter", CHA: "word_of_mouth" };
+const STAT_COLOR = { STR: "#e8735a", DEX: "#5cc48a", CON: "#e8678c", INT: "#6fa8ff", WIS: "#b48cff", CHA: "#f4c542" };
+
+// The room a character is in today (or works in), as a banner kind — the cafeteria if nowhere,
+// the Headmaster's office for a teacher with no post.
+function cardScene(state, c) {
+  const lv = (key) => `${key}@${roomLevel(state, key)}`;
+  const classroom = (id) => {
+    const room = state.rooms.classrooms[id];
+    return `${room?.subject ? `classroom_${room.subject}` : "classroom_empty"}@${room?.level || 1}`;
+  };
+  const post = c.role === "teacher" ? c.post || "" : "";
+  if (c.infection || c.infirmaryToday || post === "infirmary") return lv("infirmary");
+  if (post.startsWith("classroom:")) return classroom(post.split(":")[1]);
+  if (post === "gym:PE" || c.gymToday === "PE") return lv("gym");
+  if (post === "gym:Gymnastics" || c.gymToday === "Gymnastics") return lv("acrobatics");
+  if (post === "radio" || c.radioToday) return `radio@${Math.max(1, radioStage(state))}`;
+  if (post === "research" || c.researchToday) return lv("research");
+  if (post === "crafting" || c.craftingToday) return lv("crafting");
+  if (post === "cafeteria" || c.restToday) return lv("cafeteria");
+  if (c.seat) return classroom(c.seat.room);
+  if (c.farmToday) return `farm@${sceneLevel(state, "farm")}`;
+  if (c.scrapyardToday) return `scrapyard@${sceneLevel(state, "scrapyard")}`;
+  return c.role === "teacher" ? "headmaster" : lv("cafeteria");
+}
+
+// ----- Stats: six cards, one a stat — its grade, the value with gear, a bar, what it does -----
 function renderStatsTab(state, c) {
-  return c.role === "teacher" ? renderTeacherStatsTab(c) : renderStudentStatsTab(state, c);
-}
-
-function renderStudentStatsTab(state, c) {
-  const bestGrade = Math.max(...SUBJECTS.map((s) => c.grades[s]));
-  const gradeRows = SUBJECTS.map((s) => {
-    const val = c.grades[s];
-    const letter = gradeLetter(val);
+  const isTeacher = c.role === "teacher";
+  const best = Math.max(...SUBJECTS.map((s) => c.grades[s]));
+  const cards = SUBJECTS.map((s) => {
     const stat = STAT_OF_SUBJECT[s];
-    const gearBonus = equipmentBonus(c, stat);
-    const total = val + gearBonus;
-    const hasBonus = gearBonus > 0;
-    const isBest = val === bestGrade;
-    const bonusParts = [];
-    if (gearBonus) bonusParts.push(`+${gearBonus} from equipped gear`);
-    const tooltip = bonusParts.join(", ");
-    return `<div class="grade-row-v2 ${isBest ? "grade-row-best" : ""}">
-      <span class="gr-col gr-name" title="${stat}: ${esc(STAT_EFFECTS[stat])}">${isBest ? "🌟 " : ""}${SUBJECT_LABEL[s]}</span>
-      <span class="gr-sep">|</span>
-      <span class="gr-col gr-letter grade-letter-${letter}">${letter}</span>
-      <span class="gr-sep">|</span>
-      <span class="gr-col gr-stat ${hasBonus ? "gr-stat-bonus" : ""}" ${tooltip ? `title="${esc(tooltip)}"` : ""}>${stat}: ${total}</span>
-      <span class="gr-sep">|</span>
-      <div class="gr-bar"><div class="gr-bar-fill" style="width:${Math.min(100, total)}%"></div></div>
-    </div>`;
-  }).join("");
-  return `<div class="cc-section-label">Grades</div><div class="grade-list">${gradeRows}</div>
-    <p class="muted cc-grade-note">The letter grade reflects academic performance only. A highlighted number includes a
-    bonus from equipped gear — hover it to see the breakdown. Hover a subject to see what its stat does. The 🌟 marks their strongest stat.</p>`;
-}
-
-// Teachers don't have combat stats — their grades only matter as a teaching bonus for whatever
-// classroom they're assigned to. No numeric value or bar, just the letter and what it's worth.
-function renderTeacherStatsTab(c) {
-  const gradeRows = SUBJECTS.map((s) => {
     const val = c.grades[s];
     const letter = gradeLetter(val);
-    const specialty = s === c.teachSubject;
-    return `<div class="grade-row-v2 grade-row-v2-teacher">
-      <span class="gr-col gr-name">${specialty ? "🌟 " : ""}${SUBJECT_LABEL[s]}</span>
-      <span class="gr-sep">|</span>
-      <span class="gr-col gr-letter grade-letter-${letter}">${letter}</span>
-      <span class="gr-sep">|</span>
-      <span class="gr-teacher-bonus">Teaches: <b>+${teachingBonus(val)}</b> a day</span>
+    const gear = isTeacher ? 0 : equipmentBonus(c, stat);
+    const total = val + gear;
+    const star = isTeacher ? s === c.teachSubject : val === best;
+    const uses = STAT_GUIDE[stat] || [];
+    const tip = tipAttr({
+      title: `${pxe(STAT_PIXEL[stat])} ${STAT_LABEL[stat]} (${stat}) — ${SUBJECT_LABEL[s]}`,
+      rows: isTeacher ? [["Grade", letter], ["Teaches a day", `+${teachingBonus(val)}`]] : [["Grade", `${letter} · ${val}`], ...(gear ? [["From gear", `+${gear}`]] : []), ...uses.map(([what, where]) => [what, where, "tip-where"])],
+      notes: isTeacher ? [star ? "🌟 Their specialty — always their best grade" : "Posted to a classroom, every seated student learns this much a day, up to their grade"] : [star ? "★ Their best stat — the skill tree to focus on" : esc(STAT_EFFECTS[stat] || "")],
+    });
+    return `<div class="cs-card ${star ? "cs-best" : ""}" style="--stat:${STAT_COLOR[stat]}" ${tip}>
+      <div class="cs-head">
+        <span class="cs-icon">${pixelIcon(STAT_PIXEL[stat], 16)}</span>
+        <span class="cs-name"><b>${stat}</b><small>${SUBJECT_LABEL[s]}</small></span>
+        ${star ? `<span class="cs-star">${isTeacher ? "🌟" : "★"}</span>` : ""}
+        <span class="cs-grade grade-letter-${letter}">${letter}</span>
+      </div>
+      ${isTeacher
+        ? `<div class="cs-value"><b>+${teachingBonus(val)}</b><small>a day when teaching</small></div>`
+        : `<div class="cs-value"><b>${total}</b>${gear ? `<small class="cs-gear">+${gear} gear</small>` : "<small>/ 100</small>"}</div>
+           <div class="cs-bar"><i style="width:${Math.min(100, val)}%"></i>${gear ? `<i class="cs-bar-gear" style="width:${Math.min(100 - Math.min(100, val), gear)}%"></i>` : ""}</div>`}
+      ${isTeacher ? "" : `<div class="cs-uses">${uses.slice(0, 2).map(([what]) => `<span>${esc(what)}</span>`).join("")}</div>`}
     </div>`;
   }).join("");
-  return `<div class="cc-section-label">Grades &amp; Teaching Bonus</div><div class="grade-list">${gradeRows}</div>
-    <p class="muted cc-grade-note">🌟 = their specialty, always their best grade — every other grade is at least one rank lower. Assign them to a Floor 2 classroom and every
-    seated student gains that much of the subject a day, up to the teacher's own grade — or to the Gymnasium / Acrobatics to speed up training.</p>`;
+  return `<div class="cs-grid">${cards}</div>`;
 }
 
+// ----- Inventory: the six slots, what's in each (or a choice of what fits), the totals, Auto-equip -----
 function renderInventoryTab(state, c) {
   const eq = c.equipment || { meleeWeapon: null, rangedWeapon: null, armor: null, accessories: [null, null, null] };
-
-  const slotRow = (label, slotKey, item, allowedSlotType, category) => {
-    const options = state.armory.filter((it) => it.slot === allowedSlotType && (!category || it.category === category));
-    const itemHtml = item
-      ? `<div class="inv-item">
-          <span class="inv-item-icon">${itemIcon(item)}</span>
-          <span class="inv-item-name">${esc(item.name)}</span>
-          <span class="inv-item-bonus">${formatBonuses(item.bonuses)}</span>
-          ${weaponStatsLabel(item)}
-          <button class="btn-x" data-action="unequip-item" data-id="${c.id}" data-slot="${slotKey}">✕</button>
-        </div>`
-      : `<select data-action="equip-item" data-id="${c.id}" data-slot="${slotKey}">
-          <option value="">— empty —</option>
-          ${options
-            .map((it) => {
-              const ok = meetsItemRequirement(c, it);
-              const reqNote = it.requires && Object.keys(it.requires).length
-                ? ` [needs ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}+`).join(" ")}]`
-                : "";
-              return `<option value="${it.uid}" ${ok ? "" : "disabled"}>${ok ? "" : "🔒 "}${esc(it.name)} (${formatBonuses(it.bonuses)})${reqNote}</option>`;
-            })
-            .join("")}
-        </select>`;
-    return `<div class="inv-slot"><div class="inv-slot-label">${label}</div>${itemHtml}</div>`;
+  const slot = (label, icon, slotKey, item, type, category) => {
+    const options = state.armory.filter((it) => it.slot === type && (!category || it.category === category));
+    if (item) {
+      const stats = item.slot === "weapon" ? `<span class="ci-weapon">⚔ ${item.damage} · ${pxe("ruler")} ${item.range}</span>` : "";
+      return `<div class="ci-slot ci-full" ${tipAttr({ title: `${itemIcon(item)} ${esc(item.name)}`, rows: [...Object.entries(item.bonuses).map(([k, v]) => [k, `+${v}`]), ...(item.slot === "weapon" ? [["Damage", `${item.damage}`], ["Range", `${item.range}`]] : [])], notes: [`${label} · ✕ to put it back in the Armory`] })}>
+        <span class="ci-label">${icon} ${label}</span>
+        <span class="ci-icon">${itemIcon(item)}</span>
+        <span class="ci-name">${esc(item.name)}</span>
+        <span class="ci-bonus">${Object.entries(item.bonuses).map(([k, v]) => `<b>+${v}</b> ${k}`).join(" ")}</span>
+        ${stats}
+        <button class="ci-remove" data-action="unequip-item" data-id="${c.id}" data-slot="${slotKey}" title="Take it off">✕</button>
+      </div>`;
+    }
+    const usable = options.filter((it) => meetsItemRequirement(c, it));
+    return `<div class="ci-slot ci-empty">
+      <span class="ci-label">${icon} ${label}</span>
+      <span class="ci-icon ci-icon-empty">＋</span>
+      <select class="ci-select" data-action="equip-item" data-id="${c.id}" data-slot="${slotKey}" ${options.length ? "" : "disabled"}>
+        <option value="">${usable.length ? `Choose · ${usable.length} fit` : options.length ? "None they can hold" : "Nothing in the Armory"}</option>
+        ${options.map((it) => {
+          const ok = meetsItemRequirement(c, it);
+          const req = it.requires && Object.keys(it.requires).length ? ` · needs ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}`).join(" ")}` : "";
+          return `<option value="${it.uid}" ${ok ? "" : "disabled"}>${ok ? "" : "🔒 "}${esc(it.name)} (${formatBonuses(it.bonuses)})${ok ? "" : req}</option>`;
+        }).join("")}
+      </select>
+    </div>`;
   };
-
-  const rows = [
-    slotRow("Melee Weapon", "meleeWeapon", eq.meleeWeapon, "weapon", "melee"),
-    slotRow("Ranged Weapon", "rangedWeapon", eq.rangedWeapon, "weapon", "ranged"),
-    slotRow("Armor", "armor", eq.armor, "armor"),
-    slotRow("Accessory 1", "accessory0", eq.accessories[0], "accessory"),
-    slotRow("Accessory 2", "accessory1", eq.accessories[1], "accessory"),
-    slotRow("Accessory 3", "accessory2", eq.accessories[2], "accessory"),
+  const slots = [
+    slot("Melee", "🗡", "meleeWeapon", eq.meleeWeapon, "weapon", "melee"),
+    slot("Ranged", "🏹", "rangedWeapon", eq.rangedWeapon, "weapon", "ranged"),
+    slot("Armour", "🛡", "armor", eq.armor, "armor"),
+    ...[0, 1, 2].map((i) => slot(`Accessory ${i + 1}`, "💍", `accessory${i}`, eq.accessories[i], "accessory")),
   ].join("");
-
-  const allItems = [eq.meleeWeapon, eq.rangedWeapon, eq.armor, ...eq.accessories].filter(Boolean);
+  const items = [eq.meleeWeapon, eq.rangedWeapon, eq.armor, ...eq.accessories].filter(Boolean);
   const totals = {};
-  for (const it of allItems) for (const [k, v] of Object.entries(it.bonuses)) totals[k] = (totals[k] || 0) + v;
-  const totalStr = Object.keys(totals).length
-    ? Object.entries(totals).map(([k, v]) => `+${v} ${k}`).join("  ")
-    : "none equipped";
-
-  return `<div class="cc-section-label">Equipment</div>
-    <div class="inv-list">${rows}</div>
-    <div class="inv-total"><b>Total combat bonus:</b> ${totalStr}</div>`;
+  for (const it of items) for (const [k, v] of Object.entries(it.bonuses)) totals[k] = (totals[k] || 0) + v;
+  const spare = state.armory.length;
+  return `<div class="ci-grid">${slots}</div>
+    <div class="ci-foot">
+      <span class="ci-totals">${Object.keys(totals).length ? `Gear adds ${Object.entries(totals).map(([k, v]) => `<b>+${v}</b> ${k}`).join(" · ")}` : '<span class="muted">Nothing equipped yet</span>'}</span>
+      <span class="ci-power">⚔ Power <b>${fightPower(state, c).power}</b></span>
+      <button class="btn btn-primary ci-auto" data-action="auto-equip" data-id="${c.id}" ${spare ? "" : "disabled"} ${tipAttr({ title: "⚡ Auto-equip", notes: ["Puts the best gear from the Armory in every slot — the weapons and armour that raise their fight power most, the accessories with the biggest bonuses", "Only swaps when it's better; what comes off goes back in the Armory", `${spare} item${spare === 1 ? "" : "s"} in the Armory`] })}>⚡ Auto-equip</button>
+    </div>`;
 }
 
 function skillNodeStatus(c, subject, tier, path) {
   const key = `${subject}:${tier}`;
   if ((c.skills || []).includes(key)) return "owned";
-
   const gradeIdx = GRADE_TIERS.indexOf(gradeLetter(c.grades[subject]));
   const nodeIdx = GRADE_TIERS.indexOf(tier);
   if (gradeIdx < nodeIdx) return "locked-grade";
-
   const posInPath = path.findIndex((n) => n.tier === tier);
   if (posInPath > 0) {
     const prevKey = `${subject}:${path[posInPath - 1].tier}`;
     if (!(c.skills || []).includes(prevKey)) return "locked-order";
   }
-
   if (availableSkillPoints(c) <= 0) return "locked-points";
   return "buyable";
 }
 
-const SKILL_STATUS_REASON = {
-  owned: "Learned.",
-  "locked-grade": "Grade too low for this tier yet.",
-  "locked-order": "Learn the previous skill on this path first.",
-  "locked-points": "No skill points available.",
-  buyable: "Click to learn — costs 1 skill point.",
-};
-
-// Only shows a path's learned nodes plus whichever is next in line (buyable now, or eligible
-// but waiting on a skill point) — nodes still out of reach (grade too low, or the previous node
-// on the path not owned yet) stay hidden, collapsed into a single "+N more" indicator.
+// ----- Skills: a column a subject, like the Research tree — five skills from D to S, lit in the
+// subject's colour as they're learned, the next one glowing when there's a point to spend -----
 function renderSkillsTab(c) {
-  // their best subject (or subjects, if tied) gets a star: the tree to put their points into
   const best = Math.max(...SUBJECTS.map((s) => c.grades[s]));
-  const rows = SUBJECTS.map((s) => {
-    const top = c.grades[s] === best;
+  const points = availableSkillPoints(c);
+  const cols = SUBJECTS.map((s) => {
+    const stat = STAT_OF_SUBJECT[s];
     const letter = gradeLetter(c.grades[s]);
     const path = SKILL_TREE[s];
-    let hiddenCount = 0;
-    const nodes = path
-      .map((node) => {
-        const status = skillNodeStatus(c, s, node.tier, path);
-        if (status === "locked-grade" || status === "locked-order") {
-          hiddenCount++;
-          return "";
-        }
-        const cls =
-          status === "owned"
-            ? `skill-owned grade-letter-${node.tier}`
-            : status === "buyable"
-            ? "skill-buyable"
-            : "skill-locked";
-        const clickAttr = status === "buyable" ? `data-action="buy-skill" data-id="${c.id}" data-subject="${s}" data-tier="${node.tier}"` : "";
-        const title = `${node.name} (${node.tier}) — ${node.desc} +${Math.round(SKILL_EFFECTS[s].per * 100)}% ${SKILL_EFFECTS[s].what}. ${SKILL_STATUS_REASON[status]}`;
-        return `<button type="button" class="skill-node ${cls}" ${clickAttr} ${status === "buyable" ? "" : "disabled"} title="${esc(title)}">
-          <span class="skill-node-tier">${status === "owned" ? "✓" : node.tier}</span>
-          <span class="skill-node-name">${esc(node.name)}</span>
-        </button>`;
-      })
-      .join("");
-    const hiddenChip = hiddenCount
-      ? `<span class="skill-node skill-hidden" title="${hiddenCount} more skill${hiddenCount === 1 ? "" : "s"} on this path — raise the ${SUBJECT_LABEL[s]} grade and learn the one before it to reveal them">🔒 +${hiddenCount}</span>`
-      : "";
     const effect = SKILL_EFFECTS[s];
     const owned = (c.skills || []).filter((k) => k.startsWith(`${s}:`)).length;
-    return `<div class="skill-row ${top ? "skill-row-best" : ""}">
-      <div class="skill-subject">${top ? `<span class="skill-best" title="Their best subject (${STAT_OF_SUBJECT[s]} ${c.grades[s]}) — the tree to focus on">★</span>` : ""}${SUBJECT_LABEL[s]} <b class="grade-letter grade-letter-${letter}">${letter}</b>
-        <span class="skill-effect">each: +${Math.round(effect.per * 100)}% ${effect.what}${owned ? ` · now +${Math.round(effect.per * owned * 100)}%` : ""}</span></div>
-      <div class="skill-nodes">${nodes}${hiddenChip}</div>
-    </div>`;
+    const top = c.grades[s] === best;
+    const nodes = path.map((node, i) => {
+      const status = skillNodeStatus(c, s, node.tier, path);
+      const lit = status === "owned";
+      const why = status === "locked-grade" ? `Needs ${node.tier} in ${SUBJECT_LABEL[s]}` : status === "locked-order" ? `After ${path[i - 1].name}` : status === "locked-points" ? "Needs a skill point" : status === "buyable" ? "Click to learn · 1 point" : "Learned";
+      const tip = tipAttr({ title: `${node.name} · ${node.tier}`, rows: [["Effect", `+${Math.round(effect.per * 100)}% ${effect.what}`]], notes: [esc(node.desc), why] });
+      return `${i ? `<i class="sk-link ${lit ? "lit" : ""}"></i>` : ""}<button type="button" class="sk-node sk-${status}" ${status === "buyable" ? `data-action="buy-skill" data-id="${c.id}" data-subject="${s}" data-tier="${node.tier}"` : "disabled"} ${tip}>
+        <span class="sk-tier grade-letter-${node.tier}">${lit ? "✓" : node.tier}</span>
+        <span class="sk-name">${esc(node.name)}</span>
+        <span class="sk-why">${lit ? `+${Math.round(effect.per * 100)}%` : status === "buyable" ? "Learn" : status === "locked-points" ? "No points" : status === "locked-grade" ? `needs ${node.tier}` : "🔒"}</span>
+      </button>`;
+    }).join("");
+    return `<section class="sk-col ${top ? "sk-col-best" : ""}" style="--stat:${STAT_COLOR[stat]}">
+      <header class="sk-head" ${tipAttr({ title: `${pxe(STAT_PIXEL[stat])} ${SUBJECT_LABEL[s]} (${stat})`, rows: [["Each skill", `+${Math.round(effect.per * 100)}% ${effect.what}`], ["Learned", `${owned}/${path.length}${owned ? ` · +${Math.round(effect.per * owned * 100)}% now` : ""}`]], notes: [top ? "★ Their best subject — the tree to focus on" : "A skill opens once their grade reaches its letter"] })}>
+        <span class="sk-icon">${pixelIcon(STAT_PIXEL[stat], 16)}</span>
+        <b class="sk-stat">${stat}${top ? ' <span class="sk-best">★</span>' : ""}</b>
+        <span class="sk-grade grade-letter-${letter}">${letter}</span>
+        <span class="sk-effect">+${Math.round(effect.per * 100)}% ${effect.what}</span>
+        <span class="sk-bar"><i style="width:${(owned / path.length) * 100}%"></i></span>
+      </header>
+      <div class="sk-path">${nodes}</div>
+    </section>`;
   }).join("");
-  return `<div class="cc-section-label">Skill Tree</div>
-    <div class="skills-list">${rows}</div>`;
+  return `<div class="sk-top">${points ? `<span class="sk-points">✨ <b>${points}</b> skill point${points === 1 ? "" : "s"} to spend</span>` : '<span class="muted">No skill points — they come with every level</span>'}<span class="muted">Each subject's skills open as its grade climbs from D to S</span></div>
+    <div class="sk-grid">${cols}</div>`;
 }
 
 // Under a student's card when promoting them from the Headmaster's Office: yes, no, or keep them
@@ -4876,68 +4869,65 @@ function recruitConfirm(c) {
 }
 
 export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
-  const sprite = characterSprite(c, 150);
   const isTeacher = c.role === "teacher";
   const points = availableSkillPoints(c);
+  const level = overallLevel(c);
+  const maxed = level >= STUDENT_MAX_LEVEL;
+  const traits = (c.traits || []).map((tid) => TRAITS.find((t) => t.id === tid)).filter(Boolean)
+    .map((t) => `<span class="cc2-trait" ${tipAttr({ title: `${t.icon} ${esc(t.name)}`, notes: [esc(t.desc)] })}>${t.icon} ${esc(t.name)}</span>`).join("");
 
-  const traitBadges = (c.traits || [])
-    .map((tid) => TRAITS.find((t) => t.id === tid))
-    .filter(Boolean)
-    .map((t) => `<span class="trait-pill" title="${esc(t.desc)}">${t.icon} ${esc(t.name)}</span>`)
-    .join("");
+  // the strip under the banner
+  const tile = (label, value, extra = "", tip = null, cls = "") => `<div class="cc2-tile ${cls}" ${tip ? tipAttr(tip) : ""}><span class="cc2-tile-label">${label}</span><span class="cc2-tile-value">${value}</span>${extra}</div>`;
+  const strip = isTeacher
+    ? [
+      tile("Specialty", `🌟 ${SUBJECT_LABEL[c.teachSubject]} <b class="grade-letter-${gradeLetter(c.grades[c.teachSubject])}">${gradeLetter(c.grades[c.teachSubject])}</b>`),
+      tile("Teaches", `+${teachingBonus(c.grades[c.teachSubject])} a day`, "", { title: "📖 Teaching", notes: ["Each seated student learns this much of the subject a day, up to the teacher's own grade"] }),
+      tile("Post", esc(occupationLabel(state, c)), "", null, "cc2-tile-wide"),
+    ].join("")
+    : [
+      tile("Level", maxed ? "MAX" : `${level}`, maxed ? "" : `<span class="cc2-xp"><i style="width:${Math.round(((c.exp || 0) / xpToNextLevel(level)) * 100)}%"></i></span>`, levelTip(c)),
+      tile("Power", `⚔ ${fightPower(state, c).power}`, "", { title: "⚔ Fight power", notes: ["Damage a round × what it takes to put them down (HP, armour, dodging), square-rooted", "Gear and healing raise it"] }),
+      tile("HP", hpBar(c), "", null, "cc2-tile-bar"),
+      tile("Stamina", staminaBar(c), "", null, "cc2-tile-bar"),
+      tile("Doing", esc(occupationLabel(state, c)), "", null, "cc2-tile-wide"),
+    ].join("");
 
-  // Teachers don't train, equip gear or level up — their card is just their
-  // grades and teaching bonuses, with no tabs at all.
-  const TABS = [["stats", "📊 Stats"], ["inventory", "🧳 Inventory"], ["skills", "🌳 Skills"]];
-  const tabBar = isTeacher ? "" : `<div class="cc-tabs">${TABS.map(
-    ([id, label]) => `<button class="cc-tab-btn ${cardTab === id ? "active" : ""}" data-action="set-card-tab" data-tab="${id}">${label}</button>`
-  ).join("")}</div>`;
+  const TABS = isTeacher ? [] : [["stats", "📊 Stats"], ["inventory", "🧳 Inventory"], ["skills", `🌳 Skills${points ? ` <b class="cc2-tab-badge">${points}</b>` : ""}`]];
+  const tab = isTeacher ? "stats" : TABS.some(([id]) => id === cardTab) ? cardTab : "stats";
+  const tabBar = TABS.length ? `<div class="cc2-tabs">${TABS.map(([id, label]) => `<button class="cc2-tab ${tab === id ? "on" : ""}" data-action="set-card-tab" data-tab="${id}">${label}</button>`).join("")}</div>` : "";
+  const body = tab === "inventory" ? renderInventoryTab(state, c) : tab === "skills" ? renderSkillsTab(c) : renderStatsTab(state, c);
 
-  let body;
-  if (isTeacher) body = renderStatsTab(state, c);
-  else if (cardTab === "inventory") body = renderInventoryTab(state, c);
-  else if (cardTab === "skills") body = renderSkillsTab(c);
-  else body = renderStatsTab(state, c);
-
-  const topStatFirst = isTeacher
-    ? `<div class="cc-stat-box"><span class="cc-label">Teaches</span><span class="cc-value">🌟 ${SUBJECT_LABEL[c.teachSubject]}</span></div>`
-    : `<div class="cc-stat-box" ${tipAttr(levelTip(c))}><span class="cc-label">Level</span><span class="cc-value">${overallLevel(c) >= STUDENT_MAX_LEVEL ? "MAX" : overallLevel(c)}</span>${overallLevel(c) >= STUDENT_MAX_LEVEL ? "" : `<span class="xp-bar"><i style="width:${Math.round(((c.exp || 0) / xpToNextLevel(overallLevel(c))) * 100)}%"></i></span>`}</div>`;
+  const inRoster = state.characters.includes(c);
+  const footer = [
+    !isTeacher && c.neverPromote ? `<span class="cc2-kept">🚫 Staying a student <button class="btn btn-sm" data-action="allow-promote" data-id="${c.id}">Allow promotion</button></span>` : "",
+    !isTeacher && c.alive && inRoster ? `<button class="btn btn-sm btn-danger" data-action="expel" data-id="${c.id}" title="Send them away from the school for good">🚪 Expel</button>` : "",
+  ].filter(Boolean).join("");
 
   return `
   <div class="modal-overlay" data-action="close-card">
-    <div class="char-card ${confirm ? "cc-with-confirm" : ""}" data-action="noop">
-      <button class="cc-close" data-action="close-card" title="Close">✕</button>
-      <div class="cc-left">
-        <div class="cc-sprite-wrap ${!c.alive ? "cc-dead" : ""}">
-          ${sprite}
-          <button class="cc-reroll-btn" data-action="reroll-portrait" data-id="${c.id}" title="Randomize appearance">🎲</button>
-          <button class="cc-rename-btn" data-action="rename-char" data-id="${c.id}" title="Rename">✏️</button>
+    <div class="cc2 ${c.alive ? "" : "cc2-dead"} ${c.legendary ? "cc2-legendary" : ""}" data-action="noop">
+      <div class="cc2-banner" style="background-image:linear-gradient(90deg, rgba(10, 12, 18, 0) 30%, rgba(10, 12, 18, 0.82) 62%), ${sceneBackground(cardScene(state, c))}">
+        <div class="cc2-figure">
+          <span class="cc2-shadow"></span>
+          ${characterSprite(c, 120)}
+          <button class="cc2-mini cc2-reroll" data-action="reroll-portrait" data-id="${c.id}" title="New look">🎲</button>
+          <button class="cc2-mini cc2-rename" data-action="rename-char" data-id="${c.id}" title="Rename">✏️</button>
         </div>
-        <div class="cc-name">${c.legendary ? "✨ " : ""}${esc(c.name)}</div>
-        <div class="cc-role-row">
-          <span class="cc-role-tag">${isTeacher ? "🎓 Teacher" : "🧳 Student"}</span>
-          ${statusTag(c)}
+        <div class="cc2-who">
+          <h3 class="cc2-name">${c.legendary ? "✨ " : ""}${esc(c.name)}</h3>
+          <div class="cc2-tags">
+            <span class="cc2-role">${isTeacher ? "🎓 Teacher" : `🎒 Student · Lv ${level}`}</span>
+            ${statusTag(c, state)}
+            ${!isTeacher && points ? `<button class="cc2-points" data-action="set-card-tab" data-tab="skills">✨ ${points} skill point${points === 1 ? "" : "s"}</button>` : ""}
+          </div>
+          ${traits ? `<div class="cc2-traits">${traits}</div>` : ""}
         </div>
-        ${!isTeacher ? `<div class="cc-skillpoints ${points > 0 ? "has-points" : ""}" title="Earned 1 per level, spent on the Skills tab">
-          ✨ ${points} skill point${points === 1 ? "" : "s"}
-        </div>` : ""}
-        ${traitBadges && !isTeacher ? `<div class="cc-section-label cc-talents-label">Talents</div><div class="cc-traits">${traitBadges}</div>` : ""}
-        ${!isTeacher && c.neverPromote ? `<div class="cc-kept">🚫 Staying a student <button class="btn btn-sm" data-action="allow-promote" data-id="${c.id}">Allow promotion</button></div>` : ""}
-        ${!isTeacher && c.alive && state.characters.includes(c) ? `<button class="btn btn-sm btn-danger cc-expel" data-action="expel" data-id="${c.id}" title="Send them away from the school for good">🚪 Expel</button>` : ""}
+        <button class="cc-close cc2-close" data-action="close-card" title="Close">✕</button>
       </div>
-      <div class="cc-right">
-        <div class="cc-top-stats">
-          ${topStatFirst}
-          <div class="cc-stat-box"><span class="cc-label">Sex</span><span class="cc-value">${c.gender === "F" ? "Female" : "Male"}</span></div>
-          <div class="cc-stat-box"><span class="cc-label">Occupation</span><span class="cc-value cc-occupation">${esc(occupationLabel(state, c))}</span></div>
-        </div>
-        ${c.role === "teacher" ? "" : `<div class="cc-top-stats">
-          <div class="cc-stat-box cc-hp-box"><span class="cc-label">HP</span>${hpBar(c)}</div>
-          <div class="cc-stat-box cc-hp-box"><span class="cc-label">Stamina</span>${staminaBar(c)}</div>
-        </div>`}
-        ${tabBar}
-        ${body}
-      </div>
+      <div class="cc2-strip ${isTeacher ? "cc2-strip-teacher" : ""}">${strip}</div>
+      ${tabBar}
+      <div class="cc2-body">${body}</div>
+      ${footer ? `<div class="cc2-footer">${footer}</div>` : ""}
       ${confirm === "promote" ? promoteConfirm(c) : confirm === "recruit" ? recruitConfirm(c) : ""}
     </div>
   </div>`;

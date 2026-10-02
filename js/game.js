@@ -3001,6 +3001,44 @@ export function statValue(c, statKey) {
   return subject ? c.grades[subject] : 0;
 }
 
+// Auto-equip: for each slot, the item from the Armory that does the most for them — weapons and
+// armour by their fight power (then the item's own damage and bonuses), accessories by their
+// bonuses — swapped in only when it beats what they have (an empty slot takes anything usable).
+// Returns how many slots changed.
+export function autoEquip(state, charId) {
+  const c = getChar(state, charId);
+  if (!c || c.role !== "student" || !c.alive) return 0;
+  c.equipment = c.equipment || { meleeWeapon: null, rangedWeapon: null, armor: null, accessories: [null, null, null] };
+  const bonusSum = (it) => (it ? Object.values(it.bonuses || {}).reduce((s, v) => s + v, 0) : -1);
+  let changes = 0;
+  for (const [slot, type, category] of [["meleeWeapon", "weapon", "melee"], ["rangedWeapon", "weapon", "ranged"], ["armor", "armor", null]]) {
+    const current = c.equipment[slot];
+    const score = (it) => {
+      c.equipment[slot] = it;
+      const s = fightPower(state, c).power * 1000 + (it?.damage || 0) * 10 + bonusSum(it);
+      c.equipment[slot] = current;
+      return s;
+    };
+    let best = null;
+    let bestScore = current ? score(current) : -Infinity;
+    for (const it of state.armory) {
+      if (it.slot !== type || (category && it.category !== category) || !meetsItemRequirement(c, it)) continue;
+      const s = score(it);
+      if (s > bestScore) [best, bestScore] = [it, s];
+    }
+    if (best && equipItem(state, c.id, slot, best.uid)) changes++;
+  }
+  for (let i = 0; i < 3; i++) {
+    const worst = [0, 1, 2].sort((a, b) => bonusSum(c.equipment.accessories[a]) - bonusSum(c.equipment.accessories[b]))[0];
+    const current = c.equipment.accessories[worst];
+    const best = state.armory.filter((it) => it.slot === "accessory" && meetsItemRequirement(c, it)).sort((a, b) => bonusSum(b) - bonusSum(a))[0];
+    if (!best || bonusSum(best) <= bonusSum(current)) break;
+    if (equipItem(state, c.id, `accessory${worst}`, best.uid)) changes++;
+    else break;
+  }
+  return changes;
+}
+
 export function meetsItemRequirement(c, item) {
   if (!item || !item.requires) return true;
   return Object.entries(item.requires).every(([stat, min]) => statValue(c, stat) >= min);
