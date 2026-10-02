@@ -8,7 +8,7 @@ import {
   NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_ROLES, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, RESEARCH_BONUS_BY_LEVEL, HELPER_SLOTS_BY_LEVEL, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
-  MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
+  MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, ROOM_FIGHT_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
   RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
 } from "./data.js";
@@ -20,6 +20,7 @@ import {
   getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, formationsFor, entranceFormations, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM,
 } from "./game.js";
 import {
@@ -602,30 +603,87 @@ function renderBoardedRoom(state, roomKey, scene, cls = "") {
   </div>`;
 }
 
-// ----- squad pickers (clear a room, burn a nest, raid a landmark) -----
-// One student as a tile: portrait, name and level, HP and stamina bars. Picked ones get a ✓ and
-// a blue outline; `reason` greys a tile out and says why (in place of the level).
+// ----- squad pickers (clear a room, burn a nest, raid a landmark, the chase, a facility raid) -----
+// One student as a tile: portrait, name, their fight power (game.js fightPower), HP and stamina
+// bars. Picked ones get a ✓ and a blue outline; `reason` greys a tile out and says why.
+const hasWeapon = (c) => !!(c.equipment?.meleeWeapon || c.equipment?.rangedWeapon);
 function squadTile(state, c, { picked = false, reason = null, action, cost = 0 }) {
   const pct = (a, b) => Math.max(0, Math.round((a / b) * 100));
+  const f = fightPower(state, c);
+  const eq = c.equipment || {};
+  const gear = [eq.meleeWeapon, eq.rangedWeapon, eq.armor].filter(Boolean).map((it) => `${it.icon} ${esc(it.name)}`);
   return `<button class="sq-tile ${picked ? "sq-on" : ""} ${reason ? "sq-off" : ""}" ${reason ? 'aria-disabled="true"' : `data-action="${action}" data-id="${c.id}"`} ${tipAttr({
     title: `${esc(c.name)} · Lv${overallLevel(c)}`,
-    rows: [["❤ HP", `${c.hp}/${c.maxHp}`], ["⚡ Stamina", `${c.stamina}/${c.maxStamina}${cost ? ` → ${Math.max(0, c.stamina - cost)}` : ""}`],
-      ["STR · DEX", `${effectiveGrade(state, c, "PE")} · ${effectiveGrade(state, c, "Gymnastics")}`]],
-    notes: [reason || (picked ? "Click to leave them behind" : "Click to take them")],
+    rows: [["⚔ Damage a round", `~${Math.round(f.perRound)} (${f.damage.toFixed(0)} × ${Math.round(f.hitChance * 100)}% to hit)`],
+      ["❤ HP", `${c.hp}/${c.maxHp}${f.armorMult < 1 ? ` · armour −${Math.round((1 - f.armorMult) * 100)}%` : ""}${f.dodge ? ` · dodges ${Math.round(f.dodge * 100)}%` : ""}`],
+      ["⚡ Stamina", `${c.stamina}/${c.maxStamina}${cost ? ` → ${Math.max(0, c.stamina - cost)}` : ""}`]],
+    total: ["Fight power", `${f.power}`],
+    notes: [gear.length ? gear.join(" · ") : "👊 No gear — equip them in the Armory", reason || (picked ? "Click to leave them behind" : "Click to take them")],
   })}>
     ${picked ? '<span class="sq-check">✓</span>' : ""}
     <span class="sq-sprite">${characterSprite(c, 34)}</span>
     <span class="sq-name">${esc(shortName(c))}</span>
-    <span class="sq-lv">${reason ? esc(reason) : `Lv${overallLevel(c)}`}</span>
+    <span class="sq-lv">${reason ? esc(reason) : `<b class="sq-power">⚔ ${f.power}</b>${hasWeapon(c) ? "" : ' <span class="sq-unarmed" title="No weapon">👊</span>'}`}</span>
     <span class="sq-bar sq-hp"><i style="width:${pct(c.hp, c.maxHp)}%"></i></span>
     <span class="sq-bar sq-stam"><i style="width:${pct(c.stamina, c.maxStamina)}%"></i></span>
   </button>`;
 }
-// The picked first, then whoever can go (strongest STR + DEX first), then whoever can't.
+// Strongest first (fight power), whoever can't go at the end; picking someone doesn't move them.
 function squadGrid(state, entries, opts) {
-  const rank = ({ c, picked, reason }) => (picked ? 0 : reason ? 2 : 1) * 1000 - (c.grades.PE + c.grades.Gymnastics) / 10;
+  const power = new Map(entries.map((e) => [e.c.id, fightPower(state, e.c).power]));
+  const rank = ({ c, picked, reason }) => (!picked && reason ? 100000 : 0) - power.get(c.id);
   const tiles = [...entries].sort((a, b) => rank(a) - rank(b)).map((e) => squadTile(state, e.c, { ...opts, ...e })).join("");
   return `<div class="sq-grid">${tiles || '<p class="muted">Nobody can go.</p>'}</div>`;
+}
+
+// The squad against what it's fighting: both sides' power on a tug-of-war bar, the chance to win
+// with the reason in plain words (and the sums behind it on hover), and a reminder about gear.
+// `enemy`: a packFight or bossFight; `rounds`: the fight's time limit; `armory`: offer the button.
+function fightOdds(state, squad, enemy, pct, { rounds = ROOM_FIGHT_MAX_ROUNDS, them = "Zombies", armory = true } = {}) {
+  const us = squadFight(state, squad, enemy, rounds);
+  const total = Math.max(1, us.power + enemy.power);
+  const cls = pct >= 70 ? "mission-good" : pct >= 40 ? "mission-ok" : "mission-bad";
+  const toKill = us.perRound ? Math.ceil(enemy.hp / us.perRound) : Infinity;
+  const toFall = enemy.perRound ? Math.ceil(us.toughness / enemy.perRound) : Infinity;
+  const r = (n) => (n === Infinity ? "∞" : `~${n}`);
+  const why = !squad.length ? "Pick who goes to see the odds."
+    : toKill > rounds ? `Not enough damage: ${r(toKill)} rounds to bring them down, and you only have ${rounds} — take more fighters, or arm them.`
+    : toFall < toKill ? `They'd wear your squad down in ${r(toFall)} rounds, before you finish them (${r(toKill)}) — take tougher or armoured fighters.`
+    : `You'd bring them down in ${r(toKill)} rounds — before they wear you down (${r(toFall)}) or time runs out (${rounds}).`;
+  const lead = us.mods ? Math.round((us.mods.damageDealt - 1) * 100) : 0;
+  const warn = us.mods ? Math.round((1 - us.mods.damageTaken) * 100) : 0;
+  const tip = tipAttr({
+    title: `⚔ ${pct}% to win`,
+    rows: [["Your squad deals", `${r(Math.round(us.perRound))} a round`], ["Their HP", `${enemy.hp} → ${r(toKill)} rounds`],
+      ["They deal", `${r(Math.round(enemy.perRound))} a round`], ["Your squad can take", `${Math.round(us.toughness)} → ${r(toFall)} rounds`], ["Time limit", `${rounds} rounds`]],
+    total: ["Won, of 120 fights played out", `${pct}%`],
+    notes: ["Power: damage a round × what it takes to put them down (HP, armour, dodging), square-rooted",
+      ...(lead ? [`+${lead}% damage — led by the most charismatic (CHA)`] : []), ...(warn ? [`−${warn}% damage taken — the most aware warns the rest (WIS)`] : []),
+      "Weapons add damage; armour and DEX make them harder to put down"],
+  });
+  // the gear reminder: who's going in bare-handed or without armour, and what's lying in the Armory
+  const unarmed = squad.filter((c) => !hasWeapon(c)).length;
+  const unarmoured = squad.filter((c) => !c.equipment?.armor).length;
+  const spareWeapons = state.armory.filter((it) => it.slot === "weapon").length;
+  const spareArmour = state.armory.filter((it) => it.slot === "armor").length;
+  const gearNotes = [
+    unarmed ? `⚠ ${unarmed} going in bare-handed${spareWeapons ? ` — ${spareWeapons} weapon${spareWeapons === 1 ? "" : "s"} in the Armory` : ""}` : "",
+    unarmoured && spareArmour ? `🛡 ${unarmoured} without armour — ${spareArmour} in the Armory` : "",
+  ].filter(Boolean);
+  const gear = !squad.length
+    ? `<div class="fo-gear muted">🎒 Equip weapons and armour in the Armory before the fight — they add to everyone's power</div>`
+    : gearNotes.length
+    ? `<div class="fo-gear">${gearNotes.map((t) => `<span>${t}</span>`).join("")}${armory && (spareWeapons || spareArmour) ? '<button class="btn btn-sm" data-action="squad-armory">🎒 Equip them in the Armory</button>' : ""}</div>`
+    : `<div class="fo-gear fo-gear-ok">✓ Everyone's armed${unarmoured ? "" : " and armoured"}</div>`;
+  return `<div class="fo">
+    <div class="fo-bar">
+      <span class="fo-side fo-us">⚔ Your squad <b>${us.power}</b></span>
+      <span class="fo-track"><i class="fo-fill-us" style="width:${squad.length ? (us.power / total) * 100 : 0}%"></i><i class="fo-fill-them"></i></span>
+      <span class="fo-side fo-them"><b>${enemy.power}</b> ${esc(them)} 🧟</span>
+    </div>
+    ${squad.length ? `<div class="mission-success ${cls} fo-verdict" ${tip}><b>${pct}% to win</b> · ${why}</div>` : `<div class="mission-success mission-bad fo-verdict">${why}</div>`}
+    ${gear}
+  </div>`;
 }
 const BOARDED_SCENE = (roomKey) => (roomKey.startsWith("classroom:") ? "classroom_empty" : roomKey);
 
@@ -652,9 +710,7 @@ export function renderClearRoomModal(state, clear) {
     rows: [["Squad", `up to ${ROOM_FIGHT_SQUAD}`], ["Stamina", `${ROOM_FIGHT_STAMINA} each`], ["If they win", `${b.cost} scrap boards it up`]],
     notes: ["Lose and they fall back — nothing spent", "Nobody dies in here: anyone who goes down is dragged out"],
   };
-  const verdict = squad.length
-    ? `<div class="mission-success ${pct >= 70 ? "mission-good" : pct >= 40 ? "mission-ok" : "mission-bad"}">Chance to clear it: <b>${pct}%</b></div>`
-    : `<div class="mission-success mission-bad">Pick who goes in.</div>`;
+  const verdict = fightOdds(state, squad, packFight(roomFightZombies(clear.roomKey)), pct);
   return `<div class="modal-overlay" data-action="close-clear-room">
     <div class="char-card mission-card sq-card" data-action="noop">
       <button class="cc-close" data-action="close-clear-room" title="Close">✕</button>
@@ -1829,9 +1885,9 @@ export function renderNestModal(state, nest) {
       <div class="scout-report-tile hex-nest">${hexTile(hexTileKey(q, r))}<span class="hex-badge hex-badge-nest">🧟 Nest</span></div>
       <h3>${pxe("nest")} Zombie Nest — ${TERRAIN_NAMES[hexTerrain(q, r)]}</h3>
       <p class="muted">While it's here, scouting next to it is more dangerous and locations beside it are riskier to raid. Send up to ${NEST_CLEAR_MAX} students (${NEST_CLEAR_STAMINA} stamina each) to burn it out — win and there's scrap, maybe gear, in the pile.</p>
-      ${squad.length ? `<div class="mission-success ${pct >= 60 ? "mission-good" : pct >= 35 ? "mission-ok" : "mission-bad"}">Chance to clear it: <b>${pct}%</b></div>` : ""}
-      <div class="mini-label">Squad (${squad.length}/${NEST_CLEAR_MAX})</div>
+      <div class="mini-label">Squad (${squad.length}/${NEST_CLEAR_MAX}) · 🧟 ${nestZombies(state).length} zombies inside</div>
       ${squadGrid(state, entries, { action: "nest-toggle", cost: NEST_CLEAR_STAMINA })}
+      ${fightOdds(state, squad, packFight(nestZombies(state)), pct)}
       <div class="row-actions">
         <button class="btn btn-sm" data-action="close-nest">Not now</button>
         <button class="btn btn-primary" data-action="attack-nest" ${squad.length ? "" : "disabled"}>🔥 Burn it out</button>
@@ -1896,16 +1952,11 @@ export function renderRaidModal(state, landmarkId) {
           : null;
         return { c, picked: onSquad, reason };
       });
-    let verdict = `<p class="muted">Pick at least ${lm.minTeam} students to see how the fight might go.</p>`;
-    if (squad.length) {
-      const est = raidEstimate(state, lm, squad);
-      const cls = est.rounds <= RAID_MAX_ROUNDS * 0.7 ? "mission-good" : est.rounds <= RAID_MAX_ROUNDS ? "mission-ok" : "mission-bad";
-      const say = est.rounds <= RAID_MAX_ROUNDS * 0.7 ? "should bring it down with time to spare" : est.rounds <= RAID_MAX_ROUNDS ? "a close fight — it could go either way" : "not enough firepower — they'd have to retreat";
-      verdict = `<div class="mission-success ${cls}">~${est.perRound} damage a round → about ${est.rounds === Infinity ? "∞" : est.rounds} of ${RAID_MAX_ROUNDS} rounds: <b>${say}</b>${squad.length < lm.minTeam ? ` · needs ${lm.minTeam - squad.length} more` : ""}</div>`;
-    }
-    body = `${verdict}
-      <div class="mini-label">Raid squad (${squad.length}/${RAID_MAX_TEAM})</div>
+    const verdict = fightOdds(state, squad, bossFight(boss), Math.round(bossFightOdds(state, boss, squad) * 100), { rounds: RAID_MAX_ROUNDS, them: boss.name })
+      + (squad.length && squad.length < lm.minTeam ? `<div class="mission-success mission-bad">Needs ${lm.minTeam - squad.length} more to go at all (at least ${lm.minTeam})</div>` : "");
+    body = `<div class="mini-label">Raid squad (${squad.length}/${RAID_MAX_TEAM})</div>
       ${squadGrid(state, entries, { action: "raid-toggle" })}
+      ${verdict}
       <p class="muted">The raid launches with the day's expeditions. Anyone who goes down is patched up with ${MEDICINE_PER_STABILIZE} medicine if you have it — otherwise they might not make it.</p>
       <div class="row-actions">
         <button class="btn btn-danger btn-sm" data-action="clear-raid">Call off</button>
@@ -2933,19 +2984,8 @@ function renderFacilityRaidPanel(state) {
   const available = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
   const defenders = available.filter((c) => state.raidDefenders.includes(c.id));
   const pct = Math.round(facilityRaidChance(state, defenders) * 100);
-  const chips = available
-    .sort((a, b) => (b.grades.PE + b.grades.Gymnastics) - (a.grades.PE + a.grades.Gymnastics))
-    .map((c) => {
-      const on = state.raidDefenders.includes(c.id);
-      return `<button class="nw-chip ${on ? "nw-chip-on" : ""} ${c.injured ? "nw-chip-hurt" : ""}" data-action="raid-defender-toggle" data-id="${c.id}" title="${esc(c.name)} — ${on ? "click to leave them home" : "click to send them"}">
-        <span class="nw-chip-sprite">${characterSprite(c, 22)}</span>
-        <span class="nw-chip-name">${esc(shortName(c))}</span>
-        <span class="nw-chip-stats">💪${effectiveGrade(state, c, "PE")} 🤸${effectiveGrade(state, c, "Gymnastics")}</span>
-        <span class="nw-chip-gear">${on ? "✓" : ""}</span>
-      </button>`;
-    })
-    .join("");
-  const raiders = ["walker", "runner", "walker", "brute", "walker"].map((t, i) => `<span class="fr-raider" style="--i:${i}">${hordeSprite(t, 34)}</span>`).join("");
+  const entries = available.map((c) => ({ c, picked: state.raidDefenders.includes(c.id), reason: null }));
+  const raiders = facilityRaiders(state).map((z, i) => `<span class="fr-raider" style="--i:${i}">${hordeSprite(z.type, 34)}</span>`).join("");
   return `
   <div class="card fr-card">
     <div class="room-scene fr-banner" style="background-image:${sceneBackground(`${facility}@${roomLevel(state, facility)}`)}">
@@ -2953,11 +2993,11 @@ function renderFacilityRaidPanel(state) {
       <div class="scene-top"><div class="scene-plaque">${FACILITY_ICON[facility]} The ${FACILITY_LABEL[facility]} is under attack!</div></div>
     </div>
     <div class="stat-row farm-pill">
-      <span class="stat-pill">🧟 Part of the horde broke off ${infoDot({ title: "🧟 A raid on the " + FACILITY_LABEL[facility], notes: ["Strong (STR) and quick (DEX) students drive them off", "If they get through, a worker slot is broken until it's repaired", ...(facility === "farm" ? ["…and every field and pen starts over"] : [])] })}</span>
-      <span class="${pct >= 60 ? "farm-ready-ok" : pct >= 35 ? "farm-ready-short" : "plot-warn"}"><b>${pct}%</b> to drive them off</span>
+      <span class="stat-pill">🧟 ${facilityRaiders(state).length} broke off from the horde ${infoDot({ title: "🧟 A raid on the " + FACILITY_LABEL[facility], notes: ["Send students to fight them off — fought out like clearing a room", "If they get through, a worker slot is broken until it's repaired", ...(facility === "farm" ? ["…and every field and pen starts over"] : [])] })}</span>
       <span class="mini-label">Sending (${defenders.length})</span>
     </div>
-    <div class="nw-roster fr-roster">${chips || '<p class="muted">Nobody available.</p>'}</div>
+    ${squadGrid(state, entries, { action: "raid-defender-toggle" })}
+    ${fightOdds(state, defenders, packFight(facilityRaiders(state)), pct, { them: "Raiders" })}
     <button class="btn btn-primary btn-big" data-action="resolve-raid">⚔ Drive them off</button>
   </div>`;
 }
@@ -2982,27 +3022,8 @@ export function renderAssaultModal(state, pick) {
   const leader = assaultLeader(state);
   const candidates = assaultCandidates(state);
   const squad = candidates.filter((c) => pick.has(c.id));
-  const chips = candidates.map((c) => {
-    const role = EXPLORE_ROLES[exploreRole(c)];
-    return `<button class="nw-chip ${pick.has(c.id) ? "nw-chip-on" : ""}" data-action="assault-toggle" data-id="${c.id}" title="${esc(c.name)} — HP ${c.hp}/${c.maxHp}${pick.has(c.id) ? " · click to leave them home" : " · click to take them"}">
-      <span class="nw-chip-sprite">${characterSprite(c, 22)}</span>
-      <span class="nw-chip-name">${role.icon} ${esc(shortName(c))}</span>
-      <span class="nw-chip-stats">❤ ${c.hp}/${c.maxHp}</span>
-      <span class="nw-chip-gear">${pick.has(c.id) ? "✓" : ""}</span>
-    </button>`;
-  }).join("");
-  let verdict = `<div class="mission-success mission-bad">Pick who goes.</div>`;
-  if (squad.length) {
-    const est = assaultEstimate(state, squad);
-    const cls = est.rounds <= RAID_MAX_ROUNDS * 0.7 ? "mission-good" : est.rounds <= RAID_MAX_ROUNDS ? "mission-ok" : "mission-bad";
-    const say = est.rounds <= RAID_MAX_ROUNDS * 0.7 ? "should bring it down" : est.rounds <= RAID_MAX_ROUNDS ? "a close fight" : "not enough firepower";
-    verdict = `<div class="mission-success ${cls}" ${tipAttr({
-      title: `⚔ ${squad.length} against ${esc(leader.name)}`,
-      rows: [["Damage a round", `~${est.perRound}`], [`${esc(leader.name)}'s HP`, `${leader.hp}`]],
-      total: ["Rounds to bring it down", `${est.rounds === Infinity ? "∞" : est.rounds} of ${RAID_MAX_ROUNDS}`],
-      notes: ["Anyone who goes down is dragged back by the others — hurt, but alive"],
-    })}>~${est.perRound} a round → ${est.rounds === Infinity ? "∞" : est.rounds} of ${RAID_MAX_ROUNDS} rounds: <b>${say}</b></div>`;
-  }
+  const entries = candidates.map((c) => ({ c, picked: pick.has(c.id), reason: null }));
+  const verdict = fightOdds(state, squad, bossFight(leader), Math.round(bossFightOdds(state, leader, squad) * 100), { rounds: RAID_MAX_ROUNDS, them: leader.name, armory: false });
   return `
   <div class="modal-overlay" data-action="noop">
     <div class="char-card mission-card as-card" data-action="noop">
@@ -3016,7 +3037,7 @@ export function renderAssaultModal(state, pick) {
         <span class="legend-text">🙋 ${Math.round(LEGENDARY_CHANCE * 100)}% legendary survivor</span>
       </div>
       <div class="mini-label">The squad (${squad.length}) — tonight's defenders still standing</div>
-      <div class="nw-roster as-squad">${chips || '<p class="muted">Nobody is fit to go.</p>'}</div>
+      ${squadGrid(state, entries, { action: "assault-toggle" })}
       ${verdict}
       <div class="row-actions">
         <button class="btn btn-sm" data-action="assault-decline">🏠 Let them go</button>

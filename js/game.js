@@ -276,11 +276,25 @@ function roomZombies(roomKey) {
   });
 }
 
+// A pack out on the streets (a nest, the zombies raiding a facility): `types` from ZOMBIE_TYPES,
+// a little tougher every day (PACK_ZOMBIE).
+export function dayZombies(state, types) {
+  return types.map((type) => {
+    const T = ZOMBIE_TYPES[type];
+    const hp = Math.round((PACK_ZOMBIE.hp + state.day * PACK_ZOMBIE.hpPerDay) * T.hpMult);
+    return { type, look: type === "brute" ? "jersey" : "walker", hp, maxHp: hp, dmg: Math.max(1, Math.round((PACK_ZOMBIE.damage + state.day * PACK_ZOMBIE.damagePerDay) * T.dmgMult)) };
+  });
+}
+const PACK_ZOMBIE = { hp: 16, hpPerDay: 0.35, damage: 5, damagePerDay: 0.12 };
+export const nestZombies = (state) => dayZombies(state, ["walker", "walker", "walker"]);
+export const facilityRaiders = (state) => dayZombies(state, ["walker", "runner", "walker", "walker", "walker"]);
+
 // Pure: plays a fight out without touching the state (used for the odds, and for the real thing).
-function simulateRoomFight(state, squad, roomKey) {
+// `zombies` is a room's (roomZombies) or a pack's (dayZombies).
+function simulateRoomFight(state, squad, roomKey, zombieList = null) {
   const mods = squadModifiers(state, squad);
   const fighters = squad.map((c) => ({ id: c.id, hp: c.hp, down: false, ...raidAttack(state, c) }));
-  const zombies = roomZombies(roomKey);
+  const zombies = (zombieList || roomZombies(roomKey)).map((z) => ({ ...z }));
   const snapshot = (extra) => ({ zHp: zombies.map((z) => Math.max(0, z.hp)), hp: fighters.map((f) => f.hp), hits: [], zHits: [], ...extra });
   const frames = [snapshot({ text: `The squad pushes the door open. ${zombies.length} zombies turn toward them.` })];
   for (let round = 1; round <= ROOM_FIGHT_MAX_ROUNDS; round++) {
@@ -330,8 +344,59 @@ function simulateRoomFight(state, squad, roomKey) {
 // Rough win chance for the squad picker (plays the fight out a few times).
 export function roomFightOdds(state, roomKey, squad, trials = 120) {
   if (!squad.length || !BOARDED_ROOMS[roomKey]) return 0;
+  return packFightOdds(state, roomZombies(roomKey), squad, trials);
+}
+export function packFightOdds(state, zombies, squad, trials = 120) {
+  if (!squad.length) return 0;
   let wins = 0;
-  for (let i = 0; i < trials; i++) if (simulateRoomFight(state, squad, roomKey).won) wins++;
+  for (let i = 0; i < trials; i++) if (simulateRoomFight(state, squad, null, zombies).won) wins++;
+  return wins / trials;
+}
+export const roomFightZombies = (roomKey) => roomZombies(roomKey);
+
+// ---------- fight power ----------
+// How strong someone is in a squad fight, as one number: what they deal a round (damage × the
+// chance to hit) against what it takes to put them down (HP through their armour and dodging) —
+// the square root of the two multiplied, so doubling either counts the same and two equal fighters
+// are twice one. The other side is measured the same way, so the two can be set side by side.
+export function fightPower(state, c) {
+  const a = raidAttack(state, c);
+  const perRound = a.damage * a.hitChance;
+  const toughness = Math.max(1, c.hp) / Math.max(0.2, a.armorMult) / Math.max(0.2, 1 - a.dodge);
+  return { ...a, perRound, toughness, power: Math.round(Math.sqrt(perRound * toughness)) };
+}
+// `against` (a packFight or bossFight) measures the squad against that enemy: a fight has a time
+// limit (`rounds`), so toughness beyond what it takes to last that long doesn't count.
+export function squadFight(state, squad, against = null, rounds = ROOM_FIGHT_MAX_ROUNDS) {
+  if (!squad.length) return { perRound: 0, toughness: 0, power: 0, mods: null };
+  const mods = squadModifiers(state, squad);
+  let perRound = 0;
+  let toughness = 0;
+  for (const c of squad) {
+    const f = fightPower(state, c);
+    perRound += f.perRound;
+    toughness += f.toughness;
+  }
+  perRound *= mods.damageDealt;
+  toughness /= mods.damageTaken;
+  const counted = against ? Math.min(toughness, against.perRound * rounds) : toughness;
+  return { perRound, toughness, counted, power: Math.round(Math.sqrt(perRound * counted)), mods };
+}
+// A pack of zombies ({ hp, dmg } each, hitting ZOMBIE_HIT_CHANCE of the time), or one big one
+// ({ hp, damage, attacks } — a raid boss or the horde's leader, a little worse once it's berserk).
+export function packFight(zombies) {
+  const perRound = zombies.reduce((s, z) => s + z.dmg * ZOMBIE_HIT_CHANCE, 0);
+  const hp = zombies.reduce((s, z) => s + z.hp, 0);
+  return { perRound, hp, power: Math.round(Math.sqrt(perRound * hp)) };
+}
+export function bossFight(boss) {
+  const perRound = boss.damage * boss.attacks * 1.15;
+  return { perRound, hp: boss.hp, power: Math.round(Math.sqrt(perRound * boss.hp)) };
+}
+export function bossFightOdds(state, boss, squad, trials = 120) {
+  if (!squad.length) return 0;
+  let wins = 0;
+  for (let i = 0; i < trials; i++) if (simulateBossFight(state, boss, squad).won) wins++;
   return wins / trials;
 }
 
@@ -2464,7 +2529,7 @@ export function resolveFacilityRaid(state) {
   const raid = state.pendingRaid;
   if (!raid) return;
   const defenders = state.raidDefenders.map((id) => getChar(state, id)).filter((c) => c && c.alive);
-  const success = Math.random() < facilityRaidChance(state, defenders);
+  const success = defenders.length > 0 && simulateRoomFight(state, defenders, null, facilityRaiders(state)).won;
   const room = state.rooms[raid.facility];
 
   if (success) {
@@ -2597,12 +2662,10 @@ export function resolveAssault(state, chase, squadIds = null) {
   return report;
 }
 
-// A facility raid's odds with these defenders (see resolveFacilityRaid).
+// A facility raid's odds with these defenders (see resolveFacilityRaid): fought out like a room
+// against the raiders (facilityRaiders); with nobody sent, they walk in.
 export function facilityRaidChance(state, defenders) {
-  const power = defenders.length
-    ? defenders.reduce((sum, c) => sum + (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2, 0) / defenders.length
-    : 0;
-  return clamp01(0.25 + (power - 40) / 100) * (defenders.length ? 1 : 0.1);
+  return defenders.length ? packFightOdds(state, facilityRaiders(state), defenders) : 0;
 }
 
 // ---------- turn advance / reset ----------
@@ -3294,12 +3357,9 @@ export function collectDrop(state, studentId, q, r) {
   return { ambushed: false, encountered, drop: { ...drop, text } };
 }
 
-const squadPower = (state, squad) =>
-  squad.reduce((sum, c) => sum + (effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2, 0) / squad.length;
-
+// A nest is fought out like a room (nestZombies, as strong as tonight's horde).
 export function nestClearChance(state, squad) {
-  if (!squad.length) return 0;
-  return clamp01(0.25 + (squadPower(state, squad) - 45) / 100 + 0.15 * (squad.length - 1));
+  return packFightOdds(state, nestZombies(state), squad);
 }
 
 // A small squad (up to NEST_CLEAR_MAX) burns out a nest on the spot. Win: the nest is gone, with
@@ -3311,7 +3371,7 @@ export function clearNest(state, q, r, ids) {
     .filter((c) => c && c.alive && !c.infection && c.role === "student" && c.stamina >= NEST_CLEAR_STAMINA)
     .slice(0, NEST_CLEAR_MAX);
   if (!squad.length) return null;
-  const won = Math.random() < nestClearChance(state, squad);
+  const won = simulateRoomFight(state, squad, null, nestZombies(state)).won;
   for (const c of squad) c.stamina -= NEST_CLEAR_STAMINA;
   const names = squad.map((c) => c.name.split(" ")[0]).join(", ");
   if (won) {

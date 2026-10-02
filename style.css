@@ -3420,3 +3420,22 @@ html[data-gfx="low"] .hud { background: #20252f; border-bottom: 2px solid var(--
 .tt-locked { opacity: 0.45; }
 .tt-locked .tt-icon { filter: grayscale(1); }
 html[data-gfx="low"] .tt-ready, html[data-gfx="medium"] .tt-ready { animation: none; }
+
+/* ----- a fight's odds in the squad pickers (ui.js fightOdds): the two sides' power on a
+   tug-of-war bar, the chance and why, and a reminder about gear ----- */
+.sq-power { color: #e6e9ef; font-weight: 700; }
+.sq-unarmed { font-size: 10px; }
+.fo { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px; }
+.fo-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; font-size: 12.5px; }
+.fo-side { white-space: nowrap; color: var(--muted); }
+.fo-side b { font-size: 15px; }
+.fo-us b { color: #9cc2ff; }
+.fo-them b { color: #ff8a8a; }
+.fo-track { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: rgba(214, 69, 69, 0.55); }
+.fo-fill-us { display: block; height: 100%; background: var(--bar-other); border-right: 2px solid #10141c; transition: width 0.25s; }
+.fo-fill-them { flex: 1; }
+.fo-verdict { margin: 0; line-height: 1.4; cursor: help; }
+.fo-gear { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12.5px; color: #ff9f43; }
+.fo-gear .btn { margin-left: auto; }
+.fo-gear.muted { color: var(--muted); }
+.fo-gear-ok { color: #7fe0a8; }

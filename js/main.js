@@ -1269,6 +1269,15 @@ root.addEventListener("click", (e) => {
       G.setFarmToday(state, el.dataset.id, false);
       render();
       break;
+    // a squad picker's "Equip them in the Armory": close the picker (its squad is kept where it's
+    // kept in the state) and go and arm them
+    case "squad-armory":
+      clearRoom = null;
+      openNest = null;
+      openRaid = null;
+      activeTab = "armory";
+      render();
+      break;
     case "resolve-raid":
       G.resolveFacilityRaid(state);
       render();
