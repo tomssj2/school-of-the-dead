@@ -4518,6 +4518,16 @@ export const rosterDefaultDir = (key) => (ROSTER_TEXT_KEYS.includes(key) ? "asc"
 const rosterLocation = (state, c) => (c.role === "teacher" ? occupationLabel(state, c) : c.seat ? roomDisplayName(state, c.seat.room) : "Unassigned");
 
 // `filter`: "student", "teacher", or "skills" (students with skill points to spend).
+// Full rows (a big portrait) or compact ones (just their face, thinner bars) — the player's pick,
+// remembered in this browser.
+const ROSTER_DENSITY_KEY = "sotd-roster-density";
+function rosterCompact() {
+  try { return localStorage.getItem(ROSTER_DENSITY_KEY) === "compact"; } catch { return false; }
+}
+export function setRosterDensity(density) {
+  try { localStorage.setItem(ROSTER_DENSITY_KEY, density); } catch {}
+}
+
 export function renderRoster(state, filter = "student", sortKey = "name", sortDir = "asc") {
   if (!["teacher", "skills"].includes(filter)) filter = "student";
   const teachersView = filter === "teacher";
@@ -4526,6 +4536,7 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
   // "Show deceased" only appears when someone in this view has died.
   const anyDead = !skillsView && state.characters.some((c) => !c.alive && c.role === role);
   const showDead = anyDead && window.__showDead;
+  const compact = rosterCompact();
   const columns = [
     ["name", "Name"], ["sex", "Sex"],
     ...(teachersView ? [["teaches", "Teaches"]] : [["level", "Lvl"], ["power", "Power"], ["gear", "Gear"], ...(skillsView ? [["points", "Skill pts"]] : []), ["hp", "HP"], ["stamina", "Stamina"]]),
@@ -4617,13 +4628,14 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
     <div class="ov-head roster-head">
       <div class="ov-head-left roster-filters">
         ${filterBar}
+        <div class="roster-density" title="How much room each row takes">${[["full", "▤ Full"], ["compact", "☰ Compact"]].map(([id, label]) => `<button class="${(compact ? "compact" : "full") === id ? "on" : ""}" data-action="set-roster-density" data-density="${id}">${label}</button>`).join("")}</div>
         ${anyDead ? `<label class="check-row"><input type="checkbox" data-action="toggle-show-dead" ${showDead ? "checked" : ""}/> Show deceased</label>` : ""}
       </div>
       <h2>Roster</h2>
       <div class="ov-head-right roster-warnings">${(teachersView ? teacherWarnings : warnings) || '<span class="ov-chip ov-chip-ok">✓ Nothing to do here</span>'}</div>
     </div>
     <div class="table-wrap">
-      <table class="roster-table">
+      <table class="roster-table ${compact ? "roster-compact" : ""}">
         <thead><tr>${head}</tr></thead>
         <tbody>${rows || `<tr><td colspan="${columns.length}" class="muted">${skillsView ? "✓ Nobody has skill points to spend." : "Nobody here."}</td></tr>`}</tbody>
       </table>

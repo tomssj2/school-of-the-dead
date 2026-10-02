@@ -1,6 +1,6 @@
 import * as G from "./game.js";
 import { WORLD_W, WORLD_H } from "./citymap.js";
-import { rosterDefaultDir } from "./ui.js";
+import { rosterDefaultDir, setRosterDensity } from "./ui.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
@@ -1217,6 +1217,10 @@ root.addEventListener("click", (e) => {
       break;
     case "set-roster-filter":
       rosterFilter = el.dataset.filter;
+      render();
+      break;
+    case "set-roster-density":
+      setRosterDensity(el.dataset.density);
       render();
       break;
     case "resolve-turn":
