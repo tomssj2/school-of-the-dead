@@ -4782,7 +4782,10 @@ const SKILL_STATUS_REASON = {
 // but waiting on a skill point) — nodes still out of reach (grade too low, or the previous node
 // on the path not owned yet) stay hidden, collapsed into a single "+N more" indicator.
 function renderSkillsTab(c) {
+  // their best subject (or subjects, if tied) gets a star: the tree to put their points into
+  const best = Math.max(...SUBJECTS.map((s) => c.grades[s]));
   const rows = SUBJECTS.map((s) => {
+    const top = c.grades[s] === best;
     const letter = gradeLetter(c.grades[s]);
     const path = SKILL_TREE[s];
     let hiddenCount = 0;
@@ -4812,8 +4815,8 @@ function renderSkillsTab(c) {
       : "";
     const effect = SKILL_EFFECTS[s];
     const owned = (c.skills || []).filter((k) => k.startsWith(`${s}:`)).length;
-    return `<div class="skill-row">
-      <div class="skill-subject">${SUBJECT_LABEL[s]} <b class="grade-letter grade-letter-${letter}">${letter}</b>
+    return `<div class="skill-row ${top ? "skill-row-best" : ""}">
+      <div class="skill-subject">${top ? `<span class="skill-best" title="Their best subject (${STAT_OF_SUBJECT[s]} ${c.grades[s]}) — the tree to focus on">★</span>` : ""}${SUBJECT_LABEL[s]} <b class="grade-letter grade-letter-${letter}">${letter}</b>
         <span class="skill-effect">each: +${Math.round(effect.per * 100)}% ${effect.what}${owned ? ` · now +${Math.round(effect.per * owned * 100)}%` : ""}</span></div>
       <div class="skill-nodes">${nodes}${hiddenChip}</div>
     </div>`;
