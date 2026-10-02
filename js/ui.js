@@ -4555,8 +4555,8 @@ function rosterSortValue(c, key, state) {
 // Clicking a column sorts by it — numbers biggest first, words A–Z — and clicking it again flips it.
 const ROSTER_TEXT_KEYS = ["name", "sex", "teaches", "status", "assignment"];
 export const rosterDefaultDir = (key) => (ROSTER_TEXT_KEYS.includes(key) ? "asc" : "desc");
-// Teachers: their post by name; students: their classroom.
-const rosterLocation = (state, c) => (c.role === "teacher" ? occupationLabel(state, c) : c.seat ? roomDisplayName(state, c.seat.room) : "Unassigned");
+// Teachers: their post by name; students: their classroom, or today's other Turn 1 job.
+const rosterLocation = (state, c) => (c.role === "teacher" ? occupationLabel(state, c) : c.seat ? roomDisplayName(state, c.seat.room) : turnOneJob(state, c) || "Unassigned");
 
 // `filter`: "student", "teacher", or "skills" (students with skill points to spend).
 // Full rows (a big portrait) or compact ones (just their face, thinner bars) — the player's pick,
@@ -4580,13 +4580,13 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
   const compact = rosterCompact();
   const columns = [
     ["name", "Name"], ["sex", "Sex"],
-    ...(teachersView ? [["teaches", "Teaches"]] : [["level", "Lvl"], ["power", "Power"], ["gear", "Gear"], ...(skillsView ? [["points", "Skill pts"]] : []), ["hp", "HP"], ["stamina", "Stamina"]]),
+    ...(teachersView ? [["teaches", "Teaches"]] : [["level", "Lvl"], ["power", "Power"], ["gear", "Gear"], ["points", "Skill pts"], ["hp", "HP"], ["stamina", "Stamina"]]),
     ["status", "Status"], ["assignment", "Assignment"],
     ...SUBJECTS.map((s) => [STAT_OF_SUBJECT[s], STAT_OF_SUBJECT[s]]),
   ];
   const keys = [...columns.map(([k]) => k).filter(Boolean), ...ROSTER_SORT_FIELDS.map((f) => f.key), ...(teachersView ? ["posted"] : [])];
   const studentOnly = ["level", "power", "gear", "hp", "stamina", "points"];
-  const effectiveSortKey = keys.includes(sortKey) && !(teachersView && studentOnly.includes(sortKey)) && !(!teachersView && sortKey === "teaches") && (skillsView || sortKey !== "points") ? sortKey : "name";
+  const effectiveSortKey = keys.includes(sortKey) && !(teachersView && studentOnly.includes(sortKey)) && !(!teachersView && sortKey === "teaches") ? sortKey : "name";
   const list = state.characters
     .filter((c) => (showDead || c.alive) && c.role === role && (!skillsView || availableSkillPoints(c) > 0))
     .sort((a, b) => {
@@ -4603,7 +4603,7 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
         <td>${c.gender}</td>
         <td>${teachersView ? `🌟 ${SUBJECT_LABEL[c.teachSubject]}` : overallLevel(c)}</td>
         ${teachersView ? "" : `<td><span class="roster-power" ${tipAttr({ title: "⚔ Fight power", notes: ["Damage a round × what it takes to put them down (HP, armour, dodging), square-rooted", "Weapons and armour raise it — so does healing them"] })}>⚔ ${fightPower(state, c).power}</span></td><td>${gearPill(c)}</td>`}
-        ${skillsView ? `<td><button class="skill-pill" data-action="open-card" data-id="${c.id}" data-card-tab="skills" title="${points} skill point${points === 1 ? "" : "s"} to spend — open their skill tree">🌳 ${points}</button></td>` : ""}
+        ${teachersView ? "" : `<td>${points ? `<button class="skill-pill" data-action="open-card" data-id="${c.id}" data-card-tab="skills" title="${points} skill point${points === 1 ? "" : "s"} to spend — open their skill tree">🌳 ${points}</button>` : `<button class="skill-pill skill-pill-none" data-action="open-card" data-id="${c.id}" data-card-tab="skills" title="No skill points to spend — open their skill tree">🌳 0</button>`}</td>`}
         ${teachersView ? "" : `<td>${hpBar(c)}</td><td>${staminaBar(c)}</td>`}
         <td>${statusTag(c, state)}</td>
         <td>${esc(rosterLocation(state, c))}</td>

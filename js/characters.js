@@ -1,5 +1,5 @@
 import {
-  SUBJECTS, MALE_NAMES, FEMALE_NAMES, LAST_NAMES, GRADE_TIERS, GRADE_RANGES,
+  SUBJECTS, MALE_NAMES, FEMALE_NAMES, LAST_NAMES, GRADE_TIERS, GRADE_RANGES, SKILL_TREE,
   STUDENT_TIER_WEIGHTS, TEACHER_SECONDARY_TIERS, TEACHER_SECONDARY_WEIGHTS, TRAITS,
   STAT_OF_SUBJECT, TEACH_BONUS_BY_TIER, ITEM_TEMPLATES, STARTER_ARMORY_IDS, CLASSROOM_SUBJECTS,
   LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING, NAME_PART_MAX,
@@ -165,6 +165,16 @@ export function gradeCap(c, subject) {
   return subject === c.favorite ? STUDENT_CAPS.favorite : subject === c.secondary ? STUDENT_CAPS.secondary : STUDENT_CAPS.other;
 }
 export const gradeCapLetter = (c, subject) => gradeLetter(gradeCap(c, subject));
+// Every student arrives at level 1 with that level's skill point already spent: the first skill
+// (D) of their favourite subject — or, if that grade isn't a D yet, of their best subject that is.
+export function giveFirstSkill(c) {
+  if (!c || c.role !== "student") return;
+  const first = (s) => SKILL_TREE[s]?.[0];
+  const opens = (s) => first(s) && GRADE_TIERS.indexOf(gradeLetter(c.grades[s])) >= GRADE_TIERS.indexOf(first(s).tier);
+  const subject = opens(c.favorite) ? c.favorite : [...SUBJECTS].sort((a, b) => c.grades[b] - c.grades[a]).find(opens);
+  c.skills = subject ? [`${subject}:${first(subject).tier}`] : [];
+}
+
 export function assignStudentFocus(c) {
   if (!c || c.role !== "student") return;
   const talents = (c.traits || []).map((id) => TRAITS.find((t) => t.id === id)?.subject).filter(Boolean);
@@ -314,8 +324,9 @@ export function makeCharacter(role, gender) {
     defending: false, // this turn's defense assignment (students only)
     log: [],
   };
-  // a student's favourite and second subjects (their grade caps)
+  // a student's favourite and second subjects (their grade caps), and their first skill
   assignStudentFocus(c);
+  giveFirstSkill(c);
   c.maxHp = c.hp = maxHpFor(c.grades);
   c.maxStamina = c.stamina = maxStaminaFor(c);
   return c;
@@ -331,8 +342,8 @@ export function makeLegendaryCharacter(role, gender) {
   const c = makeCharacter(role, gender);
   for (const s of SUBJECTS) c.grades[s] = bumpTier(c.grades[s]);
   assignStudentFocus(c); // (the bump may have pushed a grade past its cap)
+  giveFirstSkill(c); // (and may have changed their favourite)
   c.legendary = true;
-  if (role === "student") c.level = 5; // a legendary survivor arrives seasoned
   capTeacherGrades(c); // a legendary teacher's specialty is S, the rest A at most
   c.maxHp = maxHpFor(c.grades);
   c.hp = c.maxHp;
