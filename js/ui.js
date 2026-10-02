@@ -3119,7 +3119,29 @@ function recoveryEntry(c, reason, icon, label, now, max, gain) {
   };
 }
 
+// Turn 1 jobs can overlap — a student can sit in a class and still be sent to the Gym, the Research
+// Room and so on — so in those pickers anyone already doing something else today is `occupied`:
+// still assignable, but never recommended, and marked so it's plain they're taken.
+const TURN_ONE_PICKERS = ["classroom-seat", "gym-student", "research-student", "crafting-student", "radio-student", "cafeteria-rest", "infirmary-student"];
+function turnOneJob(state, c) {
+  if (c.gymToday) return `Training in ${GYM_SIDES[c.gymToday].ref}`;
+  if (c.researchToday) return "In the Research Room";
+  if (c.craftingToday) return "In the Crafting Room";
+  if (c.radioToday) return "At the Radio Station";
+  if (c.restToday) return "Resting in the Cafeteria";
+  if (c.infirmaryToday) return "In the Nurse's Office";
+  return null;
+}
 function resolvePickerCandidates(state, picker) {
+  const res = pickerCandidates(state, picker);
+  if (!TURN_ONE_PICKERS.includes(picker.kind)) return res;
+  for (const x of res.list) {
+    if (x.reason) continue;
+    x.occupied = picker.kind === "classroom-seat" ? turnOneJob(state, x.c) : x.c.seat ? `In class — ${roomDisplayName(state, x.c.seat.room)}` : null;
+  }
+  return res;
+}
+function pickerCandidates(state, picker) {
   const { kind, roomId, postKey } = picker;
   const teacherRow = (c, exceptPost) => ({ c, reason: teacherBusyLabel(state, c, exceptPost) });
   const studentRow = (c, exceptFlag, extraReason) => ({ c, reason: studentBusyLabel(c, exceptFlag) || (extraReason ? extraReason(c) : null) });
@@ -3260,21 +3282,22 @@ const PICKER_RECOMMENDED = 3;
 // One person in a picker: their portrait on the left; their name, level and stats in the middle;
 // Assign on the right, with what this job would do for them underneath (when the picker knows).
 // Someone busy shows why instead; someone `maxed` (nothing to gain here) gets a greyed-out Assign.
-function pickerRow({ c, reason, note, hint, maxed, maxedWhy }, role, focus, recommended) {
+function pickerRow({ c, reason, note, hint, maxed, maxedWhy, occupied }, role, focus, recommended) {
   const action = reason
     ? `<span class="tag tag-injured">${esc(reason)}</span>`
     : maxed
     ? `<button class="btn btn-sm btn-primary" disabled title="${esc(maxedWhy || maxed)}">✓ Assign</button>
        <span class="pk-gain pk-gain-max" title="${esc(maxedWhy || maxed)}">${esc(maxed)}</span>`
     : `<button class="btn btn-sm btn-primary" data-action="confirm-picker" data-id="${c.id}">✓ Assign</button>${hint || ""}`;
-  return `<div class="picker-row pk-row ${reason ? "picker-row-disabled" : maxed ? "pk-maxed" : ""} ${recommended ? "pk-rec" : ""}">
+  const busy = occupied && !reason ? `<span class="pk-occupied-tag" title="Already doing this today — assigning them here too is allowed">⚠ ${esc(occupied)}</span>` : "";
+  return `<div class="picker-row pk-row ${reason ? "picker-row-disabled" : maxed ? "pk-maxed" : ""} ${busy ? "pk-occupied" : ""} ${recommended ? "pk-rec" : ""}">
     <span class="pk-portrait">${characterSprite(c, 34)}</span>
     <div class="pk-mid">
       <div class="pk-name">${nameTag(c, { icon: false })}${role === "student" ? `<span class="muted">Lv ${overallLevel(c)}</span>` : ""}</div>
       ${statChips(c, focus)}
       ${note || ""}
     </div>
-    <div class="pk-action">${action}</div>
+    <div class="pk-action">${busy}${action}</div>
   </div>`;
 }
 
@@ -3284,8 +3307,9 @@ export function renderPickerModal(state, picker, sortKey, sortDir, recMode = "lo
   const fields = role === "student" ? STUDENT_SORT_FIELDS : TEACHER_SORT_FIELDS;
   const effectiveSortKey = fields.some((f) => f.key === sortKey) ? sortKey : fields[0].key;
 
-  // selectable first, then busy, then those with nothing to gain here
-  const rank = (x) => (x.maxed ? 2 : x.reason ? 1 : 0);
+  // selectable first, then those already doing something else today, then busy, then those with
+  // nothing to gain here
+  const rank = (x) => (x.maxed ? 3 : x.reason ? 2 : x.occupied ? 1 : 0);
   const sorted = [...list].sort((a, b) => {
     if (rank(a) !== rank(b)) return rank(a) - rank(b);
     const va = pickerSortValue(a.c, effectiveSortKey);
@@ -3294,7 +3318,7 @@ export function renderPickerModal(state, picker, sortKey, sortDir, recMode = "lo
   });
   // when the picker ranks people by a stat (`value`): the weakest in it first (most to learn) or
   // the strongest (to push a specialist further), then the lowest level
-  const ranked = list.filter((x) => !x.reason && !x.maxed && x.value != null);
+  const ranked = list.filter((x) => !x.reason && !x.maxed && !x.occupied && x.value != null);
   const recommended = ranked
     .sort((a, b) => (recMode === "high" ? b.value - a.value : a.value - b.value) || overallLevel(a.c) - overallLevel(b.c))
     .slice(0, PICKER_RECOMMENDED);

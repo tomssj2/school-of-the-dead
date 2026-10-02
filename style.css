@@ -3630,3 +3630,7 @@ html[data-gfx="medium"] .sk-buyable { animation: none; }
 .roster-compact .hpbar { height: 14px; }
 .roster-compact .hpbar span { font-size: 10.5px; }
 .roster-compact td.td-stat .chip { padding-top: 0; padding-bottom: 0; }
+
+/* a Turn 1 picker: someone already doing something else today — marked, and never recommended */
+.pk-occupied .pk-portrait, .pk-occupied .pk-mid { opacity: 0.55; }
+.pk-occupied-tag { max-width: 110px; padding: 1px 6px; border-radius: 5px; border: 1px solid rgba(255, 159, 67, 0.55); background: rgba(255, 159, 67, 0.12); color: #ff9f43; font-size: 10.5px; font-weight: 700; line-height: 1.25; text-align: center; }
