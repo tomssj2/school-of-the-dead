@@ -34,6 +34,7 @@ import { getBest, isBestRun } from "./score.js";
 import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZE } from "./graphics.js";
 import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
 import { isSoundEnabled } from "./sound.js";
+import { isMusicEnabled } from "./music.js";
 
 const TURN_NAMES = { 1: "Classes (Morning)", 2: "Exploration (Afternoon)", 3: "Defense (Night)" };
 
@@ -94,7 +95,7 @@ const SYMBOL_NAMES = {
   "👑": "z_boss", "🚨": "siren", "🌾": "wheat", "💪": "arm", "🤸": "acrobat", "🚫": "forbidden", "🎯": "na_focus",
   "📖": "classes", "🏆": "it_trophy", "🧱": "fortified_works", "🤝": "handshake", "🌫": "fog", "🩸": "blood", "🩹": "na_patch",
   "🐄": "cow", "🗡": "armory", "📏": "ruler", "🔧": "dr_engineer", "💡": "role_support", "💾": "floppy", "🔍": "magnifier",
-  "🎨": "palette", "🔊": "speaker", "🌧": "rain", "👥": "population", "🤮": "z_spitter", "📢": "z_screamer", "💨": "z_runner", "🔔": "na_rally",
+  "🎨": "palette", "🔊": "speaker", "🎵": "music", "🌧": "rain", "👥": "population", "🤮": "z_spitter", "📢": "z_screamer", "💨": "z_runner", "🔔": "na_rally",
   "😬": "face_grimace", "⚖": "scales", "🏠": "neighborhood", "🏥": "hospital", "🎩": "tophat", "📈": "trend_up",
   "📉": "trend_down", "🏹": "dr_marksman", "💍": "it_class_ring", "📰": "newspaper", "📊": "chart", "🌳": "tree", "✏": "pencil",
   "🛏": "bed", "🧠": "research", "🌑": "blackout", "🚧": "barricade", "🔺": "spikes", "🔗": "wire", "📶": "signal",
@@ -851,7 +852,11 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
           </div>
           <label class="options-item options-toggle">
             <input type="checkbox" data-action="toggle-sound" ${isSoundEnabled() ? "checked" : ""}/>
-            🔊 Sound
+            🔊 Sound effects
+          </label>
+          <label class="options-item options-toggle">
+            <input type="checkbox" data-action="toggle-music" ${isMusicEnabled() ? "checked" : ""}/>
+            🎵 Music
           </label>
         </div>
       </details>

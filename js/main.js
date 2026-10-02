@@ -10,6 +10,7 @@ import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeache
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
+import { setMusicMood, unlockMusic, setMusicEnabled } from "./music.js";
 import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp, armDefenders, fortifyEntrance } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
@@ -652,7 +653,23 @@ function render() {
   const newContent = root.querySelector(".content");
   if (newContent) newContent.scrollTop = contentScroll;
   fitCityMap();
+  setMusicMood(musicMood());
 }
+
+// What the music should be doing (music.js): the turn's own track — lofi in the morning, quicker in
+// the afternoon, tense at night — or a fight's, or something epic for a raid boss (or a boss night),
+// back to the turn's once a fight is over and its result is up; silence when the school has fallen.
+function musicMood() {
+  if (state.gameOver) return null;
+  if (raidFight?.phase === "battle") return raidFight.report.kind === "chase" ? "fight" : "boss";
+  if (battleAnimation?.kind === "grid" && battleAnimation.phase === "battle") return battleAnimation.b?.bossName ? "boss" : "fight";
+  if (roomFight?.phase === "battle" || skirmish) return "fight";
+  if (state.victory) return "morning";
+  return ["morning", "afternoon", "night"][state.turn - 1] || "morning";
+}
+// Browsers only allow sound after the player does something: the music starts on the first click
+// or key press.
+for (const kind of ["pointerdown", "keydown"]) document.addEventListener(kind, unlockMusic, { once: true, capture: true });
 
 // The exploration map and its side panel fill exactly the space left under the screen's header,
 // and the town inside is scaled to show the part that matters (the view the map asks for in
@@ -1939,6 +1956,11 @@ root.addEventListener("change", (e) => {
     case "toggle-sound": {
       setSoundEnabled(el.checked);
       if (el.checked) playSuccess();
+      render();
+      break;
+    }
+    case "toggle-music": {
+      setMusicEnabled(el.checked);
       render();
       break;
     }

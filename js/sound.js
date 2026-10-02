@@ -11,6 +11,8 @@ function getContext() {
   if (ctx.state === "suspended") ctx.resume();
   return ctx;
 }
+// The one AudioContext, shared with the music (music.js).
+export const audioContext = getContext;
 
 export function isSoundEnabled() {
   const v = localStorage.getItem(SOUND_KEY);
