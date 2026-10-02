@@ -7,7 +7,7 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
   renderEncounterModal, renderExpeditionSkirmish,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
-import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor, assignStudentFocus } from "./characters.js";
+import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor, assignStudentFocus, gradeCap } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled, setSoundVolume,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
@@ -181,6 +181,8 @@ function migrateState(s) {
     // every student has a favourite and a second subject, and grades held to them (older saves:
     // picked from what they're best at, and anything over its cap comes down to it)
     if (c.role === "student" && !c.favorite) assignStudentFocus(c);
+    // the caps follow the grade scale (F to 25, then 15 a letter) — lowered caps bring grades down too
+    if (c.role === "student") for (const s of SUBJECTS) c.grades[s] = Math.min(c.grades[s], gradeCap(c, s));
     if (c.stamina === undefined) c.stamina = maxStaminaFor(c);
     // Max stamina now grows with DEX + WIS (and Gym training) — recomputed on every load so it
     // always matches the grades.

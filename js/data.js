@@ -89,21 +89,21 @@ export const SKILL_EFFECTS = {
 };
 
 // Letter-grade tiers a numeric grade (0-100) falls into. F is the default/most common, S the
-// rarest and best. Ranges are contiguous and cover the full 0-100 scale.
+// rarest and best. F runs to 25, then every letter is 15 wide; contiguous over the full 0-100.
 export const GRADE_TIERS = ["F", "D", "C", "B", "A", "S"];
 export const GRADE_RANGES = {
-  F: [0, 34],
-  D: [35, 49],
-  C: [50, 64],
-  B: [65, 79],
-  A: [80, 94],
-  S: [95, 100],
+  F: [0, 25],
+  D: [26, 40],
+  C: [41, 55],
+  B: [56, 70],
+  A: [71, 85],
+  S: [86, 100],
 };
 
 // Spawn-roll weights for students, parallel to GRADE_TIERS (F..S): a new student is mostly F and D
-// with the odd C — B and up only through a talent (which bumps its subject a tier). That's ~32 a
-// stat on average, ~54 in their best, ~80 HP and ~65 stamina: weak at first, grown in class.
-export const STUDENT_TIER_WEIGHTS = [70, 25, 5, 0, 0, 0];
+// with some C — B and up only through a talent (which bumps its subject a tier). That's ~33 a
+// stat on average, ~52 in their best, ~80 HP and ~65 stamina: weak at first, grown in class.
+export const STUDENT_TIER_WEIGHTS = [40, 45, 15, 0, 0, 0];
 
 // Teachers are generated completely differently from students: they roll ONE specialty subject
 // at A rank (only legendary teachers reach S), and their other five subjects are randomized among
