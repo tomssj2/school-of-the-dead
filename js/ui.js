@@ -4514,6 +4514,7 @@ function rosterSortValue(c, key, state) {
   if (key === "hp") return c.role === "teacher" ? -1 : c.hp;
   if (key === "stamina") return c.role === "teacher" ? -1 : c.stamina;
   if (key === "points") return availableSkillPoints(c);
+  if (key === "posted") return c.post ? 1 : 0;
   if (key === "status") return statusTag(c, state).replace(/<[^>]+>/g, "").trim().toLowerCase();
   if (key === "assignment") return rosterLocation(state, c).toLowerCase();
   const subject = SUBJECTS.find((s) => STAT_OF_SUBJECT[s] === key);
@@ -4539,7 +4540,7 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
     ...(teachersView ? [["teaches", "Teaches"]] : [["level", "Lvl"], ["power", "Power"], ["gear", "Gear"], ...(skillsView ? [["points", "Skill pts"]] : []), ["hp", "HP"], ["stamina", "Stamina"]]),
     ["status", "Status"], ["assignment", "Assignment"], [null, "Stats"],
   ];
-  const keys = [...columns.map(([k]) => k).filter(Boolean), ...ROSTER_SORT_FIELDS.map((f) => f.key)];
+  const keys = [...columns.map(([k]) => k).filter(Boolean), ...ROSTER_SORT_FIELDS.map((f) => f.key), ...(teachersView ? ["posted"] : [])];
   const studentOnly = ["level", "power", "gear", "hp", "stamina", "points"];
   const effectiveSortKey = keys.includes(sortKey) && !(teachersView && studentOnly.includes(sortKey)) && !(!teachersView && sortKey === "teaches") && (skillsView || sortKey !== "points") ? sortKey : "name";
   const list = state.characters
@@ -4590,6 +4591,11 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
     unspent.length ? `<button class="ov-chip ov-chip-bad ${skillsView ? "ov-chip-on" : ""}" data-action="set-roster-filter" data-filter="${skillsView ? "student" : "skills"}" ${tipAttr({ title: `🌳 ${plural(points, "skill point")} to spend`, notes: [`${plural(unspent.length, "student")} with points waiting`, skillsView ? "Click to show everyone again" : "Click to list them — a click on their 🌳 opens their skill tree"] })}>🌳 <b>${points}</b> skill point${points === 1 ? "" : "s"} · ${plural(unspent.length, "student")}</button>` : "",
     gearShort ? `<button class="ov-chip ov-chip-bad" data-action="roster-gear-check" ${tipAttr({ title: "🎒 Spare gear in the Armory", rows: [["Weapons", `${spareWeapons} spare · ${unarmed} unarmed`], ["Armour", `${spareArmour} spare · ${unarmoured} without`], ["Accessories", `${spareOther} spare`]], notes: ["Click to sort by gear, the least equipped first", "Click a Gear badge to open their inventory"] })}>🎒 <b>${state.armory.length}</b> spare item${state.armory.length === 1 ? "" : "s"}${unarmed && spareWeapons ? ` · ${unarmed} unarmed` : ""}</button>` : "",
   ].filter(Boolean).join("");
+  // ...and for the teachers: who has no post
+  const idle = state.characters.filter((c) => c.alive && c.role === "teacher" && !c.infection && !c.post);
+  const teacherWarnings = idle.length
+    ? `<button class="ov-chip ov-chip-bad" data-action="roster-unassigned" ${tipAttr({ title: `👩‍🏫 ${plural(idle.length, "unassigned teacher")}`, notes: [...idle.slice(0, 10).map((t) => esc(t.name)), "A teacher with no post teaches nobody — post them in a room", "Click to list them first"] })}>👩‍🏫 <b>${idle.length}</b> unassigned teacher${idle.length === 1 ? "" : "s"}</button>`
+    : "";
 
   const STAT_KEYS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
   const head = columns.map(([key, label]) => {
@@ -4625,8 +4631,8 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
         ${filterBar}
         ${anyDead ? `<label class="check-row"><input type="checkbox" data-action="toggle-show-dead" ${showDead ? "checked" : ""}/> Show deceased</label>` : ""}
       </div>
-      <h2>${skillsView ? "Roster · skill points" : "Roster"}</h2>
-      <div class="ov-head-right roster-warnings">${warnings || '<span class="ov-chip ov-chip-ok">✓ Nothing to do here</span>'}</div>
+      <h2>Roster</h2>
+      <div class="ov-head-right roster-warnings">${(teachersView ? teacherWarnings : warnings) || '<span class="ov-chip ov-chip-ok">✓ Nothing to do here</span>'}</div>
     </div>
     <div class="table-wrap">
       <table class="roster-table">

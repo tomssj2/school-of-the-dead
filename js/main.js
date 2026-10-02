@@ -1820,6 +1820,13 @@ root.addEventListener("click", (e) => {
       rosterSortDir = rosterSortDir === "asc" ? "desc" : "asc";
       render();
       break;
+    // the Roster's unassigned-teachers warning: the teachers with no post first
+    case "roster-unassigned":
+      rosterFilter = "teacher";
+      rosterSortKey = "posted";
+      rosterSortDir = "asc";
+      render();
+      break;
     // the Roster's spare-gear warning: students, the least equipped first
     case "roster-gear-check":
       rosterFilter = "student";
