@@ -1,5 +1,6 @@
 import * as G from "./game.js";
 import { WORLD_W, WORLD_H } from "./citymap.js";
+import { rosterDefaultDir } from "./ui.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
@@ -1819,6 +1820,17 @@ root.addEventListener("click", (e) => {
       rosterSortDir = rosterSortDir === "asc" ? "desc" : "asc";
       render();
       break;
+    // a Roster column heading: sort by it (numbers biggest first, words A–Z), again to flip
+    case "sort-roster-col": {
+      const key = el.dataset.key;
+      if (rosterSortKey === key) rosterSortDir = rosterSortDir === "asc" ? "desc" : "asc";
+      else {
+        rosterSortKey = key;
+        rosterSortDir = rosterDefaultDir(key);
+      }
+      render();
+      break;
+    }
     case "clear-mission": {
       // recall: the team stays together, it just isn't going anywhere
       G.setTeamLocation(state, Number(el.dataset.team), null);
@@ -1947,6 +1959,7 @@ root.addEventListener("change", (e) => {
       break;
     case "set-roster-sort":
       rosterSortKey = el.value;
+      rosterSortDir = rosterDefaultDir(el.value);
       render();
       break;
     case "toggle-gym": {
