@@ -1820,6 +1820,13 @@ root.addEventListener("click", (e) => {
       rosterSortDir = rosterSortDir === "asc" ? "desc" : "asc";
       render();
       break;
+    // the Roster's spare-gear warning: students, the least equipped first
+    case "roster-gear-check":
+      rosterFilter = "student";
+      rosterSortKey = "gear";
+      rosterSortDir = "asc";
+      render();
+      break;
     // a Roster column heading: sort by it (numbers biggest first, words A–Z), again to flip
     case "sort-roster-col": {
       const key = el.dataset.key;

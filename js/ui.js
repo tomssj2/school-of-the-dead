@@ -4567,19 +4567,36 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
     })
     .join("");
 
-  const unspent = state.characters.filter((c) => c.alive && c.role === "student" && availableSkillPoints(c) > 0).length;
   const filterTabs = [
     ["student", "🧳 Students"],
     ["teacher", "🎓 Teachers"],
-    ["skills", `🌳 Skill points${unspent ? ` <b class="subtab-count">${unspent}</b>` : ""}`],
   ];
   const filterBar = `<div class="subtabs">${filterTabs
-    .map(([id, label]) => `<button class="subtab-btn ${filter === id ? "active" : ""}" data-action="set-roster-filter" data-filter="${id}">${label}</button>`)
+    .map(([id, label]) => `<button class="subtab-btn ${filter === id || (skillsView && id === "student") ? "active" : ""}" data-action="set-roster-filter" data-filter="${id}">${label}</button>`)
     .join("")}</div>`;
 
-  const sortOptions = ROSTER_SORT_FIELDS.filter((f) => !teachersView || !studentOnly.includes(f.key)).map((f) => `<option value="${f.key}" ${f.key === effectiveSortKey ? "selected" : ""}>${f.label}</option>`).join("");
+  // ----- the warnings on the right: skill points to spend, and spare gear while someone goes without -----
+  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const students = state.characters.filter((c) => c.alive && c.role === "student");
+  const unspent = students.filter((c) => availableSkillPoints(c) > 0);
+  const points = unspent.reduce((s, c) => s + availableSkillPoints(c), 0);
+  const spareWeapons = state.armory.filter((it) => it.slot === "weapon").length;
+  const spareArmour = state.armory.filter((it) => it.slot === "armor").length;
+  const spareOther = state.armory.length - spareWeapons - spareArmour;
+  const unarmed = students.filter((c) => !c.equipment?.meleeWeapon && !c.equipment?.rangedWeapon).length;
+  const unarmoured = students.filter((c) => !c.equipment?.armor).length;
+  const gearShort = (spareWeapons && unarmed) || (spareArmour && unarmoured) || (spareOther && students.some((c) => (c.equipment?.accessories || []).some((a) => !a)));
+  const warnings = [
+    unspent.length ? `<button class="ov-chip ov-chip-bad ${skillsView ? "ov-chip-on" : ""}" data-action="set-roster-filter" data-filter="${skillsView ? "student" : "skills"}" ${tipAttr({ title: `🌳 ${plural(points, "skill point")} to spend`, notes: [`${plural(unspent.length, "student")} with points waiting`, skillsView ? "Click to show everyone again" : "Click to list them — a click on their 🌳 opens their skill tree"] })}>🌳 <b>${points}</b> skill point${points === 1 ? "" : "s"} · ${plural(unspent.length, "student")}</button>` : "",
+    gearShort ? `<button class="ov-chip ov-chip-bad" data-action="roster-gear-check" ${tipAttr({ title: "🎒 Spare gear in the Armory", rows: [["Weapons", `${spareWeapons} spare · ${unarmed} unarmed`], ["Armour", `${spareArmour} spare · ${unarmoured} without`], ["Accessories", `${spareOther} spare`]], notes: ["Click to sort by gear, the least equipped first", "Click a Gear badge to open their inventory"] })}>🎒 <b>${state.armory.length}</b> spare item${state.armory.length === 1 ? "" : "s"}${unarmed && spareWeapons ? ` · ${unarmed} unarmed` : ""}</button>` : "",
+  ].filter(Boolean).join("");
+
+  const STAT_KEYS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
   const head = columns.map(([key, label]) => {
-    if (!key) return `<th>${label}</th>`;
+    if (!key) {
+      // the Stats heading: each stat sorts by itself, laid out like the chips under it
+      return `<th class="th-stats"><span class="th-stat-grid">${STAT_KEYS.map((k) => `<span class="th-sort ${k === effectiveSortKey ? "th-on" : ""}" data-action="sort-roster-col" data-key="${k}" title="Sort by ${k}">${k}${k === effectiveSortKey ? ` <span class="th-arrow">${sortDir === "desc" ? "▼" : "▲"}</span>` : ""}</span>`).join("")}</span></th>`;
+    }
     const on = key === effectiveSortKey;
     return `<th class="th-sort ${on ? "th-on" : ""}" data-action="sort-roster-col" data-key="${key}" title="Sort by ${label} — click again to flip">${label}${on ? ` <span class="th-arrow">${sortDir === "desc" ? "▼" : "▲"}</span>` : ""}</th>`;
   }).join("");
@@ -4603,17 +4620,13 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
     : "";
 
   return `<div class="card">
-    <h2>Roster</h2>
-    <div class="roster-controls">
-      <div class="roster-filters">
+    <div class="ov-head roster-head">
+      <div class="ov-head-left roster-filters">
         ${filterBar}
         ${anyDead ? `<label class="check-row"><input type="checkbox" data-action="toggle-show-dead" ${showDead ? "checked" : ""}/> Show deceased</label>` : ""}
       </div>
-      <div class="picker-sort-row">
-        <span class="mini-label">Sort by</span>
-        <select data-action="set-roster-sort">${ROSTER_SORT_FIELDS.some((f) => f.key === effectiveSortKey) ? "" : `<option value="${effectiveSortKey}" selected>${esc(columns.find(([k]) => k === effectiveSortKey)?.[1] || effectiveSortKey)}</option>`}${sortOptions}</select>
-        <button class="btn btn-sm" data-action="toggle-roster-sort-dir" title="Toggle ascending/descending">${sortDir === "asc" ? "⬆ Ascending" : "⬇ Descending"}</button>
-      </div>
+      <h2>${skillsView ? "Roster · skill points" : "Roster"}</h2>
+      <div class="ov-head-right roster-warnings">${warnings || '<span class="ov-chip ov-chip-ok">✓ Nothing to do here</span>'}</div>
     </div>
     <div class="table-wrap">
       <table class="roster-table">

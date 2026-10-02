@@ -3458,3 +3458,15 @@ html[data-gfx="low"] .tt-ready, html[data-gfx="medium"] .tt-ready { animation: n
 /* a student's best subject in the skill tree: a gold star, and its row lifted a little */
 .skill-best { color: #f4c542; margin-right: 4px; font-size: 13px; cursor: help; }
 .skill-row-best { padding: 4px 6px; margin: 0 -6px; border-radius: 6px; background: rgba(244, 197, 66, 0.08); box-shadow: inset 2px 0 0 #f4c542; }
+
+/* the Roster's top row: tabs | title | warnings; the Stats heading's six sortable stats */
+.roster-head { margin-bottom: 8px; }
+.roster-head h2 { margin: 0; }
+.roster-filters { display: flex; align-items: center; gap: 10px; }
+.roster-filters .subtabs { margin: 0; }
+.roster-warnings { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.ov-chip-on { background: rgba(255, 159, 67, 0.22); }
+.th-stat-grid { display: grid; grid-template-columns: repeat(3, 56px); gap: 0 4px; }
+.th-stat-grid .th-sort { cursor: pointer; text-align: center; }
+.th-stat-grid .th-sort:hover { color: var(--text); }
+.th-stat-grid .th-on { color: #9cc2ff; }
