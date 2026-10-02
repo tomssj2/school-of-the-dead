@@ -1081,7 +1081,14 @@ const WARNING_KINDS = {
   nests: "🧟 Zombie nests to burn out",
   siteWorkers: "⚠ Farm & Scrapyard short of workers",
   plant: "🌱 Seeds & animals to add",
-  // the Night Summary (Turn 3)
+  // the Day Summary (Turn 3): the day, and tomorrow
+  losses: "💀 Students lost today",
+  infectionDue: "🦠 Infected about to turn",
+  event: "📰 Today's event",
+  classDone: "🎓 Students done in their room",
+  foodLow: "⚠ Food running low",
+  tech: `${ri("research")} Research for a new tech`,
+  // ...and tonight
   noDefenders: "⚠ Nobody on watch",
   unarmed: "👊 Defenders without weapons",
   hurtDefenders: "❤ Hurt defenders",
@@ -1097,7 +1104,8 @@ const WARNING_KINDS = {
 const TURN_WARNING_KINDS = {
   1: ["noTeacher", "noCook", "quarantine", "teacherFree", "available", "rest", "heal", "dish", "upgrade", "promote", "recruits", "clear"],
   2: ["teamIdle", "lowOdds", "teamEmpty", "teamUnlock", "scouts", "drops", "raid", "nests", "siteWorkers", "plant", "upgrade"],
-  3: ["noDefenders", "unarmed", "hurtDefenders", "freeSpots", "gate", "build", "kits", "noMedicine", "boss", "weather"],
+  3: ["losses", "infectionDue", "event", "classDone", "available", "teamIdle", "drops", "raid", "teamUnlock", "foodLow", "upgrade", "tech", "rest", "heal", "recruits", "promote",
+    "noDefenders", "unarmed", "hurtDefenders", "freeSpots", "gate", "build", "kits", "noMedicine", "boss", "weather"],
 };
 const HIDDEN_WARNINGS_KEY = "sotd-hidden-warnings";
 let hiddenWarnings = (() => {
@@ -2644,18 +2652,115 @@ function renderTurn3Overview(state) {
   return renderTurn3Summary(state);
 }
 
-// The Night Summary (Turn 3's centre button), laid out like the other turns' summaries: tonight's
-// horde, the defenders, the defenses and the supplies for the fight, each with its warnings; the
-// students who could stand watch on the left, the warnings counter on the right, and the button
-// that starts the fight.
+// The Day Summary (Turn 3's centre button), laid out like the other turns' summaries. "Today": what
+// the day brought since last night — the classes, the expeditions, the supplies, the people — each
+// card's orange notes saying what wants doing tomorrow; "Tonight": the horde, the defenders, the
+// defenses and the night actions, with tonight's warnings. The students who could stand watch on
+// the left, the warnings counter on the right, and the button that starts the fight.
 function renderTurn3Summary(state) {
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const signed = (n) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${Math.abs(n)}`;
   const all = [];
   const bad = (kind, text) => { const n = ["bad", `⚠ ${text}`, kind]; all.push(n); return n; };
   const tip = (kind, text) => { const n = ["tip", text, kind]; all.push(n); return n; };
+  const today = state.today?.day === state.day ? state.today : null;
+  const students = state.characters.filter((c) => c.role === "student" && c.alive && !c.infection);
   const grid = state.entranceGrid;
   const size = grid.size;
   const third = ENTRANCE_ZONES.students;
+
+  // ===== today =====
+
+  // ----- the classes: what was learned, who's done in their room, who could take a free seat -----
+  const cls = today?.classes;
+  const lessons = Object.fromEntries(CLASSROOM_IDS.filter((id) => !isBoarded(state, `classroom:${id}`)).map((id) => [id, classroomLesson(state, id)]));
+  const freeSeat = (id) => state.rooms.classrooms[id].seats.some((s) => !s);
+  const wouldLearn = (c, l) => (l.subject ? Math.max(0, Math.min(l.gain, l.ceiling - c.grades[l.subject], 100 - c.grades[l.subject])) : 0);
+  const finished = (state.finishedJobs || []).filter((f) => G_alive(state, f.id));
+  const couldJoin = students.filter((c) => !c.seat && !c.keepJobs && Object.entries(lessons).some(([id, l]) => freeSeat(id) && wouldLearn(c, l) > 0)).length;
+  const showRoom = CLASSROOM_IDS.find((id) => lessons[id]?.subject) ?? CLASSROOM_IDS[0];
+  const showClass = state.rooms.classrooms[showRoom];
+  const classes = overviewCard({
+    tab: "floor2", scene: `${showClass.subject ? `classroom_${showClass.subject}` : "classroom_empty"}@${showClass.level || 1}`, name: "Classes",
+    big: cls ? `+${cls.learned}` : "—", unit: cls ? "grade points learned" : "no classes today",
+    meta: cls ? `${cls.taught + cls.trained} studied · ${cls.rested} rested · ${cls.healed} healed` : "",
+    notes: [
+      finished.length ? tip("classDone", `🎓 ${plural(finished.length, "student")} done in their room — new job tomorrow`) : null,
+      couldJoin ? tip("available", `🎒 ${plural(couldJoin, "student")} could take a free seat`) : null,
+    ],
+  });
+
+  // ----- the expeditions: how they went, what they brought, and what's waiting out there -----
+  const ex = today?.exploration;
+  const drops = state.mapDrops || [];
+  const soonest = drops.length ? Math.min(...drops.map((d) => d.expires - state.day + 1)) : 0;
+  const raidsOpen = LANDMARKS.filter((lm) => raidUnlocked(state) && !raidCooldownLeft(state, lm.id)).length;
+  const teamPrice = nextTeamCost(state);
+  const places = (ex?.places || []).map((p) => `${LOCATION_ICON[p.id] || ""}${p.success ? "" : "✗"}`).join(" ");
+  const expeditions = overviewCard({
+    tab: "log", bg: `url(${cityBaseUrl()})`, name: "Expeditions",
+    big: ex?.sent ? `${ex.successes}/${ex.sent}` : "—", unit: ex?.sent ? "came back with a full haul" : "no team went out today",
+    meta: ex?.sent || ex?.raid ? [places, ex.finds ? `${plural(ex.finds, "find")}` : "", ex.recruits ? `🙋 ${ex.recruits} found` : "", ex.raid ? `${BOSS_ICON} ${esc(ex.raid.bossName)} ${ex.raid.won ? "slain" : "survived"}` : ""].filter(Boolean).join(" · ") : "",
+    notes: [
+      ex && ex.lost.length ? bad("losses", `💀 Lost out there: ${ex.lost.map(esc).join(", ")}`) : null,
+      ex && !ex.sent && teamCount(state) ? tip("teamIdle", "🧭 Send the teams out tomorrow") : null,
+      drops.length ? tip("drops", `📦 ${plural(drops.length, "supply drop")} · gone in ${plural(soonest, "day")}`) : null,
+      raidsOpen ? tip("raid", `${BOSS_ICON} ${raidsOpen} raid boss${raidsOpen === 1 ? "" : "es"} to fight`) : null,
+      teamPrice !== null && state.resources.materials >= teamPrice ? tip("teamUnlock", `🔓 A new team can be unlocked · ${ri("materials")} ${teamPrice}`) : null,
+    ],
+  });
+
+  // ----- the supplies: today's change in each, how long the food lasts, what can be bought -----
+  const pop = aliveChars(state).length;
+  const start = today?.start.resources;
+  const delta = (key) => (start ? (state.resources[key] || 0) - (start[key] || 0) : null);
+  const foodDays = pop ? Math.floor(state.resources.food / pop) : 99;
+  const upgradeKeys = [...CLASSROOM_IDS.map((id) => `classroom:${id}`), "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "farm", "scrapyard"];
+  const upgrades = upgradeKeys.filter((key) => !isBoarded(state, key)).filter((key) => {
+    const cost = roomUpgradeCostFor(state, key);
+    return cost !== null && state.resources.materials >= cost;
+  }).length;
+  const techReady = TECH_TREE.some((t) => !state.techUnlocked.includes(t.id) && (!t.requires || state.techUnlocked.includes(t.requires)) && state.resources.research >= t.cost);
+  const supplies = overviewCard({
+    tab: "floor1", name: "Supplies", style: "--team:#8a6a3f",
+    art: `<span class="ov-team-art ov-action-art">${["food", "materials", "medicine", "research"].map((k) => `<span class="ov-action">${ri(k, 16)}<b>${start ? signed(delta(k)) : state.resources[k]}</b></span>`).join("")}</span>`,
+    big: `${foodDays}`, unit: `day${foodDays === 1 ? "" : "s"} of food`,
+    meta: `${state.resources.food} food · −${pop} a day`,
+    notes: [
+      foodDays < 3 ? bad("foodLow", foodDays ? `Food for ${plural(foodDays, "more day")} — farm or scavenge` : "Not enough food for tomorrow — farm or scavenge") : null,
+      upgrades ? tip("upgrade", `⬆ ${plural(upgrades, "upgrade")} affordable`) : null,
+      techReady ? tip("tech", `${ri("research")} Enough research for a new tech`) : null,
+    ],
+  });
+
+  // ----- the people: who joined, who was lost, who needs looking after tomorrow -----
+  const startIds = new Set(today?.start.ids || []);
+  const lostToday = today ? state.characters.filter((c) => !c.alive && startIds.has(c.id)) : [];
+  const joined = today ? aliveChars(state).filter((c) => !startIds.has(c.id)) : [];
+  const tired = students.filter((c) => c.stamina < c.maxStamina * 0.4);
+  const hurtNow = students.filter((c) => c.hp < c.maxHp * 0.6);
+  const turning = infectedChars(state).filter((c) => infectionDaysLeft(state, c) <= 1);
+  const ready = state.characters.filter(promotable).length;
+  const mood = today ? state.happiness - today.start.happiness : 0;
+  const faces = [...lostToday, ...joined, ...hurtNow, ...tired].filter((c, i, arr) => arr.indexOf(c) === i).slice(0, 4);
+  const event = today?.event;
+  const people = overviewCard({
+    tab: "roster", name: "People", style: "--team:#5a8a5a",
+    art: `<span class="ov-team-art">${faces.map((c) => `<span class="ov-team-face">${characterSprite(c, 30)}</span>`).join("") || '<span class="ov-team-none">All present</span>'}</span>`,
+    big: `${pop}`, unit: `survivors${today && joined.length - lostToday.length ? ` · ${signed(joined.length - lostToday.length)} today` : ""}`,
+    meta: `${joined.length} joined · ${lostToday.length} lost · morale ${state.happiness}${today && mood ? ` (${signed(mood)})` : ""}`,
+    notes: [
+      lostToday.length ? bad("losses", `💀 Lost today: ${lostToday.map((c) => esc(shortName(c))).join(", ")}`) : null,
+      ...turning.map((c) => bad("infectionDue", `🦠 ${esc(shortName(c))} turns ${infectionDaysLeft(state, c) <= 0 ? "tonight" : "tomorrow night"} — serum!`)),
+      event ? (event.kind === "good" ? tip("event", `📰 ${esc(event.title)}`) : bad("event", `📰 ${esc(event.title)}`)) : null,
+      tired.length ? tip("rest", `😴 ${plural(tired.length, "student")} worn out — rest them tomorrow`) : null,
+      hurtNow.length ? tip("heal", `❤ ${plural(hurtNow.length, "student")} hurt — the Nurse's Office tomorrow`) : null,
+      state.recruitPool.length ? tip("recruits", `🙋 ${plural(state.recruitPool.length, "recruit")} waiting to join`) : null,
+      ready ? tip("promote", `🎓 ${plural(ready, "student")} can be promoted`) : null,
+    ],
+  });
+
+  // ===== tonight =====
 
   // ----- tonight's horde -----
   const zombies = zombieCountForDay(state.day);
@@ -2721,8 +2826,8 @@ function renderTurn3Summary(state) {
   const stabilizeCost = MEDICINE_PER_STABILIZE - techPerk(state, "stabilizeDiscount");
   const saves = Math.floor(state.resources.medicine / stabilizeCost);
   const uses = nightActionUses(state);
-  const supplies = overviewCard({
-    tab: "defense", name: "Supplies", style: "--team:#5a8a5a",
+  const actions = overviewCard({
+    tab: "defense", name: "Night Actions", style: "--team:#5a6a8a",
     art: `<span class="ov-team-art ov-action-art">${Object.entries(NIGHT_ACTIONS).map(([id, a]) => `<span class="ov-action">${a.icon}<b>×${uses[id]}</b></span>`).join("")}</span>`,
     big: `${saves}`, unit: `${ri("medicine")} save${saves === 1 ? "" : "s"} for a downed defender`,
     meta: `${state.resources.medicine} medicine · ${stabilizeCost} a save`,
@@ -2742,14 +2847,18 @@ function renderTurn3Summary(state) {
   <div class="card">
     <div class="ov-head">
       <div class="ov-head-left">${lazyPill}</div>
-      <h2>Night Summary ${infoDot({ title: "🌙 Turn 3 — Night Summary", notes: ["Set up the steps and the courtyard on the Night Watch tab", "The fight starts when you defend — wave by wave, with night actions", "Orange: something needs you — ⚠ a problem, or something you could do now", "Choose which warnings to show from the counter on the right", "Click a card to go to it"] })}</h2>
+      <h2>Day ${state.day} Summary ${infoDot({ title: `🌙 Turn 3 — Day ${state.day} Summary`, notes: ["Today: what the day brought since last night — classes, expeditions, supplies, people", "Their orange notes are what wants doing tomorrow", "Tonight: set up the steps and the courtyard on the Night Watch tab", "The fight starts when you defend — wave by wave, with night actions", "Choose which warnings to show from the counter on the right", "Click a card to go to it"] })}</h2>
       <div class="ov-head-right">${renderWarningCounter(all, 3)}</div>
     </div>
+    <div class="mini-label ov-section">Today</div>
+    <div class="ov-grid">${classes}${expeditions}${supplies}${people}</div>
     <div class="mini-label ov-section">Tonight</div>
-    <div class="ov-grid">${horde}${watch}${defenses}${supplies}</div>
+    <div class="ov-grid">${horde}${watch}${defenses}${actions}</div>
     <button class="btn btn-primary btn-big" data-action="resolve-turn">🛡 Defend the Entrance${defenders.length ? "" : " — with nobody on watch"}</button>
   </div>`;
 }
+// (a finished job's student may have died since)
+const G_alive = (state, id) => state.characters.some((c) => c.id === id && c.alive);
 
 // The Night Watch tab: the courtyard board and its side panel (tonight, the horde, night actions,
 // defenders to drag onto the steps). The fight itself starts from the Night Summary.
@@ -4470,25 +4579,6 @@ export function renderLog(state) {
     .map((e) => `<li class="${logCategory(e.msg)}"><span class="log-tag">D${e.day}T${e.turn}</span> ${pixelizeText(esc(e.msg))}</li>`)
     .join("");
   return `<div class="card"><h2>Log</h2><ul class="log-list">${items || '<li class="muted">Nothing yet.</li>'}</ul></div>`;
-}
-
-// A short recap shown once right after a day rolls over (whichever path triggered it — see
-// main.js's render()) — the same log entries as the Log tab, just curated to that one day and
-// framed as a "here's what happened" beat instead of scrolling the full history.
-export function renderDayRecap(recap) {
-  const items = recap.entries
-    .filter((e) => !/resolved\.$|begins\.$/.test(e.msg))
-    .map((e) => `<li class="${logCategory(e.msg)}">${pixelizeText(esc(e.msg))}</li>`)
-    .join("");
-  return `
-  <div class="modal-overlay" data-action="close-day-recap">
-    <div class="char-card mission-card" data-action="noop">
-      <button class="cc-close" data-action="close-day-recap" title="Close">✕</button>
-      <h3>📰 Day ${recap.day} Recap</h3>
-      <ul class="log-list day-recap-list">${items || '<li class="muted">A quiet day.</li>'}</ul>
-      <button class="btn btn-primary" data-action="close-day-recap">Continue to Day ${recap.day + 1}</button>
-    </div>
-  </div>`;
 }
 
 // ---------- character card ----------

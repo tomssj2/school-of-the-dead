@@ -176,7 +176,21 @@ export function createInitialState() {
 
   for (const key of ROOM_KEYS) applyRoomLevel(state, key);
   addLog(state, `Day 1 begins. ${state.characters.length} souls are relying on you.`);
+  beginDayRecord(state, 1);
   return state;
+}
+
+// What a day brought, for its Day Summary (the Turn 3 centre screen): the supplies, morale and the
+// living as they were last night, then what the classes, the expeditions and the morning's event
+// did — `day` is the day it's for (the overnight upkeep counts towards the new day).
+export function beginDayRecord(state, day) {
+  state.today = {
+    day,
+    start: { resources: { ...state.resources }, happiness: state.happiness, fortification: state.fortification, ids: aliveChars(state).map((c) => c.id) },
+    classes: null,
+    exploration: null,
+    event: null,
+  };
 }
 
 export function addLog(state, msg) {
@@ -1297,6 +1311,7 @@ export function classGain(state, c) {
 // ---------- TURN 1: training ----------
 
 export function resolveTraining(state) {
+  const record = { learned: 0, taught: 0, trained: 0, rested: 0, healed: 0, research: 0, fortification: 0 };
   // classrooms — every seated student's grade in the room's subject rises by the day's lesson
   // (see classroomLesson), up to the teacher's own grade.
   for (const roomId of CLASSROOM_IDS) {
@@ -1311,6 +1326,8 @@ export function resolveTraining(state) {
       c.grades[lesson.subject] += add;
       refreshMaxStats(c);
       taught++;
+      record.learned += add;
+      record.taught++;
     }
     if (taught) addLog(state, `${SUBJECT_LABEL[lesson.subject]} class: ${taught} student${taught === 1 ? "" : "s"} learned (up to +${lesson.gain} ${STAT_OF_SUBJECT[lesson.subject]}).`);
 
@@ -1326,6 +1343,8 @@ export function resolveTraining(state) {
     for (const c of students) {
       gainExp(state, c, LEVEL_XP.training);
       const add = trainingGain(state, c, side);
+      record.trained++;
+      record.learned += add;
       if (add) {
         const before = c.maxHp;
         c.grades[side] += add;
@@ -1350,6 +1369,8 @@ export function resolveTraining(state) {
   const rest = cafeteriaRest(state);
   for (const c of resting) c.stamina = Math.min(c.maxStamina, c.stamina + rest);
   if (resting.length) addLog(state, `${resting.length} student(s) rested in the Cafeteria (+${rest} stamina).`);
+  record.rested = resting.length;
+  record.healed = state.characters.filter((c) => c.infirmaryToday && c.alive).length;
   const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
   for (const c of patients) {
     const treated = state.resources.medicine >= INFIRMARY_MEDICINE_PER_PATIENT;
@@ -1362,6 +1383,7 @@ export function resolveTraining(state) {
 
   // research room
   const researchGain = researchRoomYield(state);
+  record.research = Math.max(0, researchGain);
   if (researchGain > 0) {
     state.resources.research += researchGain;
     addLog(state, `The Research Room produces ${researchGain} research.`);
@@ -1375,11 +1397,13 @@ export function resolveTraining(state) {
     state.resources.materials -= use;
     const gain = crafterGain(state, crafter, use);
     state.fortification = Math.min(FORTIFICATION_CAP, state.fortification + gain);
+    record.fortification += gain;
     addLog(state, `${crafter.name} reinforces the school defenses (+${gain} fortification).`);
   }
   const helpers = state.characters.filter((c) => c.craftingToday && c.alive && !c.infection);
   const helped = helpers.reduce((sum, c) => sum + craftHelpGain(c), 0);
   if (helped) {
+    record.fortification += helped;
     state.fortification = Math.min(FORTIFICATION_CAP, state.fortification + helped);
     addLog(state, `${helpers.length} student${helpers.length === 1 ? "" : "s"} helped in the Crafting Room (+${helped} fortification).`);
   }
@@ -1393,6 +1417,7 @@ export function resolveTraining(state) {
 
   gainExpAll(state, state.characters.filter((c) => c.radioToday && c.alive), LEVEL_XP.work);
 
+  if (state.today) state.today.classes = record;
   addLog(state, `Turn 1 (Classes) resolved.`);
 }
 
@@ -1622,6 +1647,20 @@ export function resolveExploration(state) {
   }
 
   state.expeditionsSent = (state.expeditionsSent || 0) + teamsSent;
+  if (state.today) {
+    const loot = {};
+    for (const t of teams) for (const [k, v] of Object.entries(t.loot)) loot[k] = (loot[k] || 0) + v;
+    state.today.exploration = {
+      sent: teamsSent, successes, loot,
+      places: teams.map((t) => ({ id: t.locationId, success: t.success })),
+      finds: teams.reduce((s, t) => s + t.finds.length, 0),
+      hurt: teams.reduce((s, t) => s + t.hurt.length, 0) + (raid?.hurt?.length || 0),
+      lost: [...teams.flatMap((t) => t.lost), ...(raid?.lost || [])],
+      recruits: teams.filter((t) => t.recruit).length + (raid?.recruit ? 1 : 0),
+      raid: raid && !raid.calledOff ? { bossName: raid.bossName, won: raid.won } : null,
+      farm: gain, scrap: haul + yard.scrap,
+    };
+  }
   state.encounters = {}; // today's encounters are spent
   addLog(state, `Turn 2 (Exploration) resolved.`);
   return { teamsSent, successes, teams, raid, itemsFound, ingredientsFound, stockFound };
@@ -2669,6 +2708,7 @@ export function advanceTurn(state) {
   state.turn++;
   if (state.turn === 2) keepTurnOneJobs(state);
   if (state.turn > 3) {
+    beginDayRecord(state, state.day + 1);
     if (resolveDailyFoodUpkeep(state)) resolveOvernightRecovery(state); // end of the day that just finished
     resolveInfections(state);
     resolveDayMilestones(state, state.day + 1);
@@ -2779,6 +2819,7 @@ function applyEffect(state, e) {
 function applyEvent(state, event) {
   applyEffect(state, event.effect);
   addLog(state, `${event.kind === "good" ? "📈" : "📉"} Event: ${event.title} — ${event.desc}`);
+  if (state.today?.day === state.day) state.today.event = { kind: event.kind, title: event.title, desc: event.desc };
   state.eventLog.unshift({ day: state.day, id: event.id, kind: event.kind, title: event.title, desc: event.desc });
   if (state.eventLog.length > 10) state.eventLog.length = 10;
 }

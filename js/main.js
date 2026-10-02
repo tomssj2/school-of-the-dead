@@ -1,6 +1,6 @@
 import * as G from "./game.js";
 import { WORLD_W, WORLD_H } from "./citymap.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDayRecap, renderDefenseBuildModal, renderPlotModal,
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionSkirmish,
@@ -79,7 +79,6 @@ let lastTurnKey = null; // "day:turn" at the last render — a new one opens its
 let lastRenderedTab = null;
 let floaties = [];
 let floatyClearTimer = null;
-let dayRecap = null; // { day, entries } shown once right after a day rolls over
 
 const root = document.getElementById("app");
 
@@ -576,7 +575,9 @@ function render() {
 
   if (state.day !== lastDay) {
     playChime(); // covers every path a new day can start from
-    dayRecap = { day: lastDay, entries: state.log.filter((e) => e.day === lastDay) };
+    // the morning's news, if anything happened at dawn (the day itself is summed up on Turn 3)
+    const event = state.today?.day === state.day ? state.today.event : null;
+    if (event) setTimeout(() => flash(`📰 ${event.title} — ${event.desc}`, 4500), 300);
   }
   lastDay = state.day;
 
@@ -610,8 +611,6 @@ function render() {
     ? renderBattleAnimation(state, battleAnimation)
     : fightAnimation
     ? renderFightAnimation(state, fightAnimation)
-    : dayRecap
-    ? renderDayRecap(dayRecap)
     : state.rescue?.landed && !state.gameOver
     ? renderEvacuationModal(state)
     : card
@@ -890,7 +889,7 @@ function saveGame() {
 }
 
 let flashTimer = null;
-function flash(msg) {
+function flash(msg, ms = 1800) {
   let el = document.getElementById("flash");
   if (!el) {
     el = document.createElement("div");
@@ -901,7 +900,7 @@ function flash(msg) {
   pixelizeDom(el);
   el.classList.add("show");
   clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => el.classList.remove("show"), 1800);
+  flashTimer = setTimeout(() => el.classList.remove("show"), ms);
 }
 
 // Stages a clash -> result cinematic (same two-step timing as the scout fight animation) before
@@ -1672,10 +1671,6 @@ root.addEventListener("click", (e) => {
       render();
       break;
     }
-    case "close-day-recap":
-      dayRecap = null;
-      render();
-      break;
     case "skip-battle":
       if (battleAnimation && battleAnimation.skip) battleAnimation.skip();
       break;

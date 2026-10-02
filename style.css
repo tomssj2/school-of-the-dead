@@ -1993,7 +1993,6 @@ button.fslot:hover { border-color: var(--turn-accent); transform: translateY(-1p
 .gameover-card .btn-big { margin-top: 16px; }
 
 .log-list { list-style: none; padding: 0; margin: 0; max-height: 70vh; overflow-y: auto; }
-.day-recap-list { max-height: 320px; margin: 10px 0; }
 .log-list li { padding: 5px 0 5px 8px; border-bottom: 1px solid var(--border); border-left: 2px solid transparent; font-size: 13px; }
 .log-tag { color: var(--muted); font-size: 11px; margin-right: 6px; }
 .log-combat { border-left-color: #d64545; }
