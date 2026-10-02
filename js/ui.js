@@ -4558,7 +4558,7 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
         <td>${c.gender}</td>
         <td>${teachersView ? `🌟 ${SUBJECT_LABEL[c.teachSubject]}` : overallLevel(c)}</td>
         ${teachersView ? "" : `<td><span class="roster-power" ${tipAttr({ title: "⚔ Fight power", notes: ["Damage a round × what it takes to put them down (HP, armour, dodging), square-rooted", "Weapons and armour raise it — so does healing them"] })}>⚔ ${fightPower(state, c).power}</span></td><td>${gearPill(c)}</td>`}
-        ${skillsView ? `<td><button class="skill-pill" data-action="open-card" data-id="${c.id}" data-card-tab="skills" title="Open their skill tree">🌳 ${points} to spend</button></td>` : ""}
+        ${skillsView ? `<td><button class="skill-pill" data-action="open-card" data-id="${c.id}" data-card-tab="skills" title="${points} skill point${points === 1 ? "" : "s"} to spend — open their skill tree">🌳 ${points}</button></td>` : ""}
         ${teachersView ? "" : `<td>${hpBar(c)}</td><td>${staminaBar(c)}</td>`}
         <td>${statusTag(c, state)}</td>
         <td>${esc(rosterLocation(state, c))}</td>
