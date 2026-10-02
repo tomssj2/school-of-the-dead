@@ -312,26 +312,21 @@ function levelTip(c) {
 // A student's six stats as chips (their best one highlighted); `focus` marks the stat (or stats)
 // a job works on (e.g. a classroom's subject).
 function statChips(c, focus = null) {
+  return `<div class="stat-chips">${SUBJECTS.map((s) => statChip(c, s, focus)).join("")}</div>`;
+}
+// One stat as a chip. Teachers: the letter, their specialty in gold. Students: the number, their
+// favourite subject in gold (it can reach S), their second in silver (A); the rest stop at B.
+// `bare` leaves the stat's name off (the Roster has it in the column heading).
+function statChip(c, s, focus = null, bare = false) {
+  const label = STAT_OF_SUBJECT[s];
   if (c.role === "teacher") {
-    return `<div class="stat-chips">
-      ${SUBJECTS.map((s) => {
-        const specialty = s === c.teachSubject;
-        return `<span class="chip ${specialty ? "chip-specialty" : ""}" title="${SUBJECT_LABEL[s]}${specialty ? " (specialty)" : ""}">${STAT_OF_SUBJECT[s]} ${gradeLetter(c.grades[s])}</span>`;
-      }).join("")}
-    </div>`;
+    const specialty = s === c.teachSubject;
+    return `<span class="chip ${specialty ? "chip-specialty" : ""}" title="${SUBJECT_LABEL[s]}${specialty ? " (specialty)" : ""}">${bare ? "" : `${label} `}${gradeLetter(c.grades[s])}</span>`;
   }
-  // their favourite subject in gold (it can reach S), their second in silver (A); the rest stop at B
-  return `<div class="stat-chips">
-    ${SUBJECTS
-      .map((s) => {
-        const label = STAT_OF_SUBJECT[s];
-        const val = c.grades[s];
-        const kind = s === c.favorite ? "chip-specialty" : s === c.secondary ? "chip-second" : "";
-        const why = s === c.favorite ? "favourite — can reach S" : s === c.secondary ? "second subject — up to A" : "up to B";
-        return `<span class="chip ${kind} ${[].concat(focus).includes(label) ? "chip-focus" : ""}" title="${STAT_LABEL[label]} (${SUBJECT_LABEL[s]}) ${val} · ${why}">${label} ${val}</span>`;
-      })
-      .join("")}
-  </div>`;
+  const val = c.grades[s];
+  const kind = s === c.favorite ? "chip-specialty" : s === c.secondary ? "chip-second" : "";
+  const why = s === c.favorite ? "favourite — can reach S" : s === c.secondary ? "second subject — up to A" : "up to B";
+  return `<span class="chip ${kind} ${[].concat(focus).includes(label) ? "chip-focus" : ""}" title="${STAT_LABEL[label]} (${SUBJECT_LABEL[s]}) ${val} · ${why}">${bare ? "" : `${label} `}${val}</span>`;
 }
 
 
@@ -4534,7 +4529,8 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
   const columns = [
     ["name", "Name"], ["sex", "Sex"],
     ...(teachersView ? [["teaches", "Teaches"]] : [["level", "Lvl"], ["power", "Power"], ["gear", "Gear"], ...(skillsView ? [["points", "Skill pts"]] : []), ["hp", "HP"], ["stamina", "Stamina"]]),
-    ["status", "Status"], ["assignment", "Assignment"], [null, "Stats"],
+    ["status", "Status"], ["assignment", "Assignment"],
+    ...SUBJECTS.map((s) => [STAT_OF_SUBJECT[s], STAT_OF_SUBJECT[s]]),
   ];
   const keys = [...columns.map(([k]) => k).filter(Boolean), ...ROSTER_SORT_FIELDS.map((f) => f.key), ...(teachersView ? ["posted"] : [])];
   const studentOnly = ["level", "power", "gear", "hp", "stamina", "points"];
@@ -4559,7 +4555,7 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
         ${teachersView ? "" : `<td>${hpBar(c)}</td><td>${staminaBar(c)}</td>`}
         <td>${statusTag(c, state)}</td>
         <td>${esc(rosterLocation(state, c))}</td>
-        <td>${statChips(c)}</td>
+        ${SUBJECTS.map((s) => `<td class="td-stat">${statChip(c, s, null, true)}</td>`).join("")}
       </tr>`;
     })
     .join("");
@@ -4593,14 +4589,10 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
     ? `<button class="ov-chip ov-chip-bad" data-action="roster-unassigned" ${tipAttr({ title: `👩‍🏫 ${plural(idle.length, "unassigned teacher")}`, notes: [...idle.slice(0, 10).map((t) => esc(t.name)), "A teacher with no post teaches nobody — post them in a room", "Click to list them first"] })}>👩‍🏫 <b>${idle.length}</b> unassigned teacher${idle.length === 1 ? "" : "s"}</button>`
     : "";
 
-  const STAT_KEYS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
+  const statKeys = SUBJECTS.map((s) => STAT_OF_SUBJECT[s]);
   const head = columns.map(([key, label]) => {
-    if (!key) {
-      // the Stats heading: each stat sorts by itself, laid out like the chips under it
-      return `<th class="th-stats"><span class="th-stat-grid">${STAT_KEYS.map((k) => `<span class="th-sort ${k === effectiveSortKey ? "th-on" : ""}" data-action="sort-roster-col" data-key="${k}" title="Sort by ${k}">${k}${k === effectiveSortKey ? ` <span class="th-arrow">${sortDir === "desc" ? "▼" : "▲"}</span>` : ""}</span>`).join("")}</span></th>`;
-    }
     const on = key === effectiveSortKey;
-    return `<th class="th-sort ${on ? "th-on" : ""}" data-action="sort-roster-col" data-key="${key}" title="Sort by ${label} — click again to flip">${label}${on ? ` <span class="th-arrow">${sortDir === "desc" ? "▼" : "▲"}</span>` : ""}</th>`;
+    return `<th class="th-sort ${on ? "th-on" : ""} ${statKeys.includes(key) ? "th-stat" : ""}" data-action="sort-roster-col" data-key="${key}" title="Sort by ${label} — click again to flip">${label}${on ? ` <span class="th-arrow">${sortDir === "desc" ? "▼" : "▲"}</span>` : ""}</th>`;
   }).join("");
 
   const fallen = state.characters.filter((c) => !c.alive);

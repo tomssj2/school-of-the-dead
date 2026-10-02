@@ -3459,17 +3459,13 @@ html[data-gfx="low"] .tt-ready, html[data-gfx="medium"] .tt-ready { animation: n
 .skill-best { color: #f4c542; margin-right: 4px; font-size: 13px; cursor: help; }
 .skill-row-best { padding: 4px 6px; margin: 0 -6px; border-radius: 6px; background: rgba(244, 197, 66, 0.08); box-shadow: inset 2px 0 0 #f4c542; }
 
-/* the Roster's top row: tabs | title | warnings; the Stats heading's six sortable stats */
+/* the Roster's top row: tabs | title | warnings */
 .roster-head { margin-bottom: 8px; }
 .roster-head h2 { margin: 0; }
 .roster-filters { display: flex; align-items: center; gap: 10px; }
 .roster-filters .subtabs { margin: 0; }
 .roster-warnings { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .ov-chip-on { background: rgba(255, 159, 67, 0.22); }
-.th-stat-grid { display: grid; grid-template-columns: repeat(3, 56px); gap: 0 4px; }
-.th-stat-grid .th-sort { cursor: pointer; text-align: center; }
-.th-stat-grid .th-sort:hover { color: var(--text); }
-.th-stat-grid .th-on { color: #9cc2ff; }
 
 /* ===== the character card (ui.js renderCharacterCard): a banner of their room with them in it,
    a strip of what matters, then Stats / Inventory / Skills ===== */
@@ -3617,3 +3613,7 @@ html[data-gfx="medium"] .sk-buyable { animation: none; }
 .sk-capped .sk-tier { text-decoration: line-through; }
 .cc2-focus { padding: 2px 9px; border-radius: 999px; background: rgba(14, 16, 22, 0.75); border: 1px solid rgba(244, 197, 66, 0.55); color: #f4c542; font-size: 12px; font-weight: 600; cursor: help; }
 .cc2-focus i { font-style: normal; margin-left: 4px; color: #c9ccd2; }
+
+/* the Roster's six stat columns, one a stat, each sorting by itself */
+.roster-table th.th-stat, .roster-table td.td-stat { width: 1%; padding-left: 3px; padding-right: 3px; text-align: center; }
+.roster-table td.td-stat .chip { display: inline-block; min-width: 34px; font-size: 12px; font-variant-numeric: tabular-nums; }
