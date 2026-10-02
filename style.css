@@ -3439,3 +3439,10 @@ html[data-gfx="low"] .tt-ready, html[data-gfx="medium"] .tt-ready { animation: n
 .fo-gear .btn { margin-left: auto; }
 .fo-gear.muted { color: var(--muted); }
 .fo-gear-ok { color: #7fe0a8; }
+
+/* the Roster's power and gear columns */
+.roster-power { font-weight: 700; color: #e6e9ef; white-space: nowrap; cursor: help; }
+.gear-pill { display: inline-block; padding: 1px 7px; border-radius: 9px; font: inherit; font-size: 11.5px; font-weight: 700; white-space: nowrap; cursor: pointer; border: 1px solid transparent; }
+.gear-none { color: #ff9f43; border-color: rgba(255, 159, 67, 0.45); background: rgba(255, 159, 67, 0.1); }
+.gear-some { color: #9cc2ff; border-color: rgba(156, 194, 255, 0.4); background: rgba(63, 127, 214, 0.12); }
+.gear-full { color: #7fe0a8; border-color: rgba(127, 224, 168, 0.45); background: rgba(76, 175, 125, 0.12); }

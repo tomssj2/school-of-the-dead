@@ -618,7 +618,7 @@ function squadTile(state, c, { picked = false, reason = null, action, cost = 0 }
       ["❤ HP", `${c.hp}/${c.maxHp}${f.armorMult < 1 ? ` · armour −${Math.round((1 - f.armorMult) * 100)}%` : ""}${f.dodge ? ` · dodges ${Math.round(f.dodge * 100)}%` : ""}`],
       ["⚡ Stamina", `${c.stamina}/${c.maxStamina}${cost ? ` → ${Math.max(0, c.stamina - cost)}` : ""}`]],
     total: ["Fight power", `${f.power}`],
-    notes: [gear.length ? gear.join(" · ") : "👊 No gear — equip them in the Armory", reason || (picked ? "Click to leave them behind" : "Click to take them")],
+    notes: [gear.length ? gear.join(" · ") : "👊 No gear — check their inventory in the Roster", reason || (picked ? "Click to leave them behind" : "Click to take them")],
   })}>
     ${picked ? '<span class="sq-check">✓</span>' : ""}
     <span class="sq-sprite">${characterSprite(c, 34)}</span>
@@ -667,13 +667,13 @@ function fightOdds(state, squad, enemy, pct, { rounds = ROOM_FIGHT_MAX_ROUNDS, t
   const spareWeapons = state.armory.filter((it) => it.slot === "weapon").length;
   const spareArmour = state.armory.filter((it) => it.slot === "armor").length;
   const gearNotes = [
-    unarmed ? `⚠ ${unarmed} going in bare-handed${spareWeapons ? ` — ${spareWeapons} weapon${spareWeapons === 1 ? "" : "s"} in the Armory` : ""}` : "",
-    unarmoured && spareArmour ? `🛡 ${unarmoured} without armour — ${spareArmour} in the Armory` : "",
+    unarmed ? `⚠ ${unarmed} going in bare-handed${spareWeapons ? ` — ${spareWeapons} spare weapon${spareWeapons === 1 ? "" : "s"}` : ""}` : "",
+    unarmoured && spareArmour ? `🛡 ${unarmoured} without armour — ${spareArmour} spare` : "",
   ].filter(Boolean);
   const gear = !squad.length
-    ? `<div class="fo-gear muted">🎒 Equip weapons and armour in the Armory before the fight — they add to everyone's power</div>`
+    ? `<div class="fo-gear muted">🎒 Give your fighters weapons and armour from their inventory (Roster) before the fight — they add to everyone's power</div>`
     : gearNotes.length
-    ? `<div class="fo-gear">${gearNotes.map((t) => `<span>${t}</span>`).join("")}${armory && (spareWeapons || spareArmour) ? '<button class="btn btn-sm" data-action="squad-armory">🎒 Equip them in the Armory</button>' : ""}</div>`
+    ? `<div class="fo-gear">${gearNotes.map((t) => `<span>${t}</span>`).join("")}${armory && (spareWeapons || spareArmour) ? '<button class="btn btn-sm" data-action="squad-armory">🎒 Check their inventory</button>' : ""}</div>`
     : `<div class="fo-gear fo-gear-ok">✓ Everyone's armed${unarmoured ? "" : " and armoured"}</div>`;
   return `<div class="fo">
     <div class="fo-bar">
@@ -4480,6 +4480,8 @@ export function renderItemList() {
 const ROSTER_SORT_FIELDS = [
   { key: "name", label: "Name" },
   { key: "level", label: "Level" },
+  { key: "power", label: "Power" },
+  { key: "gear", label: "Gear" },
   { key: "hp", label: "HP" },
   { key: "stamina", label: "Stamina" },
   { key: "STR", label: "STR" },
@@ -4490,9 +4492,23 @@ const ROSTER_SORT_FIELDS = [
   { key: "CHA", label: "CHA" },
 ];
 
-function rosterSortValue(c, key) {
+// What a student has on: weapons, armour and accessories, out of the six slots.
+const GEAR_SLOTS = (c) => { const e = c.equipment || {}; return [e.meleeWeapon, e.rangedWeapon, e.armor, ...(e.accessories || [null, null, null])]; };
+const gearCount = (c) => GEAR_SLOTS(c).filter(Boolean).length;
+// The Roster's gear column: No (nothing on), Yes (something on, how much), or Full (every slot).
+function gearPill(c) {
+  const slots = GEAR_SLOTS(c);
+  const n = slots.filter(Boolean).length;
+  const names = ["Melee", "Ranged", "Armour", "Accessory", "Accessory", "Accessory"];
+  const [cls, label] = n === 0 ? ["gear-none", "No"] : n >= slots.length ? ["gear-full", "Full"] : ["gear-some", `Yes · ${n}/${slots.length}`];
+  return `<button class="gear-pill ${cls}" data-action="open-card" data-id="${c.id}" data-card-tab="inventory" ${tipAttr({ title: `🎒 ${n}/${slots.length} slots filled`, rows: slots.map((it, i) => [names[i], it ? `${it.icon} ${esc(it.name)}` : "—"]), notes: ["Click to open their inventory and equip them"] })}>${label}</button>`;
+}
+
+function rosterSortValue(c, key, state) {
   if (key === "name") return c.name.toLowerCase();
   if (key === "level") return overallLevel(c);
+  if (key === "power") return c.role === "teacher" ? -1 : fightPower(state, c).power;
+  if (key === "gear") return c.role === "teacher" ? -1 : gearCount(c);
   if (key === "hp") return c.role === "teacher" ? -1 : c.hp;
   if (key === "stamina") return c.role === "teacher" ? -1 : c.stamina;
   const subject = SUBJECTS.find((s) => STAT_OF_SUBJECT[s] === key);
@@ -4506,12 +4522,13 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
   const anyDead = state.characters.some((c) => !c.alive && c.role === filter);
   const showDead = anyDead && window.__showDead;
   const fields = ROSTER_SORT_FIELDS;
-  const effectiveSortKey = fields.some((f) => f.key === sortKey) && !(teachersView && ["level", "hp", "stamina"].includes(sortKey)) ? sortKey : "name";
+  const studentOnly = ["level", "power", "gear", "hp", "stamina"];
+  const effectiveSortKey = fields.some((f) => f.key === sortKey) && !(teachersView && studentOnly.includes(sortKey)) ? sortKey : "name";
   const list = state.characters
     .filter((c) => (showDead || c.alive) && c.role === filter)
     .sort((a, b) => {
-      const va = rosterSortValue(a, effectiveSortKey);
-      const vb = rosterSortValue(b, effectiveSortKey);
+      const va = rosterSortValue(a, effectiveSortKey, state);
+      const vb = rosterSortValue(b, effectiveSortKey, state);
       const cmp = typeof va === "string" ? va.localeCompare(vb) : va - vb;
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -4523,6 +4540,7 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
         <td>${rosterNameTag(c)}</td>
         <td>${c.gender}</td>
         <td>${teachersView ? `🌟 ${SUBJECT_LABEL[c.teachSubject]}` : overallLevel(c)}</td>
+        ${teachersView ? "" : `<td><span class="roster-power" ${tipAttr({ title: "⚔ Fight power", notes: ["Damage a round × what it takes to put them down (HP, armour, dodging), square-rooted", "Weapons and armour raise it — so does healing them"] })}>⚔ ${fightPower(state, c).power}</span></td><td>${gearPill(c)}</td>`}
         ${teachersView ? "" : `<td>${hpBar(c)}</td><td>${staminaBar(c)}</td>`}
         <td>${statusTag(c, state)}</td>
         <td>${esc(loc)}</td>
@@ -4539,7 +4557,7 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
     .map(([id, label]) => `<button class="subtab-btn ${filter === id ? "active" : ""}" data-action="set-roster-filter" data-filter="${id}">${label}</button>`)
     .join("")}</div>`;
 
-  const sortOptions = fields.filter((f) => !teachersView || !["level", "hp", "stamina"].includes(f.key)).map((f) => `<option value="${f.key}" ${f.key === effectiveSortKey ? "selected" : ""}>${f.label}</option>`).join("");
+  const sortOptions = fields.filter((f) => !teachersView || !studentOnly.includes(f.key)).map((f) => `<option value="${f.key}" ${f.key === effectiveSortKey ? "selected" : ""}>${f.label}</option>`).join("");
 
   const fallen = state.characters.filter((c) => !c.alive);
   const memorial = fallen.length
@@ -4574,8 +4592,8 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
     </div>
     <div class="table-wrap">
       <table class="roster-table">
-        <thead><tr><th>Name</th><th>Sex</th>${teachersView ? "<th>Teaches</th>" : "<th>Lvl</th><th>HP</th><th>Stamina</th>"}<th>Status</th><th>Assignment</th><th>Stats</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="${teachersView ? 6 : 8}" class="muted">Nobody here.</td></tr>`}</tbody>
+        <thead><tr><th>Name</th><th>Sex</th>${teachersView ? "<th>Teaches</th>" : "<th>Lvl</th><th>Power</th><th>Gear</th><th>HP</th><th>Stamina</th>"}<th>Status</th><th>Assignment</th><th>Stats</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="${teachersView ? 6 : 10}" class="muted">Nobody here.</td></tr>`}</tbody>
       </table>
     </div>
     ${memorial}

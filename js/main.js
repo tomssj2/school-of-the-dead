@@ -1269,13 +1269,13 @@ root.addEventListener("click", (e) => {
       G.setFarmToday(state, el.dataset.id, false);
       render();
       break;
-    // a squad picker's "Equip them in the Armory": close the picker (its squad is kept where it's
-    // kept in the state) and go and arm them
+    // a squad picker's "Check their inventory": close the picker (a raid squad is kept in the state)
+    // and go to the Roster, where a click on a name opens their card to equip them
     case "squad-armory":
       clearRoom = null;
       openNest = null;
       openRaid = null;
-      activeTab = "armory";
+      activeTab = "roster";
       render();
       break;
     case "resolve-raid":
@@ -1454,7 +1454,7 @@ root.addEventListener("click", (e) => {
       openScoutHex = null;
       openPicker = null;
       openCardId = el.dataset.id;
-      cardTab = "stats";
+      cardTab = el.dataset.cardTab || "stats";
       render();
       break;
     case "close-card":
