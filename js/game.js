@@ -486,12 +486,23 @@ export function checkObjectives(state) {
   return done;
 }
 
+// ---------- one Turn 1 job each ----------
+// In Turn 1 a student does one thing: a classroom seat, the Gymnasium or Acrobatics, the Research
+// or Crafting Room, the Radio, rest in the Cafeteria, or the Nurse's Office. Taking a new one
+// leaves the old (`keep` is the one being taken: "seat" or its flag).
+export const TURN_ONE_FLAGS = ["gymToday", "researchToday", "craftingToday", "radioToday", "restToday", "infirmaryToday"];
+function leaveTurnOneJobs(state, c, keep) {
+  if (keep !== "seat" && c.seat) unseat(state, c.id);
+  for (const flag of TURN_ONE_FLAGS) if (flag !== keep) c[flag] = false;
+}
+
 export function assignSeat(state, studentId, roomId, index) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
   if (isBoarded(state, `classroom:${roomId}`)) return false;
   const room = state.rooms.classrooms[roomId];
   if (!room || room.seats[index]) return false;
+  leaveTurnOneJobs(state, c, "seat");
   // vacate old seat
   if (c.seat) {
     const oldRoom = state.rooms.classrooms[c.seat.room];
@@ -555,6 +566,7 @@ export function setGymToday(state, studentId, side) {
     if (c.infection) return false; // in quarantine
     const count = state.characters.filter((x) => x.gymToday === side && x.id !== c.id).length;
     if (count >= gymRoom(state, side).studentCapacity) return false;
+    leaveTurnOneJobs(state, c, "gymToday");
   }
   c.gymToday = side || false;
   return true;
@@ -619,6 +631,7 @@ export function setRadioToday(state, studentId, value) {
     if (c.infection || isBoarded(state, "radio")) return false;
     const count = state.characters.filter((x) => x.alive && x.radioToday && x.id !== c.id).length;
     if (count >= state.rooms.radio.studentCapacity) return false;
+    leaveTurnOneJobs(state, c, "radioToday");
   }
   c.radioToday = !!value;
   return true;
@@ -656,10 +669,11 @@ export function setRestToday(state, studentId, value) {
   const c = getChar(state, studentId);
   if (!c || c.role !== "student") return false;
   if (value) {
-    if (c.infection || c.infirmaryToday) return false; // in quarantine, or already being healed
+    if (c.infection) return false; // in quarantine
     if (c.stamina >= c.maxStamina) return false; // already fully rested
     const count = state.characters.filter((x) => x.alive && x.restToday && x.id !== c.id).length;
     if (count >= state.rooms.cafeteria.studentCapacity) return false;
+    leaveTurnOneJobs(state, c, "restToday");
   }
   c.restToday = !!value;
   return true;
@@ -671,9 +685,10 @@ export function setInfirmaryToday(state, studentId, mode) {
   if (!c || c.role !== "student") return false;
   if (mode === true) mode = "heal";
   if (mode) {
-    if (c.infection || c.restToday) return false; // already there in quarantine, or resting in the Cafeteria
+    if (c.infection) return false; // already there in quarantine
     if (c.hp >= c.maxHp) return false; // nothing to heal — don't spend a bed or medicine on them
     if (infirmaryBedsUsed(state, c.id) >= state.rooms.infirmary.studentCapacity) return false;
+    leaveTurnOneJobs(state, c, "infirmaryToday");
   }
   c.infirmaryToday = mode ? "heal" : false;
   return true;
@@ -1328,6 +1343,7 @@ function setRoomJob(state, studentId, flag, roomKey, value) {
     if (c.infection || isBoarded(state, roomKey)) return false;
     const count = state.characters.filter((x) => x.alive && x[flag] && x.id !== c.id).length;
     if (count >= state.rooms[roomKey].studentCapacity) return false;
+    leaveTurnOneJobs(state, c, flag);
   }
   c[flag] = !!value;
   return true;

@@ -37,10 +37,13 @@ export function maxOutSchool(state) {
     }
   }
 
-  // students: enough to fill every classroom seat, all seated
+  // students: enough to fill every classroom seat and every daily job (one Turn 1 job each)
   const seats = CLASSROOM_IDS.reduce((sum, id) => sum + state.rooms.classrooms[id].seats.length, 0);
-  while (alive("student").length < seats) hire("student");
-  for (const c of alive("student").filter((x) => !x.seat)) {
+  const jobSlots = ["gym", "acrobatics", "radio", "research", "crafting", "cafeteria", "infirmary"].reduce((sum, k) => sum + (state.rooms[k]?.studentCapacity || 0), 0);
+  while (alive("student").length < seats + jobSlots) hire("student");
+  let toSeat = seats - alive("student").filter((x) => x.seat).length;
+  for (const c of alive("student").filter((x) => !x.seat && !G.TURN_ONE_FLAGS.some((f) => x[f]))) {
+    if (toSeat-- <= 0) break;
     for (const id of CLASSROOM_IDS) {
       const idx = state.rooms.classrooms[id].seats.findIndex((x) => !x);
       if (idx >= 0 && G.assignSeat(state, c.id, id, idx)) break;
@@ -48,7 +51,7 @@ export function maxOutSchool(state) {
   }
 
   // daily jobs: fill each room's student slots from whoever is free
-  const busy = (c) => c.gymToday || c.radioToday || c.researchToday || c.craftingToday || c.infirmaryToday || c.restToday || c.farmToday || c.scrapyardToday || c.exploreTeam !== null || c.defending;
+  const busy = (c) => c.seat || c.gymToday || c.radioToday || c.researchToday || c.craftingToday || c.infirmaryToday || c.restToday || c.farmToday || c.scrapyardToday || c.exploreTeam !== null || c.defending;
   const fill = (count, assign) => {
     for (let i = 0; i < count; i++) {
       const c = alive("student").find((x) => !busy(x));

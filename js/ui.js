@@ -3079,6 +3079,15 @@ function teacherBusyLabel(state, c, exceptPost) {
   return occupationLabel(state, c);
 }
 
+// Busy in a way a Turn 1 picker can't move them from: quarantine, or a later turn's job.
+function laterBusyLabel(c) {
+  if (c.infection) return "🦠 Infected — in quarantine";
+  if (c.farmToday) return "Working the Farm";
+  if (c.scrapyardToday) return "Working the Scrapyard";
+  if (c.exploreTeam !== null) return c.exploreTeam === RAID_TEAM ? "On the raid squad" : `Exploring (Team ${c.exploreTeam + 1})`;
+  if (c.defending) return "Defending the Entrance";
+  return null;
+}
 function studentBusyLabel(c, exceptFlag) {
   if (c.infection) return "🦠 Infected — in quarantine";
   if (exceptFlag !== "gymToday" && c.gymToday) return `Training in ${GYM_SIDES[c.gymToday].ref}`;
@@ -3119,9 +3128,9 @@ function recoveryEntry(c, reason, icon, label, now, max, gain) {
   };
 }
 
-// Turn 1 jobs can overlap — a student can sit in a class and still be sent to the Gym, the Research
-// Room and so on — so in those pickers anyone already doing something else today is `occupied`:
-// still assignable, but never recommended, and marked so it's plain they're taken.
+// A student has one Turn 1 job (game.js leaveTurnOneJobs), so in those pickers anyone already doing
+// something else today is `occupied`: never recommended, marked with where they are, and their
+// button moves them here. What blocks them outright is only what Turn 1 can't undo (laterBusyLabel).
 const TURN_ONE_PICKERS = ["classroom-seat", "gym-student", "research-student", "crafting-student", "radio-student", "cafeteria-rest", "infirmary-student"];
 function turnOneJob(state, c) {
   if (c.gymToday) return `Training in ${GYM_SIDES[c.gymToday].ref}`;
@@ -3137,7 +3146,7 @@ function resolvePickerCandidates(state, picker) {
   if (!TURN_ONE_PICKERS.includes(picker.kind)) return res;
   for (const x of res.list) {
     if (x.reason) continue;
-    x.occupied = picker.kind === "classroom-seat" ? turnOneJob(state, x.c) : x.c.seat ? `In class — ${roomDisplayName(state, x.c.seat.room)}` : null;
+    x.occupied = picker.kind !== "classroom-seat" && x.c.seat ? `In class — ${roomDisplayName(state, x.c.seat.room)}` : turnOneJob(state, x.c);
   }
   return res;
 }
@@ -3159,7 +3168,7 @@ function pickerCandidates(state, picker) {
         role: "student", title: `Send a Student to ${GYM_SIDES[postKey].ref}`,
         focus: STAT_OF_SUBJECT[postKey],
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.gymToday !== postKey)
-          .map((c) => lessonEntry(c, studentBusyLabel(c, "gymToday"), lesson)),
+          .map((c) => lessonEntry(c, laterBusyLabel(c), lesson)),
       };
     }
     case "cafeteria-teacher":
@@ -3181,7 +3190,7 @@ function pickerCandidates(state, picker) {
         recToggle: false, recLabel: "the most hurt",
         empty: treated ? null : `Not enough medicine for another treatment — they'd only get bed rest (+${INFIRMARY_BED_REST} HP).`,
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.infirmaryToday)
-          .map((c) => recoveryEntry(c, studentBusyLabel(c, "infirmaryToday"), "❤", "HP", c.hp, c.maxHp, healAmount(state, c, treated))),
+          .map((c) => recoveryEntry(c, laterBusyLabel(c), "❤", "HP", c.hp, c.maxHp, healAmount(state, c, treated))),
       };
     }
     case "research-student":
@@ -3189,28 +3198,28 @@ function pickerCandidates(state, picker) {
         role: "student", title: "Send a Student to the Research Room",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.researchToday)
           .sort((a, b) => b.grades.Physics - a.grades.Physics)
-          .map((c) => studentRow(c, "researchToday")),
+          .map((c) => ({ c, reason: laterBusyLabel(c) })),
       };
     case "crafting-student":
       return {
         role: "student", title: "Send a Student to the Crafting Room",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.craftingToday)
           .sort((a, b) => b.grades.Gymnastics - a.grades.Gymnastics)
-          .map((c) => studentRow(c, "craftingToday")),
+          .map((c) => ({ c, reason: laterBusyLabel(c) })),
       };
     case "radio-student":
       return {
         role: "student", title: "Put a Student on the Air",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.radioToday)
           .sort((a, b) => b.grades.SocialStudies - a.grades.SocialStudies)
-          .map((c) => studentRow(c, "radioToday")),
+          .map((c) => ({ c, reason: laterBusyLabel(c) })),
       };
     case "cafeteria-rest":
       return {
         role: "student", title: "Send a Student to Rest",
         recToggle: false, recLabel: "the most worn out",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.restToday)
-          .map((c) => recoveryEntry(c, studentBusyLabel(c, "restToday"), "⚡", "Stamina", c.stamina, c.maxStamina, Math.min(cafeteriaRest(state), c.maxStamina - c.stamina))),
+          .map((c) => recoveryEntry(c, laterBusyLabel(c), "⚡", "Stamina", c.stamina, c.maxStamina, Math.min(cafeteriaRest(state), c.maxStamina - c.stamina))),
       };
     case "classroom-teacher": {
       const post = `classroom:${roomId}`;
@@ -3288,8 +3297,10 @@ function pickerRow({ c, reason, note, hint, maxed, maxedWhy, occupied }, role, f
     : maxed
     ? `<button class="btn btn-sm btn-primary" disabled title="${esc(maxedWhy || maxed)}">✓ Assign</button>
        <span class="pk-gain pk-gain-max" title="${esc(maxedWhy || maxed)}">${esc(maxed)}</span>`
+    : occupied
+    ? `<button class="btn btn-sm" data-action="confirm-picker" data-id="${c.id}" title="One job a day — this takes them out of where they are now">⇄ Move here</button>${hint || ""}`
     : `<button class="btn btn-sm btn-primary" data-action="confirm-picker" data-id="${c.id}">✓ Assign</button>${hint || ""}`;
-  const busy = occupied && !reason ? `<span class="pk-occupied-tag" title="Already doing this today — assigning them here too is allowed">⚠ ${esc(occupied)}</span>` : "";
+  const busy = occupied && !reason ? `<span class="pk-occupied-tag" title="Already busy today — one job a day">⚠ ${esc(occupied)}</span>` : "";
   return `<div class="picker-row pk-row ${reason ? "picker-row-disabled" : maxed ? "pk-maxed" : ""} ${busy ? "pk-occupied" : ""} ${recommended ? "pk-rec" : ""}">
     <span class="pk-portrait">${characterSprite(c, 34)}</span>
     <div class="pk-mid">
