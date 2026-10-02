@@ -3098,6 +3098,9 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 .ui-size-ctl { display: inline-flex; align-items: center; gap: 8px; }
 .ui-size-slider { width: 140px; margin: 0; accent-color: var(--bar-other); cursor: pointer; }
 .ui-size-val { min-width: 38px; text-align: right; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Sound effects and Music: the switch on the left, the volume slider on the right (dimmed while off) */
+.options-volume .options-toggle { cursor: pointer; white-space: nowrap; }
+.options-volume.options-off .ui-size-ctl { opacity: 0.45; }
 .gfx-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .gfx-opt { background: none; border: none; color: var(--muted); font: inherit; font-size: 12px; padding: 3px 9px; cursor: pointer; }
 .gfx-opt + .gfx-opt { border-left: 1px solid var(--border); }
@@ -3113,7 +3116,7 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
   padding: 3px 6px;
   cursor: pointer;
 }
-.options-menu { min-width: 300px; }
+.options-menu { min-width: 340px; }
 
 /* ===== Graphics quality (html[data-gfx], see graphics.js) =====
    High: everything. Medium: no ambient looping animation — twinkling stars, bobbing figures,

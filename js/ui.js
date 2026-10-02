@@ -33,8 +33,8 @@ import { characterSprite } from "./sprite.js";
 import { getBest, isBestRun } from "./score.js";
 import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZE } from "./graphics.js";
 import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
-import { isSoundEnabled } from "./sound.js";
-import { isMusicEnabled } from "./music.js";
+import { isSoundEnabled, getSoundVolume } from "./sound.js";
+import { isMusicEnabled, getMusicVolume } from "./music.js";
 
 const TURN_NAMES = { 1: "Classes (Morning)", 2: "Exploration (Afternoon)", 3: "Defense (Night)" };
 
@@ -810,6 +810,17 @@ function hudStat(floaties, key, iconHtml, tile, value, label, tipSpec, { sub = "
   </span>`;
 }
 
+// A sound option in the Menu: its on/off switch, and a volume slider (like UI Size's) on the right.
+function volumeRow(kind, label, on, volume) {
+  return `<div class="options-item options-gfx options-volume ${on ? "" : "options-off"}">
+    <label class="options-toggle"><input type="checkbox" data-action="toggle-${kind}" ${on ? "checked" : ""}/>${label}</label>
+    <span class="ui-size-ctl">
+      <input type="range" class="ui-size-slider" min="0" max="100" step="5" value="${volume}" data-action="set-${kind}-volume" title="Volume — double-click for 100%">
+      <output class="ui-size-val">${volume}%</output>
+    </span>
+  </div>`;
+}
+
 export function renderTopbar(state, floaties = [], activeTab = "") {
   const pop = aliveChars(state).length;
   const r = state.resources;
@@ -850,14 +861,8 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
           <div class="options-item options-gfx">🎨 Graphics
             <span class="gfx-seg">${GFX_LEVELS.map((level) => `<button class="gfx-opt ${getGraphics() === level ? "on" : ""}" data-action="set-gfx" data-gfx="${level}">${level[0].toUpperCase() + level.slice(1)}</button>`).join("")}</span>
           </div>
-          <label class="options-item options-toggle">
-            <input type="checkbox" data-action="toggle-sound" ${isSoundEnabled() ? "checked" : ""}/>
-            🔊 Sound effects
-          </label>
-          <label class="options-item options-toggle">
-            <input type="checkbox" data-action="toggle-music" ${isMusicEnabled() ? "checked" : ""}/>
-            🎵 Music
-          </label>
+          ${volumeRow("sound", "🔊 Sound effects", isSoundEnabled(), getSoundVolume())}
+          ${volumeRow("music", "🎵 Music", isMusicEnabled(), getMusicVolume())}
         </div>
       </details>
       <div class="hud-group">

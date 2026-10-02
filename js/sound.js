@@ -23,6 +23,36 @@ export function setSoundEnabled(enabled) {
   localStorage.setItem(SOUND_KEY, enabled ? "1" : "0");
 }
 
+// The Sound effects volume slider, 0-100 (the gain is its square, so the slider feels even).
+const VOLUME_KEY = "school-apocalypse-sfx-volume";
+export function getSoundVolume() {
+  try {
+    const v = Number(localStorage.getItem(VOLUME_KEY));
+    return localStorage.getItem(VOLUME_KEY) === null || !Number.isFinite(v) ? 100 : Math.max(0, Math.min(100, v));
+  } catch {
+    return 100;
+  }
+}
+export function setSoundVolume(v) {
+  try {
+    localStorage.setItem(VOLUME_KEY, String(v));
+  } catch {
+    // the setting just won't stick
+  }
+  if (bus) bus.gain.value = (getSoundVolume() / 100) ** 2;
+}
+// Every effect goes out through one gain, the volume.
+let bus = null;
+function sfxOut() {
+  const audio = getContext();
+  if (!bus) {
+    bus = audio.createGain();
+    bus.gain.value = (getSoundVolume() / 100) ** 2;
+    bus.connect(audio.destination);
+  }
+  return bus;
+}
+
 function tone(freq, duration, { type = "sine", gain = 0.2, delay = 0, glideTo = null } = {}) {
   if (!isSoundEnabled()) return;
   try {
@@ -36,7 +66,7 @@ function tone(freq, duration, { type = "sine", gain = 0.2, delay = 0, glideTo = 
     amp.gain.setValueAtTime(0, start);
     amp.gain.linearRampToValueAtTime(gain, start + 0.01);
     amp.gain.exponentialRampToValueAtTime(0.001, start + duration);
-    osc.connect(amp).connect(audio.destination);
+    osc.connect(amp).connect(sfxOut());
     osc.start(start);
     osc.stop(start + duration + 0.02);
   } catch (e) {
@@ -61,7 +91,7 @@ function noise(duration, { gain = 0.2, delay = 0, filter = "lowpass", freq = 120
     const amp = audio.createGain();
     amp.gain.setValueAtTime(gain, start);
     amp.gain.exponentialRampToValueAtTime(0.001, start + duration);
-    src.connect(biquad).connect(amp).connect(audio.destination);
+    src.connect(biquad).connect(amp).connect(sfxOut());
     src.start(start);
     src.stop(start + duration + 0.02);
   } catch (e) {

@@ -13,7 +13,31 @@
 import { audioContext } from "./sound.js";
 
 const MUSIC_KEY = "school-apocalypse-music-enabled";
-const VOLUME = 0.42;
+const VOLUME = 0.42; // at 100% on the slider
+const VOLUME_KEY = "school-apocalypse-music-volume";
+
+// The Music volume slider, 0-100 (the gain is its square, so the slider feels even).
+export function getMusicVolume() {
+  try {
+    const v = Number(localStorage.getItem(VOLUME_KEY));
+    return localStorage.getItem(VOLUME_KEY) === null || !Number.isFinite(v) ? 100 : Math.max(0, Math.min(100, v));
+  } catch {
+    return 100;
+  }
+}
+const level = () => (isMusicEnabled() ? Math.max(0.0001, VOLUME * (getMusicVolume() / 100) ** 2) : 0.0001);
+export function setMusicVolume(v) {
+  try {
+    localStorage.setItem(VOLUME_KEY, String(v));
+  } catch {
+    // the setting just won't stick
+  }
+  if (!E) return;
+  const now = E.ac.currentTime;
+  E.master.gain.cancelScheduledValues(now);
+  E.master.gain.setValueAtTime(E.master.gain.value, now);
+  E.master.gain.linearRampToValueAtTime(level(), now + 0.08);
+}
 
 export function isMusicEnabled() {
   try {
@@ -34,7 +58,7 @@ export function setMusicEnabled(on) {
   const now = E.ac.currentTime;
   E.master.gain.cancelScheduledValues(now);
   E.master.gain.setValueAtTime(E.master.gain.value, now);
-  E.master.gain.linearRampToValueAtTime(on ? VOLUME : 0.0001, now + 0.4);
+  E.master.gain.linearRampToValueAtTime(level(), now + 0.4);
   if (on) switchTo(wanted);
   else switchTo(null);
 }
@@ -806,7 +830,7 @@ export function unlockMusic() {
   try {
     const ac = audioContext();
     E = makeEngine(ac, ac.destination);
-    if (!isMusicEnabled()) E.master.gain.value = 0.0001;
+    E.master.gain.value = level();
     unlocked = true;
     setInterval(pump, 50);
     document.addEventListener("visibilitychange", () => {

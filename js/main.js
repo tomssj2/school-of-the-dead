@@ -7,10 +7,10 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor } from "./characters.js";
-import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled,
+import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled, setSoundVolume,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
-import { setMusicMood, unlockMusic, setMusicEnabled } from "./music.js";
+import { setMusicMood, unlockMusic, setMusicEnabled, setMusicVolume } from "./music.js";
 import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp, armDefenders, fortifyEntrance } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
@@ -1897,14 +1897,25 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// the UI Size slider: the number follows the drag, the size changes when it's let go ("change")
+// the UI Size slider: the number follows the drag, the size changes when it's let go ("change");
+// the volume sliders change the volume as they're dragged (and the effects chime when let go)
+const VOLUME_SETTERS = { "set-sound-volume": setSoundVolume, "set-music-volume": setMusicVolume };
 root.addEventListener("input", (e) => {
-  if (e.target.dataset?.action !== "set-ui-size") return;
+  const action = e.target.dataset?.action;
+  if (action !== "set-ui-size" && !VOLUME_SETTERS[action]) return;
   const out = e.target.parentElement.querySelector(".ui-size-val");
   if (out) out.textContent = `${e.target.value}%`;
+  VOLUME_SETTERS[action]?.(Number(e.target.value));
 });
 root.addEventListener("dblclick", (e) => {
-  if (e.target.dataset?.action !== "set-ui-size") return;
+  const action = e.target.dataset?.action;
+  if (VOLUME_SETTERS[action]) {
+    e.target.value = 100;
+    e.target.parentElement.querySelector(".ui-size-val").textContent = "100%";
+    VOLUME_SETTERS[action](100);
+    return;
+  }
+  if (action !== "set-ui-size") return;
   setUiSize(100);
   render();
 });
@@ -1918,6 +1929,13 @@ root.addEventListener("change", (e) => {
     case "set-ui-size":
       setUiSize(el.value);
       render();
+      break;
+    case "set-sound-volume":
+      setSoundVolume(Number(el.value));
+      playChime();
+      break;
+    case "set-music-volume":
+      setMusicVolume(Number(el.value));
       break;
     case "set-picker-sort":
       pickerSortKey = el.value;
