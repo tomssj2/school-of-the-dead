@@ -3105,6 +3105,12 @@ function studentBusyLabel(c, exceptFlag) {
 
 // A student in a class or training session: what today's `lesson` adds to its stat (`value`, their
 // grade, is what recommendations rank by), or `maxed` when there's nothing left to learn there.
+// What one person adds to the Research Room a day: their INT's share (1 research per
+// RESEARCH_ROOM_INT_PER_POINT INT, the room pools it), with the Lab Equipment perk — one decimal.
+function researchShare(state, c) {
+  const v = (c.grades.Physics / RESEARCH_ROOM_INT_PER_POINT) * (1 + techPerk(state, "researchYield"));
+  return Number.isInteger(Math.round(v * 10) / 10) ? Math.round(v * 10) / 10 : (Math.round(v * 10) / 10).toFixed(1);
+}
 function lessonEntry(c, reason, lesson) {
   if (reason || !lesson.subject) return { c, reason };
   const stat = STAT_OF_SUBJECT[lesson.subject];
@@ -3198,7 +3204,7 @@ function pickerCandidates(state, picker) {
         role: "student", title: "Send a Student to the Research Room",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.researchToday)
           .sort((a, b) => b.grades.Physics - a.grades.Physics)
-          .map((c) => ({ c, reason: laterBusyLabel(c) })),
+          .map((c) => ({ c, reason: laterBusyLabel(c), hint: `<span class="pk-gain" title="Research they'd add a day (INT ${c.grades.Physics})">+<b>${researchShare(state, c)}</b> ${ri("research")}</span>` })),
       };
     case "crafting-student":
       return {
@@ -4000,7 +4006,7 @@ export function renderFloor3(state) {
           'data-action="open-picker" data-kind="utility" data-post="research"')}
         ${statRow(`Assisting today (${assistants.length}/${state.rooms.research.studentCapacity})`, `${ri("research")} <b>+${researchRoomYield(state)}</b> research a day ${infoDot(researchHow)}`, "", stayToggle(state, "research"))}
         ${tileGrid(
-          assistants.map((s) => personTile(s, { remove: "remove-research", title: `${s.name} — adds INT ${s.grades.Physics} to the room`, extra: `<span class="pt-gain">INT <b>${s.grades.Physics}</b></span>` })),
+          assistants.map((s) => personTile(s, { remove: "remove-research", title: `${s.name} — INT ${s.grades.Physics}, adds ${researchShare(state, s)} research a day`, extra: `<span class="pt-gain">+<b>${researchShare(state, s)}</b> ${ri("research")}</span>` })),
           state.rooms.research.studentCapacity - assistants.length,
           'data-action="open-picker" data-kind="research-student"'
         )}
