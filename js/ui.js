@@ -469,8 +469,31 @@ function gainLine(from, to, done = "max") {
 // The tiles plus one dashed "+" tile per free slot (each opens the picker).
 function tileGrid(tiles, freeSlots, pickerAttrs) {
   const empty = Array.from({ length: Math.max(0, freeSlots) }, () =>
-    `<button class="person-tile pt-empty" ${pickerAttrs} title="Assign someone">+</button>`).join("");
+    `<button class="person-tile pt-empty" ${pickerAttrs} title="Assign someone">${emptySlot(pickerAttrs)}</button>`).join("");
   return `<div class="person-tiles">${tiles.join("")}${empty}</div>`;
+}
+
+// An empty slot shows a faint outline of what it's for — a barbell in the Gymnasium, a bed in the
+// Nurse's Office, a backpack at a desk — with the + over it; both light up on hover. The picker
+// the slot opens (its data-kind, and data-post for the Gym's two sides) says which.
+const GHOST_OF_KIND = {
+  "gym-student": (post) => (post === "Gymnastics" ? "acrobat" : "barbell"),
+  "cafeteria-rest": () => "face_tired",
+  "infirmary-student": () => "bed",
+  "research-student": () => "research",
+  "crafting-student": () => "tools",
+  "radio-student": () => "antenna",
+  "classroom-seat": () => "student",
+  farm: () => "wheat",
+  barn: () => "cow",
+  scrapyard: () => "scrapyard",
+  greenhouse: () => "sprout",
+};
+function emptySlot(attrs = "") {
+  const kind = /data-kind="([^"]+)"/.exec(attrs)?.[1];
+  const post = /data-post="([^"]+)"/.exec(attrs)?.[1];
+  const ghost = GHOST_OF_KIND[kind]?.(post);
+  return `${ghost ? `<span class="pt-ghost">${pixelIcon(ghost, 32)}</span>` : ""}<span class="pt-plus">+</span>`;
 }
 
 // ---------- room scenes ----------
@@ -3797,7 +3820,7 @@ function renderClassroom(state, roomId) {
   const seatTile = (idx) => {
     const occ = getChar(state, room.seats[idx]);
     if (!occ) {
-      return `<button class="person-tile pt-empty" data-action="open-picker" data-kind="classroom-seat" data-room="${roomId}" data-seat="${idx}" title="Seat someone here">+</button>`;
+      return `<button class="person-tile pt-empty" data-action="open-picker" data-kind="classroom-seat" data-room="${roomId}" data-seat="${idx}" title="Seat someone here">${emptySlot('data-kind="classroom-seat"')}</button>`;
     }
     const grade = subject ? occ.grades[subject] : null;
     return personTile(occ, {
@@ -4154,8 +4177,8 @@ function renderSiteRoom(state, site) {
     </div>`;
   }).join("");
   const tiles = crew.map((s) => personTile(s, { remove: `remove-${site}`, cls: "pt-farm", extra: workerStaminaLine(s, def.stamina) })).join("")
-    + `<button class="person-tile pt-farm pt-empty" data-action="open-picker" data-kind="${site}" data-post="${side}" title="Assign someone">+</button>`.repeat(open)
-    + `<div class="person-tile pt-farm pt-empty pt-off" title="Not needed — nothing more ${words.ready}">+</div>`.repeat(Math.max(0, slots - crew.length - open));
+    + `<button class="person-tile pt-farm pt-empty" data-action="open-picker" data-kind="${site}" data-post="${side}" title="Assign someone">${emptySlot(`data-kind="${site}"`)}</button>`.repeat(open)
+    + `<div class="person-tile pt-farm pt-empty pt-off" title="Not needed — nothing more ${words.ready}">${emptySlot(`data-kind="${site}"`)}</div>`.repeat(Math.max(0, slots - crew.length - open));
   return `<div class="room room-site room-${site}">
     ${roomScene(`${site === "barn" ? "farm" : site}@${sceneLevel(state, site)}`, crew, `${def.name}${levelBadge(state, site)}`,
       roomInfo(`${SITE_ICON[site]} ${def.name}`, SITE_INTRO[site], { works: { stat: y.stat, rows: [[`${y.unit[0].toUpperCase()}${y.unit.slice(1)} each worker brings in`, `${y.base}, +1 per ${STAT_TUNING.yieldStatStep} ${y.stat}`]] } }),

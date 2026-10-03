@@ -3811,3 +3811,14 @@ body[data-turn="2"] .nav-turn, body[data-turn="3"] .nav-turn, body[data-turn="2"
 body[data-turn="2"] .nav-btn.nav-turn, body[data-turn="2"] .nav-btn.nav-turn.active { --b-face: #e8963f; --b-hi: #ffc98a; --b-lo: #8a4a16; --b-edge: #2a1100; --b-ink: #2a1400; }
 body[data-turn="3"] .nav-btn.nav-turn, body[data-turn="3"] .nav-btn.nav-turn.active { --b-face: #7488dc; --b-hi: #b8c6fa; --b-lo: #34418a; --b-edge: #0a0f2e; --b-ink: #0a1030; }
 .site-row > .stay-toggle { justify-self: end; }
+
+/* Empty slots: a faint outline of what goes there (ui.js emptySlot), the + in its corner; hover
+   brings the outline up in colour and lights the + */
+.pt-empty { position: relative; }
+.pt-ghost { display: grid; place-items: center; line-height: 0; opacity: 0.26; filter: grayscale(1) brightness(1.45); transition: opacity 0.15s, filter 0.15s; }
+.pt-plus { position: absolute; right: 5px; bottom: 3px; font-size: 13px; font-weight: 700; line-height: 1; opacity: 0.6; transition: opacity 0.15s, color 0.15s; }
+.pt-empty > .pt-plus:only-child { position: static; font-size: 18px; opacity: 1; }
+.pt-empty:hover .pt-ghost { opacity: 0.6; filter: grayscale(0.2); }
+.pt-empty:hover .pt-plus { opacity: 1; color: var(--accent); }
+.pt-off .pt-ghost { opacity: 0.09; }
+.pt-off .pt-plus { opacity: 0.25; }
