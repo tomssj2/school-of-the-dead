@@ -11,6 +11,7 @@ import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeache
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled, setSoundVolume,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
+import { installFrames } from "./frames.js";
 import { setMusicMood, unlockMusic, setMusicEnabled, setMusicVolume } from "./music.js";
 import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp, armDefenders, fortifyEntrance } from "./dev.js";
 import {
@@ -2064,6 +2065,7 @@ window.addEventListener("resize", () => {
   fitCityMap();
 });
 applyGraphics();
+installFrames();
 
 // Test shortcuts, only when the game runs on this computer (the /max and /min project commands
 // run these): schoolDev.max() puts every room at level 5 with every slot filled; schoolDev.min()

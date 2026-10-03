@@ -33,6 +33,7 @@ import { raidBackdrop, streetBackdrop, duskBackdrop } from "./backdrops.js";
 import { characterSprite } from "./sprite.js";
 import { getBest, isBestRun } from "./score.js";
 import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZE } from "./graphics.js";
+import { areaOfTab } from "./frames.js";
 import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
 import { isSoundEnabled, getSoundVolume } from "./sound.js";
 import { isMusicEnabled, getMusicVolume } from "./music.js";
@@ -1096,7 +1097,7 @@ export function renderOverview(state) {
 function overviewCard({ tab, scene, art = "", bg = "", name, level = "", big, unit = "", used = null, cap = null, meta = "", notes = [], locked = false, style = "" }) {
   const pct = cap ? Math.round((Math.min(used, cap) / cap) * 100) : 0;
   const shown = notes.filter((n) => n && !hiddenWarnings.has(n[2])).sort((a, b) => (a[0] === "bad" ? 0 : 1) - (b[0] === "bad" ? 0 : 1));
-  return `<button class="ov-card ${locked ? "ov-locked" : ""}" data-action="set-tab" data-tab="${tab}" ${style ? `style="${style}"` : ""}>
+  return `<button class="ov-card ${locked ? "ov-locked" : ""}" data-action="set-tab" data-tab="${tab}" data-area="${areaOfTab(tab)}" ${style ? `style="${style}"` : ""}>
     <span class="ov-banner ${art ? "ov-banner-art" : ""} ${bg ? "ov-banner-bg" : ""}" ${art ? "" : `style="background-image:${bg || sceneBackground(scene)}"`}>${art}<span class="ov-plaque">${locked ? "🔒 " : ""}${name}${level}</span></span>
     <span class="ov-big">${big}${unit ? ` <small>${unit}</small>` : ""}</span>
     ${cap ? `<span class="ov-bar ${used >= cap ? "ov-bar-full" : used ? "" : "ov-bar-empty"}"><i style="width:${pct}%"></i></span>` : ""}
@@ -4938,5 +4939,7 @@ export function renderApp(state, activeTab, rosterFilter = "student", floaties =
   else if (activeTab === "log") content = renderLog(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 
-  return `${renderTopbar(state, floaties, activeTab)}${renderTabs(state, activeTab)}<div class="content">${content}</div>`;
+  // the page wears its part of the school's frames (frames.js): lockers in the Lobby, a chalkboard in the
+  // Classrooms, office wood in the Facilities, a fence in the Courtyard, canvas on the map, steel at night
+  return `${renderTopbar(state, floaties, activeTab)}${renderTabs(state, activeTab)}<div class="content" data-area="${areaOfTab(activeTab)}">${content}</div>`;
 }
