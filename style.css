@@ -3738,3 +3738,75 @@ html[data-gfx="medium"] .sk-buyable { animation: none; }
   border-radius: 0;
 }
 .cc2.cc2-legendary { border-image-source: var(--frame-gold); }
+
+/* ===== Pixel buttons =====
+   Every button is a chunky pixel block: a dark outline with its corners notched off, a lit top-left
+   edge, a thick shaded bottom so it stands up off the page; hovering lifts it, pressing pushes it in.
+   Colours come from --b-* so each kind only sets its palette: plain, primary (green), danger (red),
+   disabled, the tabs (the open one tinted by the time of day), the Stay toggle and the turn button. */
+.btn, .subtab-btn, .nav-btn, .stay-toggle {
+  --b-face: #3b4354; --b-hi: #5d6881; --b-lo: #232833; --b-edge: #090b10; --b-ink: #e6e8ec;
+  --b-pop: inset 2px 2px 0 var(--b-hi), inset -2px -3px 0 var(--b-lo);
+  --b-sunk: inset 2px 3px 0 var(--b-lo), inset -2px -1px 0 var(--b-hi);
+  --b-outline: 0 -2px 0 var(--b-edge), 0 2px 0 var(--b-edge), -2px 0 0 var(--b-edge), 2px 0 0 var(--b-edge);
+  border: 0;
+  border-radius: 0;
+  background: var(--b-face);
+  color: var(--b-ink);
+  box-shadow: var(--b-pop), var(--b-outline);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  transition: transform 0.08s ease, filter 0.12s ease;
+}
+.btn:hover, .subtab-btn:hover, .nav-btn:hover, .stay-toggle:hover {
+  background: var(--b-face); color: var(--b-ink); border-color: transparent;
+  box-shadow: var(--b-pop), var(--b-outline);
+  filter: brightness(1.13);
+  transform: translateY(-1px);
+}
+.btn:active, .subtab-btn:active, .nav-btn:active, .stay-toggle:active {
+  box-shadow: var(--b-sunk), var(--b-outline);
+  transform: translateY(1px);
+  filter: brightness(0.96);
+}
+.btn-primary { --b-face: #3a9d66; --b-hi: #7ad9a0; --b-lo: #226440; --b-edge: #05170d; --b-ink: #04190c; font-weight: 700; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28); }
+.btn-danger { --b-face: #a3392f; --b-hi: #dc6a60; --b-lo: #6a1f19; --b-edge: #200504; --b-ink: #fff; font-weight: 600; }
+.btn-big { --b-pop: inset 3px 3px 0 var(--b-hi), inset -3px -5px 0 var(--b-lo); --b-sunk: inset 3px 5px 0 var(--b-lo), inset -3px -2px 0 var(--b-hi); padding-bottom: 14px; }
+.btn:disabled, .btn[disabled] {
+  --b-face: #2a2f3a; --b-hi: #383f4d; --b-lo: #1d2128; --b-ink: #8d93a3;
+  opacity: 1; filter: none; transform: none; cursor: not-allowed; text-shadow: none;
+}
+.btn:disabled:hover, .btn[disabled]:hover { filter: none; transform: none; }
+/* tabs: the open one pressed in, in the accent (the page tabs in the time of day's colour) */
+.subtab-btn { --b-face: #2c323e; --b-hi: #474f60; --b-lo: #1b1f27; --b-ink: #aab0bf; margin: 2px; }
+.subtab-btn.active, .subtab-btn.active:hover {
+  --b-face: #3a9d66; --b-hi: #7ad9a0; --b-lo: #226440; --b-ink: #04190c;
+  box-shadow: var(--b-sunk), var(--b-outline); transform: translateY(1px); text-shadow: none; font-weight: 700;
+}
+.nav-btn.active, .nav-btn.active:hover {
+  --b-face: color-mix(in srgb, var(--turn-accent) 42%, #2b313e);
+  --b-hi: color-mix(in srgb, var(--turn-accent) 70%, #6a7590);
+  --b-lo: color-mix(in srgb, var(--turn-accent) 22%, #161a22);
+  --b-ink: #fff;
+  background: var(--b-face);
+  border-color: transparent;
+  box-shadow: var(--b-sunk), var(--b-outline), 0 0 14px -4px var(--turn-accent);
+  transform: translateY(1px);
+}
+.stay-toggle { --b-face: #2c323e; --b-hi: #464e5f; --b-lo: #1b1f27; --b-ink: #9aa1b0; opacity: 1; margin: 0 2px; }
+.stay-toggle.on, .stay-toggle.on:hover { --b-face: #2e5a99; --b-hi: #5e8fdb; --b-lo: #1b3866; --b-ink: #e8f1ff; }
+/* the turn button: a big block in the time of day's colour (open or not) */
+.nav-btn.nav-turn, .nav-btn.nav-turn.active, .nav-btn.nav-turn.active:hover {
+  --b-face: #4fbd82; --b-hi: #92ecb6; --b-lo: #237049; --b-edge: #06200f; --b-ink: #06210f;
+  --b-pop: inset 3px 3px 0 var(--b-hi), inset -3px -5px 0 var(--b-lo);
+  --b-sunk: inset 3px 5px 0 var(--b-lo), inset -3px -2px 0 var(--b-hi);
+}
+.nav-turn, .nav-turn:hover, .nav-turn.active,
+body[data-turn="2"] .nav-turn, body[data-turn="3"] .nav-turn, body[data-turn="2"] .nav-turn.active, body[data-turn="3"] .nav-turn.active {
+  border: 0;
+  border-radius: 0;
+  background: var(--b-face);
+  color: var(--b-ink);
+  box-shadow: var(--b-pop), var(--b-outline), 0 6px 18px -6px var(--b-face);
+}
+body[data-turn="2"] .nav-btn.nav-turn, body[data-turn="2"] .nav-btn.nav-turn.active { --b-face: #e8963f; --b-hi: #ffc98a; --b-lo: #8a4a16; --b-edge: #2a1100; --b-ink: #2a1400; }
+body[data-turn="3"] .nav-btn.nav-turn, body[data-turn="3"] .nav-btn.nav-turn.active { --b-face: #7488dc; --b-hi: #b8c6fa; --b-lo: #34418a; --b-edge: #0a0f2e; --b-ink: #0a1030; }
