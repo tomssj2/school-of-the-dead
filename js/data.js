@@ -578,6 +578,10 @@ export const PRODUCERS = {
     facility: "farm", name: "Wheat", icon: "🌾", product: "wheat", growDays: 3, yield: 4,
     stockName: "Wheat Seeds", stockPlural: "Wheat Seeds", stockIcon: "🌱", keepChance: 0.5, keepNote: "a seed saved",
   },
+  peppers: {
+    facility: "farm", name: "Chili Peppers", icon: "🌶️", product: "spices", growDays: 3, yield: 2,
+    stockName: "Chili Seeds", stockPlural: "Chili Seeds", stockIcon: "🌱", keepChance: 0.5, keepNote: "a seed saved",
+  },
   chicken: {
     facility: "ranch", name: "Chickens", icon: "🐔", product: "eggs", growDays: 1, yield: 1, perennial: true,
     stockName: "Chicken", stockPlural: "Chickens", stockIcon: "🐔",
@@ -590,19 +594,23 @@ export const PRODUCERS = {
     facility: "ranch", name: "Sheep", icon: "🐑", product: "mutton", growDays: 4, yield: 4,
     stockName: "Sheep", stockPlural: "Sheep", stockIcon: "🐑", keepChance: 0.5, keepNote: "a lamb was born",
   },
+  goat: {
+    facility: "ranch", name: "Goats", icon: "🐐", product: "milk", growDays: 2, yield: 2, perennial: true,
+    stockName: "Goat", stockPlural: "Goats", stockIcon: "🐐",
+  },
 };
 export const FARM_CROPS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "farm");
 export const RANCH_ANIMALS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "ranch");
 // The Farm's six groups, top to bottom on each side of its page: a field for each crop on the
 // left, a pen for each animal on the right. Every group has the same number of slots, by level.
-export const FARM_GROUPS = { fields: ["wheat", "potatoes", "tomatoes"], animals: ["chicken", "sheep", "cow"] };
+export const FARM_GROUPS = { fields: ["wheat", "potatoes", "tomatoes", "peppers"], animals: ["chicken", "sheep", "cow", "goat"] };
 export const FARM_SLOTS_BY_LEVEL = [1, 2, 3, 4]; // the Farm has 4 levels: each opens a slot in every group
 export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // fields and pens at level 1 in older saves
 export const PLOTS_PER_WORKER = 2; // ready slots one Farm worker harvests a day
 // Crops grow and animals come round by themselves, a day at a time; once a slot is ready it waits
-// for a worker. Each side of the Farm (fields, animals) has its own crew, big enough to cover all
-// its slots: 2, 3, 5, 6 workers by level.
-export const FARM_WORKERS_BY_LEVEL = FARM_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
+// for a worker. The Farm (fields) and the Barn (animals) each have their own crew, big enough to
+// cover all their slots: 2, 4, 6, 8 workers by level.
+export const FARM_WORKERS_BY_LEVEL = FARM_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 4) / PLOTS_PER_WORKER));
 export const FARM_STAMINA_COST = 50; // a day's work at the Farm or the Barn (paid at the end of Turn 1) — to be balanced
 
 // The Scrapyard works like the Farm, but nothing needs planting: its salvage piles refill themselves
@@ -611,10 +619,11 @@ export const YARD_JOBS = {
   cars: { name: "Car Wrecks", icon: "🚗", growDays: 3, scrap: 8, what: "8 🔩 scrap" },
   appliances: { name: "Appliances", icon: "🔌", growDays: 2, scrap: 4, research: [1, 2], researchChance: 0.5, what: "4 🔩 scrap, maybe 🧠 research" },
   machinery: { name: "Machinery", icon: "⚙️", growDays: 4, scrap: 10, gearChance: 0.2, what: "10 🔩 scrap, maybe gear" },
+  vending: { name: "Vending Machines", icon: "🥫", growDays: 2, scrap: 3, ingredient: "canned_meat", ingredientChance: 0.5, what: "3 🔩 scrap, maybe 🥫 canned meat" },
 };
-export const YARD_GROUPS = { salvage: ["cars", "appliances", "machinery"] };
+export const YARD_GROUPS = { salvage: ["cars", "appliances", "machinery", "vending"] };
 export const YARD_SLOTS_BY_LEVEL = [1, 2, 3, 4];
-export const YARD_WORKERS_BY_LEVEL = YARD_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
+export const YARD_WORKERS_BY_LEVEL = YARD_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 4) / PLOTS_PER_WORKER));
 export const YARD_STAMINA_COST = 50; // to be balanced
 
 // The Greenhouse works like the Scrapyard: its herb beds grow back by themselves a day at a time and
@@ -623,10 +632,11 @@ export const GREENHOUSE_JOBS = {
   aloe: { name: "Aloe Vera", icon: "🌵", growDays: 2, medicine: 1, what: "1 💊 medicine" },
   echinacea: { name: "Echinacea", icon: "🌸", growDays: 3, medicine: 2, what: "2 💊 medicine" },
   willow: { name: "Willow Bark", icon: "🌳", growDays: 4, medicine: 4, what: "4 💊 medicine" },
+  coffee: { name: "Coffee Plant", icon: "☕", growDays: 3, ingredient: "coffee", what: "1 ☕ coffee" },
 };
-export const GREENHOUSE_GROUPS = { herbs: ["aloe", "echinacea", "willow"] };
+export const GREENHOUSE_GROUPS = { herbs: ["aloe", "echinacea", "willow", "coffee"] };
 export const GREENHOUSE_SLOTS_BY_LEVEL = [1, 2, 3, 4];
-export const GREENHOUSE_WORKERS_BY_LEVEL = GREENHOUSE_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
+export const GREENHOUSE_WORKERS_BY_LEVEL = GREENHOUSE_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 4) / PLOTS_PER_WORKER));
 export const GREENHOUSE_STAMINA_COST = 50; // to be balanced
 export const GREENHOUSE_YIELD_MEDICINE = 1; // medicine per worker a day, +1 per 25 CON
 
@@ -639,7 +649,7 @@ export const WORK_SITES = {
   scrapyard: { name: "Scrapyard", flag: "scrapyardToday", sides: YARD_GROUPS, slotsByLevel: YARD_SLOTS_BY_LEVEL, workersByLevel: YARD_WORKERS_BY_LEVEL, stamina: YARD_STAMINA_COST },
   greenhouse: { name: "Greenhouse", flag: "greenhouseToday", sides: GREENHOUSE_GROUPS, slotsByLevel: GREENHOUSE_SLOTS_BY_LEVEL, workersByLevel: GREENHOUSE_WORKERS_BY_LEVEL, stamina: GREENHOUSE_STAMINA_COST },
 };
-export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, chicken: 1, cow: 0, sheep: 1 };
+export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, peppers: 1, chicken: 1, cow: 0, sheep: 1, goat: 0 };
 // Expedition finds for the Farm (seeds, animals): a base chance on a success (lower on a failure) + a
 // location's seedBonus. Locations with `animals` turn up one of them instead `animalChance` of
 // the time.

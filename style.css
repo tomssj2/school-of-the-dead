@@ -3646,3 +3646,9 @@ html[data-gfx="medium"] .sk-buyable { animation: none; }
 .room-site .fslot { height: 44px; gap: 2px; padding: 3px 6px; }
 .room-site .fslot-icon { font-size: 16px; }
 .room-site .farm-crew { margin: 2px 0 2px; }
+/* inside a Courtyard room: its four kinds of slot in a 2x2 grid */
+.site-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.site-groups .farm-group { margin-top: 0; min-width: 0; }
+.room-site .farm-crew + .site-groups { margin-top: 6px; }
+.room-site .person-tile.pt-farm { width: 56px; }
+.room-site .farm-crew .person-tiles { gap: 3px; }

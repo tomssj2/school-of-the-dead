@@ -65,10 +65,10 @@ const ICON_SWAPS = [
   [DEFENSE_STRUCTURES, "icon", { sandbag_wall: "def_sandbags", razor_wire: "wire", concrete_barricade: "def_concrete", electric_fence: "def_efence" }],
   [ZOMBIE_TYPES, "badge", { runner: "z_runner", brute: "z_brute", spitter: "z_spitter", screamer: "z_screamer", boss: "z_boss" }],
   [INGREDIENTS, "icon", { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "flour", eggs: "eggs", milk: "milk", mutton: "mutton", canned_meat: "canned_meat", spices: "spices", coffee: "coffee" }],
-  [PRODUCERS, "icon", { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "wheat", chicken: "chicken", cow: "cow", sheep: "sheep" }],
+  [PRODUCERS, "icon", { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "wheat", peppers: "spices", chicken: "chicken", cow: "cow", sheep: "sheep", goat: "goat" }],
   [DISHES, "icon", { shepherds_stew: "shepherds_stew", fresh_bread: "fresh_bread", firehouse_chili: "firehouse_chili", scholars_breakfast: "scholars_breakfast" }],
   [TECH_TREE, "icon", Object.fromEntries(TECH_TREE.map((t) => [t.id, t.id]))],
-  [YARD_JOBS, "icon", { cars: "yard_cars", appliances: "yard_appliances", machinery: "yard_machinery", weapons: "yard_weapons", armor: "yard_armor", traps: "yard_traps" }],
+  [YARD_JOBS, "icon", { cars: "yard_cars", appliances: "yard_appliances", machinery: "yard_machinery", weapons: "yard_weapons", armor: "yard_armor", traps: "yard_traps", vending: "vending" }],
   [GREENHOUSE_JOBS, "icon", { aloe: "gh_aloe", echinacea: "gh_echinacea", willow: "gh_willow", peppers: "spices", coffee: "coffee", serum: "serum" }],
   [MAP_DROPS, "icon", { crate: "crate", wreck: "wreck", survivor: "survivor" }],
 ];
@@ -101,7 +101,7 @@ const SYMBOL_NAMES = {
   "😬": "face_grimace", "⚖": "scales", "🏠": "neighborhood", "🏥": "hospital", "🎩": "tophat", "📈": "trend_up",
   "📉": "trend_down", "🏹": "dr_marksman", "💍": "it_class_ring", "📰": "newspaper", "📊": "chart", "🌳": "tree", "✏": "pencil",
   "🛏": "bed", "🧠": "research", "🌑": "blackout", "🚧": "barricade", "🔺": "spikes", "🔗": "wire", "📶": "signal",
-  "🛰": "satellite", "💊": "medicine", "💉": "serum", "🤓": "face_nerd", "😎": "face_cool", "🏋": "barbell", "😊": "mood_happy", "🪤": "yard_traps",
+  "🛰": "satellite", "🐐": "goat", "💊": "medicine", "💉": "serum", "🤓": "face_nerd", "😎": "face_cool", "🏋": "barbell", "😊": "mood_happy", "🪤": "yard_traps",
   "🏫": "school", "🗺": "map", "🗣": "word_of_mouth", "👣": "horde", "🎉": "school_spirit", "🔌": "yard_appliances",
   "⚙": "scrap", "🌀": "ab_cleave", "💢": "ab_headshot", "💚": "ab_rally", "👁": "dr_spotter", "📣": "dr_rallier",
 };
@@ -4162,9 +4162,9 @@ function renderSiteRoom(state, site) {
     ${roomScene(`${site === "barn" ? "farm" : site}@${sceneLevel(state, site)}`, crew, `${def.name}${levelBadge(state, site)}`,
       roomInfo(`${SITE_ICON[site]} ${def.name}`, SITE_INTRO[site], { works: { stat: y.stat, rows: [[`${y.unit[0].toUpperCase()}${y.unit.slice(1)} each worker brings in`, `${y.base}, +1 per ${STAT_TUNING.yieldStatStep} ${y.stat}`]] } }),
       roomUpgradeButton(state, site))}
-    <div class="stat-row site-row"><span class="stat-pill">${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}</span>${readyText}<span class="site-row-end">${auto}<span class="farm-cost"><b>−${def.stamina}</b> stamina</span></span></div>
+    <div class="stat-row site-row"><span class="stat-pill">${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}</span>${readyText}<span class="site-row-end">${auto}<span class="farm-cost"><b>−${def.stamina}</b> stamina</span>${stayToggle(state, site, "nothing's ready for them or they're too tired")}</span></div>
     <div class="farm-crew"><div class="person-tiles">${tiles}</div></div>
-    ${groups}
+    <div class="site-groups">${groups}</div>
   </div>`;
 }
 

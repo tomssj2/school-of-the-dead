@@ -721,6 +721,12 @@ const STAY_JOBS = {
   researchToday: { room: () => "research", set: (...a) => setResearchToday(...a) }, // (declared further down)
   craftingToday: { room: () => "crafting", set: (...a) => setCraftingToday(...a) },
   radioToday: { room: () => "radio", set: setRadioToday },
+  // the Courtyard's rooms: back at dawn while there's something ready for them and the stamina for it
+  // (checked at dawn only — a night's sleep gives some stamina back)
+  ...Object.fromEntries(Object.entries(WORK_SITES).map(([site, def]) => [def.flag, {
+    room: () => site, set: (state, id, side) => setSiteToday(state, site, id, side), atDawn: true,
+    done: (state, c, side) => (c.stamina < def.stamina ? "too tired" : siteCrew(state, side).length >= workersNeeded(state, side) ? "nothing more ready" : null),
+  }])),
 };
 // Called as Turn 1 ends (after the day's lessons, rest and healing).
 function keepTurnOneJobs(state) {
@@ -732,7 +738,7 @@ function keepTurnOneJobs(state) {
     for (const [flag, job] of Object.entries(STAY_JOBS)) {
       const value = c[flag];
       if (!value || !staysInRoom(state, job.room(value))) continue;
-      const why = job.done?.(state, c, value);
+      const why = job.atDawn ? null : job.done?.(state, c, value);
       if (why) state.finishedJobs.push({ id: c.id, room: job.room(value), why });
       else keep[flag] = value;
     }
@@ -1099,7 +1105,7 @@ function resolveFarm(state) {
 
 // ---------- the Scrapyard's piles & benches ----------
 // state.yard has a slot list per salvage pile (YARD_JOBS), each slot { id, growth } — always in use:
-// a pile builds back up as soon as it's stripped.
+// a pile builds back up as soon as it's stripped. Vending machines may still hold canned food.
 
 export const yardSlots = (state) => YARD_SLOTS_BY_LEVEL[roomLevel(state, "scrapyard") - 1];
 
@@ -1119,7 +1125,7 @@ function yardItem(slot) {
 
 // The Scrapyard's day: the crew strips what's ready, then every pile builds up a day.
 function resolveYard(state) {
-  const out = { scrap: 0, research: 0, items: [] };
+  const out = { scrap: 0, research: 0, items: [], pantry: {} };
   for (const side of Object.keys(YARD_GROUPS)) {
     for (const [kind, i] of harvestPlan(state, side)) {
       const job = YARD_JOBS[kind];
@@ -1134,6 +1140,10 @@ function resolveYard(state) {
         out.research += n;
       }
       if (job.gearChance && Math.random() < job.gearChance) out.items.push(yardItem(null));
+      if (job.ingredient && Math.random() < job.ingredientChance) {
+        state.pantry[job.ingredient] = (state.pantry[job.ingredient] || 0) + 1;
+        out.pantry[job.ingredient] = (out.pantry[job.ingredient] || 0) + 1;
+      }
       state.yard[kind][i].growth = 0;
     }
   }
@@ -1148,6 +1158,7 @@ function resolveYard(state) {
 // At the end of Turn 1: each worker's own yield (the site's base, +1 per 25 of its stat), then the
 // crew collects what's ready, and every crop, animal, pile and bed comes along a day.
 function resolveCourtyard(state) {
+  const pantryText = (got) => Object.entries(got).map(([id, n]) => `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`);
   const crew = (flag) => state.characters.filter((c) => c[flag] && c.alive);
   const own = (site, list) => list.reduce((sum, c) => sum + workerYield(site, c), 0);
   const tire = (list, cost) => list.forEach((c) => (c.stamina = Math.max(0, c.stamina - cost)));
@@ -1173,14 +1184,14 @@ function resolveCourtyard(state) {
   tire(yardHands, YARD_STAMINA_COST);
   const yard = resolveYard(state);
   if (yardHands.length) {
-    const made = [`${haul + yard.scrap} scrap`, ...(yard.research ? [`${yard.research} research`] : []), ...yard.items.map((it) => `${it.icon} ${it.name}`)];
+    const made = [`${haul + yard.scrap} scrap`, ...(yard.research ? [`${yard.research} research`] : []), ...yard.items.map((it) => `${it.icon} ${it.name}`), ...pantryText(yard.pantry)];
     addLog(state, `The Scrapyard brings in ${made.join(", ")} from ${yardHands.length} student(s).`);
   }
   const herbs = own("greenhouse", herbHands);
   state.resources.medicine += herbs;
   tire(herbHands, GREENHOUSE_STAMINA_COST);
   const green = resolveGreenhouse(state);
-  if (herbHands.length) addLog(state, `The Greenhouse brings in ${herbs + green.medicine} medicine from ${herbHands.length} student(s).`);
+  if (herbHands.length) addLog(state, `The Greenhouse brings in ${[`${herbs + green.medicine} medicine`, ...pantryText(green.pantry)].join(", ")} from ${herbHands.length} student(s).`);
   if (state.today) state.today.courtyard = { food: food.farm + food.barn, scrap: haul + yard.scrap, medicine: herbs + green.medicine };
 }
 
@@ -1198,14 +1209,21 @@ export function syncGreenhouse(state) {
   }
 }
 
-// The Greenhouse's day: the crew picks what's ready, then every bed grows a day.
+// The Greenhouse's day: the crew picks what's ready (medicine, or coffee for the pantry), then every
+// bed grows a day.
 function resolveGreenhouse(state) {
-  const out = { medicine: 0 };
+  const out = { medicine: 0, pantry: {} };
   for (const side of Object.keys(GREENHOUSE_GROUPS)) {
     for (const [kind, i] of harvestPlan(state, side)) {
       const job = GREENHOUSE_JOBS[kind];
-      state.resources.medicine += job.medicine;
-      out.medicine += job.medicine;
+      if (job.medicine) {
+        state.resources.medicine += job.medicine;
+        out.medicine += job.medicine;
+      }
+      if (job.ingredient) {
+        state.pantry[job.ingredient] = (state.pantry[job.ingredient] || 0) + 1;
+        out.pantry[job.ingredient] = (out.pantry[job.ingredient] || 0) + 1;
+      }
       state.greenhouseSlots[kind][i].growth = 0;
     }
   }
