@@ -1668,7 +1668,78 @@ Object.assign(HI_SCENES, {
         r(x + 1, 22, x + 10, 22, lightOf(c));
       }
       for (const x of [112, 404]) floodlight(r, x);
-      forklift(r, 290, 42);
+            forklift(r, 290, 42);
+    }
+  },
+
+  // The Greenhouse, laid out like its page: herb beds on the left, the glasshouse in the middle,
+  // the still room on the right. Level 1 is dead beds in the weeds, a glasshouse with its panes
+  // smashed and a caved-in shed; then cleared beds with seedlings, patched glass and a chili rack;
+  // aloe, echinacea and willow grown in, a weeping willow and a copper still; coffee bushes in pots,
+  // a potting bench with flasks and sacks of beans; and at the top grow lamps glowing through the
+  // glass, a sprinkler line over the beds and a second still with its fire lit.
+  greenhouse(r, lv) {
+    wideOutdoor(r, lv, lv <= 1 ? "#7a7a50" : "#6a9a52", 120);
+    // the herb beds: three raised planters, one a herb
+    const BEDS = [[20, "aloe"], [66, "echinacea"], [112, "willow"]];
+    for (const [x0, kind] of BEDS) {
+      box(r, x0, 26, x0 + 40, 31, "#8a5f33", "#5a3b24");
+      r(x0 + 1, 26, x0 + 39, 26, "#a8753f");
+      for (let x = x0 + 4; x < x0 + 40; x += 10) r(x, 28, x, 30, "#6e4a28");
+      if (lv <= 1) {
+        for (let x = x0 + 3; x < x0 + 38; x += 4) weed(r, x, 25, x % 8 ? "#8a8a50" : "#6e6a40");
+        continue;
+      }
+      for (let x = x0 + 4; x < x0 + 38; x += 7) herb(r, x, 25, lv === 2 ? "sprout" : kind);
+    }
+    if (lv <= 1) {
+      deadTree(r, 160, 31);
+      for (const [x, y] of [[40, 40], [150, 43]]) crack(r, x, y, "#5e5a3a");
+    } else if (lv >= 3) willowTree(r, 162, 31);
+    if (lv >= 5) {
+      // a sprinkler line over the beds, misting
+      r(18, 12, 156, 12, "#6b6f78");
+      for (const x of [20, 156]) r(x, 13, x, 25, "#6b6f78");
+      for (let x = 30; x < 156; x += 22) {
+        r(x, 13, x, 14, "#9aa0a8");
+        for (const [dx, dy] of [[-2, 3], [0, 4], [2, 3], [-3, 6], [3, 6], [0, 7]]) r(x + dx, 13 + dy, x + dx, 13 + dy, "#d8eef488");
+      }
+    }
+
+    glasshouse(r, 178, 266, lv);
+
+    // the still room
+    shed(r, 284, lv <= 1);
+    if (lv <= 1) {
+      for (const [x, y] of [[320, 31], [342, 31], [372, 31]]) brokenPot(r, x, y);
+      for (const [x, y] of [[330, 42], [388, 40]]) crack(r, x, y, "#5e5a3a");
+      sign(r, 400, true);
+      return;
+    }
+    chiliRack(r, 316, lv);
+    if (lv >= 3) {
+      still(r, 340, false);
+      for (const x of [368, 382]) coffeeBush(r, x, 31);
+    } else for (const x of [346, 372]) plant(r, x, 31);
+    if (lv >= 4) {
+      // a potting bench: flasks, a mortar, and sacks of coffee beans under it
+      r(296, 37, 330, 38, "#8a5f33");
+      r(296, 37, 330, 37, "#a8753f");
+      for (const x of [297, 329]) r(x, 39, x, 44, "#5a3b24");
+      flask(r, 300, 36, "#4fc46a");
+      flask(r, 308, 36, "#e06aa8");
+      box(r, 316, 33, 321, 36, "#9aa0a8", "#5a5f68");
+      for (const x of [338, 346]) {
+        box(r, x, 38, x + 7, 44, "#c9a87a", "#8a6a4a");
+        r(x + 2, 38, x + 5, 38, "#6b4220");
+      }
+    }
+    if (lv >= 5) {
+      still(r, 398, true);
+      // string lights along the shed eaves
+      const glow = r.glow || r;
+      for (let x = 282; x <= 310; x += 4) glow(x, 16 + (x % 8 ? 1 : 0), x, 16 + (x % 8 ? 1 : 0), x % 12 ? "#fff3c4" : "#f4d35e");
+      r.light?.({ x: 296, y: 17, r: 18, k: 0.3, c: LAMP_LIGHT });
     }
   },
 });
@@ -1680,7 +1751,7 @@ Object.assign(HI_SCENES, {
 // bottom rows (the plaque hides the top-left corner, the Upgrade button the bottom-left one).
 
 const WW = 416;
-export const SCENE_WIDTH = { farm: WW, scrapyard: WW };
+export const SCENE_WIDTH = { farm: WW, scrapyard: WW, greenhouse: WW };
 
 function hash01(i, s) {
   let x = Math.imul(i + 11, 2654435761) ^ Math.imul(s + 7, 40503);
@@ -2193,6 +2264,154 @@ function forklift(r, x, base) {
   box(r, x + 15, base - 3, x + 19, base, "#1d2026");
 }
 
+// ---------- the Greenhouse's props ----------
+// A herb in a bed, standing on `base`: a seedling, spiky aloe, a pink-and-orange echinacea, or a
+// young willow switch.
+function herb(r, x, base, kind) {
+  if (kind === "sprout") return crop(r, x, base, "sprout");
+  if (kind === "aloe") {
+    for (const [dx, h, c] of [[-2, 3, "#4f9a5a"], [-1, 5, "#6fbf7a"], [0, 6, "#8ad89a"], [1, 5, "#6fbf7a"], [2, 3, "#4f9a5a"]]) r(x + dx, base - h + 1, x + dx, base, c);
+    r(x - 3, base - 1, x - 3, base, "#4f9a5a");
+    r(x + 3, base - 1, x + 3, base, "#3f7f4a");
+    return;
+  }
+  if (kind === "echinacea") {
+    r(x, base - 6, x, base, "#4f8a3a");
+    r(x + 1, base - 2, x + 2, base - 2, "#5a9a45");
+    for (const [dx, dy] of [[-2, 6], [-1, 7], [1, 7], [2, 6], [-2, 5], [2, 5]]) r(x + dx, base - dy, x + dx, base - dy, "#e06aa8");
+    r(x - 1, base - 8, x + 1, base - 7, "#e0782a");
+    r(x, base - 8, x, base - 8, "#f4a050");
+    return;
+  }
+  // a willow switch: a thin stem with drooping strands
+  r(x, base - 7, x, base, "#6b4a2f");
+  for (const dx of [-2, -1, 1, 2]) r(x + dx, base - 6 + Math.abs(dx), x + dx, base - 2 + Math.abs(dx), dx < 0 ? "#7fc86a" : "#5aa84a");
+}
+
+// A weeping willow on `base`: a trunk and long curtains of leaves.
+function willowTree(r, x, base) {
+  r(x, base - 14, x + 2, base, "#5a3b24");
+  r(x, base - 14, x, base, "#7a5232");
+  const crown = [[-9, 9], [-11, 11], [-12, 12], [-12, 12], [-11, 11]];
+  crown.forEach(([a, b], i) => r(x + 1 + a, base - 24 + i, x + 1 + b, base - 24 + i, i < 2 ? "#8ac86a" : "#6aa84f"));
+  for (let dx = -12; dx <= 12; dx += 2) {
+    const len = 8 + ((dx * 7 + 30) % 5);
+    r(x + 1 + dx, base - 19, x + 1 + dx, base - 19 + len, dx % 4 ? "#5a9a45" : "#7fbf5a");
+  }
+}
+
+// The glasshouse between x0 and x1: plants inside, a low brick wall, glass walls and a pitched
+// glass roof on a white frame. Smashed at level 1; grow lamps glowing inside at level 5.
+function glasshouse(r, x0, x1, lv) {
+  const mid = Math.round((x0 + x1) / 2);
+  const half = Math.round((x1 - x0) / 2);
+  // what grows inside, seen through the glass
+  if (lv >= 2) {
+    for (let x = x0 + 6; x < x1 - 4; x += 9) {
+      r(x, 18, x, 26, "#4f8a3a");
+      for (const [dx, dy] of [[-2, 0], [-1, -2], [1, -1], [2, 1], [-1, 3], [1, 4]]) r(x + dx, 20 + dy, x + dx + (dx > 0 ? 1 : 0), 20 + dy, lv >= 3 ? "#6fbf5a" : "#7fc86a");
+      if (lv >= 3) r(x - 1, 17, x + 1, 17, x % 2 ? "#e06aa8" : "#f4d35e");
+    }
+    if (lv >= 4) for (let x = x0 + 3; x < x1 - 2; x += 5) plant(r, x, 26 + (x % 2));
+  }
+  // the low brick wall
+  box(r, x0, 27, x1, 31, "#9a5a48", "#6a3a30");
+  r(x0, 27, x1, 27, "#b87060");
+  for (let x = x0 + 3; x < x1; x += 6) r(x, 29, x, 29, "#7a4438");
+  // glass: the walls, then the roof narrowing to the ridge
+  const glass = lv <= 1 ? "#3a404a66" : "#c8ecf855";
+  r(x0 + 1, 14, x1 - 1, 26, glass);
+  // the roof catches the sky: a stronger tint, lighter on the left slope than the right
+  for (let y = 6; y < 14; y++) {
+    const w = Math.round(((y - 5) / 8) * half);
+    r(mid - w, y, mid - 1, y, lv <= 1 ? "#3a404a88" : "#a8d8eacc");
+    r(mid, y, mid + w, y, lv <= 1 ? "#2a303a88" : "#6aa8c4cc");
+  }
+  // the frame: eaves, ridge, roof edges and roof bars in steel, the wall mullions white
+  const frame = lv <= 1 ? "#8a8c8a" : "#e8eef0";
+  const steel = lv <= 1 ? "#5a5c5a" : "#6a7680";
+  r(x0, 13, x1, 13, steel);
+  for (let y = 6; y < 14; y++) {
+    const w = Math.round(((y - 5) / 8) * half);
+    r(mid - w - 1, y, mid - w, y, steel);
+    r(mid + w, y, mid + w + 1, y, steel);
+    for (let x = x0 + 11; x < x1; x += 11) if (Math.abs(x - mid) < w) r(x, y, x, y, steel);
+  }
+  r(mid, 5, mid, 13, steel);
+  r(mid, 14, mid, 26, frame);
+  for (let x = x0; x <= x1; x += 11) r(x, 14, x, 26, frame);
+  r(x1, 14, x1, 26, frame);
+  if (lv >= 2) {
+    // glints on the panes
+    for (let x = x0 + 3; x < x1; x += 11) r(x, 16, x + 1, 15, "#ffffffaa");
+    for (const x of [mid - 20, mid + 14]) r(x, 9, x + 2, 8, "#ffffff88");
+  }
+  if (lv <= 1) {
+    // smashed: dark holes in the panes, shards on the ground
+    for (const [x, y, w, h] of [[x0 + 4, 16, 5, 4], [x0 + 26, 19, 6, 5], [mid + 6, 15, 4, 6], [x1 - 14, 20, 5, 3], [mid - 8, 9, 4, 2]]) r(x, y, x + w, y + h, "#1d2026aa");
+    for (const [x, y] of [[x0 + 8, 33], [mid, 35], [x1 - 6, 34], [x0 + 30, 36]]) r(x, y, x + 1, y, "#c8ecf8");
+    return;
+  }
+  if (lv === 2) for (const [x, y] of [[x0 + 26, 19], [x1 - 14, 20]]) r(x, y, x + 5, y + 4, "#a8753f99"); // boarded-up panes
+  if (lv >= 5) {
+    // grow lamps hanging under the roof, glowing pink-white
+    const glow = r.glow || r;
+    for (let x = x0 + 8; x < x1 - 6; x += 18) {
+      r(x + 2, 12, x + 2, 14, "#6b6f78");
+      glow(x, 15, x + 4, 15, "#fff3c4");
+      r.light?.({ x: x + 2, y: 16, r: 14, k: 0.4, c: [1.0, 0.82, 0.95] });
+    }
+  }
+}
+
+// A cracked clay pot lying on its side.
+function brokenPot(r, x, base) {
+  r(x, base - 3, x + 5, base, "#b0673a");
+  r(x + 1, base - 2, x + 4, base - 1, "#7a4424");
+  r(x + 7, base, x + 8, base, "#b0673a");
+  r(x - 2, base, x - 1, base, "#c98050");
+}
+
+// The chili rack: two posts and a line strung with red peppers drying (more of them with each level).
+function chiliRack(r, x, lv) {
+  for (const dx of [0, 18]) r(x + dx, 14, x + dx + 1, 31, "#7a5230");
+  r(x, 14, x + 19, 14, "#a8753f");
+  const n = Math.min(8, 2 + lv * 2);
+  for (let i = 0; i < n; i++) {
+    const px = x + 2 + i * 2;
+    r(px, 15, px, 15, "#4caf50");
+    r(px, 16, px, 18 + (i % 2), i % 3 ? "#e03a2a" : "#c02a20");
+  }
+  if (lv >= 3) for (let i = 0; i < n; i++) r(x + 2 + i * 2, 21, x + 2 + i * 2, 23 - (i % 2), i % 2 ? "#e03a2a" : "#b02a20");
+}
+
+// A copper still: a round pot on a stand, a pipe coiling over into a cooling barrel. `lit`: a fire
+// under the pot.
+function still(r, x, lit) {
+  for (const dx of [1, 9]) r(x + dx, 27, x + dx, 31, "#3a3f48");
+  disc(r, x + 5, 22, 5, 5, "#c87a3a");
+  r(x + 2, 19, x + 4, 19, "#f0a868");
+  r(x + 4, 14, x + 6, 17, "#a8602a");
+  r(x + 6, 13, x + 13, 13, "#c87a3a");
+  r(x + 13, 13, x + 13, 22, "#c87a3a");
+  box(r, x + 11, 23, x + 17, 31, "#6b4a2f", "#4a3020");
+  for (const y of [25, 29]) r(x + 11, y, x + 17, y, "#9aa0a8");
+  if (lit) {
+    const glow = r.glow || r;
+    for (const [dx, c] of [[3, "#f08a3a"], [5, "#fff4b0"], [7, "#f4d35e"], [4, "#f4d35e"], [6, "#f08a3a"]]) glow(x + dx, 29, x + dx, 30, c);
+    r.light?.({ x: x + 5, y: 29, r: 12, k: 0.5, c: [1.0, 0.7, 0.4] });
+  }
+}
+
+// A coffee bush in a pot: dark glossy leaves with red cherries.
+function coffeeBush(r, x, base) {
+  box(r, x, base - 4, x + 7, base, "#b0673a", "#7a4424");
+  r(x - 1, base - 5, x + 8, base - 5, "#c98050");
+  const rows = [[2, 5], [0, 7], [-1, 8], [0, 7], [1, 6]];
+  rows.forEach(([a, b], i) => r(x + a, base - 15 + i * 2, x + b, base - 14 + i * 2, i % 2 ? "#2f6a3a" : "#3f8a4a"));
+  for (const [dx, dy] of [[1, 12], [5, 10], [3, 8], [6, 13], [0, 9]]) r(x + dx, base - dy, x + dx, base - dy, "#d64545");
+}
+
 const sceneCache = new Map();
 
 // Returned as a CSS url() so the banner can tile it sideways — full-width cards get a longer
@@ -2210,7 +2429,7 @@ const DAYLIGHT = [0.8, 0.9, 1.0];
 const SCREEN_LIGHTS = { "#7fe0a8": [0.45, 1.0, 0.7], "#d8ffe8": [0.6, 1.0, 0.8], "#ff5b5b": [1.0, 0.4, 0.4], "#fff3c4": [1.0, 0.95, 0.75], "#fffbe8": [1.0, 0.95, 0.8] };
 const INDOOR_AMBIENT = [[0.5, 0.5, 0.58], [0.58, 0.58, 0.65], [0.64, 0.64, 0.7], [0.68, 0.68, 0.73], [0.72, 0.72, 0.76]];
 const AFTERNOON = [[0.68, 0.67, 0.68], [0.82, 0.79, 0.76], [0.89, 0.85, 0.8], [0.93, 0.88, 0.81], [0.96, 0.9, 0.82]];
-const OUTDOOR_SCENES = new Set(["farm", "scrapyard"]);
+const OUTDOOR_SCENES = new Set(["farm", "scrapyard", "greenhouse"]);
 
 // Shadows, so the things in a room sit in it: indoors a drop shadow down and to the right of
 // everything on the wall, the ceiling's shadow along the top, and the floor darker where it meets
@@ -4992,6 +5211,82 @@ const ICONS = {
     "................",
     "................",
   ], { g: "#6aa84f", G: "#a8dc8a", d: "#3f7a2a", s: "#4f8a2a", b: "#6b4a2a", B: "#8a6a4a" }),
+  // The Greenhouse: a glass house on a white frame, plants inside.
+  greenhouse: () => ascii([
+    "................",
+    ".......ff.......",
+    "......fGGf......",
+    ".....fGggGf.....",
+    "....fGgggGgf....",
+    "...fGgggggGgf...",
+    "..ffffffffffff..",
+    "..fGgfGgGfGggf..",
+    "..fggfgggfgggf..",
+    "..fglfgllfglgf..",
+    "..fllflllflllf..",
+    "..fllflllflllf..",
+    "..ffffffffffff..",
+    "..bbbbbbbbbbbb..",
+    "................",
+    "................",
+  ], { f: "#eef2f4", G: "#d8f2fa", g: "#9ccfe0", l: "#5aa84a", b: "#9a5a48" }),
+  // Aloe vera: spiky green leaves in a clay pot.
+  gh_aloe: () => ascii([
+    "................",
+    ".......a........",
+    "......aA.....a..",
+    "..a...aA....aA..",
+    "..aA..aAa..aAa..",
+    "...aA.aAa.aAa...",
+    "...aAaaAaaAa....",
+    "....aAaAaAa.....",
+    "....aaaAaaa.....",
+    "...pppppppppp...",
+    "...pPppppppppq..",
+    "....pPpppppq....",
+    "....pPpppppq....",
+    "....pPpppppq....",
+    ".....qqqqqq.....",
+    "................",
+  ], { a: "#4f9a5a", A: "#9ad8a0", p: "#b0673a", P: "#d08a5a", q: "#7a4424" }),
+  // Echinacea: a pink coneflower with an orange cone.
+  gh_echinacea: () => ascii([
+    "................",
+    "................",
+    "......oOoo......",
+    ".....oOoooo.....",
+    "..pp..oooo..pp..",
+    ".pPPp..oo..pPPp.",
+    "..ppp......ppp..",
+    "....pp....pp....",
+    ".......g........",
+    ".......g..ll....",
+    ".......g.lLl....",
+    "..ll...gll......",
+    "..lLl..g........",
+    "....ll.g........",
+    ".......g........",
+    "................",
+  ], { o: "#e0782a", O: "#f4b070", p: "#e06aa8", P: "#f4a8d0", g: "#4f8a3a", l: "#5aa84a", L: "#8ad070" }),
+  // Willow bark: a weeping willow.
+  gh_willow: () => ascii([
+    "................",
+    ".....gggggg.....",
+    "...gggGGgggg....",
+    "..ggGGggggGgg...",
+    ".gGg.gggg.gGgg..",
+    ".gg.g.gg.g.ggg..",
+    ".g.g.gttg.g.gg..",
+    ".g.g.gttg.g.g...",
+    "...g.gttg.g.g...",
+    "...g..tt..g.....",
+    "......tt........",
+    "......tTt.......",
+    ".....ttTtt......",
+    "....tt.T.tt.....",
+    "................",
+    "................",
+  ], { g: "#5a9a45", G: "#8ac86a", t: "#6b4a2f", T: "#8a6a4a" }),
   tools: () => {
     const g = blank(16);
     rod(g, 3, 13, 11, 5, 0.85, sh("#ffffff", "#c9ced4", "#8a93a0"));

@@ -23,6 +23,7 @@ import {
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
   INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, FARM_WORKERS_BY_LEVEL, FARM_STAMINA_COST, PLOTS_PER_WORKER, STARTING_STOCK,
   YARD_JOBS, YARD_GROUPS, YARD_SLOTS_BY_LEVEL, YARD_STAMINA_COST, WORK_SITES,
+  GREENHOUSE_JOBS, GREENHOUSE_GROUPS, GREENHOUSE_SLOTS_BY_LEVEL, GREENHOUSE_STAMINA_COST, GREENHOUSE_YIELD_MEDICINE,
   EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
@@ -89,7 +90,7 @@ export function infect(state, c, how) {
   if (Math.random() < techPerk(state, "infectionResist")) return false; // Hygiene: shrugged it off
   if (c.role === "teacher" && c.post) setTeacherPost(state, c.id, null);
   c.infection = { dueDay: state.day + INFECTION_DAYS };
-  Object.assign(c, { gymToday: false, radioToday: false, researchToday: false, craftingToday: false, infirmaryToday: false, restToday: false, farmToday: false, scrapyardToday: false, exploreTeam: null, defending: false });
+  Object.assign(c, { gymToday: false, radioToday: false, researchToday: false, craftingToday: false, infirmaryToday: false, restToday: false, farmToday: false, scrapyardToday: false, greenhouseToday: false, exploreTeam: null, defending: false });
   clearEntranceCellForChar(state, c.id);
   state.raidDefenders = (state.raidDefenders || []).filter((id) => id !== c.id);
   addLog(state, `🦠 ${c.name} ${how} and is infected! Quarantined in the Nurse's Office — cure them with antiviral serum by the end of day ${c.infection.dueDay}, or they die.`);
@@ -151,6 +152,7 @@ export function createInitialState() {
     mapDrops: [], // { q, r, kind, expires } — crates, wrecks and survivors waiting on scouted blocks
     yard: Object.fromEntries(Object.keys(YARD_JOBS).map((kind) => [kind, [{ id: kind, growth: 0 }]])), // the Scrapyard's piles and benches
     defenseKits: {}, // DEFENSE_STRUCTURES id -> kits from the Scrapyard's trap bench (a free build each)
+    greenhouseSlots: Object.fromEntries(Object.keys(GREENHOUSE_JOBS).map((kind) => [kind, [{ id: kind, growth: 0 }]])), // the Greenhouse's beds and racks
     raidTarget: null, // LANDMARKS id today's raid squad is going after
     raidCooldowns: {}, // landmark id -> day its boss is back after being killed
     raidKills: {}, // landmark id -> times its boss has been killed (each makes it tougher)
@@ -600,7 +602,7 @@ export function trainingGain(state, c, side) {
 // What one outside worker brings in today: the facility's base yield, plus 1 for every
 // TUNE.yieldStatStep of the site's stat (SITE_STAT: STR at the Farm, DEX at the Scrapyard).
 export function workerYield(facility, c) {
-  const base = facility === "farm" ? FARM_YIELD_FOOD : SCRAPYARD_YIELD_MATERIALS;
+  const base = facility === "farm" ? FARM_YIELD_FOOD : facility === "greenhouse" ? GREENHOUSE_YIELD_MEDICINE : SCRAPYARD_YIELD_MATERIALS;
   return base + Math.floor(c.grades[SITE_STAT[facility]] / TUNE.yieldStatStep);
 }
 
@@ -789,9 +791,10 @@ export function cafeteriaRest(state) {
 
 const SIDE_SITE = Object.fromEntries(Object.entries(WORK_SITES).flatMap(([site, s]) => Object.keys(s.sides).map((side) => [side, site])));
 export const siteOfSide = (side) => SIDE_SITE[side];
-// What's in a slot: a crop or animal (PRODUCERS) or a Scrapyard pile or bench (YARD_JOBS).
-export const slotDef = (kind) => PRODUCERS[kind] || YARD_JOBS[kind];
-export const siteSlots = (state, site) => (site === "farm" ? state.plots : state.yard);
+// What's in a slot: a crop or animal (PRODUCERS), a Scrapyard pile or bench (YARD_JOBS) or a
+// Greenhouse bed or rack (GREENHOUSE_JOBS).
+export const slotDef = (kind) => PRODUCERS[kind] || YARD_JOBS[kind] || GREENHOUSE_JOBS[kind];
+export const siteSlots = (state, site) => (site === "farm" ? state.plots : site === "greenhouse" ? state.greenhouseSlots : state.yard);
 export const siteWorkerSlots = (state, site) => WORK_SITES[site].workersByLevel[roomLevel(state, site) - 1];
 export const siteCrew = (state, side) => {
   const flag = WORK_SITES[SIDE_SITE[side]].flag;
@@ -842,6 +845,7 @@ export function autoAssignSite(state, site) {
 // The Farm's own names for these.
 export const setFarmToday = (state, studentId, side) => setSiteToday(state, "farm", studentId, side);
 export const setScrapyardToday = (state, studentId, side) => setSiteToday(state, "scrapyard", studentId, side);
+export const setGreenhouseToday = (state, studentId, side) => setSiteToday(state, "greenhouse", studentId, side);
 export const canWorkFarm = (c) => canWorkSite(c, "farm");
 export const autoAssignFarm = (state) => autoAssignSite(state, "farm");
 export const farmWorkerSlots = (state) => siteWorkerSlots(state, "farm");
@@ -853,7 +857,7 @@ export const farmCrew = siteCrew;
 
 export const ROOM_KEYS = [
   ...CLASSROOM_IDS.map((id) => `classroom:${id}`),
-  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "radio", "farm", "scrapyard",
+  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "radio", "farm", "scrapyard", "greenhouse",
 ];
 // The Headmaster's Office's two sides.
 export const promotionSlots = () => OFFICE_PROMOTION_SLOTS;
@@ -933,6 +937,7 @@ export function applyRoomLevel(state, key) {
     // both crews' slots, less any a raid broke
     room.studentCapacity = Math.max(1, 2 * siteWorkerSlots(state, key) - (room.damage || 0));
     if (key === "farm") syncPlots(state);
+    else if (key === "greenhouse") syncGreenhouse(state);
     else syncYard(state);
   }
 }
@@ -1142,6 +1147,56 @@ function resolveYard(state) {
   for (const item of out.items) state.armory.push(item);
   for (const kind of Object.keys(YARD_JOBS)) {
     for (const slot of state.yard[kind]) slot.growth = Math.min(YARD_JOBS[kind].growDays, slot.growth + 1);
+  }
+  return out;
+}
+
+// ---------- the Greenhouse's beds & racks ----------
+// state.greenhouseSlots has a slot list per bed/rack (GREENHOUSE_JOBS), each { id, growth } — always
+// in use, like the Scrapyard's: a bed grows back and a rack starts its next batch once collected.
+
+export const greenhouseSlots = (state) => GREENHOUSE_SLOTS_BY_LEVEL[roomLevel(state, "greenhouse") - 1];
+
+export function syncGreenhouse(state) {
+  state.greenhouseSlots = state.greenhouseSlots || {};
+  for (const kind of Object.keys(GREENHOUSE_JOBS)) {
+    const list = (state.greenhouseSlots[kind] = state.greenhouseSlots[kind] || []);
+    while (list.length < greenhouseSlots(state)) list.push({ id: kind, growth: 0 });
+  }
+}
+
+// Turn 2 at the Greenhouse: each crew collects what's ready (the serum still only while there's the
+// medicine for it), then every bed and rack comes along a day.
+function resolveGreenhouse(state) {
+  const out = { medicine: 0, serum: 0, pantry: {}, short: 0 };
+  for (const side of Object.keys(GREENHOUSE_GROUPS)) {
+    for (const [kind, i] of harvestPlan(state, side)) {
+      const job = GREENHOUSE_JOBS[kind];
+      if (job.cost) {
+        if ((state.resources[job.costRes] || 0) < job.cost) {
+          out.short++;
+          continue;
+        }
+        state.resources[job.costRes] -= job.cost;
+        if (job.costRes === "medicine") out.medicine -= job.cost;
+      }
+      if (job.medicine) {
+        state.resources.medicine += job.medicine;
+        out.medicine += job.medicine;
+      }
+      if (job.serum) {
+        state.resources.serum = (state.resources.serum || 0) + job.serum;
+        out.serum += job.serum;
+      }
+      if (job.ingredient) {
+        state.pantry[job.ingredient] = (state.pantry[job.ingredient] || 0) + 1;
+        out.pantry[job.ingredient] = (out.pantry[job.ingredient] || 0) + 1;
+      }
+      state.greenhouseSlots[kind][i].growth = 0;
+    }
+  }
+  for (const kind of Object.keys(GREENHOUSE_JOBS)) {
+    for (const slot of state.greenhouseSlots[kind]) slot.growth = Math.min(GREENHOUSE_JOBS[kind].growDays, slot.growth + 1);
   }
   return out;
 }
@@ -1702,7 +1757,7 @@ export function resolveExploration(state) {
   }
 
   const raid = resolveRaid(state);
-  gainExpAll(state, state.characters.filter((c) => c.alive && (c.farmToday || c.scrapyardToday)), LEVEL_XP.work);
+  gainExpAll(state, state.characters.filter((c) => c.alive && (c.farmToday || c.scrapyardToday || c.greenhouseToday)), LEVEL_XP.work);
 
   // outside facilities — passive daily yield for students working the Farm/Scrapyard instead of
   // exploring. Farm workers also collect whatever's ready in the fields and the pens.
@@ -1728,6 +1783,20 @@ export function resolveExploration(state) {
     ];
     addLog(state, `The Scrapyard brings in ${made.join(", ")} from ${scrapyardWorkers.length} student(s)${yard.short ? ` — ${yard.short} bench job(s) waited for scrap` : ""}.`);
   }
+  // the Greenhouse: each worker's own medicine, then whatever the crews collect from beds and racks
+  const greenhouseWorkers = state.characters.filter((c) => c.greenhouseToday && c.alive);
+  const herbs = greenhouseWorkers.reduce((sum, c) => sum + workerYield("greenhouse", c), 0);
+  state.resources.medicine += herbs;
+  for (const c of greenhouseWorkers) c.stamina = Math.max(0, c.stamina - GREENHOUSE_STAMINA_COST);
+  const green = resolveGreenhouse(state);
+  if (greenhouseWorkers.length) {
+    const made = [
+      `${herbs + green.medicine} medicine`,
+      ...(green.serum ? [`${green.serum} antiviral serum`] : []),
+      ...Object.entries(green.pantry).map(([id, n]) => `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`),
+    ];
+    addLog(state, `The Greenhouse brings in ${made.join(", ")} from ${greenhouseWorkers.length} student(s)${green.short ? ` — the serum still waited for medicine` : ""}.`);
+  }
 
   state.expeditionsSent = (state.expeditionsSent || 0) + teamsSent;
   if (state.today) {
@@ -1741,7 +1810,7 @@ export function resolveExploration(state) {
       lost: [...teams.flatMap((t) => t.lost), ...(raid?.lost || [])],
       recruits: teams.filter((t) => t.recruit).length + (raid?.recruit ? 1 : 0),
       raid: raid && !raid.calledOff ? { bossName: raid.bossName, won: raid.won } : null,
-      farm: gain, scrap: haul + yard.scrap,
+      farm: gain, scrap: haul + yard.scrap, medicine: herbs + green.medicine,
     };
   }
   state.encounters = {}; // today's encounters are spent
@@ -2814,6 +2883,7 @@ export function advanceTurn(state) {
     c.restToday = false;
     c.farmToday = false;
     c.scrapyardToday = false;
+    c.greenhouseToday = false;
     c.exploreTeam = null;
     c.defending = false;
   }
@@ -3147,7 +3217,7 @@ export function setExploreTeam(state, charId, teamIndex) {
   }
   if (c.role !== "student" || c.infection) return false; // teachers stay at the school, never explore; the infected are in quarantine
   if (c.stamina <= 0) return false; // too exhausted to go out
-  if (c.farmToday || c.scrapyardToday) return false; // already working an outside facility today
+  if (c.farmToday || c.scrapyardToday || c.greenhouseToday) return false; // already working an outside facility today
   if (teamIndex === RAID_TEAM) {
     const landmark = LANDMARKS.find((l) => l.id === state.raidTarget);
     if (!landmark || overallLevel(c) < landmark.minLevel) return false;

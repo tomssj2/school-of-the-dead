@@ -204,6 +204,7 @@ function migrateState(s) {
     if (c.restToday === undefined) c.restToday = false;
     if (c.farmToday === undefined) c.farmToday = false;
     if (c.scrapyardToday === undefined) c.scrapyardToday = false;
+    if (c.greenhouseToday === undefined) c.greenhouseToday = false;
     delete c.labToday; // the Lab was replaced by the Ranch
     delete c.bonds; // friendships and couples were removed
     // Levels come from experience now: a student keeps the level their grades gave them.
@@ -257,6 +258,7 @@ function migrateState(s) {
   if (!s.rooms.research) s.rooms.research = { teacherCapacity: RESEARCH_ROOM_TEACHERS };
   if (!s.rooms.farm) s.rooms.farm = { studentCapacity: FARM_CAPACITY };
   if (!s.rooms.scrapyard) s.rooms.scrapyard = { studentCapacity: SCRAPYARD_CAPACITY };
+  if (!s.rooms.greenhouse) s.rooms.greenhouse = { level: 1 }; // the Greenhouse came later: it starts at level 1
   delete s.rooms.lab;
   if (s.pendingRaid?.facility === "lab" || s.pendingRaid?.facility === "ranch") s.pendingRaid.facility = "farm";
   if (s.resources.research === undefined) s.resources.research = 0;
@@ -395,7 +397,7 @@ function migrateState(s) {
     s.defenseKits[LEGACY_DEFENSE_IDS[id]] = (s.defenseKits[LEGACY_DEFENSE_IDS[id]] || 0) + n;
     delete s.defenseKits[id];
   }
-  for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key); // (also sets up the Scrapyard's piles and benches)
+  for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key); // (also sets up the Scrapyard's and the Greenhouse's slots)
   // The Farm and the Scrapyard each have two crews: anyone working one from before joins its first
   // crew (the second once that's full), and whoever doesn't fit goes back to being free.
   for (const [site, def] of Object.entries(WORK_SITES)) {
@@ -1349,6 +1351,10 @@ root.addEventListener("click", (e) => {
       G.setScrapyardToday(state, el.dataset.id, false);
       render();
       break;
+    case "remove-greenhouse":
+      G.setGreenhouseToday(state, el.dataset.id, false);
+      render();
+      break;
     case "open-plot":
       openPlot = { kind: el.dataset.kind, index: Number(el.dataset.index) };
       render();
@@ -1806,6 +1812,7 @@ root.addEventListener("click", (e) => {
         case "utility": G.setTeacherPost(state, id, postKey); break;
         case "farm": G.setFarmToday(state, id, postKey); break;
         case "scrapyard": G.setScrapyardToday(state, id, postKey); break;
+        case "greenhouse": G.setGreenhouseToday(state, id, postKey); break;
         case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
         case "team-slot": if (!G.assignTeamSlot(state, id, Number(roomId), postKey)) flash("They can't join that team."); break;
         default: break;

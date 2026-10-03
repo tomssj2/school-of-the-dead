@@ -3,7 +3,7 @@
 import * as G from "./game.js";
 import { makeCharacter, makeLegendaryCharacter, makeItem } from "./characters.js";
 import { MAP_RADIUS } from "./map.js";
-import { CLASSROOM_IDS, PRODUCERS, YARD_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_ROW0, STREET_ROW0 } from "./data.js";
+import { CLASSROOM_IDS, PRODUCERS, YARD_JOBS, GREENHOUSE_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_ROW0, STREET_ROW0 } from "./data.js";
 
 // Every room and facility to the top level, and every slot filled: teachers in every post,
 // every classroom seat, training, resting, beds, outside workers, plots and pens. Hires whoever is
@@ -51,7 +51,7 @@ export function maxOutSchool(state) {
   }
 
   // daily jobs: fill each room's student slots from whoever is free
-  const busy = (c) => c.seat || c.gymToday || c.radioToday || c.researchToday || c.craftingToday || c.infirmaryToday || c.restToday || c.farmToday || c.scrapyardToday || c.exploreTeam !== null || c.defending;
+  const busy = (c) => c.seat || c.gymToday || c.radioToday || c.researchToday || c.craftingToday || c.infirmaryToday || c.restToday || c.farmToday || c.scrapyardToday || c.greenhouseToday || c.exploreTeam !== null || c.defending;
   const fill = (count, assign) => {
     for (let i = 0; i < count; i++) {
       const c = alive("student").find((x) => !busy(x));
@@ -93,8 +93,11 @@ export function maxOutSchool(state) {
   }
   // the Scrapyard's piles and benches: every other one ready
   for (const kind of Object.keys(YARD_JOBS)) state.yard[kind].forEach((slot, i) => { slot.growth = i % 2 === 0 ? YARD_JOBS[kind].growDays : i % YARD_JOBS[kind].growDays; });
+  // ...and the Greenhouse's beds and racks the same way
+  for (const kind of Object.keys(GREENHOUSE_JOBS)) state.greenhouseSlots[kind].forEach((slot, i) => { slot.growth = i % 2 === 0 ? GREENHOUSE_JOBS[kind].growDays : i % GREENHOUSE_JOBS[kind].growDays; });
   G.autoAssignFarm(state); // as many workers as the ready slots need
   G.autoAssignSite(state, "scrapyard");
+  G.autoAssignSite(state, "greenhouse");
 
   return {
     levels: "all rooms at level 5",
@@ -192,7 +195,7 @@ export function armDefenders(state) {
 }
 
 // What can follow a won night: "assault" (the horde falls back and can be chased — tonight's
-// defenders make the squad) or "farm" / "scrapyard" (a raid on that facility).
+// defenders make the squad) or "farm" / "scrapyard" / "greenhouse" (a raid on that facility).
 export function forceFollowUp(state, kind = "assault") {
   state.turn = 3;
   if (kind === "assault") {
