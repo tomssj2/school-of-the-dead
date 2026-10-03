@@ -39,7 +39,7 @@ export function maxOutSchool(state) {
 
   // students: enough to fill every classroom seat and every daily job (one Turn 1 job each)
   const seats = CLASSROOM_IDS.reduce((sum, id) => sum + state.rooms.classrooms[id].seats.length, 0);
-  const jobSlots = ["gym", "acrobatics", "radio", "research", "crafting", "cafeteria", "infirmary"].reduce((sum, k) => sum + (state.rooms[k]?.studentCapacity || 0), 0);
+  const jobSlots = ["gym", "acrobatics", "radio", "research", "crafting", "cafeteria", "infirmary", "farm", "barn", "scrapyard", "greenhouse"].reduce((sum, k) => sum + (state.rooms[k]?.studentCapacity || 0), 0);
   while (alive("student").length < seats + jobSlots) hire("student");
   let toSeat = seats - alive("student").filter((x) => x.seat).length;
   for (const c of alive("student").filter((x) => !x.seat && !G.TURN_ONE_FLAGS.some((f) => x[f]))) {
@@ -51,7 +51,7 @@ export function maxOutSchool(state) {
   }
 
   // daily jobs: fill each room's student slots from whoever is free
-  const busy = (c) => c.seat || c.gymToday || c.radioToday || c.researchToday || c.craftingToday || c.infirmaryToday || c.restToday || c.farmToday || c.scrapyardToday || c.greenhouseToday || c.exploreTeam !== null || c.defending;
+  const busy = (c) => c.seat || c.gymToday || c.radioToday || c.researchToday || c.craftingToday || c.infirmaryToday || c.restToday || c.farmToday || c.barnToday || c.scrapyardToday || c.greenhouseToday || c.exploreTeam !== null || c.defending;
   const fill = (count, assign) => {
     for (let i = 0; i < count; i++) {
       const c = alive("student").find((x) => !busy(x));
@@ -96,6 +96,7 @@ export function maxOutSchool(state) {
   // ...and the Greenhouse's beds and racks the same way
   for (const kind of Object.keys(GREENHOUSE_JOBS)) state.greenhouseSlots[kind].forEach((slot, i) => { slot.growth = i % 2 === 0 ? GREENHOUSE_JOBS[kind].growDays : i % GREENHOUSE_JOBS[kind].growDays; });
   G.autoAssignFarm(state); // as many workers as the ready slots need
+  G.autoAssignSite(state, "barn");
   G.autoAssignSite(state, "scrapyard");
   G.autoAssignSite(state, "greenhouse");
 

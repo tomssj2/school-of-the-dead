@@ -3635,3 +3635,14 @@ html[data-gfx="medium"] .sk-buyable { animation: none; }
 /* a Turn 1 picker: someone already doing something else today — marked, and never recommended */
 .pk-occupied .pk-portrait, .pk-occupied .pk-mid { opacity: 0.55; }
 .pk-occupied-tag { max-width: 110px; padding: 1px 6px; border-radius: 5px; border: 1px solid rgba(255, 159, 67, 0.55); background: rgba(255, 159, 67, 0.12); color: #ff9f43; font-size: 10.5px; font-weight: 700; line-height: 1.25; text-align: center; }
+
+/* the Courtyard's rooms: the Farm and the Barn share the Farm's wide banner, one end each */
+.room-farm .room-scene { background-position: left bottom; }
+.room-barn .room-scene { background-position: right bottom; }
+.site-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.site-row-end { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; white-space: nowrap; }
+.room-site .farm-group { margin-top: 6px; padding: 6px 8px; }
+.room-site .farm-group-head { margin-bottom: 4px; }
+.room-site .fslot { height: 44px; gap: 2px; padding: 3px 6px; }
+.room-site .fslot-icon { font-size: 16px; }
+.room-site .farm-crew { margin: 2px 0 2px; }

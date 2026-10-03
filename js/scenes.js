@@ -1673,11 +1673,11 @@ Object.assign(HI_SCENES, {
   },
 
   // The Greenhouse, laid out like its page: herb beds on the left, the glasshouse in the middle,
-  // the still room on the right. Level 1 is dead beds in the weeds, a glasshouse with its panes
-  // smashed and a caved-in shed; then cleared beds with seedlings, patched glass and a chili rack;
-  // aloe, echinacea and willow grown in, a weeping willow and a copper still; coffee bushes in pots,
-  // a potting bench with flasks and sacks of beans; and at the top grow lamps glowing through the
-  // glass, a sprinkler line over the beds and a second still with its fire lit.
+  // the potting shed on the right. Level 1 is dead beds in the weeds, a glasshouse with its panes
+  // smashed and a caved-in shed; then cleared beds with seedlings, patched glass and herbs drying on
+  // a rack; aloe, echinacea and willow grown in, a weeping willow, a rain barrel and potted bushes; a
+  // potting bench with flasks and sacks; and at the top grow lamps glowing through the glass and a
+  // sprinkler line over the beds.
   greenhouse(r, lv) {
     wideOutdoor(r, lv, lv <= 1 ? "#7a7a50" : "#6a9a52", 120);
     // the herb beds: three raised planters, one a herb
@@ -1708,7 +1708,7 @@ Object.assign(HI_SCENES, {
 
     glasshouse(r, 178, 266, lv);
 
-    // the still room
+    // the potting shed
     shed(r, 284, lv <= 1);
     if (lv <= 1) {
       for (const [x, y] of [[320, 31], [342, 31], [372, 31]]) brokenPot(r, x, y);
@@ -1718,8 +1718,8 @@ Object.assign(HI_SCENES, {
     }
     chiliRack(r, 316, lv);
     if (lv >= 3) {
-      still(r, 340, false);
-      for (const x of [368, 382]) coffeeBush(r, x, 31);
+      barrel(r, 342, 31); // a rain barrel for the beds
+      for (const x of [356, 370, 384]) coffeeBush(r, x, 31);
     } else for (const x of [346, 372]) plant(r, x, 31);
     if (lv >= 4) {
       // a potting bench: flasks, a mortar, and sacks of coffee beans under it
@@ -1735,7 +1735,7 @@ Object.assign(HI_SCENES, {
       }
     }
     if (lv >= 5) {
-      still(r, 398, true);
+      for (const x of [398]) coffeeBush(r, x, 31);
       // string lights along the shed eaves
       const glow = r.glow || r;
       for (let x = 282; x <= 310; x += 4) glow(x, 16 + (x % 8 ? 1 : 0), x, 16 + (x % 8 ? 1 : 0), x % 12 ? "#fff3c4" : "#f4d35e");
@@ -2383,24 +2383,6 @@ function chiliRack(r, x, lv) {
     r(px, 16, px, 18 + (i % 2), i % 3 ? "#e03a2a" : "#c02a20");
   }
   if (lv >= 3) for (let i = 0; i < n; i++) r(x + 2 + i * 2, 21, x + 2 + i * 2, 23 - (i % 2), i % 2 ? "#e03a2a" : "#b02a20");
-}
-
-// A copper still: a round pot on a stand, a pipe coiling over into a cooling barrel. `lit`: a fire
-// under the pot.
-function still(r, x, lit) {
-  for (const dx of [1, 9]) r(x + dx, 27, x + dx, 31, "#3a3f48");
-  disc(r, x + 5, 22, 5, 5, "#c87a3a");
-  r(x + 2, 19, x + 4, 19, "#f0a868");
-  r(x + 4, 14, x + 6, 17, "#a8602a");
-  r(x + 6, 13, x + 13, 13, "#c87a3a");
-  r(x + 13, 13, x + 13, 22, "#c87a3a");
-  box(r, x + 11, 23, x + 17, 31, "#6b4a2f", "#4a3020");
-  for (const y of [25, 29]) r(x + 11, y, x + 17, y, "#9aa0a8");
-  if (lit) {
-    const glow = r.glow || r;
-    for (const [dx, c] of [[3, "#f08a3a"], [5, "#fff4b0"], [7, "#f4d35e"], [4, "#f4d35e"], [6, "#f08a3a"]]) glow(x + dx, 29, x + dx, 30, c);
-    r.light?.({ x: x + 5, y: 29, r: 12, k: 0.5, c: [1.0, 0.7, 0.4] });
-  }
 }
 
 // A coffee bush in a pot: dark glossy leaves with red cherries.

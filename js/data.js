@@ -32,7 +32,7 @@ export const STAT_LABEL = {
 // What each stat does in play, shown when hovering a stat on a character card. Every stat has a
 // job in a fight and one outside it; the numbers live in STAT_TUNING below.
 export const STAT_EFFECTS = {
-  STR: "Fights: melee damage, and the strength to hold melee weapons. Also: part of max HP, how much food and scrap an expedition can carry home, and more food from the Farm. Half of a team's power.",
+  STR: "Fights: melee damage, and the strength to hold melee weapons. Also: part of max HP, how much food and scrap an expedition can carry home, and more food from the Farm and the Barn. Half of a team's power.",
   DEX: "Fights: ranged damage, hit chance, dodging hits, and the dexterity to hold ranged weapons. Also: most of max stamina, and stealth — fewer zombies while scouting and fewer ambushes on expeditions. More scrap from the Scrapyard. Half of a team's power.",
   CON: "Fights: less damage taken, and a better chance to survive going down. Also: most of max HP, faster healing overnight, and more medicine from the Greenhouse. A nurse with a high CON heals more in the Nurse's Office.",
   INT: "Fights: the defenders' smarts make traps hit harder and walls hold longer. Also: faster learning (more XP from everything) and better odds of finding gear on expeditions. For teachers, research.",
@@ -43,7 +43,7 @@ export const STAT_EFFECTS = {
 // The same, as a breakdown for the rooms' info dots: [what it does, where]. Keep in step with
 // STAT_EFFECTS and STAT_TUNING.
 export const STAT_GUIDE = {
-  STR: [["Melee damage", "⚔ Fights"], ["Holding melee weapons", "🗡 Gear"], ["Max HP", "+0.4 a point"], ["Team power (with DEX)", "🧭 Expeditions"], ["Food & scrap carried home", "🧭 Expeditions"], ["Farm output", "+1 🌾 per 25"]],
+  STR: [["Melee damage", "⚔ Fights"], ["Holding melee weapons", "🗡 Gear"], ["Max HP", "+0.4 a point"], ["Team power (with DEX)", "🧭 Expeditions"], ["Food & scrap carried home", "🧭 Expeditions"], ["Farm & Barn output", "+1 🌾 per 25"]],
   DEX: [["Ranged damage & hit chance", "⚔ Fights"], ["Dodging hits", "⚔ Fights"], ["Holding ranged weapons", "🏹 Gear"], ["Max stamina", "+1.2 a point"], ["Stealth — fewer zombies & ambushes", "🧭 Scouting"], ["Team power (with STR)", "🧭 Expeditions"], ["Scrapyard output", "+1 🔩 per 25"]],
   CON: [["Less damage taken", "⚔ Fights"], ["Surviving going down", "⚔ Fights"], ["Max HP", "+0.8 a point"], ["Healing overnight", "🌙 Every night"], ["Fewer casualties", "🧭 Expeditions"], ["Greenhouse medicine", "+1 💊 per 25"], ["A nurse heals more", "🏥 Teachers"]],
   INT: [["Traps hit harder, walls hold longer", "⚔ Fights"], ["XP from everything", "+40% at 100"], ["Finding gear", "🧭 Expeditions"], ["Research", "🧠 Research Room"]],
@@ -405,7 +405,7 @@ export const LEVEL_XP = {
 export const CRAFT_HELP_WIS_PER_POINT = 25;
 // The stat a work site's workers bring in more with: the Farm is heavy labour (STR), the
 // Scrapyard's salvage and benches are handwork (DEX), the Greenhouse's herbs need a biologist (CON).
-export const SITE_STAT = { farm: "PE", scrapyard: "Gymnastics", greenhouse: "Biology" };
+export const SITE_STAT = { farm: "PE", barn: "PE", scrapyard: "Gymnastics", greenhouse: "Biology" };
 export const RESCUE_ARRIVAL_DAYS = 3;
 export const RESCUE_DELAY_DAYS = 5;
 
@@ -603,36 +603,28 @@ export const PLOTS_PER_WORKER = 2; // ready slots one Farm worker harvests a day
 // for a worker. Each side of the Farm (fields, animals) has its own crew, big enough to cover all
 // its slots: 2, 3, 5, 6 workers by level.
 export const FARM_WORKERS_BY_LEVEL = FARM_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
-export const FARM_STAMINA_COST = 50; // a day's work on the Farm (paid at the end of Turn 2) — to be balanced
+export const FARM_STAMINA_COST = 50; // a day's work at the Farm or the Barn (paid at the end of Turn 1) — to be balanced
 
-// The Scrapyard works like the Farm: salvage piles on the left refill themselves a day at a time,
-// workbenches on the right finish a piece of work; a full slot waits for a worker (2 each). Benches
-// use up YARD_BENCH_COST scrap when they're collected. Nothing needs planting.
+// The Scrapyard works like the Farm, but nothing needs planting: its salvage piles refill themselves
+// a day at a time, and a full one waits for a worker (2 each) to strip it.
 export const YARD_JOBS = {
   cars: { name: "Car Wrecks", icon: "🚗", growDays: 3, scrap: 8, what: "8 🔩 scrap" },
   appliances: { name: "Appliances", icon: "🔌", growDays: 2, scrap: 4, research: [1, 2], researchChance: 0.5, what: "4 🔩 scrap, maybe 🧠 research" },
   machinery: { name: "Machinery", icon: "⚙️", growDays: 4, scrap: 10, gearChance: 0.2, what: "10 🔩 scrap, maybe gear" },
-  weapons: { name: "Weapon Bench", icon: "🗡️", growDays: 4, cost: 5, makes: "weapon", what: "a weapon for the armory" },
-  armor: { name: "Armor Bench", icon: "🛡️", growDays: 4, cost: 5, makes: "armor", what: "armor for the armory" },
-  traps: { name: "Trap Bench", icon: "🪤", growDays: 3, cost: 5, makes: "defense", what: "a free barricade or trap kit" },
 };
-export const YARD_GROUPS = { salvage: ["cars", "appliances", "machinery"], benches: ["weapons", "armor", "traps"] };
+export const YARD_GROUPS = { salvage: ["cars", "appliances", "machinery"] };
 export const YARD_SLOTS_BY_LEVEL = [1, 2, 3, 4];
 export const YARD_WORKERS_BY_LEVEL = YARD_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
 export const YARD_STAMINA_COST = 50; // to be balanced
 
-// The Greenhouse works like the Scrapyard: herb beds on the left grow back by themselves a day at a
-// time and give medicine; the still room on the right dries chili, roasts coffee and distils
-// antiviral serum (which uses up medicine when it's collected). Biology students (CON) work it best.
+// The Greenhouse works like the Scrapyard: its herb beds grow back by themselves a day at a time and
+// give medicine. Biology students (CON) work it best.
 export const GREENHOUSE_JOBS = {
   aloe: { name: "Aloe Vera", icon: "🌵", growDays: 2, medicine: 1, what: "1 💊 medicine" },
   echinacea: { name: "Echinacea", icon: "🌸", growDays: 3, medicine: 2, what: "2 💊 medicine" },
   willow: { name: "Willow Bark", icon: "🌳", growDays: 4, medicine: 4, what: "4 💊 medicine" },
-  peppers: { name: "Chili Rack", icon: "🌶️", growDays: 3, ingredient: "spices", what: "1 🌶️ chili spices" },
-  coffee: { name: "Coffee Roaster", icon: "☕", growDays: 3, ingredient: "coffee", what: "1 ☕ coffee" },
-  serum: { name: "Serum Still", icon: "💉", growDays: 5, cost: 10, costRes: "medicine", serum: 1, what: "1 💉 antiviral serum" },
 };
-export const GREENHOUSE_GROUPS = { herbs: ["aloe", "echinacea", "willow"], stillroom: ["peppers", "coffee", "serum"] };
+export const GREENHOUSE_GROUPS = { herbs: ["aloe", "echinacea", "willow"] };
 export const GREENHOUSE_SLOTS_BY_LEVEL = [1, 2, 3, 4];
 export const GREENHOUSE_WORKERS_BY_LEVEL = GREENHOUSE_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 3) / PLOTS_PER_WORKER));
 export const GREENHOUSE_STAMINA_COST = 50; // to be balanced
@@ -641,7 +633,9 @@ export const GREENHOUSE_YIELD_MEDICINE = 1; // medicine per worker a day, +1 per
 // The work sites built this way: each side (fields/animals, salvage/benches, herbs/still room) has
 // its own crew, whose flag (c.farmToday / c.scrapyardToday / c.greenhouseToday) holds the side's name.
 export const WORK_SITES = {
-  farm: { name: "Farm", flag: "farmToday", sides: FARM_GROUPS, slotsByLevel: FARM_SLOTS_BY_LEVEL, workersByLevel: FARM_WORKERS_BY_LEVEL, stamina: FARM_STAMINA_COST },
+  // the old Farm is two rooms of the Courtyard now: the Farm's fields and the Barn's animals
+  farm: { name: "Farm", flag: "farmToday", sides: { fields: FARM_GROUPS.fields }, slotsByLevel: FARM_SLOTS_BY_LEVEL, workersByLevel: FARM_WORKERS_BY_LEVEL, stamina: FARM_STAMINA_COST },
+  barn: { name: "Barn", flag: "barnToday", sides: { animals: FARM_GROUPS.animals }, slotsByLevel: FARM_SLOTS_BY_LEVEL, workersByLevel: FARM_WORKERS_BY_LEVEL, stamina: FARM_STAMINA_COST },
   scrapyard: { name: "Scrapyard", flag: "scrapyardToday", sides: YARD_GROUPS, slotsByLevel: YARD_SLOTS_BY_LEVEL, workersByLevel: YARD_WORKERS_BY_LEVEL, stamina: YARD_STAMINA_COST },
   greenhouse: { name: "Greenhouse", flag: "greenhouseToday", sides: GREENHOUSE_GROUPS, slotsByLevel: GREENHOUSE_SLOTS_BY_LEVEL, workersByLevel: GREENHOUSE_WORKERS_BY_LEVEL, stamina: GREENHOUSE_STAMINA_COST },
 };
@@ -681,7 +675,7 @@ export const LEGACY_DISH_IDS = {
 export const EXPEDITION_INGREDIENT_CHANCE = 0.5; // + a location's ingredientBonus, on a success
 export const EXPEDITION_INGREDIENT_CHANCE_FAILED = 0.15;
 
-// Outside facilities, worked during Turn 2 instead of exploring. No teacher slots — just passive
+// The Courtyard's work sites, a student's Turn 1 job. No teacher slots — just passive
 // per-student daily yield, split out so each facility can scale/upgrade independently.
 export const FARM_CAPACITY = 4; // workers at level 1 (+3 a level: 16 at the top)
 export const SCRAPYARD_CAPACITY = 3;
@@ -786,8 +780,15 @@ export const ROOM_LEVELS = {
   farm: {
     name: "Farm", maxLevel: FARM_SLOTS_BY_LEVEL.length,
     perks: [
-      { label: "Workers", by: FARM_WORKERS_BY_LEVEL, fmt: (v) => `${v} fields + ${v} animals` },
-      { label: "Slots per crop & animal", by: FARM_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
+      { label: "Workers", by: FARM_WORKERS_BY_LEVEL, fmt: (v) => `${v}` },
+      { label: "Slots per crop", by: FARM_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
+    ],
+  },
+  barn: {
+    name: "Barn", maxLevel: FARM_SLOTS_BY_LEVEL.length,
+    perks: [
+      { label: "Workers", by: FARM_WORKERS_BY_LEVEL, fmt: (v) => `${v}` },
+      { label: "Slots per animal", by: FARM_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
     ],
   },
   scrapyard: {
@@ -891,7 +892,7 @@ export const HAPPINESS_LOSS_DEATH = 8; // a character died
 // at most one of the two can happen on a given night.
 export const FACILITY_RAID_CHANCE = 0.1;
 export const ASSAULT_CHANCE = 0.2;
-export const RAIDABLE_FACILITIES = ["farm", "scrapyard", "greenhouse"];
+export const RAIDABLE_FACILITIES = ["farm", "barn", "scrapyard", "greenhouse"];
 export const LEGENDARY_CHANCE = 0.15; // chance a won Assault turns up a legendary survivor
 export const LEGENDARY_TEACHER_CHANCE = 0.1; // chance a legendary survivor is a teacher (if there's room for one)
 
@@ -923,7 +924,7 @@ export const EVENTS = [
 // through techPerk() in game.js where they apply. `short` is the one-line effect on the tree.
 export const TECH_PATHS = [
   { id: "school", name: "School Life", turn: 1, icon: "sun", desc: "Classes, rooms and the students in them", branches: { a: ["lobby", "Rooms"], b: ["student", "Students"] } },
-  { id: "explore", name: "Exploration", turn: 2, icon: "dusk", desc: "Expeditions, the Farm and the Scrapyard", branches: { a: ["population", "Teams"], b: ["pin", "Places & Yards"] } },
+  { id: "explore", name: "Exploration", turn: 2, icon: "dusk", desc: "Expeditions, and the Courtyard's farm and yards", branches: { a: ["population", "Teams"], b: ["pin", "Places & Yards"] } },
   { id: "night", name: "Night Watch", turn: 3, icon: "moon", desc: "Holding the entrance", branches: { a: ["assault", "The Watch"], b: ["shield", "Defenses"] } },
 ];
 export const TECH_TREE = [

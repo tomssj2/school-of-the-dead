@@ -90,7 +90,7 @@ export function infect(state, c, how) {
   if (Math.random() < techPerk(state, "infectionResist")) return false; // Hygiene: shrugged it off
   if (c.role === "teacher" && c.post) setTeacherPost(state, c.id, null);
   c.infection = { dueDay: state.day + INFECTION_DAYS };
-  Object.assign(c, { gymToday: false, radioToday: false, researchToday: false, craftingToday: false, infirmaryToday: false, restToday: false, farmToday: false, scrapyardToday: false, greenhouseToday: false, exploreTeam: null, defending: false });
+  Object.assign(c, { gymToday: false, radioToday: false, researchToday: false, craftingToday: false, infirmaryToday: false, restToday: false, farmToday: false, barnToday: false, scrapyardToday: false, greenhouseToday: false, exploreTeam: null, defending: false });
   clearEntranceCellForChar(state, c.id);
   state.raidDefenders = (state.raidDefenders || []).filter((id) => id !== c.id);
   addLog(state, `🦠 ${c.name} ${how} and is infected! Quarantined in the Nurse's Office — cure them with antiviral serum by the end of day ${c.infection.dueDay}, or they die.`);
@@ -490,9 +490,12 @@ export function checkObjectives(state) {
 
 // ---------- one Turn 1 job each ----------
 // In Turn 1 a student does one thing: a classroom seat, the Gymnasium or Acrobatics, the Research
-// or Crafting Room, the Radio, rest in the Cafeteria, or the Nurse's Office. Taking a new one
+// or Crafting Room, the Radio, rest in the Cafeteria, the Nurse's Office, or a Courtyard room (the
+// Farm, the Barn, the Scrapyard or the Greenhouse). Taking a new one
 // leaves the old (`keep` is the one being taken: "seat" or its flag).
-export const TURN_ONE_FLAGS = ["gymToday", "researchToday", "craftingToday", "radioToday", "restToday", "infirmaryToday"];
+export const TURN_ONE_FLAGS = ["gymToday", "researchToday", "craftingToday", "radioToday", "restToday", "infirmaryToday", "farmToday", "barnToday", "scrapyardToday", "greenhouseToday"];
+// Doing anything in Turn 1 already (a seat or any of the jobs above).
+export const hasTurnOneJob = (c) => !!c.seat || TURN_ONE_FLAGS.some((flag) => c[flag]);
 function leaveTurnOneJobs(state, c, keep) {
   if (keep !== "seat" && c.seat) unseat(state, c.id);
   for (const flag of TURN_ONE_FLAGS) if (flag !== keep) c[flag] = false;
@@ -602,7 +605,7 @@ export function trainingGain(state, c, side) {
 // What one outside worker brings in today: the facility's base yield, plus 1 for every
 // TUNE.yieldStatStep of the site's stat (SITE_STAT: STR at the Farm, DEX at the Scrapyard).
 export function workerYield(facility, c) {
-  const base = facility === "farm" ? FARM_YIELD_FOOD : facility === "greenhouse" ? GREENHOUSE_YIELD_MEDICINE : SCRAPYARD_YIELD_MATERIALS;
+  const base = facility === "farm" || facility === "barn" ? FARM_YIELD_FOOD : facility === "greenhouse" ? GREENHOUSE_YIELD_MEDICINE : SCRAPYARD_YIELD_MATERIALS;
   return base + Math.floor(c.grades[SITE_STAT[facility]] / TUNE.yieldStatStep);
 }
 
@@ -784,9 +787,9 @@ export function cafeteriaRest(state) {
   return CAFETERIA_REST_BY_LEVEL[roomLevel(state, "cafeteria") - 1] + techPerk(state, "restRecovery");
 }
 
-// ---------- work sites: the Farm and the Scrapyard ----------
-// Worked in Turn 2 instead of exploring (see WORK_SITES in data.js). Each site has two sides, each
-// with its own crew: a student's c.farmToday / c.scrapyardToday holds the side they work, or false.
+// ---------- work sites: the Courtyard's Farm, Barn, Scrapyard and Greenhouse ----------
+// Worked in Turn 1, as a student's one job of the day (see WORK_SITES in data.js). Each site's crew
+// works its one side: a student's c.farmToday / c.barnToday / ... holds that side's name, or false.
 // Side names are unique across sites, so a side is enough to find its site.
 
 const SIDE_SITE = Object.fromEntries(Object.entries(WORK_SITES).flatMap(([site, s]) => Object.keys(s.sides).map((side) => [side, site])));
@@ -794,18 +797,17 @@ export const siteOfSide = (side) => SIDE_SITE[side];
 // What's in a slot: a crop or animal (PRODUCERS), a Scrapyard pile or bench (YARD_JOBS) or a
 // Greenhouse bed or rack (GREENHOUSE_JOBS).
 export const slotDef = (kind) => PRODUCERS[kind] || YARD_JOBS[kind] || GREENHOUSE_JOBS[kind];
-export const siteSlots = (state, site) => (site === "farm" ? state.plots : site === "greenhouse" ? state.greenhouseSlots : state.yard);
+export const siteSlots = (state, site) => (site === "farm" || site === "barn" ? state.plots : site === "greenhouse" ? state.greenhouseSlots : state.yard);
 export const siteWorkerSlots = (state, site) => WORK_SITES[site].workersByLevel[roomLevel(state, site) - 1];
 export const siteCrew = (state, side) => {
   const flag = WORK_SITES[SIDE_SITE[side]].flag;
   return state.characters.filter((c) => c[flag] === side && c.alive);
 };
 
-// Free for a day at a site: a student not off exploring or working the other site, with the
-// stamina the work takes.
+// Able to do a day at a site: a student out of quarantine with the stamina the work takes. (Any
+// other Turn 1 job they have is left when they're put on the crew.)
 export function canWorkSite(c, site) {
   if (c.role !== "student" || !c.alive || c.infection || c.exploreTeam !== null) return false;
-  if (Object.entries(WORK_SITES).some(([other, s]) => other !== site && c[s.flag])) return false;
   return c.stamina >= WORK_SITES[site].stamina;
 }
 
@@ -820,19 +822,21 @@ export function setSiteToday(state, site, studentId, side) {
     const crew = siteCrew(state, side).filter((x) => x !== c).length;
     if (crew >= Math.min(siteWorkerSlots(state, site), workersNeeded(state, side))) return false;
     if (state.characters.filter((x) => x[flag] && x !== c).length >= state.rooms[site].studentCapacity) return false;
+    leaveTurnOneJobs(state, c, flag);
   }
   c[flag] = side || false;
   return true;
 }
 
-// Fills both crews up to what their ready slots need, lowest-level free students first.
+// Fills the crew up to what its ready slots need, lowest-level free students first (only students
+// with no Turn 1 job yet).
 // Returns how many were assigned.
 export function autoAssignSite(state, site) {
   const flag = WORK_SITES[site].flag;
   let assigned = 0;
   for (const side of Object.keys(WORK_SITES[site].sides)) {
     const free = state.characters
-      .filter((c) => !c[flag] && canWorkSite(c, site))
+      .filter((c) => !hasTurnOneJob(c) && canWorkSite(c, site))
       .sort((a, b) => overallLevel(a) - overallLevel(b) || b.stamina - a.stamina);
     for (const c of free) {
       if (!setSiteToday(state, site, c.id, side)) break;
@@ -844,6 +848,7 @@ export function autoAssignSite(state, site) {
 
 // The Farm's own names for these.
 export const setFarmToday = (state, studentId, side) => setSiteToday(state, "farm", studentId, side);
+export const setBarnToday = (state, studentId, side) => setSiteToday(state, "barn", studentId, side);
 export const setScrapyardToday = (state, studentId, side) => setSiteToday(state, "scrapyard", studentId, side);
 export const setGreenhouseToday = (state, studentId, side) => setSiteToday(state, "greenhouse", studentId, side);
 export const canWorkFarm = (c) => canWorkSite(c, "farm");
@@ -857,7 +862,7 @@ export const farmCrew = siteCrew;
 
 export const ROOM_KEYS = [
   ...CLASSROOM_IDS.map((id) => `classroom:${id}`),
-  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "radio", "farm", "scrapyard", "greenhouse",
+  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "radio", "farm", "barn", "scrapyard", "greenhouse",
 ];
 // The Headmaster's Office's two sides.
 export const promotionSlots = () => OFFICE_PROMOTION_SLOTS;
@@ -934,9 +939,9 @@ export function applyRoomLevel(state, key) {
   }
   if (stats.students !== undefined) room.studentCapacity = Math.max(1, stats.students - (room.damage || 0));
   if (WORK_SITES[key]) {
-    // both crews' slots, less any a raid broke
-    room.studentCapacity = Math.max(1, 2 * siteWorkerSlots(state, key) - (room.damage || 0));
-    if (key === "farm") syncPlots(state);
+    // the crew's slots, less any a raid broke
+    room.studentCapacity = Math.max(1, Object.keys(WORK_SITES[key].sides).length * siteWorkerSlots(state, key) - (room.damage || 0));
+    if (key === "farm" || key === "barn") syncPlots(state);
     else if (key === "greenhouse") syncGreenhouse(state);
     else syncYard(state);
   }
@@ -1001,12 +1006,14 @@ export function emptyPlot() {
   return { id: null, growth: 0 };
 }
 
-export const farmSlots = (state) => FARM_SLOTS_BY_LEVEL[roomLevel(state, "farm") - 1];
+// The Farm's level sets how many slots each crop has, the Barn's each animal.
+export const farmSlots = (state, site = "farm") => FARM_SLOTS_BY_LEVEL[roomLevel(state, site) - 1];
+const plotSite = (kind) => (FARM_GROUPS.animals.includes(kind) ? "barn" : "farm");
 
 export function syncPlots(state) {
   for (const kind of Object.keys(PRODUCERS)) {
     const list = (state.plots[kind] = state.plots[kind] || []);
-    while (list.length < farmSlots(state)) list.push(emptyPlot());
+    while (list.length < farmSlots(state, plotSite(kind))) list.push(emptyPlot());
   }
 }
 
@@ -1079,8 +1086,8 @@ function harvestSlot(state, kind, i, out) {
   plantPlot(state, kind, i); // replant the same thing while stock lasts
 }
 
-// Turn 2 on the Farm: each crew collects what's ready (up to 2 slots a worker), then every crop
-// and animal grows a day — a ready one that wasn't collected just waits.
+// The Farm's and the Barn's day: each crew collects what's ready (up to 2 slots a worker), then
+// every crop and animal grows a day — a ready one that wasn't collected just waits.
 function resolveFarm(state) {
   const out = { produced: {}, kept: [] };
   for (const side of Object.keys(FARM_GROUPS)) for (const [kind, i] of harvestPlan(state, side)) harvestSlot(state, kind, i, out);
@@ -1091,8 +1098,8 @@ function resolveFarm(state) {
 }
 
 // ---------- the Scrapyard's piles & benches ----------
-// state.yard has a slot list per pile/bench (YARD_JOBS), each slot { id, growth } — always in use:
-// a pile builds back up and a bench starts its next piece as soon as it's collected.
+// state.yard has a slot list per salvage pile (YARD_JOBS), each slot { id, growth } — always in use:
+// a pile builds back up as soon as it's stripped.
 
 export const yardSlots = (state) => YARD_SLOTS_BY_LEVEL[roomLevel(state, "scrapyard") - 1];
 
@@ -1110,20 +1117,12 @@ function yardItem(slot) {
   return makeItem(pick(pool).id);
 }
 
-// Turn 2 at the Scrapyard: each crew collects what's ready (a bench only while there's the scrap
-// for it), then every pile and bench comes along a day.
+// The Scrapyard's day: the crew strips what's ready, then every pile builds up a day.
 function resolveYard(state) {
-  const out = { scrap: 0, research: 0, items: [], kits: [], short: 0 };
+  const out = { scrap: 0, research: 0, items: [] };
   for (const side of Object.keys(YARD_GROUPS)) {
     for (const [kind, i] of harvestPlan(state, side)) {
       const job = YARD_JOBS[kind];
-      if (job.cost) {
-        if (state.resources.materials < job.cost) {
-          out.short++;
-          continue;
-        }
-        state.resources.materials -= job.cost;
-      }
       if (job.scrap) {
         const scrap = Math.round(job.scrap * (1 + techPerk(state, "salvageYield")));
         state.resources.materials += scrap;
@@ -1135,12 +1134,6 @@ function resolveYard(state) {
         out.research += n;
       }
       if (job.gearChance && Math.random() < job.gearChance) out.items.push(yardItem(null));
-      if (job.makes === "weapon" || job.makes === "armor") out.items.push(yardItem(job.makes));
-      if (job.makes === "defense") {
-        const kit = pick(buildableDefenses(state));
-        state.defenseKits[kit.id] = (state.defenseKits[kit.id] || 0) + 1;
-        out.kits.push(kit);
-      }
       state.yard[kind][i].growth = 0;
     }
   }
@@ -1151,9 +1144,49 @@ function resolveYard(state) {
   return out;
 }
 
-// ---------- the Greenhouse's beds & racks ----------
-// state.greenhouseSlots has a slot list per bed/rack (GREENHOUSE_JOBS), each { id, growth } — always
-// in use, like the Scrapyard's: a bed grows back and a rack starts its next batch once collected.
+// ---------- a day in the Courtyard ----------
+// At the end of Turn 1: each worker's own yield (the site's base, +1 per 25 of its stat), then the
+// crew collects what's ready, and every crop, animal, pile and bed comes along a day.
+function resolveCourtyard(state) {
+  const crew = (flag) => state.characters.filter((c) => c[flag] && c.alive);
+  const own = (site, list) => list.reduce((sum, c) => sum + workerYield(site, c), 0);
+  const tire = (list, cost) => list.forEach((c) => (c.stamina = Math.max(0, c.stamina - cost)));
+  const fieldHands = crew("farmToday");
+  const barnHands = crew("barnToday");
+  const yardHands = crew("scrapyardToday");
+  const herbHands = crew("greenhouseToday");
+  gainExpAll(state, [...fieldHands, ...barnHands, ...yardHands, ...herbHands], LEVEL_XP.work);
+  const food = { farm: own("farm", fieldHands), barn: own("barn", barnHands) };
+  state.resources.food += food.farm + food.barn;
+  tire([...fieldHands, ...barnHands], FARM_STAMINA_COST);
+  const { produced, kept } = resolveFarm(state);
+  const goods = (kinds) => Object.entries(produced).filter(([id]) => kinds.some((k) => PRODUCERS[k].product === id))
+    .map(([id, n]) => `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
+  for (const [site, hands, kinds] of [["farm", fieldHands, FARM_GROUPS.fields], ["barn", barnHands, FARM_GROUPS.animals]]) {
+    if (!hands.length) continue;
+    const got = goods(kinds);
+    addLog(state, `The ${WORK_SITES[site].name} brings in ${food[site]} food${got ? ` and ${got}` : ""} from ${hands.length} student(s).`);
+  }
+  if (kept.length) addLog(state, `At the Farm: ${kept.join(", ")}.`);
+  const haul = own("scrapyard", yardHands);
+  state.resources.materials += haul;
+  tire(yardHands, YARD_STAMINA_COST);
+  const yard = resolveYard(state);
+  if (yardHands.length) {
+    const made = [`${haul + yard.scrap} scrap`, ...(yard.research ? [`${yard.research} research`] : []), ...yard.items.map((it) => `${it.icon} ${it.name}`)];
+    addLog(state, `The Scrapyard brings in ${made.join(", ")} from ${yardHands.length} student(s).`);
+  }
+  const herbs = own("greenhouse", herbHands);
+  state.resources.medicine += herbs;
+  tire(herbHands, GREENHOUSE_STAMINA_COST);
+  const green = resolveGreenhouse(state);
+  if (herbHands.length) addLog(state, `The Greenhouse brings in ${herbs + green.medicine} medicine from ${herbHands.length} student(s).`);
+  if (state.today) state.today.courtyard = { food: food.farm + food.barn, scrap: haul + yard.scrap, medicine: herbs + green.medicine };
+}
+
+// ---------- the Greenhouse's beds ----------
+// state.greenhouseSlots has a slot list per herb bed (GREENHOUSE_JOBS), each { id, growth } — always
+// in use, like the Scrapyard's piles: a bed grows back once it's picked.
 
 export const greenhouseSlots = (state) => GREENHOUSE_SLOTS_BY_LEVEL[roomLevel(state, "greenhouse") - 1];
 
@@ -1165,33 +1198,14 @@ export function syncGreenhouse(state) {
   }
 }
 
-// Turn 2 at the Greenhouse: each crew collects what's ready (the serum still only while there's the
-// medicine for it), then every bed and rack comes along a day.
+// The Greenhouse's day: the crew picks what's ready, then every bed grows a day.
 function resolveGreenhouse(state) {
-  const out = { medicine: 0, serum: 0, pantry: {}, short: 0 };
+  const out = { medicine: 0 };
   for (const side of Object.keys(GREENHOUSE_GROUPS)) {
     for (const [kind, i] of harvestPlan(state, side)) {
       const job = GREENHOUSE_JOBS[kind];
-      if (job.cost) {
-        if ((state.resources[job.costRes] || 0) < job.cost) {
-          out.short++;
-          continue;
-        }
-        state.resources[job.costRes] -= job.cost;
-        if (job.costRes === "medicine") out.medicine -= job.cost;
-      }
-      if (job.medicine) {
-        state.resources.medicine += job.medicine;
-        out.medicine += job.medicine;
-      }
-      if (job.serum) {
-        state.resources.serum = (state.resources.serum || 0) + job.serum;
-        out.serum += job.serum;
-      }
-      if (job.ingredient) {
-        state.pantry[job.ingredient] = (state.pantry[job.ingredient] || 0) + 1;
-        out.pantry[job.ingredient] = (out.pantry[job.ingredient] || 0) + 1;
-      }
+      state.resources.medicine += job.medicine;
+      out.medicine += job.medicine;
       state.greenhouseSlots[kind][i].growth = 0;
     }
   }
@@ -1556,6 +1570,7 @@ export function resolveTraining(state) {
   gainExpAll(state, state.characters.filter((c) => c.radioToday && c.alive), LEVEL_XP.work);
 
   if (state.today) state.today.classes = record;
+  resolveCourtyard(state);
   addLog(state, `Turn 1 (Classes) resolved.`);
 }
 
@@ -1757,46 +1772,6 @@ export function resolveExploration(state) {
   }
 
   const raid = resolveRaid(state);
-  gainExpAll(state, state.characters.filter((c) => c.alive && (c.farmToday || c.scrapyardToday || c.greenhouseToday)), LEVEL_XP.work);
-
-  // outside facilities — passive daily yield for students working the Farm/Scrapyard instead of
-  // exploring. Farm workers also collect whatever's ready in the fields and the pens.
-  const farmWorkers = facilityWorkers(state, "farm");
-  const gain = state.characters.filter((c) => c.farmToday && c.alive).reduce((sum, c) => sum + workerYield("farm", c), 0);
-  state.resources.food += gain;
-  for (const c of state.characters) if (c.farmToday && c.alive) c.stamina = Math.max(0, c.stamina - FARM_STAMINA_COST);
-  const { produced, kept } = resolveFarm(state);
-  const goods = Object.entries(produced).map(([id, n]) => `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
-  if (farmWorkers) addLog(state, `The Farm brings in ${gain} food${goods ? ` and ${goods}` : ""} from ${farmWorkers} student(s)${kept.length ? ` — ${kept.join(", ")}` : ""}.`);
-  // the Scrapyard: each worker's own haul, then whatever the crews collect from piles and benches
-  const scrapyardWorkers = state.characters.filter((c) => c.scrapyardToday && c.alive);
-  const haul = scrapyardWorkers.reduce((sum, c) => sum + workerYield("scrapyard", c), 0);
-  state.resources.materials += haul;
-  for (const c of scrapyardWorkers) c.stamina = Math.max(0, c.stamina - YARD_STAMINA_COST);
-  const yard = resolveYard(state);
-  if (scrapyardWorkers.length) {
-    const made = [
-      `${haul + yard.scrap} scrap`,
-      ...(yard.research ? [`${yard.research} research`] : []),
-      ...yard.items.map((it) => `${it.icon} ${it.name}`),
-      ...yard.kits.map((k) => `${k.emoji ?? k.icon} a ${k.name.toLowerCase()} kit`),
-    ];
-    addLog(state, `The Scrapyard brings in ${made.join(", ")} from ${scrapyardWorkers.length} student(s)${yard.short ? ` — ${yard.short} bench job(s) waited for scrap` : ""}.`);
-  }
-  // the Greenhouse: each worker's own medicine, then whatever the crews collect from beds and racks
-  const greenhouseWorkers = state.characters.filter((c) => c.greenhouseToday && c.alive);
-  const herbs = greenhouseWorkers.reduce((sum, c) => sum + workerYield("greenhouse", c), 0);
-  state.resources.medicine += herbs;
-  for (const c of greenhouseWorkers) c.stamina = Math.max(0, c.stamina - GREENHOUSE_STAMINA_COST);
-  const green = resolveGreenhouse(state);
-  if (greenhouseWorkers.length) {
-    const made = [
-      `${herbs + green.medicine} medicine`,
-      ...(green.serum ? [`${green.serum} antiviral serum`] : []),
-      ...Object.entries(green.pantry).map(([id, n]) => `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`),
-    ];
-    addLog(state, `The Greenhouse brings in ${made.join(", ")} from ${greenhouseWorkers.length} student(s)${green.short ? ` — the serum still waited for medicine` : ""}.`);
-  }
 
   state.expeditionsSent = (state.expeditionsSent || 0) + teamsSent;
   if (state.today) {
@@ -1810,7 +1785,6 @@ export function resolveExploration(state) {
       lost: [...teams.flatMap((t) => t.lost), ...(raid?.lost || [])],
       recruits: teams.filter((t) => t.recruit).length + (raid?.recruit ? 1 : 0),
       raid: raid && !raid.calledOff ? { bossName: raid.bossName, won: raid.won } : null,
-      farm: gain, scrap: haul + yard.scrap, medicine: herbs + green.medicine,
     };
   }
   state.encounters = {}; // today's encounters are spent
@@ -2630,9 +2604,9 @@ export function resolveFacilityRaid(state) {
       applyRoomLevel(state, raid.facility);
     }
     addLog(state, `The raid on the ${raid.facility} got through — a worker slot is broken until it's repaired (see its Upgrade button).`);
-    if (raid.facility === "farm") {
-      for (const plot of Object.values(state.plots).flat()) plot.growth = 0;
-      addLog(state, "The horde trampled the crops and scattered the animals — every field and pen starts over.");
+    if (raid.facility === "farm" || raid.facility === "barn") {
+      for (const kind of FARM_GROUPS[raid.facility === "farm" ? "fields" : "animals"]) for (const plot of state.plots[kind]) plot.growth = 0;
+      addLog(state, raid.facility === "farm" ? "The horde trampled the crops — every field starts over." : "The horde scattered the animals — every pen starts over.");
     }
     for (const c of defenders) {
       if (Math.random() < 0.3) {
@@ -2882,6 +2856,7 @@ export function advanceTurn(state) {
     c.infirmaryToday = false;
     c.restToday = false;
     c.farmToday = false;
+    c.barnToday = false;
     c.scrapyardToday = false;
     c.greenhouseToday = false;
     c.exploreTeam = null;

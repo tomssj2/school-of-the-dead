@@ -205,6 +205,9 @@ function migrateState(s) {
     if (c.farmToday === undefined) c.farmToday = false;
     if (c.scrapyardToday === undefined) c.scrapyardToday = false;
     if (c.greenhouseToday === undefined) c.greenhouseToday = false;
+    // the Farm's animal crew became the Barn's
+    if (c.barnToday === undefined) c.barnToday = c.farmToday === "animals" ? "animals" : false;
+    if (c.farmToday === "animals") c.farmToday = false;
     delete c.labToday; // the Lab was replaced by the Ranch
     delete c.bonds; // friendships and couples were removed
     // Levels come from experience now: a student keeps the level their grades gave them.
@@ -259,6 +262,7 @@ function migrateState(s) {
   if (!s.rooms.farm) s.rooms.farm = { studentCapacity: FARM_CAPACITY };
   if (!s.rooms.scrapyard) s.rooms.scrapyard = { studentCapacity: SCRAPYARD_CAPACITY };
   if (!s.rooms.greenhouse) s.rooms.greenhouse = { level: 1 }; // the Greenhouse came later: it starts at level 1
+  if (!s.rooms.barn) s.rooms.barn = { level: s.rooms.farm?.level || 1 }; // the Farm's pens became the Barn, at the Farm's level
   delete s.rooms.lab;
   if (s.pendingRaid?.facility === "lab" || s.pendingRaid?.facility === "ranch") s.pendingRaid.facility = "farm";
   if (s.resources.research === undefined) s.resources.research = 0;
@@ -1351,6 +1355,10 @@ root.addEventListener("click", (e) => {
       G.setScrapyardToday(state, el.dataset.id, false);
       render();
       break;
+    case "remove-barn":
+      G.setBarnToday(state, el.dataset.id, false);
+      render();
+      break;
     case "remove-greenhouse":
       G.setGreenhouseToday(state, el.dataset.id, false);
       render();
@@ -1811,6 +1819,7 @@ root.addEventListener("click", (e) => {
         case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
         case "utility": G.setTeacherPost(state, id, postKey); break;
         case "farm": G.setFarmToday(state, id, postKey); break;
+        case "barn": G.setBarnToday(state, id, postKey); break;
         case "scrapyard": G.setScrapyardToday(state, id, postKey); break;
         case "greenhouse": G.setGreenhouseToday(state, id, postKey); break;
         case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
