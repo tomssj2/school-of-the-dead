@@ -1,7 +1,7 @@
 import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, STAT_GUIDE, STAT_TUNING, TRAITS,
   CLASSROOM_CAPACITY, LOCATIONS,
-  GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, CRAFT_HELP_DEX_PER_POINT, roomUpgradeCost,
+  GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, CRAFT_HELP_WIS_PER_POINT, roomUpgradeCost,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
@@ -3210,8 +3210,8 @@ function pickerCandidates(state, picker) {
       return {
         role: "student", title: "Send a Student to the Crafting Room",
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.craftingToday)
-          .sort((a, b) => b.grades.Gymnastics - a.grades.Gymnastics)
-          .map((c) => ({ c, reason: laterBusyLabel(c) })),
+          .sort((a, b) => b.grades.History - a.grades.History)
+          .map((c) => ({ c, reason: laterBusyLabel(c), hint: `<span class="pk-gain" title="Fortification they'd add a day (WIS ${c.grades.History})">+<b>${craftHelpGain(c)}</b> 🛡</span>` })),
       };
     case "radio-student":
       return {
@@ -3914,7 +3914,7 @@ export function renderFloor3(state) {
         `data-action="open-picker" data-kind="utility" data-post="${postKey}"`)}
       ${statRow(`Helping today (${helpersOf(postKey).length}/${state.rooms[postKey].studentCapacity})`, footer(staff), "", stayToggle(state, postKey))}
       ${tileGrid(
-        helpersOf(postKey).map((s) => personTile(s, { remove: `remove-${postKey}`, title: `${s.name} — DEX ${s.grades.Gymnastics}, adds +${craftHelpGain(s)} fortification`, extra: `<span class="pt-gain">+<b>${craftHelpGain(s)}</b> 🛡</span>` })),
+        helpersOf(postKey).map((s) => personTile(s, { remove: `remove-${postKey}`, title: `${s.name} — WIS ${s.grades.History}, adds +${craftHelpGain(s)} fortification`, extra: `<span class="pt-gain">+<b>${craftHelpGain(s)}</b> 🛡</span>` })),
         state.rooms[postKey].studentCapacity - helpersOf(postKey).length,
         `data-action="open-picker" data-kind="${postKey}-student"`
       )}
@@ -3933,11 +3933,11 @@ export function renderFloor3(state) {
     const how = staff.length || helpers.length
       ? {
           title: `🛡 +${total} fortification a day`,
-          rows: [...parts.map((p) => [`${esc(shortName(p.t))} · ${p.use} scrap`, `+${p.gain}`]), ...helpers.map((c) => [`${esc(shortName(c))} · DEX ${c.grades.Gymnastics}`, `+${craftHelpGain(c)}`])],
+          rows: [...parts.map((p) => [`${esc(shortName(p.t))} · ${p.use} scrap`, `+${p.gain}`]), ...helpers.map((c) => [`${esc(shortName(c))} · WIS ${c.grades.History}`, `+${craftHelpGain(c)}`])],
           total: ["Total", `+${total}`],
-          notes: ["Each crafter turns up to 4 scrap a day into fortification", `Students help for free: +1 per ${CRAFT_HELP_DEX_PER_POINT} DEX`],
+          notes: ["Each crafter turns up to 4 scrap a day into fortification", `Students help for free: +1 per ${CRAFT_HELP_WIS_PER_POINT} WIS`],
         }
-      : { title: "🛡 No crafting yet", notes: ["Post a teacher: up to 4 scrap a day becomes permanent fortification", "Or send students: +1 per 25 DEX, no scrap"] };
+      : { title: "🛡 No crafting yet", notes: ["Post a teacher: up to 4 scrap a day becomes permanent fortification", `Or send students: +1 per ${CRAFT_HELP_WIS_PER_POINT} WIS, no scrap`] };
     return `🛡 <b>+${total}</b> fortification a day ${infoDot(how)}`;
   };
   // The Radio Station: levels like the other rooms (its upgrades are in the Upgrade pop-up), a
@@ -4014,7 +4014,7 @@ export function renderFloor3(state) {
       ${utilityRoom("crafting", "Crafting Room", roomInfo("🛠️ Crafting Room", [
         "Teachers turn up to 4 scrap a day into <b>fortification</b> — the gate's HP at the Night Watch (×2)",
         "Students help for free, no scrap needed",
-      ], { works: { stat: "DEX", who: "Students and teachers", rows: [["Each student helping", `+1 🛡 per ${CRAFT_HELP_DEX_PER_POINT} DEX`], ["Each teacher, on top of scrap", "+1 🛡 per 25 DEX"]] } }), "crafting", "DEX", "Gymnastics", craftingFooter)}
+      ], { works: { stat: "WIS", who: "Students and teachers", rows: [["Each student helping", `+1 🛡 per ${CRAFT_HELP_WIS_PER_POINT} WIS`], ["Each teacher, on top of scrap", "+1 🛡 per 25 WIS"]] } }), "crafting", "WIS", "History", craftingFooter)}
     </div>
   </div>`;
 }
@@ -4023,8 +4023,8 @@ export function renderFloor3(state) {
 
 // Each facility's banner line: today's total from its workers, with a per-worker breakdown.
 const FACILITY_YIELD = {
-  farm: { icon: ri("food"), unit: "food", base: FARM_YIELD_FOOD, str: true },
-  scrapyard: { icon: ri("materials"), unit: "scrap", base: SCRAPYARD_YIELD_MATERIALS, str: true },
+  farm: { icon: ri("food"), unit: "food", base: FARM_YIELD_FOOD, stat: "STR" },
+  scrapyard: { icon: ri("materials"), unit: "scrap", base: SCRAPYARD_YIELD_MATERIALS, stat: "DEX" },
 };
 
 // `crew`: false when the page lays out its own worker slots (the Farm's two crews); `middle` puts
@@ -4042,7 +4042,7 @@ function renderOutsideFacility(state, roomKey, flagKey, title, desc, extra = "",
       ? [...shownWorkers.map((c) => [esc(shortName(c)), `+${workerYield(roomKey, c)}`]), ...(workers.length > 8 ? [[`${workers.length - 8} more`, `+${restYield}`]] : [])]
       : [tipNone("Nobody working today", "+0")],
     total: ["Total", `+${total}`],
-    notes: [`Each worker brings in ${y.base} ${y.unit}${y.str ? ", +1 per 25 STR" : ""}`, ...(roomKey === "farm" ? [`Each worker also collects ${PLOTS_PER_WORKER} ready crops or animals on their side`] : []), "Workers stay home instead of exploring"],
+    notes: [`Each worker brings in ${y.base} ${y.unit}, +1 per ${STAT_TUNING.yieldStatStep} ${y.stat}`, ...(roomKey === "farm" ? [`Each worker also collects ${PLOTS_PER_WORKER} ready crops or animals on their side`] : []), "Workers stay home instead of exploring"],
   };
 
   return `
@@ -4253,7 +4253,7 @@ function renderWorkSite(state, site) {
       : ["Salvage piles give <b>scrap</b> (and maybe research or gear)",
         "Workbenches turn scrap into weapons, armor and trap kits"],
     {
-      works: { stat: "STR", rows: [[`${FACILITY_YIELD[site].unit === "food" ? "Food" : "Scrap"} each worker brings in`, `${FACILITY_YIELD[site].base}, +1 per ${STAT_TUNING.yieldStrStep} STR`]] },
+      works: { stat: FACILITY_YIELD[site].stat, rows: [[`${FACILITY_YIELD[site].unit === "food" ? "Food" : "Scrap"} each worker brings in`, `${FACILITY_YIELD[site].base}, +1 per ${STAT_TUNING.yieldStatStep} ${FACILITY_YIELD[site].stat}`]] },
       notes: [`Each worker covers ${PLOTS_PER_WORKER} ${site === "farm" ? "plots or animals" : "piles or benches"} and costs ${def.stamina} stamina a day`, "Workers stay home instead of exploring"],
     }),
     `<div class="farm-split">${renderSiteSide(state, left)}${renderSiteSide(state, right)}</div>`,

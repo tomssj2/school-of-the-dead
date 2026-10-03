@@ -18,7 +18,7 @@ import {
   NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, BATTLE_ABILITIES, ABILITY_CHARGE, FORMATIONS, NIGHT_ROLES, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay,
-  RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_DEX_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
+  RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, SITE_STAT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
   INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, FARM_WORKERS_BY_LEVEL, FARM_STAMINA_COST, PLOTS_PER_WORKER, STARTING_STOCK,
@@ -598,15 +598,16 @@ export function trainingGain(state, c, side) {
 }
 
 // What one outside worker brings in today: the facility's base yield, plus 1 for every
-// TUNE.yieldStrStep STR.
+// TUNE.yieldStatStep of the site's stat (SITE_STAT: STR at the Farm, DEX at the Scrapyard).
 export function workerYield(facility, c) {
   const base = facility === "farm" ? FARM_YIELD_FOOD : SCRAPYARD_YIELD_MATERIALS;
-  return base + Math.floor(c.grades.PE / TUNE.yieldStrStep);
+  return base + Math.floor(c.grades[SITE_STAT[facility]] / TUNE.yieldStatStep);
 }
 
-// Fortification one crafter adds from `scrap` scrap (they use up to 4 a day), plus the room's level bonus.
+// Fortification one crafter adds from `scrap` scrap (they use up to 4 a day) and their WIS (the
+// History teacher knows how castles were held), plus the room's level bonus.
 export function crafterGain(state, crafter, scrap) {
-  return Math.round((scrap + crafter.grades.Gymnastics / 20) * 0.8) + CRAFTING_BONUS_BY_LEVEL[roomLevel(state, "crafting") - 1];
+  return Math.round((scrap + crafter.grades.History / 20) * 0.8) + CRAFTING_BONUS_BY_LEVEL[roomLevel(state, "crafting") - 1];
 }
 
 // The Radio Station's recruiters: teachers posted there and students on the air today.
@@ -1333,7 +1334,7 @@ export function assignTeamSlot(state, studentId, teamIndex, role) {
 // and the students assisting today, plus the room's level bonus while anyone is working there.
 export const researchCrew = (state) => state.characters.filter((c) => c.alive && !c.infection && ((c.role === "teacher" && c.post === "research") || c.researchToday));
 // Fortification a student helping in the Crafting Room adds today.
-export const craftHelpGain = (c) => Math.floor(c.grades.Gymnastics / CRAFT_HELP_DEX_PER_POINT);
+export const craftHelpGain = (c) => Math.floor(c.grades.History / CRAFT_HELP_WIS_PER_POINT);
 
 // A student's job in the Research or Crafting Room today (`flag` researchToday / craftingToday).
 function setRoomJob(state, studentId, flag, roomKey, value) {

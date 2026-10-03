@@ -32,22 +32,22 @@ export const STAT_LABEL = {
 // What each stat does in play, shown when hovering a stat on a character card. Every stat has a
 // job in a fight and one outside it; the numbers live in STAT_TUNING below.
 export const STAT_EFFECTS = {
-  STR: "Fights: melee damage, and the strength to hold melee weapons. Also: part of max HP, how much food and scrap an expedition can carry home, and more output at the Farm and Scrapyard. Half of a team's power.",
-  DEX: "Fights: ranged damage, hit chance, dodging hits, and the dexterity to hold ranged weapons. Also: most of max stamina, and stealth — fewer zombies while scouting and fewer ambushes on expeditions. Half of a team's power.",
+  STR: "Fights: melee damage, and the strength to hold melee weapons. Also: part of max HP, how much food and scrap an expedition can carry home, and more food from the Farm. Half of a team's power.",
+  DEX: "Fights: ranged damage, hit chance, dodging hits, and the dexterity to hold ranged weapons. Also: most of max stamina, and stealth — fewer zombies while scouting and fewer ambushes on expeditions. More scrap from the Scrapyard. Half of a team's power.",
   CON: "Fights: less damage taken, and a better chance to survive going down. Also: most of max HP, and faster healing overnight. A nurse with a high CON heals more in the Nurse's Office.",
   INT: "Fights: the defenders' smarts make traps hit harder and walls hold longer. Also: faster learning (more XP from everything) and better odds of finding gear on expeditions. For teachers, research.",
-  WIS: "Fights: the most aware defender warns everyone, so the whole team takes less damage. Also: part of max stamina, keeps expedition teams safe, and finds more loot.",
+  WIS: "Fights: the most aware defender warns everyone, so the whole team takes less damage. Also: part of max stamina, keeps expedition teams safe, finds more loot, and plans better fortifications in the Crafting Room.",
   CHA: "Fights: the most charismatic defender leads — the whole team hits harder. Also: finding survivors and a daily lift to the school's mood. For teachers, recruiting.",
 };
 
 // The same, as a breakdown for the rooms' info dots: [what it does, where]. Keep in step with
 // STAT_EFFECTS and STAT_TUNING.
 export const STAT_GUIDE = {
-  STR: [["Melee damage", "⚔ Fights"], ["Holding melee weapons", "🗡 Gear"], ["Max HP", "+0.4 a point"], ["Team power (with DEX)", "🧭 Expeditions"], ["Food & scrap carried home", "🧭 Expeditions"], ["Farm & Scrapyard output", "+1 per 25"]],
-  DEX: [["Ranged damage & hit chance", "⚔ Fights"], ["Dodging hits", "⚔ Fights"], ["Holding ranged weapons", "🏹 Gear"], ["Max stamina", "+1.2 a point"], ["Stealth — fewer zombies & ambushes", "🧭 Scouting"], ["Team power (with STR)", "🧭 Expeditions"], ["Helping in the Crafting Room", "+1 🛡 per 25"]],
+  STR: [["Melee damage", "⚔ Fights"], ["Holding melee weapons", "🗡 Gear"], ["Max HP", "+0.4 a point"], ["Team power (with DEX)", "🧭 Expeditions"], ["Food & scrap carried home", "🧭 Expeditions"], ["Farm output", "+1 🌾 per 25"]],
+  DEX: [["Ranged damage & hit chance", "⚔ Fights"], ["Dodging hits", "⚔ Fights"], ["Holding ranged weapons", "🏹 Gear"], ["Max stamina", "+1.2 a point"], ["Stealth — fewer zombies & ambushes", "🧭 Scouting"], ["Team power (with STR)", "🧭 Expeditions"], ["Scrapyard output", "+1 🔩 per 25"]],
   CON: [["Less damage taken", "⚔ Fights"], ["Surviving going down", "⚔ Fights"], ["Max HP", "+0.8 a point"], ["Healing overnight", "🌙 Every night"], ["Fewer casualties", "🧭 Expeditions"], ["A nurse heals more", "🏥 Teachers"]],
   INT: [["Traps hit harder, walls hold longer", "⚔ Fights"], ["XP from everything", "+40% at 100"], ["Finding gear", "🧭 Expeditions"], ["Research", "🧠 Research Room"]],
-  WIS: [["Whole team takes less damage", "⚔ Best in squad"], ["Max stamina", "+0.8 a point"], ["Keeping the team safe", "🧭 Expeditions"], ["More loot", "🧭 Expeditions"]],
+  WIS: [["Whole team takes less damage", "⚔ Best in squad"], ["Max stamina", "+0.8 a point"], ["Keeping the team safe", "🧭 Expeditions"], ["More loot", "🧭 Expeditions"], ["Planning fortifications", "+1 🛡 per 25"]],
   CHA: [["Whole team hits harder", "⚔ Best in squad"], ["Finding survivors", "🧭 Expeditions"], ["Recruit chance", "📻 Radio Station"], ["School mood each morning", "😊 Best student"]],
 };
 
@@ -60,7 +60,7 @@ export const STAT_TUNING = {
   staminaPerWis: 0.8, // student, 200 with both maxed
   staminaMin: 10,
   carryPerStr: 1 / 250, // expedition food & scrap × (0.8 + avg STR / 250): ×1.0 at 50, ×1.2 at 100
-  yieldStrStep: 25, // +1 Farm food / Scrapyard scrap per worker for every 25 STR
+  yieldStatStep: 25, // +1 Farm food per worker for every 25 STR, +1 Scrapyard scrap for every 25 DEX (SITE_STAT)
   dodgePerDex: 1 / 500, // chance to dodge a hit: up to 20% at 100 DEX
   stealthPerDex: 1 / 250, // scouting encounter chance × (1 − DEX / 250): −40% at 100
   expeditionStealthPerDex: 1 / 400, // expedition casualties × (1 − avg DEX / 400): −25% at 100
@@ -400,8 +400,12 @@ export const LEVEL_XP = {
   raid: 40, // a landmark raid or chasing down the horde's leader
 };
 // A student helping in the Research Room adds their INT to the pool; one in the Crafting Room adds
-// a point of fortification a day for every CRAFT_HELP_DEX_PER_POINT DEX.
-export const CRAFT_HELP_DEX_PER_POINT = 25;
+// a point of fortification a day for every CRAFT_HELP_WIS_PER_POINT WIS (History: they've read up
+// on castle defences).
+export const CRAFT_HELP_WIS_PER_POINT = 25;
+// The stat a work site's workers bring in more with: the Farm is heavy labour (STR), the
+// Scrapyard's salvage and benches are handwork (DEX).
+export const SITE_STAT = { farm: "PE", scrapyard: "Gymnastics" };
 export const RESCUE_ARRIVAL_DAYS = 3;
 export const RESCUE_DELAY_DAYS = 5;
 
