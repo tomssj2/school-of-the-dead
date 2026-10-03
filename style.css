@@ -3653,3 +3653,46 @@ html[data-gfx="medium"] .sk-buyable { animation: none; }
 .room-site .farm-crew + .site-groups { margin-top: 6px; }
 .room-site .person-tile.pt-farm { width: 56px; }
 .room-site .farm-crew .person-tiles { gap: 3px; }
+
+/* ===== Typography: the game's pixel voice =====
+   Pixelify Sans for anything the eye lands on first — headings, room names, the top bar, the tabs,
+   the big numbers and buttons; Silkscreen for the small uppercase labels. Body text and tooltips stay
+   in the plain sans-serif so the reading parts stay easy. */
+:root {
+  --font-display: "Pixelify Sans", "Segoe UI", system-ui, sans-serif;
+  --font-label: "Silkscreen", "Segoe UI", system-ui, sans-serif;
+}
+h1, h2, h3, .card h2 { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.4px; }
+.card h2 { font-size: 24px; }
+.room h3, .subcard h3 { font-size: 17px; }
+.nav-btn, .subtab-btn, .cc2-tab { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.3px; }
+.nav-btn { font-size: 13.5px; padding: 6px 10px 5px 7px; }
+.subtab-btn { font-size: 13px; }
+.scene-plaque, .ov-plaque { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.3px; }
+.scene-plaque { font-size: 15px; }
+.ov-plaque { font-size: 13px; }
+.plaque-level { font-family: var(--font-label); font-weight: 400; letter-spacing: 0.5px; }
+.mini-label, .roster-table th, .hud-val small, .turn-day small, .cc2-tile-label {
+  font-family: var(--font-label); font-weight: 400; letter-spacing: 0.6px;
+}
+.mini-label { font-size: 10px; }
+.roster-table th { font-size: 10px; }
+.hud-val small { font-size: 8px; }
+.cc2-tile-label { font-size: 9.5px; }
+/* numbers that matter: resources, the day, summaries, stats */
+.hud-val b, .turn-day b, .turn-label, .ov-big, .cs-value b, .cs-grade, .stat-pill b, .sk-tier, .cc2-tile-value {
+  font-family: var(--font-display); font-weight: 700;
+}
+.hud-val b { font-size: 17px; }
+.turn-day b { font-size: 20px; }
+.ov-big { font-size: 26px; }
+.ov-big small { font-family: "Segoe UI", system-ui, sans-serif; font-weight: 600; }
+/* names and titles */
+.cc2-name, .tip-title, .pk-group, .room-tagline { font-family: var(--font-display); }
+.cc2-name { font-size: 30px; font-weight: 600; }
+.tip-title { font-size: 14px; font-weight: 600; letter-spacing: 0.3px; }
+/* buttons you press to move the game on */
+.btn-primary, .btn-big, .btn-danger { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.3px; }
+.btn-big { font-size: 18px; }
+.cs-name b, .sk-stat { font-family: var(--font-display); font-weight: 700; letter-spacing: 0.4px; }
+.cs-name b { font-size: 16px; }
