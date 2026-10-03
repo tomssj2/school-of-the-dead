@@ -3639,8 +3639,9 @@ html[data-gfx="medium"] .sk-buyable { animation: none; }
 /* the Courtyard's rooms: the Farm and the Barn share the Farm's wide banner, one end each */
 .room-farm .room-scene { background-position: left bottom; }
 .room-barn .room-scene { background-position: right bottom; }
-.site-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.site-row-end { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; white-space: nowrap; }
+.site-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; }
+.site-row > .stat-pill { justify-self: start; }
+.site-row-end { display: flex; align-items: center; gap: 8px; font-size: 12px; white-space: nowrap; }
 .room-site .farm-group { margin-top: 6px; padding: 6px 8px; }
 .room-site .farm-group-head { margin-bottom: 4px; }
 .room-site .fslot { height: 44px; gap: 2px; padding: 3px 6px; }

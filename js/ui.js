@@ -4070,7 +4070,7 @@ function renderSiteSlot(state, site, kind, plot, index, covered) {
   }
   const ready = isReady(plot);
   const pct = Math.round((plot.growth / def.growDays) * 100);
-  const status = ready ? (covered ? `✓ ${words.collect}` : "Ready!") : `day ${plot.growth}/${def.growDays}`;
+  const status = ready ? "Done" : `day ${plot.growth}/${def.growDays}`;
   const tip = ready
     ? covered ? `${def.name} — ready, a worker collects it this turn` : `${def.name} — ready: assign a worker to collect it`
     : `${def.name} — ready in ${def.growDays - plot.growth} day${def.growDays - plot.growth === 1 ? "" : "s"}`;
@@ -4136,9 +4136,6 @@ function renderSiteRoom(state, site) {
     total: ["Total", `+${total}`],
     notes: [`Each worker brings in ${y.base} ${y.unit}, +1 per ${STAT_TUNING.yieldStatStep} ${y.stat}`, `…and collects ${PLOTS_PER_WORKER} ready slots below`, `A day here is their Turn 1 job and costs ${def.stamina} stamina`],
   };
-  const readyText = !ready
-    ? `<span class="farm-ready farm-ready-none">Nothing ${words.ready}</span>`
-    : `<span class="farm-ready ${crew.length >= needed ? "farm-ready-ok" : "farm-ready-short"}">${words.icon} <b>${ready}</b> ${words.ready} · ${crew.length >= needed ? "✓ covered" : `needs ${needed} worker${needed === 1 ? "" : "s"}`}</span>`;
   const auto = `<button class="btn btn-sm farm-auto-btn" data-action="site-auto" data-site="${site}" ${open && free ? "" : "disabled"} ${tipAttr({
     title: "⚡ Auto-assign", rows: [["Ready", `${ready}`], ["Each student works", `${PLOTS_PER_WORKER}`]], total: ["Students needed", `${Math.min(slots, needed)}`],
     notes: [`Free students only (no Turn 1 job yet) with at least ${def.stamina} stamina, lowest level first`, `${free} free`],
@@ -4162,7 +4159,7 @@ function renderSiteRoom(state, site) {
     ${roomScene(`${site === "barn" ? "farm" : site}@${sceneLevel(state, site)}`, crew, `${def.name}${levelBadge(state, site)}`,
       roomInfo(`${SITE_ICON[site]} ${def.name}`, SITE_INTRO[site], { works: { stat: y.stat, rows: [[`${y.unit[0].toUpperCase()}${y.unit.slice(1)} each worker brings in`, `${y.base}, +1 per ${STAT_TUNING.yieldStatStep} ${y.stat}`]] } }),
       roomUpgradeButton(state, site))}
-    <div class="stat-row site-row"><span class="stat-pill">${y.icon} <b>+${total}</b> ${y.unit} today ${infoDot(how)}</span>${readyText}<span class="site-row-end">${auto}<span class="farm-cost"><b>−${def.stamina}</b> stamina</span>${stayToggle(state, site, "nothing's ready for them or they're too tired")}</span></div>
+    <div class="stat-row site-row"><span class="stat-pill">${y.icon} <b>+${total}</b> ${y.unit} ${infoDot(how)}</span><span class="site-row-end">${auto}<span class="farm-cost"><b>−${def.stamina}</b> stamina</span>${stayToggle(state, site, "nothing's ready for them or they're too tired")}</span></div>
     <div class="farm-crew"><div class="person-tiles">${tiles}</div></div>
     <div class="site-groups">${groups}</div>
   </div>`;
