@@ -4160,7 +4160,7 @@ function renderSiteRoom(state, site) {
     ${roomScene(`${site === "barn" ? "farm" : site}@${sceneLevel(state, site)}`, crew, `${def.name}${levelBadge(state, site)}`,
       roomInfo(`${SITE_ICON[site]} ${def.name}`, SITE_INTRO[site], { works: { stat: y.stat, rows: [[`${y.unit[0].toUpperCase()}${y.unit.slice(1)} each worker brings in`, `${y.base}, +1 per ${STAT_TUNING.yieldStatStep} ${y.stat}`]] } }),
       roomUpgradeButton(state, site))}
-    <div class="stat-row site-row"><span class="stat-pill">${y.icon} <b>+${total}</b> ${y.unit} ${infoDot(how)}</span><span class="site-row-end">${auto}<span class="farm-cost"><b>−${def.stamina}</b> stamina</span>${stayToggle(state, site, "nothing's ready for them or they're too tired")}</span></div>
+    <div class="stat-row site-row"><span class="stat-pill">${y.icon} <b>+${total}</b> ${y.unit} ${infoDot(how)}</span><span class="site-row-end">${auto}<span class="farm-cost"><b>−${def.stamina}</b> stamina</span></span>${stayToggle(state, site, "nothing's ready for them or they're too tired")}</div>
     <div class="farm-crew"><div class="person-tiles">${tiles}</div></div>
     <div class="site-groups">${groups}</div>
   </div>`;

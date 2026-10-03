@@ -3810,3 +3810,4 @@ body[data-turn="2"] .nav-turn, body[data-turn="3"] .nav-turn, body[data-turn="2"
 }
 body[data-turn="2"] .nav-btn.nav-turn, body[data-turn="2"] .nav-btn.nav-turn.active { --b-face: #e8963f; --b-hi: #ffc98a; --b-lo: #8a4a16; --b-edge: #2a1100; --b-ink: #2a1400; }
 body[data-turn="3"] .nav-btn.nav-turn, body[data-turn="3"] .nav-btn.nav-turn.active { --b-face: #7488dc; --b-hi: #b8c6fa; --b-lo: #34418a; --b-edge: #0a0f2e; --b-ink: #0a1030; }
+.site-row > .stay-toggle { justify-self: end; }
