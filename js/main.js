@@ -10,8 +10,8 @@ import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor, assignStudentFocus, gradeCap } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled, setSoundVolume,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
-import { applyGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
-import { installFrames } from "./frames.js";
+import { applyGraphics, getGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
+import { installFrames, installBackdrop } from "./frames.js";
 import { setMusicMood, unlockMusic, setMusicEnabled, setMusicVolume } from "./music.js";
 import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp, armDefenders, fortifyEntrance } from "./dev.js";
 import {
@@ -79,6 +79,56 @@ let lastDay = state.day; // for the day-rollover chime, however the advance happ
 const TURN_HOME_TAB = { 1: "floor1", 2: "citymap", 3: "defense" };
 let lastTurnKey = null; // "day:turn" at the last render — a new one opens its home tab
 let lastRenderedTab = null;
+let lastModalKey = "";
+
+// A new turn announces itself: a title card sweeps across the screen ("Day 3 · Afternoon"). It
+// lives outside the app, so the re-renders underneath don't cut it short. Not on Low graphics.
+const TURN_TITLES = { 1: ["Morning", "Classes"], 2: ["Afternoon", "Exploration"], 3: ["Night", "The Watch"] };
+function showTurnCard() {
+  if (getGraphics() === "low") return;
+  const [title, sub] = TURN_TITLES[state.turn] || [];
+  if (!title) return;
+  document.querySelector(".turn-card")?.remove();
+  const el = document.createElement("div");
+  el.className = `turn-card turn-card-${state.turn}`;
+  el.innerHTML = `<span class="tc-day">Day ${state.day}</span><b class="tc-title">${title}</b><span class="tc-sub">${sub}</span>`;
+  el.addEventListener("animationend", (e) => e.target === el && el.remove());
+  document.body.appendChild(el);
+}
+
+// Bars slide to their new value. The page is rebuilt on every render, so each bar fill (an element
+// whose inline style is a % width) starts at the width it had before — matched by its kind of bar
+// (its track's class) and its place among those — and eases to the new one.
+const BAR_FILL = '[style^="width:"]';
+function barWidths() {
+  const seen = {};
+  const out = new Map();
+  for (const el of root.querySelectorAll(BAR_FILL)) {
+    if (!el.style.width.endsWith("%")) continue;
+    const kind = `${el.parentElement.className}>${el.classList[0] || ""}`; // its first class only: "hp-high" → "hp-mid" is still the same bar
+    seen[kind] = (seen[kind] || 0) + 1;
+    out.set(`${kind}#${seen[kind]}`, el);
+  }
+  return out;
+}
+function slideBars(before) {
+  if (getGraphics() === "low") return;
+  const moved = [...barWidths()].filter(([key, el]) => before.has(key) && before.get(key) !== el.style.width).map(([key, el]) => [el, before.get(key), el.style.width]);
+  if (!moved.length) return;
+  moved.forEach(([el, from]) => {
+    el.style.transition = "none";
+    el.style.width = from;
+  });
+  // the slide starts on the next frame, once the rest of the render is done — a big page can take
+  // longer to build than the slide lasts
+  requestAnimationFrame(() => {
+    void root.offsetWidth; // lay out the old widths before easing to the new
+    moved.forEach(([el, , to]) => {
+      el.style.transition = "width 0.45s ease-out";
+      el.style.width = to;
+    });
+  });
+}
 let floaties = [];
 let floatyClearTimer = null;
 
@@ -599,6 +649,7 @@ function render() {
   const turnKey = `${state.day}:${state.turn}`;
   if (turnKey !== lastTurnKey) {
     activeTab = state.gameOver || state.victory ? "overview" : TURN_HOME_TAB[state.turn] || "overview";
+    if (lastTurnKey !== null && !state.gameOver && !state.victory) showTurnCard();
     lastTurnKey = turnKey;
   }
 
@@ -657,10 +708,16 @@ function render() {
     : state.pendingAssault
     ? renderAssaultModal(state, assaultPick || (assaultPick = new Set(G.assaultCandidates(state).map((c) => c.id))))
     : "";
+  // A pop-up pops in when it opens, not on every re-render while it's up (its opening tag says which).
+  const modalKey = modalHtml.slice(0, modalHtml.indexOf(">") + 1);
+  root.classList.toggle("modal-enter", !!modalKey && modalKey !== lastModalKey);
+  lastModalKey = modalKey;
   // The page never scrolls — the content area does — so keep it where it was within the same tab.
   const contentScroll = sameTab ? root.querySelector(".content")?.scrollTop || 0 : 0;
+  const barsBefore = sameTab ? new Map([...barWidths()].map(([key, el]) => [key, el.style.width])) : null;
   if (state.gameOver || state.victory) recordRun(state, G.aliveChars(state).length);
   root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml;
+  if (barsBefore) slideBars(barsBefore);
   pixelizeDom(root); // any emoji left in the text becomes its pixel icon
   const newContent = root.querySelector(".content");
   if (newContent) newContent.scrollTop = contentScroll;
@@ -2066,6 +2123,7 @@ window.addEventListener("resize", () => {
 });
 applyGraphics();
 installFrames();
+installBackdrop();
 
 // Test shortcuts, only when the game runs on this computer (the /max and /min project commands
 // run these): schoolDev.max() puts every room at level 5 with every slot filled; schoolDev.min()
