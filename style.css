@@ -107,7 +107,7 @@ body[data-turn="3"]::after { opacity: 0.45; animation: twinkle 5.3s ease-in-out 
   flex-direction: column;
   box-sizing: border-box;
   height: var(--frame-h, 100vh);
-  max-width: 1100px;
+  max-width: 1340px; /* wide enough for Turn 1's roster beside the rooms */
   margin: 0 auto; /* anchored to the top, centred sideways */
   padding: 0 14px;
   container-type: inline-size;
@@ -1080,6 +1080,13 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
   white-space: nowrap;
 }
 .nw-gate-none { border-color: rgba(214, 69, 69, 0.7); color: #ffb0b0; }
+/* top left of the board: someone on the steps has no weapon; top right: the watch's 📌 Stay */
+.nw-stay { position: absolute; z-index: 16; top: calc(3px * var(--px)); right: calc(3px * var(--px)); line-height: 0; }
+.nw-unarmed {
+  position: absolute; z-index: 16; top: calc(3px * var(--px)); left: calc(3px * var(--px));
+  padding: 2px 8px; border: 1px solid rgba(255, 159, 67, 0.7); background: rgba(10, 12, 18, 0.82);
+  color: #ffb36b; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: help;
+}
 .nw-gate-hit { animation: nw-gate-hit 0.45s ease-out; }
 @keyframes nw-gate-hit {
   from { background: rgba(214, 69, 69, 0.85); transform: translateX(-50%) scale(1.12); }
@@ -1467,28 +1474,31 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
 .nw-role { position: absolute; top: -2px; left: -12px; font-size: 12px; line-height: 1; filter: drop-shadow(0 1px 1px #000); }
 .nw-static { cursor: default; }
 
-/* tonight's weather over the board: fog swallows the street, rain streaks, a blackout darkens all
-   but the two lamp-lit lanes (--lamp-a, --lamp-b) */
+/* tonight's weather over the board: rain streaks, fog drifting over the street, snow falling.
+   Every layer is a tile that moves exactly whole tiles each loop, so it never jumps. */
 .nw-cells::before { content: ""; position: absolute; inset: 0; z-index: 12; pointer-events: none; }
-.nw-cond-fog .nw-cells::before {
-  background: linear-gradient(to top, rgba(170, 180, 195, 0.88) 0%, rgba(150, 160, 178, 0.55) 30%, rgba(140, 150, 168, 0.15) 62%, transparent 78%);
-  animation: nw-fog 6s ease-in-out infinite alternate;
-}
-@keyframes nw-fog { to { opacity: 0.8; transform: translateX(6px); } }
 .nw-cond-rain .nw-cells::before {
-  background: repeating-linear-gradient(105deg, rgba(170, 200, 255, 0.2) 0 1px, transparent 1px 10px);
-  animation: nw-rain 0.45s linear infinite;
+  --streak: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='120'%3E%3Cpath d='M9 4l-4 12M31 30l-4 12M19 60l-4 12M37 86l-4 12M13 100l-4 12' stroke='%23b4ccff' stroke-opacity='.4' stroke-width='1.2'/%3E%3C/svg%3E");
+  background: var(--streak) 0 0 / 40px 120px, var(--streak) 13px 37px / 60px 180px;
+  animation: nw-rain 0.6s linear infinite;
 }
-@keyframes nw-rain { to { background-position: -10px 30px; } }
-.nw-cond-blackout .nw-cells::before {
-  --dark: rgba(0, 0, 8, 0.58);
-  background: linear-gradient(to right,
-    var(--dark) 0, var(--dark) calc(var(--lamp-a) * 100% / var(--size)),
-    transparent calc(var(--lamp-a) * 100% / var(--size)), transparent calc((var(--lamp-a) + 1) * 100% / var(--size)),
-    var(--dark) calc((var(--lamp-a) + 1) * 100% / var(--size)), var(--dark) calc(var(--lamp-b) * 100% / var(--size)),
-    transparent calc(var(--lamp-b) * 100% / var(--size)), transparent calc((var(--lamp-b) + 1) * 100% / var(--size)),
-    var(--dark) calc((var(--lamp-b) + 1) * 100% / var(--size)), var(--dark) 100%);
+@keyframes nw-rain { to { background-position: -40px 120px, -47px 217px; } }
+.nw-cond-fog .nw-cells::before {
+  background:
+    radial-gradient(ellipse 90px 22px at 60px 72%, rgba(196, 204, 218, 0.4), transparent 70%) 0 0 / 240px 100% repeat-x,
+    radial-gradient(ellipse 130px 28px at 170px 86%, rgba(196, 204, 218, 0.34), transparent 70%) 0 0 / 240px 100% repeat-x,
+    linear-gradient(to top, rgba(170, 180, 195, 0.88) 0%, rgba(150, 160, 178, 0.55) 30%, rgba(140, 150, 168, 0.15) 62%, transparent 78%);
+  animation: nw-fog 16s linear infinite;
 }
+@keyframes nw-fog { to { background-position: 240px 0, 480px 0, 0 0; } }
+.nw-cond-snow .nw-cells::before {
+  background:
+    radial-gradient(circle, rgba(235, 242, 255, 0.85) 0 1.5px, transparent 2px) 0 0 / 46px 46px,
+    radial-gradient(circle, rgba(235, 242, 255, 0.6) 0 1px, transparent 1.5px) 17px 23px / 31px 31px,
+    linear-gradient(rgba(190, 215, 255, 0.1), rgba(190, 215, 255, 0.16));
+  animation: nw-snow 6s linear infinite;
+}
+@keyframes nw-snow { to { background-position: 46px 138px, -14px 116px, 0 0; } }
 
 /* night actions: a bar under the battle, and aiming one at a square */
 .nw-actions { display: flex; gap: 8px; }
@@ -3838,27 +3848,36 @@ body[data-turn="3"], body[data-turn="over"] { --sky-now: var(--sky-night); }
    The HUD wears the school-metal frame like the windows, its counters are square sunken slots and
    the ☰ menu is a pixel button. */
 .hud {
-  border-style: solid;
-  border-width: 12px;
-  border-image: var(--frame-school) 6 / 1 / 0 repeat;
+  border: 0;
   border-radius: 0;
-  padding: 3px 4px;
+  padding: 7px 10px 8px;
   background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, #232935, #181c24);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 45%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.014) 0 2px, transparent 2px 4px),
+    linear-gradient(180deg, #2a303d, #171b23);
+  /* a pixel block like the buttons: lit top edge, shaded bottom, a dark outline with notched corners */
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.45),
+    0 -2px 0 #07080b, 0 2px 0 #07080b, -2px 0 0 #07080b, 2px 0 0 #07080b,
+    0 10px 24px rgba(0, 0, 0, 0.45);
 }
+/* each counter a sunken slot: its icon on a bevelled tile, the number beside it */
 .hud-stat {
   border-radius: 0;
-  border: 1px solid #0b0d12;
-  background: rgba(0, 0, 0, 0.3);
-  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.4), inset -1px -1px 0 rgba(255, 255, 255, 0.07);
+  border: 0;
+  padding-right: 12px;
+  background: linear-gradient(180deg, #0f1218, #1a1e27);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px #07080b;
 }
-.hud-stat.tb-warn { border-color: #d64545; background: rgba(214, 69, 69, 0.16); }
+.hud-stat:hover { background: linear-gradient(180deg, #141821, #20252f); }
+.hud-stat.tb-warn { background: linear-gradient(180deg, #2a1215, #3a1a1e); box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.55), 0 0 0 1px #d64545; }
 .hud-icon {
   border-radius: 0;
-  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.16), inset -2px -2px 0 rgba(0, 0, 0, 0.4);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.22), inset -2px -2px 0 rgba(0, 0, 0, 0.45), 1px 0 0 #07080b;
 }
+.hud-val b { font-size: 16px; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6); }
+.hud-val small { letter-spacing: 1px; }
 .tb-buff, .hud-rescue-bars i { border-radius: 0; }
 .hud-menu {
   --b-face: #3b4354; --b-hi: #5d6881; --b-lo: #232833; --b-edge: #090b10;
@@ -3914,3 +3933,49 @@ body[data-turn="3"], body[data-turn="over"] { --sky-now: var(--sky-night); }
 
 .person-tile { transition: transform 0.12s ease-out, box-shadow 0.12s ease-out; }
 .person-tile:not(.pt-off):hover { transform: translateY(-2px); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.4); }
+
+/* ===== Turn 1's student roster (ui.js renderTurnOnePanel) =====
+   A column down the right of the floor's own window (like the City Map's side panel), staying put
+   as the rooms scroll; drag a student onto an empty slot (it lights up), or back onto the panel to
+   free them. */
+.t1-layout { display: flex; gap: 12px; align-items: stretch; }
+.t1-main { flex: 1; min-width: 0; }
+/* exactly as tall as the rooms beside it: its contents sit in an absolutely placed inner box, so
+   they never make the row taller, and the student list scrolls inside */
+.t1-side { position: relative; flex: none; width: 248px; }
+.t1-side-in { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
+.t1-head { margin-bottom: 4px; }
+.t1-count { margin: 0 0 4px; }
+/* the roster's tabs: All, then one per stat, each with its count */
+.t1-tabs { --role: #6f9be8; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; margin-bottom: 6px; }
+.t1-tab { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; padding: 3px 0; font-size: 10px; font-weight: 700; line-height: 1; }
+.t1-tab b { font-size: 10px; font-weight: 600; color: var(--muted); }
+.t1-tab.active b { color: var(--text); }
+.t1-roster { --role: #6f9be8; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding: 2px; border: 1px dashed transparent; }
+.t1-roster .ex-rt-grid { grid-template-columns: repeat(4, 1fr); max-height: none; overflow: visible; }
+.t1-roster .t1-lv::before { content: none; }
+.t1-roster .t1-lv { font-size: 10px; font-weight: 600; color: var(--muted); }
+body.nw-dragging .t1-side .t1-roster { border-color: rgba(214, 69, 69, 0.45); }
+.t1-side.nw-drop-over .t1-roster { background: rgba(214, 69, 69, 0.12); }
+.t1-chip-busy { opacity: 0.5; }
+.t1-chip-busy:hover { opacity: 1; }
+body.nw-dragging .pt-empty:not(.pt-off) { outline: 1px dashed rgba(79, 163, 255, 0.55); outline-offset: -1px; }
+.pt-empty.nw-drop-over { background: rgba(79, 163, 255, 0.3); outline: 2px solid rgba(79, 163, 255, 0.9); }
+.pt-empty.nw-drop-over .pt-ghost { opacity: 0.8; filter: none; }
+
+/* ===== The Night Watch laid out like the City Map (main.js fitNightBoard) =====
+   The board fills the main area (zoomed up whole), the side panel 330 wide with the title on top,
+   its roster taking the room left and scrolling inside. */
+.nw-layout { gap: 12px; min-height: 360px; }
+.nw-main { flex: 1; min-width: 0; display: flex; align-items: flex-start; justify-content: center; }
+.nw-main > .nw-board { margin: 0; }
+.nw-side { flex: none; width: 330px; overflow: hidden; }
+/* the weather on the left, the title centred, the waves on the right; no rule under it */
+.nw-side-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 6px; }
+.nw-side-head > .nw-cond { justify-self: start; display: inline-flex; align-items: center; gap: 4px; box-sizing: border-box; height: 24px; padding: 0 6px; font-size: 12px; line-height: 1; white-space: nowrap; }
+.nw-side-head > .ov-chip { justify-self: end; }
+.nw-side-head h2 { margin: 0; padding: 0; border: 0; font-size: 16px; text-align: center; white-space: nowrap; }
+.nw-side .nw-roster { flex: 1 1 auto; min-height: 60px; max-height: none; display: block; overflow-y: auto; scrollbar-width: thin; }
+.nw-side .nw-roster .ex-rt-grid { max-height: none; overflow: visible; }
+.nw-head-btns { display: inline-flex; gap: 6px; }
+.defense-guide { width: min(640px, 94vw); }

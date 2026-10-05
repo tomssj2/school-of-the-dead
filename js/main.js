@@ -1,7 +1,7 @@
 import * as G from "./game.js";
 import { WORLD_W, WORLD_H } from "./citymap.js";
-import { rosterDefaultDir, setRosterDensity } from "./ui.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderBattleAnimation, renderDefenseBuildModal, renderPlotModal,
+import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict } from "./ui.js";
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionSkirmish,
@@ -63,6 +63,7 @@ let openUpgrade = null; // room key whose Upgrade popup is open
 let openMenu = false; // the Cafeteria's menu pop-up
 let openQuarantine = false; // the Nurse's Office quarantine pop-up
 let openEnemyGuide = false; // the Night Watch's "Know your enemy" pop-up
+let openDefenseGuide = false; // its "🛡 Defenses" pop-up: the gate and what can be built
 let assaultPick = null; // Set of ids picked to chase the retreating horde (all of tonight's defenders at first)
 let openPlot = null; // { kind: a crop or animal (PRODUCERS id), index } of the Farm slot being looked at
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
@@ -701,6 +702,8 @@ function render() {
     ? renderQuarantineModal(state)
     : openEnemyGuide
     ? renderEnemyGuideModal(state)
+    : openDefenseGuide
+    ? renderDefenseGuideModal(state)
     : openUpgrade
     ? renderRoomUpgradeModal(state, openUpgrade)
     : openPlot
@@ -722,6 +725,7 @@ function render() {
   const newContent = root.querySelector(".content");
   if (newContent) newContent.scrollTop = contentScroll;
   fitCityMap();
+  fitNightBoard();
   setMusicMood(musicMood());
 }
 
@@ -762,6 +766,64 @@ function fitCityMap() {
   placeCamera(map);
 }
 
+// The Night Watch is laid out like the City Map: as tall as the page allows (the same sum as
+// fitCityMap) but never taller than the board at its full width, the side panel 330 wide down the
+// right, and the whole board (art, squares, people, zombies) zoomed up to fill the rest.
+function fitNightBoard() {
+  const layout = root.querySelector(".nw-layout");
+  const board = layout?.querySelector(".nw-main > .nw-board");
+  const content = root.querySelector(".content");
+  if (!board || !content) return;
+  const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+  const box = content.getBoundingClientRect();
+  const above = (layout.getBoundingClientRect().top - box.top) / zoom + content.scrollTop;
+  board.style.zoom = "";
+  const main = board.parentElement;
+  let height = Math.max(360, Math.floor(box.height / zoom - above - 20));
+  height = Math.min(height, Math.max(360, Math.ceil((board.offsetHeight * main.clientWidth) / board.offsetWidth)));
+  layout.style.height = `${height}px`;
+  const over = content.scrollHeight - content.clientHeight; // the card's own padding below it
+  if (over > 0 && height > 360) layout.style.height = `${(height = Math.max(360, height - over))}px`;
+  const k =Math.max(1, Math.floor(Math.min(main.clientHeight / board.offsetHeight, main.clientWidth / board.offsetWidth) * 1000) / 1000);
+  board.style.zoom = String(k);
+}
+
+// ---------- pickers: an empty slot's picker, and what choosing someone in it does ----------
+const pickerOf = (el) => ({
+  kind: el.dataset.kind,
+  roomId: el.dataset.room || null,
+  postKey: el.dataset.post || null,
+  seatIndex: el.dataset.seat !== undefined ? Number(el.dataset.seat) : null,
+});
+function assignPicked({ kind, roomId, postKey, seatIndex }, id) {
+  switch (kind) {
+    case "gym-teacher": G.setTeacherPost(state, id, `gym:${postKey}`); break;
+    case "gym-student": G.setGymToday(state, id, postKey); break;
+    case "cafeteria-teacher": G.setTeacherPost(state, id, "cafeteria"); break;
+    case "infirmary-teacher": G.setTeacherPost(state, id, "infirmary"); break;
+    case "infirmary-student": G.setInfirmaryToday(state, id, "heal"); break;
+    case "cafeteria-rest": G.setRestToday(state, id, true); break;
+    case "radio-student": G.setRadioToday(state, id, true); break;
+    case "research-student": G.setResearchToday(state, id, true); break;
+    case "crafting-student": G.setCraftingToday(state, id, true); break;
+    case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;
+    case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
+    case "utility": G.setTeacherPost(state, id, postKey); break;
+    case "farm": G.setFarmToday(state, id, postKey); break;
+    case "barn": G.setBarnToday(state, id, postKey); break;
+    case "scrapyard": G.setScrapyardToday(state, id, postKey); break;
+    case "greenhouse": G.setGreenhouseToday(state, id, postKey); break;
+    case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
+    case "team-slot": if (!G.assignTeamSlot(state, id, Number(roomId), postKey)) flash("They can't join that team."); break;
+    default: break;
+  }
+}
+// Turn 1's empty slots take a student dragged from the side roster, by their picker's rules.
+const turnOneSlot = (target) => {
+  const el = target.closest?.('[data-action="open-picker"]');
+  return el && TURN_ONE_PICKERS.includes(el.dataset.kind) ? el : null;
+};
+
 // ---------- the Night Watch board: drag defenders about, see what they reach ----------
 // Drag a student from the roster (or the board) onto a square of the steps — onto someone else
 // swaps them — or back onto the roster to take them off watch.
@@ -783,7 +845,7 @@ document.addEventListener("dragend", () => {
 });
 document.addEventListener("dragover", (e) => {
   if (!dragStudentId) return;
-  const target = e.target.closest?.("[data-drop-cell], [data-drop-roster], [data-drop-team], [data-drop-role]");
+  const target = turnOneSlot(e.target) || e.target.closest?.("[data-drop-cell], [data-drop-roster], [data-drop-team], [data-drop-role]");
   document.querySelectorAll(".nw-drop-over").forEach((x) => x !== target && x.classList.remove("nw-drop-over"));
   if (!target) return;
   e.preventDefault();
@@ -795,11 +857,27 @@ document.addEventListener("drop", (e) => {
   const roster = e.target.closest?.("[data-drop-roster]");
   const role = e.target.closest?.("[data-drop-role]");
   const slot = e.target.closest?.("[data-drop-team]");
-  if (!cell && !roster && !role && !slot) return;
+  const pick = turnOneSlot(e.target);
+  if (!cell && !roster && !role && !slot && !pick) return;
   e.preventDefault();
   const id = dragStudentId;
   dragStudentId = null;
   document.body.classList.remove("nw-dragging");
+  if (pick) {
+    // Turn 1: an empty slot in a room — the same as choosing them in its picker
+    const picker = pickerOf(pick);
+    const why = pickerVerdict(state, picker, id);
+    if (why) flash(why);
+    else assignPicked(picker, id);
+    render();
+    return;
+  }
+  if (roster?.dataset.dropRoster === "t1") {
+    // back onto Turn 1's roster: free for the day
+    G.clearTurnOneJobs(state, id);
+    render();
+    return;
+  }
   if (slot) {
     // an expedition team's slot: onto someone swaps them out
     const team = Number(slot.dataset.dropTeam);
@@ -1470,6 +1548,14 @@ root.addEventListener("click", (e) => {
       openEnemyGuide = false;
       render();
       break;
+    case "open-defense-guide":
+      openDefenseGuide = true;
+      render();
+      break;
+    case "close-defense-guide":
+      openDefenseGuide = false;
+      render();
+      break;
     case "open-upgrade":
       openUpgrade = el.dataset.room;
       render();
@@ -1714,14 +1800,10 @@ root.addEventListener("click", (e) => {
       break;
     }
     case "open-picker": {
-      const kind = el.dataset.kind;
-      const roomId = el.dataset.room || null;
-      const postKey = el.dataset.post || null;
-      const seatIndex = el.dataset.seat !== undefined ? Number(el.dataset.seat) : null;
       openCardId = null;
       openMissionLocationId = null;
       openScoutHex = null;
-      openPicker = { kind, roomId, postKey, seatIndex };
+      openPicker = pickerOf(el);
       render();
       break;
     }
@@ -1755,19 +1837,6 @@ root.addEventListener("click", (e) => {
       G.clearEntranceStudentCell(state, el.dataset.cell);
       render();
       break;
-    case "nw-quick": {
-      // a roster chip: post them to the first free square of the steps, or take them off watch
-      const id = el.dataset.id;
-      const key = Object.keys(state.entranceGrid.students).find((k) => state.entranceGrid.students[k] === id);
-      if (key) G.clearEntranceStudentCell(state, key);
-      else {
-        const free = G.firstFreeEntranceCell(state);
-        if (!free) flash("The steps are full — drag someone off first.");
-        else if (!G.moveEntranceStudent(state, free, id)) flash("They can't stand watch tonight.");
-      }
-      render();
-      break;
-    }
     case "skip-battle":
       if (battleAnimation && battleAnimation.skip) battleAnimation.skip();
       break;
@@ -1861,29 +1930,7 @@ root.addEventListener("click", (e) => {
       break;
     case "confirm-picker": {
       if (!openPicker) break;
-      const id = el.dataset.id;
-      const { kind, roomId, postKey, seatIndex } = openPicker;
-      switch (kind) {
-        case "gym-teacher": G.setTeacherPost(state, id, `gym:${postKey}`); break;
-        case "gym-student": G.setGymToday(state, id, postKey); break;
-        case "cafeteria-teacher": G.setTeacherPost(state, id, "cafeteria"); break;
-        case "infirmary-teacher": G.setTeacherPost(state, id, "infirmary"); break;
-        case "infirmary-student": G.setInfirmaryToday(state, id, "heal"); break;
-        case "cafeteria-rest": G.setRestToday(state, id, true); break;
-        case "radio-student": G.setRadioToday(state, id, true); break;
-        case "research-student": G.setResearchToday(state, id, true); break;
-        case "crafting-student": G.setCraftingToday(state, id, true); break;
-        case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;
-        case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
-        case "utility": G.setTeacherPost(state, id, postKey); break;
-        case "farm": G.setFarmToday(state, id, postKey); break;
-        case "barn": G.setBarnToday(state, id, postKey); break;
-        case "scrapyard": G.setScrapyardToday(state, id, postKey); break;
-        case "greenhouse": G.setGreenhouseToday(state, id, postKey); break;
-        case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
-        case "team-slot": if (!G.assignTeamSlot(state, id, Number(roomId), postKey)) flash("They can't join that team."); break;
-        default: break;
-      }
+      assignPicked(openPicker, el.dataset.id);
       openPicker = null;
       render();
       break;
@@ -2000,12 +2047,13 @@ document.addEventListener("keydown", (e) => {
     battleAnimation.resume();
     return;
   }
-  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openMenu || openQuarantine || openEnemyGuide || openRaid || openNest || scoutReport || clearRoom)) {
+  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openMenu || openQuarantine || openEnemyGuide || openDefenseGuide || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
     openUpgrade = null;
     openMenu = false;
     openQuarantine = false;
     openEnemyGuide = false;
+    openDefenseGuide = false;
     clearRoom = null;
     openPlot = null;
     openRaid = null;
@@ -2120,6 +2168,7 @@ applyUiScale();
 window.addEventListener("resize", () => {
   applyUiScale(); // the zoom first, then the map refits under it
   fitCityMap();
+  fitNightBoard();
 });
 applyGraphics();
 installFrames();

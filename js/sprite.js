@@ -674,18 +674,21 @@ function build(c, injury) {
 }
 
 // Sprites are pure functions of these fields, and the UI redraws a lot of them (the night battle
-// re-renders every tick), so the pixel work is cached and only the size wrapper varies per call.
+// re-renders every tick, a full school shows hundreds), so each is drawn once into an image (a
+// data URI) and every portrait is just an <svg> holding that one <image> — two elements on the page
+// instead of hundreds of pixel rects.
 const cache = new Map();
 
 export function characterSprite(c, sizePx = 112) {
   const ratio = c.maxHp ? c.hp / c.maxHp : 1;
   const injury = c.alive ? (ratio < 0.25 ? 2 : ratio < 0.5 ? 1 : 0) : 0;
   const key = [c.spriteSeed || c.id, c.role, c.gender, c.teachSubject || "", c.alive ? 1 : 0, injury, c.legendary ? 1 : 0].join("|");
-  let rects = cache.get(key);
-  if (!rects) {
-    rects = build(c, injury);
-    cache.set(key, rects);
+  let uri = cache.get(key);
+  if (!uri) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" shape-rendering="crispEdges">${build(c, injury)}</svg>`;
+    uri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    cache.set(key, uri);
   }
   const h = Math.round(sizePx * (H / W));
-  return `<svg viewBox="0 0 ${W} ${H}" width="${sizePx}" height="${h}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="${sizePx}" height="${h}" xmlns="http://www.w3.org/2000/svg"><image href="${uri}" width="${W}" height="${H}" style="image-rendering:pixelated"/></svg>`;
 }

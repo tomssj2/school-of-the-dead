@@ -336,12 +336,14 @@ export const NIGHT_ROLES = {
   scout: { reach: 2, desc: "Ranged weapons reach 2 squares further" },
   support: { mend: 0.05, desc: "Heals the defender in front of them (a row nearer the street) by 5% of their HP every turn" },
 };
-// Tonight's weather: rolled for each night (always clear on the first).
+// Tonight's weather: rolled at random each night (always clear on the first), by `weight`. Each
+// kind of bad weather holds back one kind of defender (their expedition `role`): their damage
+// (`dmg`, attacks and ability alike) or, for supports, their healing (`mend`).
 export const NIGHT_CONDITIONS = {
-  clear: { id: "clear", name: "Clear night", icon: "🌙", weight: 60, desc: "Nothing out of the ordinary" },
-  fog: { id: "fog", name: "Fog", icon: "🌫️", weight: 15, from: 3, desc: "Ranged weapons reach 2 squares less, and the street can't be seen" },
-  rain: { id: "rain", name: "Rain", icon: "🌧️", weight: 15, from: 2, desc: "Ranged attacks deal 30% less" },
-  blackout: { id: "blackout", name: "Blackout", icon: "🌑", weight: 10, from: 5, desc: "Everyone hits 15% less often — except in the two lamp-lit lanes" },
+  clear: { id: "clear", name: "Clear", icon: "🌙", weight: 70, desc: "Nothing out of the ordinary" },
+  rain: { id: "rain", name: "Rain", icon: "🌧️", weight: 10, role: "fighter", dmg: 0.8, desc: "Fighters deal 20% less damage" },
+  fog: { id: "fog", name: "Fog", icon: "🌫️", weight: 10, role: "scout", dmg: 0.8, desc: "Scouts deal 20% less damage" },
+  snow: { id: "snow", name: "Snow", icon: "❄️", weight: 10, role: "support", mend: 0.8, desc: "Supports heal 20% less" },
 };
 // Three stars for a perfect night: nobody got in, nobody went down, every zombie put down.
 export const NIGHT_STAR_REWARD = { materials: 10, happiness: 3 };

@@ -5535,14 +5535,24 @@ const ICONS = {
     "................",
     "................",
   ], { c: "#9aa3b8", C: "#c9d2dc", d: "#6b7380", b: "#5f9fe0" }),
-  blackout: () => {
-    const g = blank(16);
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
-      if (r <= 6) g[y][x] = r > 5.1 ? "#6b7380" : (x * 3 + y * 5) % 7 === 0 ? "#3a3f48" : "#2c3040";
-    }
-    return g;
-  },
+  snow: () => ascii([
+    "................",
+    ".......w........",
+    ".....w.w.w......",
+    "......www.......",
+    "..w....w....w...",
+    "...w...w...w....",
+    "....ww.w.ww.....",
+    ".wwwwwwBwwwwwww.",
+    "....ww.w.ww.....",
+    "...w...w...w....",
+    "..w....w....w...",
+    "......www.......",
+    ".....w.w.w......",
+    ".......w........",
+    "................",
+    "................",
+  ], { w: "#d8e8ff", B: "#ffffff" }),
   blood: () => {
     const g = blank(16);
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -6331,10 +6341,12 @@ export function pixelIcon(name, size = 16) {
         x += run;
       }
     }
-    iconCache.set(name, { n, rects });
+    // drawn once into an image: an icon on the page is then two elements, not dozens of rects
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n} ${n}" width="${n}" height="${n}" shape-rendering="crispEdges">${rects}</svg>`;
+    iconCache.set(name, { n, uri: `data:image/svg+xml,${encodeURIComponent(svg)}` });
   }
-  const { n, rects } = iconCache.get(name);
-  return `<svg class="px-icon" viewBox="0 0 ${n} ${n}" width="${size}" height="${size}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
+  const { n, uri } = iconCache.get(name);
+  return `<svg class="px-icon" viewBox="0 0 ${n} ${n}" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg"><image href="${uri}" width="${n}" height="${n}" style="image-rendering:pixelated"/></svg>`;
 }
 
 export const MOOD_STEPS = [[80, "mood_thrilled"], [60, "mood_happy"], [40, "mood_ok"], [20, "mood_sad"], [-Infinity, "mood_miserable"]];

@@ -7,7 +7,6 @@
 
 import { shadowOf, lightOf, mix } from "./sprite.js";
 import { ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0 } from "./data.js";
-import { lampLanes } from "./game.js";
 import { hash, hash2, buffer, lightUp } from "./lighting.js";
 
 // Art pixels: each square is CELL_W x CELL_H, under a facade FACADE_H tall.
@@ -29,7 +28,6 @@ function text(p, str, x, y, c, e = 0) {
 // Light colours (multipliers).
 const WARM = [1.0, 0.74, 0.42];
 const FIRE = [1.0, 0.52, 0.2];
-const FLOOD = [1.0, 0.97, 0.86];
 const BEAM = [0.82, 0.88, 0.95];
 
 // The campus palette (map.js's school tile).
@@ -99,10 +97,9 @@ function facadeWindow(p, x, y0, kind, lights) {
 
 const cache = new Map();
 
-// The whole board as a CSS url(): `cols` squares wide, the entrance's rows tall. On a blackout
-// night (`floodlights`) two floodlights on the facade shine down the lamp-lit lanes.
-export function courtyardBackground(cols, floodlights = false) {
-  const key = `yard${cols}${floodlights ? "f" : ""}`;
+// The whole board as a CSS url(): `cols` squares wide, the entrance's rows tall.
+export function courtyardBackground(cols) {
+  const key = `yard${cols}`;
   if (cache.has(key)) return cache.get(key);
   const W = cols * CELL_W;
   const H = FACADE_H + ENTRANCE_ROWS * CELL_H;
@@ -139,20 +136,6 @@ export function courtyardBackground(cols, floodlights = false) {
       p.r(px + 2, 8, px + 2, 30, mix(WALL, WALL_DK, 0.6));
     });
     xs.forEach((x, i) => facadeWindow(p, x, 10, kinds[i % kinds.length], lights));
-  }
-  // blackout: floodlights between the windows, one over each lit lane
-  if (floodlights) {
-    for (const lane of lampLanes(cols)) {
-      const lx = Math.round((lane + 0.5) * CELL_W) - 2; // 4 wide, centred on the lane
-      p.r(lx + 1, 11, lx + 2, 11, IRON); // the bracket
-      p.r(lx, 12, lx + 3, 14, "#3a3f4a");
-      p.r(lx, 12, lx + 3, 12, "#5a606c");
-      p.r(lx + 3, 13, lx + 3, 14, "#2a2e36");
-      p.r(lx, 15, lx + 3, 15, "#fff4d0", 1); // the lens, facing down
-      p.r(lx + 1, 15, lx + 2, 15, "#ffffff", 1);
-      lights.push({ x: lx + 1.5, y: 15, r: 9, k: 0.7, c: FLOOD });
-      lights.push({ x: lx + 1.5, y: 15, len: 140, w0: 2, spread: 0.115, k: 1.1, c: FLOOD });
-    }
   }
   // corner quoins
   for (let y = 8; y <= 30; y += 4) {

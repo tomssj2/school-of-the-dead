@@ -17,7 +17,7 @@ import {
   bestClassroomSubjectFor, stripHonorific,
 } from "./characters.js";
 import {
-  getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionUses, nightWaveCount, lampLanes, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
+  getChar, aliveChars, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionUses, nightWaveCount, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
   techPerk, gateHp, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, formationsFor, entranceFormations, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
@@ -101,7 +101,7 @@ const SYMBOL_NAMES = {
   "🎨": "palette", "🔊": "speaker", "🎵": "music", "🌧": "rain", "👥": "population", "🤮": "z_spitter", "📢": "z_screamer", "💨": "z_runner", "🔔": "na_rally",
   "😬": "face_grimace", "⚖": "scales", "🏠": "neighborhood", "🏥": "hospital", "🎩": "tophat", "📈": "trend_up",
   "📉": "trend_down", "🏹": "dr_marksman", "💍": "it_class_ring", "📰": "newspaper", "📊": "chart", "🌳": "tree", "✏": "pencil",
-  "🛏": "bed", "🧠": "research", "🌑": "blackout", "🚧": "barricade", "🔺": "spikes", "🔗": "wire", "📶": "signal",
+  "🛏": "bed", "🧠": "research", "❄": "snow", "🚧": "barricade", "🔺": "spikes", "🔗": "wire", "📶": "signal",
   "🛰": "satellite", "🐐": "goat", "💊": "medicine", "💉": "serum", "🤓": "face_nerd", "😎": "face_cool", "🏋": "barbell", "😊": "mood_happy", "🪤": "yard_traps",
   "🏫": "school", "🗺": "map", "🗣": "word_of_mouth", "👣": "horde", "🎉": "school_spirit", "🔌": "yard_appliances",
   "⚙": "scrap", "🌀": "ab_cleave", "💢": "ab_headshot", "💚": "ab_rally", "👁": "dr_spotter", "📣": "dr_rallier",
@@ -593,13 +593,14 @@ function statRow(label, pill, cls = "", after = "") {
 }
 
 // A room's "📌 Stay" switch (game.js staysInRoom): on, its students come back every day until
-// `until` (the room has nothing left for them), or until they're moved.
-function stayToggle(state, roomKey, until = "") {
+// `until` (the room has nothing left for them), or until they're moved. `how` replaces the
+// tooltip's rows and notes (the Night Watch's).
+function stayToggle(state, roomKey, until = "", how = null) {
   const on = staysInRoom(state, roomKey);
   return `<button class="stay-toggle ${on ? "on" : ""}" data-action="toggle-stay" data-room="${roomKey}" ${tipAttr({
     title: `📌 Stay · ${on ? "on" : "off"}`,
-    rows: [["On", until ? `back every day until ${until}` : "back every day"], ["Off", "everyone leaves at night"]],
-    notes: [until ? "Done students leave at dawn and show as lazy" : "They stay until you move them"],
+    rows: how?.rows || [["On", until ? `back every day until ${until}` : "back every day"], ["Off", "everyone leaves at night"]],
+    notes: how?.notes || [until ? "Done students leave at dawn and show as lazy" : "They stay until you move them"],
   })}>📌 Stay</button>`;
 }
 
@@ -1621,11 +1622,18 @@ function renderTeamCard(state, i) {
 // them: set-role-tab, with data-where="night" for the Night Watch).
 let roleTab = "fighter";
 let nightRoleTab = "fighter";
+let dayTab = "all"; // Turn 1's roster: "all", or a subject — the students whose best subject it is
 export function setRoleTab(role, where) {
+  if (where === "t1") {
+    if (role === "all" || SUBJECTS.includes(role)) dayTab = role;
+    return;
+  }
   if (!EXPLORE_ROLES[role]) return;
   if (where === "night") nightRoleTab = role;
   else roleTab = role;
 }
+// A student's best subject: their highest grade (the first, on a tie).
+const bestSubject = (c) => SUBJECTS.reduce((best, s) => (c.grades[s] > c.grades[best] ? s : best));
 
 // The expedition roles (EXPLORE_ROLES), one at a time: a tab per role next to "Roles" — drop a
 // student on a tab to move them to that role — and the chosen role's students, strongest first,
@@ -2563,12 +2571,12 @@ function renderGridBattle(state, anim) {
       <div class="gb-title">🌙 Night ${state.day} — ${summary.bossName ? `${BOSS_ICON} ${esc(summary.bossName)} leads the horde` : "the horde hits the entrance"}</div>
       <div class="gb-counters">
         ${waves > 1 ? `<span class="nw-wave">Wave ${waveNow}/${waves}</span>` : ""}
-        <span ${tipAttr({ title: `${condition.icon} ${condition.name}`, notes: [condition.desc] })}>${condition.icon} ${condition.name}</span>
+        <span ${weatherTip(condition)}>${condition.icon} ${condition.name}</span>
         · 🧟 ${frame.spawned}/${total} arrived · 💀 ${frame.killed} down · 🚨 ${frame.breached} broke in
         ${b?.rally ? ` · <span class="nw-rallied">🔔 Rallied (${b.rally})</span>` : ""}
       </div>
     </div>
-    <div class="nw-board nw-battle nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${ENTRANCE_ROWS};--lamp-a:${lampLanes(size)[0]};--lamp-b:${lampLanes(size)[1]};background-image:${courtyardBackground(size, condition.id === "blackout")}">
+    <div class="nw-board nw-battle nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${ENTRANCE_ROWS};background-image:${courtyardBackground(size)}">
       ${gate}
       <div class="nw-cells">${units}${fx}${aimCells}</div>
       ${breakTime ? "" : banner}
@@ -2928,7 +2936,6 @@ function renderNightWatchScreen(state) {
   const defenders = state.characters.filter((c) => c.defending && c.alive);
   const zombies = zombieCountForDay(state.day);
   const z = zombieStatsForDay(state.day);
-  const unarmed = defenders.filter((c) => !c.equipment?.meleeWeapon && !c.equipment?.rangedWeapon).length;
   const stabilizeCost = MEDICINE_PER_STABILIZE - techPerk(state, "stabilizeDiscount");
   const saves = Math.floor(state.resources.medicine / stabilizeCost);
   const comp = hordeComposition(state.day);
@@ -2952,22 +2959,21 @@ function renderNightWatchScreen(state) {
 
   return `
   <div class="card nw-card">
-    <div class="ov-head floor-head nw-head">
-      <div class="ov-head-left"><span class="nw-cond" ${tipAttr({ title: `${condition.icon} ${condition.name}`, notes: [condition.desc] })}>${condition.icon} ${condition.name}</span></div>
-      <h2>Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the board from the street, one square a turn", "Post defenders on the steps — melee reaches 1–2 squares, ranged 4–9, fists only point-blank", "Build in the courtyard: walls block a lane until smashed, traps hurt whatever walks over", "A zombie past the top row batters the doors, then gets in", "Hover a defender to see what they can reach", "Start the fight from the Night Summary (the centre button)"] })}</h2>
-      <div class="ov-head-right"><span class="ov-chip">${waves} wave${waves === 1 ? "" : "s"}</span></div>
-    </div>
     <div class="nw-layout">
-      ${renderNightBoard(state)}
+      <div class="nw-main">${renderNightBoard(state)}</div>
       <aside class="nw-side">
-        <div class="nw-horde-head"><span class="mini-label">Tonight's horde · ${zombies}</span><button class="btn btn-sm nw-enemy-btn" data-action="open-enemy-guide" title="Every kind of zombie, and how to beat it">${pxe("zombie")} Know your enemy</button></div>
+        <div class="nw-side-head">
+          <span class="nw-cond" ${weatherTip(condition)}>${condition.icon} ${condition.name}</span>
+          <h2>Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the board from the street, one square a turn", "Post defenders on the steps — melee reaches 1–2 squares, ranged 4–9, fists only point-blank", "Build in the courtyard: walls block a lane until smashed, traps hurt whatever walks over", "A zombie past the top row batters the doors, then gets in", "Hover a defender to see what they can reach", "Start the fight from the Night Summary (the centre button)"] })}</h2>
+          <span class="ov-chip">${waves} wave${waves === 1 ? "" : "s"}</span>
+        </div>
+        <div class="nw-horde-head"><span class="mini-label">Tonight's horde · ${zombies}</span><span class="nw-head-btns"><button class="btn btn-sm nw-enemy-btn" data-action="open-defense-guide" title="The gate, and what you can build in the courtyard">🛡 Defenses</button><button class="btn btn-sm nw-enemy-btn" data-action="open-enemy-guide" title="Every kind of zombie, and how to beat it">${pxe("zombie")} Know your enemy</button></span></div>
         <div class="nw-horde">${hordeRows}</div>
         <div class="mini-label">Night actions — use them during the fight</div>
         <div class="nw-action-preview">${Object.entries(NIGHT_ACTIONS).map(([id, a]) => `<span ${tipAttr({ title: `${a.icon} ${a.name}`, rows: [["Tonight", `×${uses[id]}`], ...(a.cost ? [["Costs", Object.entries(a.cost).map(([res, amt]) => `${amt} ${TECH_EFFECT_ICON[res] || res}`).join(" ")]] : [])], notes: [a.desc] })}>${a.icon}×${uses[id]}</span>`).join("")}</div>
         <div class="nw-facts">
           <span ${tipAttr({ title: `${ri("medicine")} Medicine`, notes: [`${stabilizeCost} patches up a defender who goes down — without it, they might not get back up`] })}>${ri("medicine")} ${saves} save${saves === 1 ? "" : "s"}</span>
           <span>🛡 ${defenders.length} on watch</span>
-          ${unarmed ? `<span class="plot-warn" title="Hand out weapons from each student's Inventory tab">👊 ${unarmed} unarmed</span>` : ""}
         </div>
         ${(() => {
           // the formations standing tonight, and how to make them
@@ -2979,7 +2985,7 @@ function renderNightWatchScreen(state) {
           <div class="nw-formations">${chips}</div>`;
         })()}
         ${nightRosterHead(state)}
-        <div class="nw-roster" data-drop-roster="1">${nightRoster(state) || `<p class="muted nw-roster-empty">No ${EXPLORE_ROLES[nightRoleTab].name.toLowerCase()} free tonight — drop students on this tab</p>`}</div>
+        <div class="nw-roster ex-role-${nightRoleTab}" data-drop-roster="1">${nightRoster(state) ? `<div class="ex-rt-grid">${nightRoster(state)}</div>` : `<p class="muted nw-roster-empty">No ${EXPLORE_ROLES[nightRoleTab].name.toLowerCase()} free tonight — drop students on this tab</p>`}</div>
       </aside>
     </div>
   </div>`;
@@ -3158,7 +3164,7 @@ function recoveryEntry(c, reason, icon, label, now, max, gain) {
 // A student has one Turn 1 job (game.js leaveTurnOneJobs), so in those pickers anyone already doing
 // something else today is `occupied`: never recommended, marked with where they are, and their
 // button moves them here. What blocks them outright is only what Turn 1 can't undo (laterBusyLabel).
-const TURN_ONE_PICKERS = ["classroom-seat", "gym-student", "research-student", "crafting-student", "radio-student", "cafeteria-rest", "infirmary-student", "farm", "barn", "scrapyard", "greenhouse"];
+export const TURN_ONE_PICKERS = ["classroom-seat", "gym-student", "research-student", "crafting-student", "radio-student", "cafeteria-rest", "infirmary-student", "farm", "barn", "scrapyard", "greenhouse"];
 function turnOneJob(state, c) {
   if (c.gymToday) return `Training in ${GYM_SIDES[c.gymToday].ref}`;
   if (c.researchToday) return "In the Research Room";
@@ -3172,6 +3178,52 @@ function turnOneJob(state, c) {
   if (c.greenhouseToday) return "In the Greenhouse";
   return null;
 }
+// Whether a student dropped on an empty slot can take it, by the same rules as its picker: null if
+// they can, else why not.
+export function pickerVerdict(state, picker, id) {
+  const x = resolvePickerCandidates(state, picker).list.find((e) => e.c.id === id);
+  if (!x) return "They can't go there.";
+  return x.reason || (x.maxed ? x.maxedWhy || x.maxed : null);
+}
+
+// Turn 1's roster beside the rooms: every student, free ones first, with what they're doing today.
+// Drag one onto an empty slot to put them to work there (or move them — one job a day), back onto
+// the panel to free them; click for their card.
+function renderTurnOnePanel(state) {
+  const jobOf = (c) => (c.infection ? "🦠 In quarantine" : c.seat ? `Class · ${roomDisplayName(state, c.seat.room)}` : turnOneJob(state, c));
+  const rows = state.characters.filter((c) => c.role === "student" && c.alive)
+    .map((c) => ({ c, job: jobOf(c) }))
+    .sort((a, b) => !!a.job - !!b.job || overallLevel(b.c) - overallLevel(a.c));
+  // tabs: everyone, or only the students whose best subject is one stat's
+  const tabs = ["all", ...SUBJECTS].map((t) => {
+    const n = t === "all" ? rows.length : rows.filter((r) => bestSubject(r.c) === t).length;
+    const label = t === "all" ? "All" : STAT_OF_SUBJECT[t];
+    return `<button class="ex-rtab t1-tab ${t === dayTab ? "active" : ""}" data-action="set-role-tab" data-where="t1" data-role="${t}"
+      title="${t === "all" ? "Every student" : `Students whose best subject is ${SUBJECT_LABEL[t] || t} (${label})`}">${label}<b>${n}</b></button>`;
+  }).join("");
+  const shown = dayTab === "all" ? rows : rows.filter((r) => bestSubject(r.c) === dayTab);
+  const free = shown.filter((r) => !r.job).length;
+  // the same tiles as the City Map's and the Night Watch's: portrait, name, level, HP and stamina
+  const pct = (v, max) => Math.max(0, Math.min(100, Math.round((v / max) * 100)));
+  const chips = shown.map(({ c, job }) => `<span class="ex-rt t1-chip ${job ? "t1-chip-busy" : ""}" ${c.infection ? "" : `draggable="true" data-drag-student="${c.id}"`} data-action="open-card" data-id="${c.id}" ${tipAttr({
+      title: `${esc(c.name)} · Lv ${overallLevel(c)}`,
+      rows: [["Today", job ? esc(job) : "Free"], ["❤ HP", `${c.hp}/${c.maxHp}`], ["⚡ Stamina", `${c.stamina}/${c.maxStamina}`]],
+      notes: [c.infection ? "In quarantine — can't work" : "Drag onto an empty slot · click for their card"],
+    })}>
+      <span class="ex-rt-sprite">${characterSprite(c, 40)}</span>
+      <span class="ex-rt-line"><span class="ex-rt-name">${esc(shortName(c))}</span><span class="ex-rt-power t1-lv">Lv ${overallLevel(c)}</span></span>
+      <span class="ex-rt-bar ex-rt-hp"><i style="width:${pct(c.hp, c.maxHp)}%"></i></span>
+      <span class="ex-rt-bar ex-rt-stam"><i style="width:${pct(c.stamina, c.maxStamina)}%"></i></span>
+    </span>`).join("");
+  const how = { title: "🎒 Students", notes: ["The tabs show everyone, or only the students whose best subject is that stat", "Drag a student onto an empty slot to put them to work", "Busy already? Dropping them moves them — one job a day", "Drag them back here to free them", "Click a student for their card"] };
+  return `<aside class="t1-side" data-drop-roster="t1"><div class="t1-side-in">
+    <div class="ov-head floor-head t1-head"><h2>Students ${infoDot(how)}</h2></div>
+    <div class="t1-tabs">${tabs}</div>
+    <div class="mini-label t1-count">${free} free · ${shown.length - free} busy</div>
+    <div class="t1-roster">${chips ? `<div class="ex-rt-grid">${chips}</div>` : '<p class="muted">No students.</p>'}</div>
+  </div></aside>`;
+}
+
 function resolvePickerCandidates(state, picker) {
   const res = pickerCandidates(state, picker);
   if (!TURN_ONE_PICKERS.includes(picker.kind)) return res;
@@ -3291,7 +3343,7 @@ function pickerCandidates(state, picker) {
       const r = EXPLORE_ROLES[postKey];
       const cost = exploreStaminaCost(state);
       return {
-        role: "student", title: `${r.icon} Add a ${r.name.slice(0, -1)} to ${teamLabel(team)}`,
+        role: "student", icon: r.icon, title: `Add a ${r.name.slice(0, -1)} to ${teamLabel(team)}`,
         recToggle: false, recLabel: `the strongest ${r.name.toLowerCase()}`,
         focus: r.stats.map((s) => STAT_OF_SUBJECT[s]),
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.farmToday && !c.scrapyardToday && !c.greenhouseToday && exploreRole(c) === postKey && c.exploreTeam !== team)
@@ -3347,7 +3399,7 @@ function pickerRow({ c, reason, note, hint, maxed, maxedWhy, occupied }, role, f
 }
 
 export function renderPickerModal(state, picker, sortKey, sortDir, recMode = "low") {
-  const { role, title, list, focus = null, empty = null, recToggle = true, recLabel = null } = resolvePickerCandidates(state, picker);
+  const { role, icon = "", title, list, focus = null, empty = null, recToggle = true, recLabel = null } = resolvePickerCandidates(state, picker);
   if (!recToggle) recMode = "low"; // recovery pickers: always whoever needs it most
   const fields = role === "student" ? STUDENT_SORT_FIELDS : TEACHER_SORT_FIELDS;
   const effectiveSortKey = fields.some((f) => f.key === sortKey) ? sortKey : fields[0].key;
@@ -3379,7 +3431,7 @@ export function renderPickerModal(state, picker, sortKey, sortDir, recMode = "lo
   <div class="modal-overlay" data-action="close-picker">
     <div class="char-card mission-card picker-card" data-action="noop">
       <button class="cc-close" data-action="close-picker" title="Close">✕</button>
-      <h3>${esc(title)}</h3>
+      <h3>${icon} ${esc(title)}</h3>
       ${empty ? `<div class="mission-success mission-ok">${esc(empty)}</div>` : ""}
       ${recommended.length ? `<div class="pk-group-row">
           <span class="mini-label pk-group">⭐ Recommended — ${recLabel || (recMode === "high" ? `the strongest in ${focus}` : `the weakest in ${focus}, most to learn`)}</span>
@@ -3461,7 +3513,6 @@ function nightDefender(state, c, row, col) {
   })}>
     <span class="nw-xrole" title="${x.name.slice(0, -1)}">${x.icon}</span>
     ${characterSprite(c, 40)}
-    <span class="nw-gear">${gear.length ? gear.map(itemIcon).join("") : "👊"}</span>
     <span class="nw-hp nw-hp-student"><i style="width:${Math.round((c.hp / c.maxHp) * 100)}%"></i></span>
   </div>`;
 }
@@ -3503,9 +3554,15 @@ function renderNightBoard(state) {
     }
   }
   const gateMax = gateHp(state);
-  const lamps = lampLanes(size);
-  return `<div class="nw-board nw-cond-${nightCondition(state).id}" style="--size:${size};--rows:${ENTRANCE_ROWS};--lamp-a:${lamps[0]};--lamp-b:${lamps[1]};background-image:${courtyardBackground(size, nightCondition(state).id === "blackout")}">
+  // a warning in the corner while anyone posted on the steps has no weapon
+  const unarmed = Object.values(grid.students).map((id) => getChar(state, id)).filter((c) => c?.alive && !c.equipment?.meleeWeapon && !c.equipment?.rangedWeapon);
+  const unarmedWarn = unarmed.length
+    ? `<div class="nw-unarmed" ${tipAttr({ title: "⚠ No weapon", rows: unarmed.map((c) => [esc(shortName(c)), "Fists · reach 1"]), notes: ["They can only hit a zombie right next to them", "Hand out weapons from their Inventory tab"] })}>⚠ ${unarmed.length} unarmed</div>`
+    : "";
+  return `<div class="nw-board nw-cond-${nightCondition(state).id}" style="--size:${size};--rows:${ENTRANCE_ROWS};background-image:${courtyardBackground(size)}">
     <div class="nw-gate ${gateMax ? "" : "nw-gate-none"}" ${tipAttr({ title: "🚪 The gate", rows: [["Gate", `${gateMax} HP`]], notes: ["Zombies past the top row batter the doors — once they're down, they get in", "Fortification (the Crafting Room) makes the doors sturdier"] })}>🚪 ${gateMax ? `<b>${gateMax}</b> HP` : "No gate yet"}</div>
+    ${unarmedWarn}
+    <span class="nw-stay">${stayToggle(state, "watch", "", { rows: [["On", "the same squares every night"], ["Off", "the steps clear after each night"]], notes: ["Anyone who can't stand watch (fallen, infected) leaves their square empty"] })}</span>
     <div class="nw-cells">${cells}${formationLinks(entranceFormations(state).links)}</div>
   </div>`;
 }
@@ -3520,7 +3577,7 @@ function formationLinks(links) {
 
 // The side panel's roster: the students who could stand watch tonight, one role at a time (the
 // expedition roles, tabs as on the City Map — drop a student on a tab to change their role),
-// draggable onto the steps (a click posts them to the first free square, or takes them off).
+// dragged onto the steps (or back here to take them off); a click opens their card.
 // Those on watch first, then the strongest in the role.
 const nightAvailable = (state) => state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null);
 function nightRosterHead(state) {
@@ -3540,21 +3597,27 @@ function nightRosterHead(state) {
   };
   return `<div class="ex-roles-head"><span class="mini-label">Defenders ${infoDot(how)}</span><span class="ex-rtabs">${tabs}</span></div>`;
 }
+// The same tiles as the City Map's role windows: portrait, name, power, HP and stamina; those on
+// watch wear the watch's blue.
 function nightRoster(state) {
+  const pct = (v, max) => Math.max(0, Math.min(100, Math.round((v / max) * 100)));
   return nightAvailable(state)
     .filter((c) => exploreRole(c) === nightRoleTab)
     .sort((a, b) => (b.defending - a.defending) || memberPower(state, b) - memberPower(state, a))
     .map((c) => {
+      const power = memberPower(state, c);
       const eq = c.equipment || {};
-      const gear = [eq.meleeWeapon, eq.rangedWeapon].filter(Boolean).map(itemIcon).join("") || "👊";
-      const role = EXPLORE_ROLES[exploreRole(c)];
-      return `<div class="nw-chip ${c.defending ? "nw-chip-on" : ""} ${c.injured ? "nw-chip-hurt" : ""}" draggable="true" data-drag-student="${c.id}" data-action="nw-quick" data-id="${c.id}"
-        title="${esc(c.name)} — ${c.defending ? "on watch: click to take them off" : "click to post them, or drag onto the steps"}">
-        <span class="nw-chip-sprite">${characterSprite(c, 22)}</span>
-        <span class="nw-chip-name">${role.icon} ${esc(shortName(c))}</span>
-        <span class="nw-chip-stats">⚔ ${memberPower(state, c)} · ❤ ${c.hp}/${c.maxHp}</span>
-        <span class="nw-chip-gear">${gear}</span>
-      </div>`;
+      return `<span class="ex-rt ${c.defending ? "ex-rt-onteam" : ""}" style="--team:#4fa3ff" draggable="true" data-drag-student="${c.id}" data-action="open-card" data-id="${c.id}" ${tipAttr({
+        title: `${esc(c.name)} · Lv ${overallLevel(c)}`,
+        rows: [["⚔ Power", `${power}`], ["❤ HP", `${c.hp}/${c.maxHp}`], ["⚡ Stamina", `${c.stamina}/${c.maxStamina}`],
+          ["Melee", eq.meleeWeapon ? esc(eq.meleeWeapon.name) : "Fists"], ["Ranged", eq.rangedWeapon ? esc(eq.rangedWeapon.name) : "—"]],
+        notes: [c.defending ? "On watch — drag them back here to take them off" : "Drag onto the steps to post them", "Click for their card"],
+      })}>
+        <span class="ex-rt-sprite">${characterSprite(c, 40)}</span>
+        <span class="ex-rt-line"><span class="ex-rt-name">${esc(shortName(c))}</span><span class="ex-rt-power">${power}</span></span>
+        <span class="ex-rt-bar ex-rt-hp"><i style="width:${pct(c.hp, c.maxHp)}%"></i></span>
+        <span class="ex-rt-bar ex-rt-stam"><i style="width:${pct(c.stamina, c.maxStamina)}%"></i></span>
+      </span>`;
     })
     .join("");
 }
@@ -4232,6 +4295,26 @@ export function renderDefenseTab(state) {
   if (state.pendingRaid) {
     return renderComingSoon("🛡", "Defense", `The ${FACILITY_LABEL[state.pendingRaid.facility]} is under attack right now — assign defenders from the Night Watch panel.`);
   }
+  return renderNightWatchScreen(state);
+}
+
+// Hovering tonight's weather: what it does, and every kind of weather there is with its chance.
+function weatherTip(condition) {
+  const all = Object.values(NIGHT_CONDITIONS);
+  const total = all.reduce((sum, c) => sum + c.weight, 0);
+  return tipAttr({
+    title: `${condition.icon} Tonight: ${condition.name}`,
+    rows: all.map((c) => [
+      `${c.icon} ${c.name}${c === condition ? " ◂" : ""}`,
+      `${c.role ? `${EXPLORE_ROLES[c.role].name} −${Math.round((1 - (c.dmg ?? c.mend)) * 100)}% ${c.mend ? "healing" : "damage"}` : "No effect"} · ${Math.round((c.weight / total) * 100)}%`,
+    ]),
+    notes: ["Rolled at random each night — the first is always clear"],
+  });
+}
+
+// "Entrance Defenses" (the Night Watch side panel's 🛡 button): the gate, and what can be built in
+// the courtyard tonight.
+export function renderDefenseGuideModal(state) {
   const buildable = buildableDefenses(state);
   const structures = DEFENSE_STRUCTURES.filter((d) => buildable.includes(d) || d.upgradeOf).filter((d) => buildable.includes(d) || !buildable.some((b) => b.upgradeOf === d.upgradeOf && b !== d)).map(
     (d) => `<div class="armory-item ${buildable.includes(d) ? "" : "armory-locked"}">
@@ -4241,13 +4324,14 @@ export function renderDefenseTab(state) {
       <span class="weapon-stats">${buildable.includes(d) ? `${ri("materials")} ${d.cost.materials}` : `🔒 ${esc(TECH_TREE.find((t) => t.id === d.tech).name)}`}</span>
     </div>`
   ).join("");
-  // the Night Watch tab: the board to set up tonight, then what can be built and who's coming
-  return `${renderNightWatchScreen(state)}
-  <div class="card nw-guide">
-    <h2>🛡 Entrance Defenses ${infoDot({ notes: ["Click an empty middle-row cell to build, a top-row cell to post a defender", "Smashed walls are gone; damaged ones are patched by morning", "Fortification makes the gate sturdier"] })}</h2>
-    <p class="room-tagline">Fortification ${state.fortification} · gate <b>${gateHp(state)} HP</b></p>
-    <div class="mini-label">What you can build</div>
-    <div class="armory-list">${structures}</div>
+  return `<div class="modal-overlay" data-action="close-defense-guide">
+    <div class="char-card mission-card defense-guide" data-action="noop">
+      <button class="cc-close" data-action="close-defense-guide" title="Close">✕</button>
+      <h3>🛡 Entrance Defenses ${infoDot({ notes: ["Click an empty middle-row cell to build, a top-row cell to post a defender", "Smashed walls are gone; damaged ones are patched by morning", "Fortification makes the gate sturdier"] })}</h3>
+      <p class="room-tagline">Fortification ${state.fortification} · gate <b>${gateHp(state)} HP</b></p>
+      <div class="mini-label">What you can build</div>
+      <div class="armory-list">${structures}</div>
+    </div>
   </div>`;
 }
 
@@ -4964,5 +5048,12 @@ export function renderApp(state, activeTab, rosterFilter = "student", floaties =
 
   // the page wears its part of the school's frames (frames.js): lockers in the Lobby, a chalkboard in the
   // Classrooms, office wood in the Facilities, a fence in the Courtyard, canvas on the map, steel at night
+  // Turn 1's floors carry the student roster down the right of their window (renderTurnOnePanel),
+  // like the City Map's and the Night Watch's side panels: each floor is one card, split in two
+  if (state.turn === 1 && !state.gameOver && !state.victory && ["floor1", "floor2", "floor3", "courtyard"].includes(activeTab)) {
+    content = content
+      .replace(/^\s*<div class="card">/, '<div class="card"><div class="t1-layout"><div class="t1-main">')
+      .replace(/<\/div>\s*$/, () => `</div>${renderTurnOnePanel(state)}</div></div>`);
+  }
   return `${renderTopbar(state, floaties, activeTab)}${renderTabs(state, activeTab)}<div class="content" data-area="${areaOfTab(activeTab)}">${content}</div>`;
 }

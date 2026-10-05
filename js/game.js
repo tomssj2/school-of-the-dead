@@ -500,6 +500,11 @@ function leaveTurnOneJobs(state, c, keep) {
   if (keep !== "seat" && c.seat) unseat(state, c.id);
   for (const flag of TURN_ONE_FLAGS) if (flag !== keep) c[flag] = false;
 }
+// Off whatever they were doing today (their seat or job) — dropped back on the Turn 1 roster.
+export function clearTurnOneJobs(state, studentId) {
+  const c = getChar(state, studentId);
+  if (c) leaveTurnOneJobs(state, c);
+}
 
 export function assignSeat(state, studentId, roomId, index) {
   const c = getChar(state, studentId);
@@ -1906,28 +1911,21 @@ function applyFormations(b) {
 
 
 // Tonight's weather — fixed for each night of a run, so it can be shown while planning.
+// Tonight's weather: rolled at random the first time the night is looked at, then kept in the save
+// (state.weather) so it doesn't change on a reload. The first night is always clear.
 export function nightCondition(state) {
   if (state.day <= 1) return NIGHT_CONDITIONS.clear;
-  let h = [...String(state.runId || "run")].reduce((acc, ch) => Math.imul(acc ^ ch.charCodeAt(0), 16777619), 2166136261);
-  h = Math.imul(h ^ Math.imul(state.day, 374761393), 668265263);
-  h ^= h >>> 13;
-  h = Math.imul(h, 1274126177);
-  h ^= h >>> 16;
-  const roll01 = (h >>> 0) / 4294967296;
-  const pool = Object.values(NIGHT_CONDITIONS).filter((c) => state.day >= (c.from || 1));
-  let roll = roll01 * pool.reduce((sum, c) => sum + c.weight, 0);
-  for (const c of pool) {
-    if (roll < c.weight) return c;
-    roll -= c.weight;
+  if (state.weather?.day !== state.day || !NIGHT_CONDITIONS[state.weather.id]) {
+    const pool = Object.values(NIGHT_CONDITIONS);
+    let roll = Math.random() * pool.reduce((sum, c) => sum + c.weight, 0);
+    const pick = pool.find((c) => (roll -= c.weight) < 0) || NIGHT_CONDITIONS.clear;
+    state.weather = { day: state.day, id: pick.id };
   }
-  return NIGHT_CONDITIONS.clear;
+  return NIGHT_CONDITIONS[state.weather.id];
 }
 
 // The horde comes in 1 wave up to 6 zombies, 2 up to 14, 3 beyond.
 export const nightWaveCount = (zombies) => (zombies <= 6 ? 1 : zombies <= 14 ? 2 : 3);
-
-// The two lamp-lit lanes (a blackout doesn't reach them).
-export const lampLanes = (size) => [Math.round(size * 0.2), size - 1 - Math.round(size * 0.2)];
 
 // How many night actions tonight: the base, plus any extra Rallies from research.
 export function nightActionUses(state) {
@@ -1975,7 +1973,6 @@ export function startNightBattle(state) {
   const waveCount = nightWaveCount(queue.length);
   const perWave = Math.ceil(queue.length / waveCount);
   const condition = nightCondition(state);
-  const lamps = lampLanes(size);
 
   const students = Object.entries(grid.students)
     .map(([key, id]) => ({ key, c: getChar(state, id) }))
@@ -1996,8 +1993,13 @@ export function startNightBattle(state) {
         s.maxHp += s.bonusHp;
       }
       if (role === "scout" && s.ranged) s.ranged = { ...s.ranged, range: s.ranged.range + NIGHT_ROLES.scout.reach };
-      if (condition.id === "fog" && s.ranged) s.ranged = { ...s.ranged, range: Math.max(1, s.ranged.range - 2) };
-      if (condition.id === "rain") s.rangedMult *= 0.7;
+      // tonight's weather holds back one role: their damage, or a support's healing
+      s.mendMult = 1;
+      if (condition.role === role) {
+        s.meleeMult *= condition.dmg ?? 1;
+        s.rangedMult *= condition.dmg ?? 1;
+        s.mendMult = condition.mend ?? 1;
+      }
       return s;
     });
   for (const s of students) {
@@ -2020,7 +2022,7 @@ export function startNightBattle(state) {
   const gateMax = gateHp(state);
 
   const b = {
-    size, rows: ENTRANCE_ROWS, condition, lamps, thorns: techPerk(state, "wallThorns"),
+    size, rows: ENTRANCE_ROWS, condition, thorns: techPerk(state, "wallThorns"),
     zStats: zombieStatsForDay(state.day),
     waves: Array.from({ length: waveCount }, (_, i) => queue.slice(i * perWave, (i + 1) * perWave)),
     wave: 0, waveSpawned: 0, waveTick: 0,
@@ -2099,11 +2101,10 @@ export function battleTick(state, b) {
     const weapon = useMelee ? s.melee : s.ranged;
     if (useMelee) s.usedMelee = true;
     else s.usedRanged = true;
-    const dark = b.condition.id === "blackout" && !b.lamps.includes(s.col) ? 0.15 : 0;
     // its type fights back: a runner slips melee blows, armour shrugs off shots, a weak spot doesn't
     const T = ZOMBIE_TYPES[target.type];
     const evaded = useMelee && T.meleeEvade && Math.random() < T.meleeEvade;
-    const hit = !evaded && Math.random() < s.hitChance - dark;
+    const hit = !evaded && Math.random() < s.hitChance;
     const crit = hit && Math.random() < s.critChance;
     const typeMult = useMelee ? 1 : T.rangedMult || 1;
     const desperate = b.lastStand && s.hp < s.maxHp * 0.25 ? 2 : 1;
@@ -2237,7 +2238,7 @@ export function battleTick(state, b) {
     if (s.downed || s.ability !== "support") continue;
     const p = studentAt(b, s.row + 1, s.col);
     if (!p || p.hp >= p.maxHp) continue;
-    const heal = Math.min(p.maxHp - p.hp, Math.max(1, Math.round(p.maxHp * NIGHT_ROLES.support.mend)));
+    const heal = Math.min(p.maxHp - p.hp, Math.max(1, Math.round(p.maxHp * NIGHT_ROLES.support.mend * s.mendMult)));
     p.hp += heal;
     events.push({ type: "mend", at: [p.row, p.col], from: [s.row, s.col], amount: heal });
   }
@@ -2356,7 +2357,7 @@ function fireAbility(state, b, s, events) {
     }
   } else {
     for (const x of targets) {
-      const heal = Math.min(x.maxHp - x.hp, Math.round(x.maxHp * a.heal * s.abilityPower));
+      const heal = Math.min(x.maxHp - x.hp, Math.round(x.maxHp * a.heal * s.abilityPower * s.mendMult));
       x.hp += heal;
       x.inspired = a.turns;
       events.push({ type: "heal", at: [x.row, x.col], amount: heal, inspire: true });
@@ -2866,6 +2867,8 @@ export function advanceTurn(state) {
     moveHorde(state);
     rollMapDrop(state);
   }
+  // the watch's 📌 Stay: as the night ends, remember who stood on which square
+  if (state.turn === 1 && staysInRoom(state, "watch")) state.keptWatch = { ...state.entranceGrid.students };
   for (const c of state.characters) {
     c.gymToday = false;
     c.radioToday = false;
@@ -2882,6 +2885,7 @@ export function advanceTurn(state) {
   }
   if (state.turn === 1) restoreTurnOneJobs(state);
   state.entranceGrid.students = {}; // built defenses persist; daily placements don't
+  if (state.turn === 3) restoreWatch(state);
   state.teamLocations = [null, null, null];
   state.raidTarget = null;
   checkGameOver(state);
@@ -3747,6 +3751,17 @@ export function setDefending(state, charId, value) {
 }
 
 // ---------- entrance battle grid ----------
+
+// The night begins: with the watch's 📌 Stay on, last night's defenders take their squares again.
+// Anyone who can't stand watch now (fallen, infected) leaves their square empty.
+function restoreWatch(state) {
+  const kept = state.keptWatch;
+  delete state.keptWatch;
+  if (!kept || !staysInRoom(state, "watch")) return;
+  for (const [key, id] of Object.entries(kept)) {
+    if (Number(key.split(",")[1]) < state.entranceGrid.size) moveEntranceStudent(state, key, id);
+  }
+}
 
 export function placeEntranceStudent(state, cellKey, studentId) {
   const c = getChar(state, studentId);
