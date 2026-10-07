@@ -958,15 +958,15 @@ html[data-gfx="low"] .staff-add { animation: none; }
 }
 
 /* ===== The Night Watch board (nightwatch.js art; ui.js renderNightBoard / gridBattle) =====
-   The art is --size columns by --rows of 32x20 squares under a 36-tall facade (nightwatch.js FACADE_H), scaled by --px. Squares and units
+   The art is --size columns by --rows of 32x20 squares under a 26-tall facade (nightwatch.js FACADE_H), scaled by --px. Squares and units
    are placed over it with --r / --c. */
 .nw-layout { display: flex; gap: 14px; align-items: stretch; }
 .nw-board {
   --px: 3.2;
   position: relative;
   flex: none;
-  width: calc(var(--size) * 32px * var(--px));
-  height: calc((36px + var(--rows, var(--size)) * 20px) * var(--px));
+  width: calc((var(--size) * 32px + 16px) * var(--px)); /* + the 8px MARGIN either side (nightwatch.js) */
+  height: calc((26px + var(--rows, var(--size)) * 20px) * var(--px));
   margin: 0 auto;
   background-size: 100% 100%;
   image-rendering: pixelated;
@@ -984,7 +984,7 @@ html[data-gfx="low"] .staff-add { animation: none; }
   pointer-events: none;
   background: radial-gradient(ellipse at 50% 30%, transparent 45%, rgba(4, 6, 16, 0.6) 100%);
 }
-.nw-cells { position: absolute; left: 0; right: 0; bottom: 0; top: calc(36px * var(--px)); }
+.nw-cells { position: absolute; left: calc(8px * var(--px)); right: calc(8px * var(--px)); bottom: 0; top: calc(26px * var(--px)); }
 .nw-cell {
   position: absolute;
   left: calc(var(--c) * 32px * var(--px));
@@ -1036,7 +1036,9 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
   position: absolute;
   z-index: calc(4 + var(--r));
   left: calc((var(--c) + 0.5) * 32px * var(--px));
-  top: calc((var(--r) + 1) * 20px * var(--px) - 3px);
+  /* on the steps (rows above --steps), stood on the tread, not down the riser's face */
+  --lift: calc(clamp(0, var(--steps, 0) - var(--r), 1) * 6px * var(--px));
+  top: calc((var(--r) + 1) * 20px * var(--px) - 3px - var(--lift));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1044,7 +1046,7 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
   pointer-events: auto;
 }
 .nw-unit svg { display: block; }
-.nw-cell > .nw-unit { position: relative; left: auto; top: auto; transform: none; margin-bottom: 3px; }
+.nw-cell > .nw-unit { position: relative; left: auto; top: auto; transform: none; margin-bottom: calc(3px + var(--lift)); }
 .nw-defender { cursor: grab; }
 .nw-defender:active { cursor: grabbing; }
 .nw-gear { position: absolute; top: -2px; right: -14px; font-size: 13px; line-height: 1; filter: drop-shadow(0 1px 1px #000); }
@@ -1063,8 +1065,7 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
   to { transform: translateX(2px); }
 }
 
-/* top left of the board: someone on the steps has no weapon; top right: the watch's 📌 Stay */
-.nw-stay { position: absolute; z-index: 16; top: calc(3px * var(--px)); right: calc(3px * var(--px)); line-height: 0; }
+/* top left of the board: someone on the steps has no weapon */
 .nw-unarmed {
   position: absolute; z-index: 16; top: calc(3px * var(--px)); left: calc(3px * var(--px));
   padding: 2px 8px; border: 1px solid rgba(255, 159, 67, 0.7); background: rgba(10, 12, 18, 0.82);
@@ -1086,9 +1087,12 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
   from { transform: rotate(-4deg); }
   to { transform: rotate(4deg); }
 }
-.nw-strike svg { animation: nw-lunge 0.3s ease-out; }
+/* a defender's attack moves their body (.nw-body), so a hit's flash on the sprite still plays;
+   they strike down the board, towards the street. A Medic's or Rallier's shove is the plain lunge. */
+.nw-body { display: block; line-height: 0; }
+.nw-strike .nw-body { animation: nw-lunge 0.3s ease-out; }
 @keyframes nw-lunge {
-  40% { transform: translateY(-8px) scale(1.06); }
+  40% { transform: translateY(6px) scale(1.05); }
 }
 /* hit: a white flash and a knock back */
 .nw-flash svg { animation: nw-hurt 0.4s ease-out; }
@@ -3965,26 +3969,7 @@ body.nw-dragging .pt-empty:not(.pt-off) { outline: 1px dashed rgba(79, 163, 255,
 }
 .nw-morale b { color: #ffd27a; }
 .nw-tabs { margin: 2px 0 4px; }
-/* the fight's bench: today's morale, then everyone who could still be posted — click one, then a
-   free square (it lights up green) */
-.nw-bench { display: flex; align-items: center; gap: 10px; max-width: min(1100px, 92vw); padding: 6px 10px; border: 1px solid var(--border); background: rgba(14, 17, 24, 0.95); }
-.nw-bench-morale { flex: none; font-size: 15px; white-space: nowrap; }
-.nw-bench-morale b { color: #ffd27a; font-size: 18px; }
-.nw-bench-list { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; max-height: 92px; overflow-y: auto; scrollbar-width: thin; }
-.nw-bench-chip {
-  display: flex; flex-direction: column; align-items: center; gap: 1px; width: 44px; padding: 2px 0 3px;
-  border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; cursor: pointer;
-}
-.nw-bench-chip:hover:not(:disabled) { border-color: #7fe0a8; transform: translateY(-1px); }
-.nw-bench-chip:disabled { opacity: 0.35; cursor: not-allowed; }
-.nw-bench-chip.on { border-color: #7fe0a8; background: rgba(127, 224, 168, 0.2); }
-.nw-bench-chip.nw-bench-planned { border-style: dashed; }
-.nw-bench-face { line-height: 0; }
-.nw-bench-cost { font-size: 10px; line-height: 1; white-space: nowrap; }
-.nw-bench-cost b { color: #ffd27a; margin-left: 1px; }
 .nw-battle-buttons { display: flex; gap: 8px; }
-.nw-pick-post { background: rgba(127, 224, 168, 0.18); outline: 2px dashed rgba(127, 224, 168, 0.8); outline-offset: -3px; }
-.nw-pick-post:hover { background: rgba(127, 224, 168, 0.4); }
 
 /* a class badge whose second ability is unlocked (grade B in its subject) */
 .nw-xrole.nw-xrole-2 { padding: 1px; background: rgba(244, 211, 94, 0.25); box-shadow: 0 0 0 1px #f4d35e, 0 0 6px rgba(244, 211, 94, 0.6); }
@@ -4003,7 +3988,6 @@ html[data-gfx="medium"] .nw-spawn-mark { animation: none; }
 /* the night's fight, played on the Night Watch board: the same size as while planning, its controls
    in the side panel (the bench fills what's left above the Summary button) */
 .nw-main > .nw-battle { --px: 3.2; }
-.nw-side-fight .nw-bench-list { flex: 1 1 auto; max-height: none; align-content: flex-start; }
 .nw-side-fight .nw-battle-buttons > .btn { flex: 1; }
 .nw-side-fight .nw-aim-hint { flex-wrap: wrap; padding: 4px 6px; font-size: 12px; }
 
@@ -4019,13 +4003,6 @@ html[data-gfx="medium"] .nw-spawn-mark { animation: none; }
 .nw-action-off, .nw-action:disabled { filter: grayscale(1); opacity: 0.45; }
 .nw-action-off b { color: var(--muted); }
 
-/* the night's morale, on the board top middle — the line of the ⚠ unarmed warning and the 📌 Stay */
-.nw-moralebar {
-  position: absolute; z-index: 16; top: calc(3px * var(--px)); left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid rgba(255, 210, 122, 0.6);
-  background: rgba(10, 12, 18, 0.82); font-size: 12px; white-space: nowrap;
-}
-.nw-moralebar b { color: #ffd27a; }
 
 .nw-banner-lost { color: #ff8a7a; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.6), 0 0 22px rgba(255, 60, 40, 0.9); }
 
@@ -4051,3 +4028,131 @@ html[data-gfx="medium"] .nw-spawn-mark { animation: none; }
 .nw-meter-bar i { display: block; height: 100%; background: var(--bar-other); }
 .nw-meter-row b { text-align: right; color: #ffd27a; }
 .nw-meter-top .nw-meter-name { color: #ffd27a; font-weight: 700; }
+
+/* the road on the planning board: no square to click, only the horde's ghosts and the ▼ markers */
+.nw-road { pointer-events: none; justify-content: center; }
+.nw-road .nw-spawn-mark { pointer-events: auto; }
+
+/* the night's morale in the side panel: a glowing gold card — face, the number big, notes right;
+   in the fight it flashes green when it rises, red when it's spent, the change floating up */
+.nw-morale-card {
+  position: relative; flex: none; display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 10px;
+  padding: 6px 12px; border: 2px solid #f4d35e;
+  background: linear-gradient(135deg, rgba(244, 211, 94, 0.24), rgba(240, 138, 36, 0.1) 60%, rgba(14, 17, 24, 0.6));
+  box-shadow: 0 0 12px rgba(244, 211, 94, 0.35), inset 0 0 12px rgba(244, 211, 94, 0.14);
+  animation: nw-morale-glow 2.4s ease-in-out infinite alternate;
+}
+@keyframes nw-morale-glow { to { box-shadow: 0 0 18px rgba(244, 211, 94, 0.55), inset 0 0 14px rgba(244, 211, 94, 0.22); } }
+.nw-morale-face { line-height: 0; filter: drop-shadow(0 0 5px rgba(255, 214, 110, 0.75)); }
+.nw-morale-main { display: flex; flex-direction: column; line-height: 1; }
+.nw-morale-label { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #ffd27a; }
+.nw-morale-num { font-size: 32px; color: #fff3c4; text-shadow: 0 2px 0 #7a4a10, 0 0 12px rgba(255, 196, 80, 0.85); }
+.nw-morale-side { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; font-size: 11px; color: var(--muted); text-align: right; }
+.nw-morale-side b { color: #ffd27a; }
+.nw-morale-up { animation: nw-morale-up 0.7s ease-out; }
+.nw-morale-down { animation: nw-morale-down 0.7s ease-out; }
+@keyframes nw-morale-up { from { border-color: #7fe0a8; box-shadow: 0 0 26px rgba(127, 224, 168, 0.95), inset 0 0 16px rgba(127, 224, 168, 0.45); } }
+@keyframes nw-morale-down { from { border-color: #ff6a50; box-shadow: 0 0 26px rgba(255, 92, 72, 0.95), inset 0 0 16px rgba(255, 92, 72, 0.45); } }
+.nw-morale-delta { position: absolute; left: 112px; top: 2px; font-size: 15px; font-weight: 800; text-shadow: 0 1px 0 #000; pointer-events: none; animation: nw-morale-delta 1s ease-out forwards; }
+.nw-morale-up .nw-morale-delta { color: #7fe0a8; }
+.nw-morale-down .nw-morale-delta { color: #ff8a7a; }
+@keyframes nw-morale-delta { from { opacity: 1; transform: translateY(4px); } to { opacity: 0; transform: translateY(-12px); } }
+
+/* ----- each class's own attack ----- */
+/* Brawler: wind back, then swing hard into the square in front (a wider slash) */
+.nw-strike-brawler .nw-body { animation: nw-atk-brawler 0.38s ease-out; }
+@keyframes nw-atk-brawler {
+  30% { transform: translateY(-5px) rotate(-8deg); }
+  60% { transform: translateY(9px) rotate(6deg) scale(1.08); }
+}
+.nw-slash-wide { width: 72px; height: 72px; margin: -36px 0 0 -36px; border-top-width: 5px; }
+/* Shooter: a quick recoil */
+.nw-strike-shooter .nw-body { animation: nw-atk-shooter 0.25s ease-out; }
+@keyframes nw-atk-shooter {
+  20% { transform: translateY(-5px) scale(1.04, 0.96); }
+}
+/* Tank: crouch, then a heavy shoulder-bash — a ring of dust where it lands */
+.nw-strike-tank .nw-body { animation: nw-atk-tank 0.5s ease-in-out; }
+@keyframes nw-atk-tank {
+  35% { transform: translateY(-3px) scale(1.08, 0.92); }
+  65% { transform: translateY(10px) scale(1.1); }
+}
+.nw-bash {
+  position: absolute; z-index: 18; pointer-events: none;
+  left: calc((var(--c) + 0.5) * 32px * var(--px)); top: calc((var(--r) + 0.55) * 20px * var(--px));
+  width: 64px; height: 22px; margin: -11px 0 0 -32px; border-radius: 50%;
+  border: 4px solid rgba(222, 196, 150, 0.95); box-shadow: 0 0 12px rgba(222, 196, 150, 0.7);
+  opacity: 0; animation: nw-bash 0.45s ease-out;
+}
+@keyframes nw-bash {
+  from { opacity: 1; transform: scale(0.3); }
+  to { opacity: 0; transform: scale(1.4); }
+}
+/* Trapper: a hop and a throw — the net arcs down the lane, spinning, and spreads over its target */
+.nw-strike-trapper .nw-body { animation: nw-atk-trapper 0.4s ease-out; }
+@keyframes nw-atk-trapper {
+  40% { transform: translateY(-10px) rotate(-10deg); }
+  70% { transform: translateY(0) rotate(4deg); }
+}
+.nw-netshot { position: absolute; z-index: 18; pointer-events: none; line-height: 0; margin: -8px 0 0 -8px; opacity: 0; animation: nw-shot 0.4s ease-out; }
+.nw-netshot > span { display: block; animation: nw-net-arc 0.4s ease-out; }
+@keyframes nw-net-arc {
+  50% { transform: translateY(-16px) rotate(180deg); }
+  to { transform: translateY(0) rotate(360deg); }
+}
+.nw-netcast {
+  position: absolute; z-index: 18; pointer-events: none; line-height: 0;
+  left: calc((var(--c) + 0.5) * 32px * var(--px)); top: calc((var(--r) + 0.3) * 20px * var(--px));
+  opacity: 0; animation: nw-netcast 0.7s ease-out 0.3s;
+}
+@keyframes nw-netcast {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(-20deg); }
+  30% { opacity: 1; transform: translate(-50%, -50%) scale(1.3) rotate(0); }
+  100% { opacity: 0; transform: translate(-50%, -40%) scale(1.4); }
+}
+/* Medic: a soft green glow, and a green cross floating to the patient */
+.nw-act-medic .nw-body { animation: nw-act-medic 0.6s ease-out; }
+@keyframes nw-act-medic {
+  40% { transform: translateY(-3px); filter: drop-shadow(0 0 6px #7fe0a8) brightness(1.25); }
+}
+.nw-mendfly {
+  position: absolute; z-index: 19; pointer-events: none; margin: -10px 0 0 -7px;
+  font-size: 18px; font-weight: 900; line-height: 1; color: #7fe0a8; text-shadow: 0 0 6px rgba(90, 230, 140, 0.9), 0 1px 0 #000;
+  opacity: 0; animation: nw-shot 0.45s ease-out;
+}
+/* Rallier: a bouncing shout, rings rolling out from the megaphone */
+.nw-act-rallier .nw-body { animation: nw-act-rallier 0.5s ease-out; }
+@keyframes nw-act-rallier {
+  25% { transform: translateY(-8px); }
+  50% { transform: translateY(0); }
+  70% { transform: translateY(-4px); filter: drop-shadow(0 0 6px #ffd166); }
+}
+.nw-rings { position: absolute; z-index: 18; pointer-events: none; left: calc((var(--c) + 0.5) * 32px * var(--px)); top: calc((var(--r) + 0.2) * 20px * var(--px)); }
+.nw-rings i {
+  position: absolute; left: 0; top: 0; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%;
+  border: 2px solid #ffd166; box-shadow: 0 0 6px rgba(255, 209, 102, 0.8); opacity: 0; animation: nw-ring 0.7s ease-out;
+}
+.nw-rings i + i { animation-delay: 0.18s; }
+@keyframes nw-ring {
+  from { opacity: 0.95; transform: scale(0.3); }
+  to { opacity: 0; transform: scale(3); }
+}
+
+/* ----- attack poses: for a moment the attacker shows their class's pose (sprite.js POSES), then
+   stands again; a two-frame pose (the Brawler) winds up, then swings. Low graphics: no poses. */
+.nw-poses { position: relative; display: block; line-height: 0; --pose-t: 0.5s; }
+.nw-poses > span { display: block; }
+.nw-poses > .nw-pose-a, .nw-poses > .nw-pose-b { position: absolute; left: 0; top: 0; opacity: 0; }
+.nw-poses > .nw-pose-idle { animation: nw-pose-idle var(--pose-t) forwards; }
+@keyframes nw-pose-idle { 0%, 99% { opacity: 0; } 100% { opacity: 1; } }
+.nw-poses-1 > .nw-pose-b { animation: nw-pose-one var(--pose-t) forwards; }
+@keyframes nw-pose-one { 0%, 99% { opacity: 1; } 100% { opacity: 0; } }
+.nw-poses-2 > .nw-pose-a { animation: nw-pose-a var(--pose-t) forwards; }
+@keyframes nw-pose-a { 0%, 39% { opacity: 1; } 40%, 100% { opacity: 0; } }
+.nw-poses-2 > .nw-pose-b { animation: nw-pose-b var(--pose-t) forwards; }
+@keyframes nw-pose-b { 0%, 39% { opacity: 0; } 40%, 99% { opacity: 1; } 100% { opacity: 0; } }
+.nw-act-medic .nw-poses, .nw-act-rallier .nw-poses { --pose-t: 0.65s; }
+
+/* the Night Watch's tiles: one the night can't pay for yet, greyed out; one waiting in tonight's line-up */
+.ex-rt.ex-rt-off { opacity: 0.4; filter: grayscale(0.7); cursor: pointer; }
+.ex-rt.ex-rt-planned { outline: 1px dashed #4fa3ff; outline-offset: -3px; }

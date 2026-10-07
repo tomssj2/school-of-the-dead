@@ -244,11 +244,11 @@ export const LEGENDARY_TITLES = ["the Relentless", "the Unbroken", "the Last Sta
 
 // ===== Main Entrance battle grid =====
 // The grid the player builds and fights on at the Main Entrance: ENTRANCE_GRID_SIZE columns — the
-// lanes the horde walks up — and rows top to bottom in three zones: where students stand (the three
-// front steps and the two rows of lawn), the pavement where walls and traps go, and the road the
-// horde comes up from (traps can go there too). (state.entranceGrid.size is the column count.)
+// lanes the horde walks up — and rows top to bottom in three zones: where students stand (the front
+// steps — `steps` of them — then the grass), the pavement's rows for walls and traps, and the road
+// the horde comes up (nothing can be built there). (state.entranceGrid.size is the column count.)
 export const ENTRANCE_GRID_SIZE = 6;
-export const ENTRANCE_ZONES = { students: 5, defenses: 1, street: 1 };
+export const ENTRANCE_ZONES = { steps: 4, students: 6, defenses: 2, street: 1 };
 export const ENTRANCE_ROWS = ENTRANCE_ZONES.students + ENTRANCE_ZONES.defenses + ENTRANCE_ZONES.street;
 // The row each zone starts on.
 export const DEFENSE_ROW0 = ENTRANCE_ZONES.students;

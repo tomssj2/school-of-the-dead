@@ -18,7 +18,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ENTRANCE_ROWS, NIGHT_CLASSES, DEFENSE_STRUCTURES, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES, LEGACY_DEFENSE_IDS,
+  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, NIGHT_MORALE, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES, LEGACY_DEFENSE_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -536,6 +536,29 @@ function migrateState(s) {
     s.entranceGrid.defenses = moved;
     s.entranceGrid.stepsV2 = true;
   }
+  // The Night Watch grew to 10 rows: 4 steps and 2 of grass for students, 2 of pavement for walls
+  // and traps, 2 of road. Students on the lawn (rows 3-4) move down a row with it; walls and traps
+  // (the pavement's row 5, the road's row 6) go to the pavement's rows 6-7 — refunded if there's
+  // no room.
+  if (s.entranceGrid && !s.entranceGrid.rows10) {
+    const g = s.entranceGrid;
+    const down = (map) => Object.fromEntries(Object.entries(map || {}).map(([key, id]) => {
+      const [row, col] = key.split(",").map(Number);
+      return [`${row >= 3 ? row + 1 : row},${col}`, id];
+    }));
+    g.students = down(g.students);
+    if (s.keptWatch) s.keptWatch = down(s.keptWatch);
+    const defenses = {};
+    for (const [key, id] of Object.entries(g.defenses || {})) {
+      const [row, col] = key.split(",").map(Number);
+      const spot = [`${row <= 5 ? 6 : 7},${col}`, `6,${col}`, `7,${col}`].find((k) => !defenses[k]);
+      const def = DEFENSE_STRUCTURES.find((d) => d.id === id);
+      if (spot) defenses[spot] = id;
+      else if (def) for (const [res, amt] of Object.entries(def.cost)) s.resources[res] = (s.resources[res] || 0) + amt;
+    }
+    g.defenses = defenses;
+    g.rows10 = true;
+  }
   if (!s.raidKills) s.raidKills = {};
   // Locations moved apart by the no-touching map rule: a save that had explored the old spot sees
   // the new one too, and no nest is left sitting under a location.
@@ -860,9 +883,18 @@ document.addEventListener("dragstart", (e) => {
   e.dataTransfer.setData("text/plain", dragStudentId);
   hideHoverTip();
   requestAnimationFrame(() => document.body.classList.add("nw-dragging"));
+  // the fight waits while someone's being dragged onto the board
+  if (battleAnimation?.live && battleAnimation.phase === "battle" && battleAnimation.b.phase === "fight") {
+    clearTimeout(battleTimer);
+    battleAnimation.holding = true;
+  }
 });
 document.addEventListener("dragend", () => {
   dragStudentId = null;
+  if (battleAnimation?.holding) {
+    battleAnimation.holding = false;
+    battleAnimation.resumeSoon();
+  }
   clearReach();
   document.body.classList.remove("nw-dragging");
   clearDropHighlights();
@@ -923,16 +955,25 @@ document.addEventListener("drop", (e) => {
     render();
     return;
   }
-  const live = battleAnimation?.live && battleAnimation.b.phase === "break" ? battleAnimation : null;
+  const live = battleAnimation?.live && battleAnimation.phase === "battle" ? battleAnimation : null;
   if (cell && live) {
-    // between waves: move a defender on the battle board
+    // the fight: a student from the bench is posted on that square at once (paid in morale); a
+    // defender already out there moves, between waves
     const [row, col] = cell.dataset.dropCell.split(",").map(Number);
-    if (G.battleMoveDefender(state, live.b, id, row, col)) live.frameIndex = live.b.frames.length - 1;
+    const onBoard = live.b.students.some((s) => s.id === id && !s.downed);
+    const ok = onBoard ? G.battleMoveDefender(state, live.b, id, row, col) : G.battlePost(state, live.b, id, row, col);
+    if (ok) live.frameIndex = live.b.frames.length - 1;
+    else flash(onBoard ? "Defenders can only move between waves." : live.b.morale < NIGHT_MORALE.post ? "Not enough morale to post them." : "They can't go there.");
   } else if (cell) {
     if (!G.moveEntranceStudent(state, cell.dataset.dropCell, id)) flash("They can't stand watch tonight.");
   } else if (!battleAnimation) {
     const key = Object.keys(state.entranceGrid.students).find((k) => state.entranceGrid.students[k] === id);
     if (key) G.clearEntranceStudentCell(state, key);
+  }
+  // (the redraw takes the dragged chip away, so its dragend may never come: let the fight go on here)
+  if (battleAnimation?.holding) {
+    battleAnimation.holding = false;
+    return battleAnimation.resumeSoon();
   }
   render();
 });
@@ -976,17 +1017,13 @@ function showReach(board, studentId, row, col) {
     .map(({ r, c: cc, kind }) => `<div class="nw-cell nw-reach nw-reach-${kind}" style="--r:${r};--c:${cc}"></div>`).join("");
   layer.insertAdjacentHTML("beforeend", html);
 }
-// hovering a defender (on the planning board or in the fight), or a square while posting someone
+// hovering a defender (on the planning board or in the fight)
 document.addEventListener("pointerover", (e) => {
   if (document.body.classList.contains("nw-dragging")) return;
   const unit = e.target.closest?.("[data-reach]");
   if (unit) {
     const [row, col] = unit.dataset.reach.split(",").map(Number);
     return showReach(unit.closest(".nw-board"), unit.dataset.reachId, row, col);
-  }
-  const pick = e.target.closest?.('[data-action="post-square"]');
-  if (pick && battleAnimation?.target?.startsWith("post:")) {
-    return showReach(pick.closest(".nw-board"), battleAnimation.target.slice(5), Number(pick.dataset.row), Number(pick.dataset.col));
   }
   if (reachShown) clearReach();
 });
@@ -1230,12 +1267,12 @@ function playBattleSounds(events) {
 }
 
 // The night battle, played live: a turn every BATTLE_TICK_MS. It waits at the break between
-// waves (for "Send them in"), while paused, and while a night action is aimed or a student is being
-// posted (anim.target: an action's id, or "post:<id>"); "Skip" plays the rest out
-// at once, and "Continue" on the result screen runs `afterResult` to finish the turn.
+// waves (for "Send them in"), while paused, while a night action is aimed (anim.target: its id) and
+// while a student's being dragged in from the bench (anim.holding); "Skip" plays the rest out at
+// once, and the Summary button runs `afterResult` to finish the turn.
 // A turn takes BATTLE_TICK_MS at normal speed; the ⏩ button plays it 2× or 3× faster (remembered
 // from one night to the next).
-const BATTLE_TICK_MS = 1100;
+const BATTLE_TICK_MS = 1500;
 const BATTLE_SPEEDS = [1, 2, 3];
 let battleSpeed = 1;
 const tickMs = () => BATTLE_TICK_MS / battleSpeed;
@@ -1261,7 +1298,7 @@ function playNightBattle(afterResult) {
   };
   const step = () => {
     clearTimeout(battleTimer);
-    if (anim.phase !== "battle" || anim.target || anim.paused) return; // done, paused, or aiming
+    if (anim.phase !== "battle" || anim.target || anim.paused || anim.holding) return; // done, paused, aiming, or a student being dragged in
     if (b.phase === "done") return showResult();
     let lastKill = false;
     if (b.phase === "fight") {
@@ -1953,28 +1990,6 @@ root.addEventListener("click", (e) => {
         battleAnimation.resumeSoon();
       }
       break;
-    case "post-pick": {
-      // a student on the bench: the fight waits while a square is picked for them
-      const anim = battleAnimation;
-      if (!anim?.live || anim.phase !== "battle" || anim.b.phase === "done") break;
-      const key = `post:${el.dataset.id}`;
-      clearTimeout(battleTimer);
-      anim.target = anim.target === key ? null : key;
-      if (anim.target) render();
-      else anim.resumeSoon();
-      break;
-    }
-    case "post-square": {
-      const anim = battleAnimation;
-      if (!anim?.target?.startsWith("post:")) break;
-      if (!G.battlePost(state, anim.b, anim.target.slice(5), Number(el.dataset.row), Number(el.dataset.col))) {
-        flash("Can't post them there.");
-        break;
-      }
-      anim.target = null;
-      anim.resumeSoon();
-      break;
-    }
     case "battle-speed": {
       // 1× → 2× → 3× → 1×; the next turn comes at the new pace
       const anim = battleAnimation;
@@ -2344,10 +2359,11 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       render();
       return summary;
     },
-    // schoolDev.night(day): the Night Watch of that day, best fighters on the steps.
-    night(day) {
+    // schoolDev.night(day, classes): the Night Watch of that day, best fighters on the steps — only
+    // those classes (e.g. ["trapper", "medic"]), if given.
+    night(day, classes) {
       if (!beforeMax) beforeMax = JSON.stringify(state);
-      const summary = setNight(state, day);
+      const summary = setNight(state, day, classes);
       activeTab = "overview";
       render();
       return summary;

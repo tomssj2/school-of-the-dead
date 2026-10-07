@@ -472,11 +472,12 @@ function tileGrid(tiles, freeSlots, pickerAttrs) {
   return `<div class="person-tiles">${tiles.join("")}${empty}</div>`;
 }
 
-// An empty slot shows a faint outline of what it's for — a barbell in the Gymnasium, a bed in the
-// Nurse's Office, a backpack at a desk — with the + over it; both light up on hover. The picker
-// the slot opens (its data-kind, and data-post for the Gym's two sides) says which.
+// An empty slot shows a faint outline of what it's for — a barbell in the Gymnasium, gymnastics rings
+// in Acrobatics, a bed in the Nurse's Office, a backpack at a desk — with the + over it; both light
+// up on hover. The picker the slot opens (its data-kind, and data-post for the Gym's two sides) says
+// which.
 const GHOST_OF_KIND = {
-  "gym-student": (post) => (post === "Gymnastics" ? "acrobat" : "barbell"),
+  "gym-student": (post) => (post === "Gymnastics" ? "rings" : "barbell"),
   "cafeteria-rest": () => "face_tired",
   "infirmary-student": () => "bed",
   "research-student": () => "research",
@@ -2309,7 +2310,9 @@ function gridBattle(state, anim) {
   const condition = summary.condition || NIGHT_CONDITIONS.clear;
 
   // who did what this turn
-  const struck = new Set(); // defenders who swung or shot
+  const clsAt = new Map(frame.students.map((s) => [`${s.row},${s.col}`, s.cls])); // each defender's class, by square
+  const struck = new Map(); // defenders who swung or shot -> their class (each attacks its own way)
+  const acting = new Map(); // a Medic healing, a Rallier rallying -> their class
   const hurt = new Set(); // squares something got hit on
   let fx = "";
   // damage numbers stack upward when several land on one square
@@ -2345,15 +2348,22 @@ function gridBattle(state, anim) {
   for (const e of frame.events) {
     const [r0, c0] = e.from || e.at || [];
     if (e.type === "attack") {
-      struck.add(`${e.from[0]},${e.from[1]}`);
+      const cls = clsAt.get(`${e.from[0]},${e.from[1]}`);
+      struck.set(`${e.from[0]},${e.from[1]}`, cls);
       const z = frame.zombies.find((zz) => zz.id === e.zid) || prevZombies.get(e.zid);
       const [tr, tc] = z ? [z.row, z.col] : e.to;
-      if (e.kind === "ranged") {
+      if (cls === "trapper") {
+        // a net lobbed down the lane, spreading over what it lands on
+        fx += `<span class="nw-netshot" style="--r0:${e.from[0]};--c0:${e.from[1]};--r1:${tr};--c1:${tc}"><span>${pixelIcon("net", 16)}</span></span>`;
+        if (e.hit) fx += `<span class="nw-netcast" ${at(tr, tc)}>${pixelIcon("net", 32)}</span>`;
+      } else if (e.kind === "ranged") {
         fx += `<span class="nw-tracer ${e.crit ? "nw-tracer-crit" : ""}" style="--r0:${e.from[0]};--c0:${e.from[1]};${aim(e.from[0], e.from[1], tr, tc)}"></span>`;
         fx += `<span class="nw-shot" style="--r0:${e.from[0]};--c0:${e.from[1]};--r1:${tr};--c1:${tc}"></span>`;
         fx += `<span class="nw-muzzle" ${at(e.from[0], e.from[1])}></span>`;
+      } else if (e.hit && cls === "tank") {
+        fx += `<span class="nw-bash" ${at(tr, tc)}></span>`; // a shoulder-bash: a shock ring of dust
       } else if (e.hit) {
-        fx += `<span class="nw-slash ${e.crit ? "nw-slash-crit" : ""}" ${at(tr, tc, `--rot:${(e.zid * 53) % 120 - 60}deg;`)}></span>`;
+        fx += `<span class="nw-slash ${cls === "brawler" ? "nw-slash-wide" : ""} ${e.crit ? "nw-slash-crit" : ""}" ${at(tr, tc, `--rot:${(e.zid * 53) % 120 - 60}deg;`)}></span>`;
       }
       if (e.hit) hurt.add(`${tr},${tc}`);
       if (e.crit) shake = Math.max(shake, 1);
@@ -2400,8 +2410,15 @@ function gridBattle(state, anim) {
       if (e.amount) fx += pop(e.at[0], e.at[1], "nw-pop-heal", `+${e.amount}`);
       fx += `<span class="nw-heal-ring" ${at(e.at[0], e.at[1])}></span>`;
     } else if (e.type === "mend") {
+      // a green cross floating from the Medic to whoever they patch up
+      acting.set(`${e.from[0]},${e.from[1]}`, "medic");
+      fx += `<span class="nw-mendfly" style="--r0:${e.from[0]};--c0:${e.from[1]};--r1:${e.at[0]};--c1:${e.at[1]}">✚</span>`;
+      fx += `<span class="nw-heal-ring" ${at(e.at[0], e.at[1])}></span>`;
       fx += pop(e.at[0], e.at[1], "nw-pop-heal", `+${e.amount}`);
     } else if (e.type === "morale") {
+      // a Rallier's shout: rings rolling out from the megaphone
+      acting.set(`${e.at[0]},${e.at[1]}`, "rallier");
+      fx += `<span class="nw-rings" ${at(e.at[0], e.at[1])}><i></i><i></i></span>`;
       fx += pop(e.at[0], e.at[1], "nw-pop-heal", `+${e.amount} 😊`);
     } else if (e.type === "secondWind") {
       fx += pop(e.at[0], e.at[1], "nw-pop-heal nw-pop-big", "second wind!");
@@ -2449,9 +2466,10 @@ function gridBattle(state, anim) {
       ${st.maxHp && !st.destroyed ? bar(st.hp, st.maxHp, "nw-hp-wall") : ""}
     </div>`;
   }
-  // between waves the steps take defenders dragged onto them
-  if (breakTime) {
-    const taken = new Set(frame.students.filter((s) => !s.downed).map((s) => `${s.row},${s.col}`));
+  // while it's on, the free squares of the steps and the grass take a student dragged from the bench
+  // (posted there at once) — or, between waves, a defender moved from another square
+  if (anim.phase === "battle" && b && b.phase !== "done") {
+    const taken = new Set([...frame.students.filter((s) => !s.downed), ...frame.zombies].map((x) => `${x.row},${x.col}`));
     for (let row = 0; row < third; row++) for (let col = 0; col < size; col++) {
       if (!taken.has(`${row},${col}`)) units += `<div class="nw-cell nw-top nw-empty" ${at(row, col)} data-drop-cell="${row},${col}"></div>`;
     }
@@ -2461,9 +2479,9 @@ function gridBattle(state, anim) {
     const k = `${s.row},${s.col}`;
     const drag = breakTime && !s.downed ? `draggable="true" data-drag-student="${s.id}"` : "";
     const C = NIGHT_CLASSES[s.cls];
-    units += `<div data-reach="${s.row},${s.col}" data-reach-id="${s.id}" class="nw-unit nw-defender ${s.downed ? "nw-downed" : ""} ${struck.has(k) ? "nw-strike" : ""} ${hurt.has(k) ? "nw-flash" : ""} ${breakTime ? "" : "nw-static"}" ${at(s.row, s.col)} ${drag} ${breakTime ? `data-drop-cell="${k}"` : ""} ${C && c ? tipAttr({ title: `${C.icon} ${C.name} — ${esc(shortName(c))}`, notes: [C.desc] }) : ""}>
+    units += `<div data-reach="${s.row},${s.col}" data-reach-id="${s.id}" class="nw-unit nw-defender ${s.downed ? "nw-downed" : ""} ${struck.has(k) ? `nw-strike nw-strike-${struck.get(k)}` : ""} ${acting.has(k) ? `nw-act-${acting.get(k)}` : ""} ${hurt.has(k) ? "nw-flash" : ""} ${breakTime ? "" : "nw-static"}" ${at(s.row, s.col)} ${drag} ${breakTime ? `data-drop-cell="${k}"` : ""} ${C && c ? tipAttr({ title: `${C.icon} ${C.name} — ${esc(shortName(c))}`, notes: [C.desc] }) : ""}>
       ${C && !s.downed ? `<span class="nw-xrole ${xroleClass(s.ability2, s.ability3)}">${C.icon}</span>` : ""}
-      ${c ? characterSprite(c, 40) : ""}${bar(s.hp, s.maxHp, "nw-hp-student")}
+      <span class="nw-body">${c ? posedSprite(c, s.downed ? null : acting.get(k) || (["medic", "rallier"].includes(struck.get(k)) ? null : struck.get(k))) : ""}</span>${bar(s.hp, s.maxHp, "nw-hp-student")}
     </div>`;
   }
   for (const z of frame.zombies) {
@@ -2478,16 +2496,9 @@ function gridBattle(state, anim) {
     // the square it's about to smash
     if (z.windup) units += `<div class="nw-cell nw-telegraph" ${at(z.windup.row, z.windup.col)}><span>⚠ Smash</span></div>`;
   }
-  // aiming a night action: every square is a button — or, posting a student, every free square of
-  // the steps and the lawn
+  // aiming a night action: every square is a button
   let aimCells = "";
-  const posting = anim.target?.startsWith("post:") ? getChar(state, anim.target.slice(5)) : null;
-  if (posting) {
-    for (let row = 0; row < third; row++) for (let col = 0; col < size; col++) {
-      const taken = frame.students.some((s) => !s.downed && s.row === row && s.col === col) || frame.zombies.some((z) => z.row === row && z.col === col);
-      if (!taken) aimCells += `<div class="nw-cell nw-pick nw-pick-ok nw-pick-post" ${at(row, col)} data-action="post-square" data-row="${row}" data-col="${col}"></div>`;
-    }
-  } else if (anim.target) {
+  if (anim.target) {
     for (let row = 0; row < ENTRANCE_ROWS; row++) for (let col = 0; col < size; col++) {
       const hasZombie = frame.zombies.some((z) => z.row === row && z.col === col);
       const hasHurt = frame.students.some((s) => !s.downed && s.row === row && s.col === col && s.hp < s.maxHp);
@@ -2516,31 +2527,34 @@ function gridBattle(state, anim) {
     const actions = Object.keys(NIGHT_ACTIONS).map((id) =>
       actionTile(id, costs[id], b?.phase === "fight" && morale >= costs[id], { tag: "button", attrs: `data-action="night-action" data-id="${id}"`, on: anim.target === id })).join("");
     // the bench: everyone who could still be posted — the line-up's reserve first, in its order
+    // the bench: everyone who could still be posted, by class (STR … CHA), the best at it first —
+    // all of them, or one class (the same tabs as the planning roster)
     const reserve = (b?.reserve || []).map((s) => s.id);
-    const bench = b ? battleBench(state, b).sort((x, y) => {
-      const rx = reserve.indexOf(x.id), ry = reserve.indexOf(y.id);
-      return (rx < 0 ? 999 : rx) - (ry < 0 ? 999 : ry) || classOrder(x) - classOrder(y);
-    }) : [];
-    const benchChips = bench.map((c) => {
-      const C = NIGHT_CLASSES[nightClass(c)];
-      const on = anim.target === `post:${c.id}`;
-      const off = morale < NIGHT_MORALE.post || b.phase === "done";
-      return `<button class="nw-bench-chip ${on ? "on" : ""} ${reserve.includes(c.id) ? "nw-bench-planned" : ""}" data-action="post-pick" data-id="${c.id}" ${off && !on ? "disabled" : ""} ${tipAttr({
-        title: `${C.icon} ${C.name} — ${esc(c.name)}`,
-        rows: [["Costs", `${NIGHT_MORALE.post} morale`], ["❤ HP", `${c.hp}/${c.maxHp}`]],
-        notes: [C.desc, reserve.includes(c.id) ? "In tonight's line-up — joins by themselves once there's the morale" : "Click, then pick a free square on the steps or the lawn"],
-      })}><span class="nw-bench-face">${characterSprite(c, 24)}</span><span class="nw-bench-cost">${C.icon}<b>${NIGHT_MORALE.post}</b></span></button>`;
+    const bench = b ? battleBench(state, b).sort((x, y) => classOrder(x) - classOrder(y) || nightStat(state, y) - nightStat(state, x)) : [];
+    const benchTabs = ["all", ...Object.keys(NIGHT_CLASSES)].map((k) => {
+      const n = k === "all" ? bench.length : bench.filter((c) => nightClass(c) === k).length;
+      return `<button class="ex-rtab t1-tab ${k === nightRoleTab ? "active" : ""}" data-action="set-role-tab" data-where="night" data-role="${k}" title="${k === "all" ? "Everyone on the bench" : `${NIGHT_CLASSES[k].name}s on the bench`}">${k === "all" ? "All" : NIGHT_CLASSES[k].icon}<b>${n}</b></button>`;
     }).join("");
-    const aimHint = posting
-      ? `<div class="nw-aim-hint">${NIGHT_CLASSES[nightClass(posting)].icon} Pick a free square for ${esc(shortName(posting))} · <button class="btn btn-sm" data-action="night-cancel">Cancel</button></div>`
-      : anim.target
+    const benchTiles = bench.filter((c) => nightRoleTab === "all" || nightClass(c) === nightRoleTab).map((c) => rosterTile(state, c, {
+      off: morale < NIGHT_MORALE.post || b.phase === "done",
+      planned: reserve.includes(c.id),
+      note: reserve.includes(c.id) ? "In tonight's line-up — joins by themselves once there's the morale" : `Drag onto a free square to post them (${NIGHT_MORALE.post} morale)`,
+    })).join("");
+    const aimHint = anim.target
       ? `<div class="nw-aim-hint">${NIGHT_ACTIONS[anim.target].icon} ${{ molotov: "Pick a square to throw it at", patch: "Pick a hurt defender" }[anim.target]} · <button class="btn btn-sm" data-action="night-cancel">Cancel</button></div>`
       : "";
     controls = `${aimHint}
+      ${(() => {
+        // (what it's moved by since it was last drawn: a kill, a Rallier, something spent)
+        const delta = anim.shownMorale === undefined ? 0 : morale - anim.shownMorale;
+        anim.shownMorale = morale;
+        return moraleCard(morale, b?.rally ? `<span class="nw-rallied">🔔 Rallied (${b.rally})</span>` : "<span>kills +5 · Ralliers</span><span>spent on actions, posting</span>", { delta });
+      })()}
       <div class="mini-label">Night actions</div>
       <div class="nw-actions">${actions}</div>
-      <div class="mini-label">Bench — click one, then a free square</div>
-      <div class="nw-bench-list">${benchChips || '<span class="muted">Everyone who can fight is out there</span>'}</div>
+      <div class="mini-label">Bench — drag one onto a free square</div>
+      <div class="t1-tabs nw-tabs">${benchTabs}</div>
+      <div class="nw-roster">${benchTiles ? `<div class="ex-rt-grid">${benchTiles}</div>` : `<p class="muted nw-roster-empty">${nightRoleTab === "all" ? "Everyone who can fight is out there" : `No ${NIGHT_CLASSES[nightRoleTab].name}s left on the bench`}</p>`}</div>
       <div class="nw-battle-buttons">
         <button class="btn" data-action="toggle-pause">${anim.paused ? "▶ Resume" : "⏸ Pause"}</button>
         <button class="btn nw-speed" data-action="battle-speed" title="How fast the fight plays — click to change">⏩ ${anim.speed || 1}×</button>
@@ -2615,11 +2629,10 @@ function gridBattle(state, anim) {
     </div>`;
     anim.resultDrawn = true; // (it pops in once; redraws after that — saving someone — leave it be)
   }
-  const board = `<div class="nw-board nw-battle nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${ENTRANCE_ROWS};background-image:${courtyardBackground(size)}">
+  const board = `<div class="nw-board nw-battle nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${ENTRANCE_ROWS};--steps:${ENTRANCE_ZONES.steps};background-image:${courtyardBackground(size)}">
       <div class="nw-cells">${units}${fx}${aimCells}</div>
       ${result || (breakTime || !freshTurn ? "" : banner)}
       ${breakBanner}
-      <div class="nw-moralebar" title="Morale — earned by kills and Ralliers, spent posting students and on night actions">😊 <b>${anim.phase === "battle" && b ? Math.floor(b.morale) : frame.morale ?? 0}</b> morale${b?.rally ? ` · <span class="nw-rallied">🔔 Rallied (${b.rally})</span>` : ""}</div>
     </div>`;
   return { board, side };
 }
@@ -2967,6 +2980,28 @@ function renderTurn3Summary(state) {
 // (a finished job's student may have died since)
 const G_alive = (state, id) => state.characters.some((c) => c.id === id && c.alive);
 
+// The night's morale as a card in the side panel: a face for how much there is, the number, big, and
+// what else to know on the right. `delta` (the fight) flashes it green or red, a +n floating up.
+function moraleCard(value, side, { delta = 0, face = value, dot = "" } = {}) {
+  return `<div class="nw-morale-card ${delta > 0 ? "nw-morale-up" : delta < 0 ? "nw-morale-down" : ""}">
+    <span class="nw-morale-face">${moodIcon(face, 32)}</span>
+    <span class="nw-morale-main"><span class="nw-morale-label">Morale ${dot}</span><b class="nw-morale-num">${value}</b></span>
+    ${delta ? `<span class="nw-morale-delta">${delta > 0 ? "+" : ""}${delta}</span>` : ""}
+    <span class="nw-morale-side">${side}</span>
+  </div>`;
+}
+
+// A defender in the fight: standing, or — the turn they attack — their class's attack pose for a
+// moment (sprite.js POSES; the Brawler winds up, then swings), stacked over the standing figure and
+// timed by CSS (.nw-poses), so they're back on their feet before the next turn.
+const ATTACK_POSES = { brawler: ["brawlerA", "brawlerB"], shooter: ["shooter"], tank: ["tank"], trapper: ["trapper"], medic: ["medic"], rallier: ["rallier"] };
+function posedSprite(c, cls) {
+  const poses = ATTACK_POSES[cls];
+  if (!poses) return characterSprite(c, 40);
+  const [a, b] = poses.length > 1 ? poses : [null, poses[0]];
+  return `<span class="nw-poses nw-poses-${poses.length}"><span class="nw-pose-idle">${characterSprite(c, 40)}</span>${a ? `<span class="nw-pose-a">${characterSprite(c, 40, a)}</span>` : ""}<span class="nw-pose-b">${characterSprite(c, 40, b)}</span></span>`;
+}
+
 // A night action as a tile: its icon (big), name and cost — lit when there's the morale for it,
 // greyed out when there isn't. A button in the fight, a preview (a span) while planning.
 function actionTile(id, cost, ok, { tag = "span", attrs = "", on = false } = {}) {
@@ -3029,11 +3064,22 @@ function renderNightWatchScreen(state) {
       <aside class="nw-side">
         <div class="nw-side-head">
           <span class="nw-cond" ${weatherTip(condition)}>${condition.icon} ${condition.name}</span>
-          <h2>Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the board from the street, one square a turn", "Post defenders on the steps and the lawn — each class has its own job", "Build on the pavement: walls block a lane until smashed; traps (the road too) hurt whatever walks over", "A zombie past the top row gets into the school", "Hover a defender to see what they can reach", `Anyone who goes down can be saved with ${stabilizeCost(state)} medicine after the fight — without it they might not get back up`, "Ready to fight (bottom right) starts it — the fight plays out right here"] })}</h2>
+          <h2>Night Watch ${infoDot({ title: "🌙 Turn 3 — Night Watch", notes: ["The horde climbs the board from the street, one square a turn", "Post defenders on the steps and the grass — each class has its own job", "Build on the pavement: walls block a lane until smashed; traps hurt whatever walks over", "A zombie past the top row gets into the school", "Hover a defender to see what they can reach", `Anyone who goes down can be saved with ${stabilizeCost(state)} medicine after the fight — without it they might not get back up`, "Ready to fight (bottom right) starts it — the fight plays out right here"] })}</h2>
           <span class="ov-chip">${waves} wave${waves === 1 ? "" : "s"}</span>
         </div>
         <div class="nw-horde-head"><span class="mini-label">Tonight's horde · ${zombies}</span><span class="nw-head-btns"><button class="btn btn-sm nw-enemy-btn" data-action="open-defense-guide" title="What you can build on the pavement and the road">🛡 Defenses</button><button class="btn btn-sm nw-enemy-btn" data-action="open-enemy-guide" title="Every kind of zombie, and how to beat it">${pxe("zombie")} Know your enemy</button></span></div>
         <div class="nw-horde">${hordeRows}</div>
+        ${(() => {
+          // tonight's morale: what it starts at, what the line-up costs, who can't be paid for
+          const start = nightStartMorale(state);
+          const unpaid = nightPosting(state).filter((p) => !p.posted).length;
+          const how = {
+            title: "😊 Morale — the night's currency",
+            rows: [["Start", "the school's Morale"], ["Each kill", `+${NIGHT_MORALE.perKill}`], [`${NIGHT_CLASSES.rallier.icon} Ralliers`, `+${NIGHT_CLASSES.rallier.morale} every ${NIGHT_CLASSES.rallier.every} turns`], ["Posting a student", `−${NIGHT_MORALE.post}`]],
+            notes: ["Paid in the order they were placed — whoever's left over joins the fight once kills and Ralliers raise the morale", `At dawn the school gains +${NIGHT_MORALE.perStar} Morale for each of the night's stars`],
+          };
+          return moraleCard(moraleLeft(state), `<span><b>${start}</b> to start</span><span>−${start - moraleLeft(state)} posting</span>${unpaid ? `<span class="plot-warn">⏳ ${unpaid} wait</span>` : "<span>left for the fight</span>"}`, { face: start, dot: infoDot(how) });
+        })()}
         <div class="mini-label">Night actions — paid in morale during the fight</div>
         <div class="nw-actions">${Object.keys(NIGHT_ACTIONS).map((id) => actionTile(id, costs[id], moraleLeft(state) >= costs[id])).join("")}</div>
         ${nightRosterHead(state)}
@@ -3502,7 +3548,7 @@ export function renderPickerModal(state, picker, sortKey, sortDir, recMode = "lo
 }
 
 export function renderDefenseBuildModal(state, cellKey) {
-  // walls and traps on the pavement; only traps on the road
+  // walls and traps on the pavement
   const buildable = buildableDefenses(state).filter((d) => canBuildAt(cellKey, d));
   const locked = DEFENSE_STRUCTURES.filter((d) => d.upgradeOf && !buildableDefenses(state).includes(d) && canBuildAt(cellKey, d)).map((d) => {
     const tech = TECH_TREE.find((t) => t.id === d.tech);
@@ -3578,7 +3624,6 @@ function renderNightBoard(state) {
   const grid = state.entranceGrid;
   const size = grid.size;
   const third = ENTRANCE_ZONES.students;
-  const road = ENTRANCE_ROWS - 1;
   const comp = hordeComposition(state.day);
   const horde = ["walker", "runner", "brute", "spitter", "screamer"].flatMap((t) => Array(comp[t] || 0).fill(t));
   if (comp.boss) horde.push("boss");
@@ -3590,8 +3635,7 @@ function renderNightBoard(state) {
         <span class="nw-structure">${structureSprite(def.id, 84)}</span>${extra}
         <button class="cell-remove" data-action="clear-defense" data-cell="${key}" title="Demolish">✕</button>
       </div>`
-    : `<div class="nw-cell nw-mid nw-empty" ${at} data-action="open-defense-build" data-cell="${key}" title="${row0(key) === road ? "Lay a trap here" : "Build a wall or a trap here"}">${extra}<span class="nw-plus">+</span></div>`);
-  const row0 = (key) => Number(key.split(",")[0]);
+    : `<div class="nw-cell nw-mid nw-empty" ${at} data-action="open-defense-build" data-cell="${key}" title="Build a wall or a trap here">${extra}<span class="nw-plus">+</span></div>`);
   let cells = "";
   let ghost = 0;
   for (let row = 0; row < ENTRANCE_ROWS; row++) {
@@ -3608,12 +3652,14 @@ function renderNightBoard(state) {
               <button class="cell-remove" data-action="clear-entrance-student" data-cell="${key}" title="Take off watch">✕</button>
             </div>`
           : `<div class="nw-cell nw-top nw-empty" ${at} data-drop-cell="${key}" data-action="open-picker" data-kind="entrance-student" data-room="${key}" title="Post a defender here — or drag one in"><span class="nw-plus">+</span></div>`;
-      } else if (row < road) {
+      } else if (row < STREET_ROW0) {
         cells += defenseCell(key, at, def); // the pavement: walls and traps
       } else {
-        // the road: tonight's horde gathering in the mist — and room for a trap under them
+        // the road: no squares, nothing to build — just tonight's horde gathering in the mist, and
+        // a marker on the lanes the first of them come up
         const t = (row * size + col + state.day) % 3 !== 0 && ghost < horde.length ? horde[ghost++] : null;
-        cells += defenseCell(key, at, def, `${t ? `<span class="nw-ghost">${hordeSprite(t, 34)}</span>` : ""}${opening.includes(col) ? spawnMark : ""}`);
+        const mark = row === ENTRANCE_ROWS - 1 && opening.includes(col) ? spawnMark : "";
+        if (t || mark) cells += `<div class="nw-cell nw-road" style="--r:${row};--c:${col}">${t ? `<span class="nw-ghost">${hordeSprite(t, 34)}</span>` : ""}${mark}</div>`;
       }
     }
   }
@@ -3626,20 +3672,8 @@ function renderNightBoard(state) {
   const unarmedWarn = unarmed.length
     ? `<div class="nw-unarmed" ${tipAttr({ title: "⚠ No weapon", rows: unarmed.map((c) => { const C = NIGHT_CLASSES[nightClass(c)]; return [`${C.icon} ${esc(shortName(c))}`, C.weapon === "melee" ? "Fists" : "Rocks"]; }), notes: ["They fight with what they've got: fists, or rocks thrown down the lane", "Hand out weapons from their Inventory tab"] })}>⚠ ${unarmed.length} unarmed</div>`
     : "";
-  // tonight's morale, top middle: what it starts at, what the line-up costs, who can't be paid for
-  const posting = nightPosting(state);
-  const start = nightStartMorale(state);
-  const unpaid = posting.filter((p) => !p.posted).length;
-  const how = {
-    title: "😊 Morale — the night's currency",
-    rows: [["Start", "the school's Morale"], ["Each kill", `+${NIGHT_MORALE.perKill}`], [`${NIGHT_CLASSES.rallier.icon} Ralliers`, `+${NIGHT_CLASSES.rallier.morale} every ${NIGHT_CLASSES.rallier.every} turns`], ["Posting a student", `−${NIGHT_MORALE.post}`]],
-    notes: ["Paid in the order they were placed — whoever's left over joins the fight once kills and Ralliers raise the morale", `At dawn the school gains +${NIGHT_MORALE.perStar} Morale for each of the night's stars`],
-  };
-  const moraleBar = `<div class="nw-moralebar">😊 <b>${start}</b> to start · ${start - moraleLeft(state)} posting · <b>${moraleLeft(state)}</b> left${unpaid ? ` · <span class="plot-warn">⏳ ${unpaid} wait</span>` : ""} ${infoDot(how)}</div>`;
-  return `<div class="nw-board nw-cond-${nightCondition(state).id}" style="--size:${size};--rows:${ENTRANCE_ROWS};background-image:${courtyardBackground(size)}">
+  return `<div class="nw-board nw-cond-${nightCondition(state).id}" style="--size:${size};--rows:${ENTRANCE_ROWS};--steps:${ENTRANCE_ZONES.steps};background-image:${courtyardBackground(size)}">
     ${unarmedWarn}
-    ${moraleBar}
-    <span class="nw-stay">${stayToggle(state, "watch", "", { rows: [["On", "the same squares every night"], ["Off", "the steps clear after each night"]], notes: ["Anyone who can't stand watch (fallen, infected) leaves their square empty"] })}</span>
     <div class="nw-cells">${cells}</div>
   </div>`;
 }
@@ -3670,29 +3704,33 @@ function nightRosterHead(state) {
   };
   return `<div class="ex-roles-head"><span class="mini-label">Defenders ${infoDot(how)}</span></div><div class="t1-tabs nw-tabs">${tabs}</div>`;
 }
-// The same tiles as the City Map's role windows: portrait, name, class and its stat, HP and stamina;
-// those on watch wear the watch's blue. On watch first, then by class (STR … CHA), then the best at it.
-function nightRoster(state) {
+// A student's tile on the Night Watch — the planning roster and the fight's bench alike, the same as
+// the City Map's role windows: portrait, name, class and its stat, HP and stamina. Those on watch
+// wear the watch's blue; one the night can't pay for yet is greyed out (`off`: not draggable); one
+// waiting in tonight's line-up (`planned`) has a dashed outline. Drag to post, click for the card.
+const nightStat = (state, c) => effectiveGrade(state, c, NIGHT_CLASSES[nightClass(c)].subject);
+function rosterTile(state, c, { onWatch = false, off = false, planned = false, note = "" } = {}) {
   const pct = (v, max) => Math.max(0, Math.min(100, Math.round((v / max) * 100)));
-  const statOf = (c) => effectiveGrade(state, c, NIGHT_CLASSES[nightClass(c)].subject);
+  const C = NIGHT_CLASSES[nightClass(c)];
+  const eq = c.equipment || {};
+  return `<span class="ex-rt ${onWatch ? "ex-rt-onteam" : ""} ${off ? "ex-rt-off" : ""} ${planned ? "ex-rt-planned" : ""}" style="--team:#4fa3ff" ${off ? "" : `draggable="true" data-drag-student="${c.id}"`} data-action="open-card" data-id="${c.id}" ${tipAttr({
+    title: `${esc(c.name)} · ${C.icon} ${C.name}`,
+    rows: [[STAT_OF_SUBJECT[C.subject], `${nightStat(state, c)}`], ["❤ HP", `${c.hp}/${c.maxHp}`],
+      ...(C.weapon ? [["Weapon", C.weapon === "melee" ? esc(eq.meleeWeapon?.name || "Fists") : esc(eq.rangedWeapon?.name || "Rocks")]] : []), ...abilityRows(c)],
+    notes: [C.desc, ...abilityNotes(C), note, "Click for their card"].filter(Boolean),
+  })}>
+    <span class="ex-rt-sprite">${characterSprite(c, 40)}</span>
+    <span class="ex-rt-line"><span class="ex-rt-name">${esc(shortName(c))}</span><span class="ex-rt-power t1-lv">${C.icon} ${nightStat(state, c)}</span></span>
+    <span class="ex-rt-bar ex-rt-hp"><i style="width:${pct(c.hp, c.maxHp)}%"></i></span>
+    <span class="ex-rt-bar ex-rt-stam"><i style="width:${pct(c.stamina, c.maxStamina)}%"></i></span>
+  </span>`;
+}
+// The planning roster: on watch first, then by class (STR … CHA), then the best at it.
+function nightRoster(state) {
   return nightAvailable(state)
     .filter((c) => nightRoleTab === "all" || nightClass(c) === nightRoleTab)
-    .sort((a, b) => (b.defending - a.defending) || classOrder(a) - classOrder(b) || statOf(b) - statOf(a))
-    .map((c) => {
-      const C = NIGHT_CLASSES[nightClass(c)];
-      const eq = c.equipment || {};
-      return `<span class="ex-rt ${c.defending ? "ex-rt-onteam" : ""}" style="--team:#4fa3ff" draggable="true" data-drag-student="${c.id}" data-action="open-card" data-id="${c.id}" ${tipAttr({
-        title: `${esc(c.name)} · ${C.icon} ${C.name}`,
-        rows: [[STAT_OF_SUBJECT[C.subject], `${statOf(c)}`], ["❤ HP", `${c.hp}/${c.maxHp}`],
-          ...(C.weapon ? [["Weapon", C.weapon === "melee" ? esc(eq.meleeWeapon?.name || "Fists") : esc(eq.rangedWeapon?.name || "Rocks")]] : []), ...abilityRows(c)],
-        notes: [C.desc, ...abilityNotes(C), c.defending ? "On watch — drag them back here to take them off" : "Drag onto the board to post them", "Click for their card"],
-      })}>
-        <span class="ex-rt-sprite">${characterSprite(c, 40)}</span>
-        <span class="ex-rt-line"><span class="ex-rt-name">${esc(shortName(c))}</span><span class="ex-rt-power t1-lv">${C.icon} ${statOf(c)}</span></span>
-        <span class="ex-rt-bar ex-rt-hp"><i style="width:${pct(c.hp, c.maxHp)}%"></i></span>
-        <span class="ex-rt-bar ex-rt-stam"><i style="width:${pct(c.stamina, c.maxStamina)}%"></i></span>
-      </span>`;
-    })
+    .sort((a, b) => (b.defending - a.defending) || classOrder(a) - classOrder(b) || nightStat(state, b) - nightStat(state, a))
+    .map((c) => rosterTile(state, c, { onWatch: c.defending, note: c.defending ? "On watch — drag them back here to take them off" : "Drag onto the board to post them" }))
     .join("");
 }
 
@@ -4401,7 +4439,7 @@ export function renderDefenseGuideModal(state) {
   return `<div class="modal-overlay" data-action="close-defense-guide">
     <div class="char-card mission-card defense-guide" data-action="noop">
       <button class="cc-close" data-action="close-defense-guide" title="Close">✕</button>
-      <h3>🛡 Entrance Defenses ${infoDot({ notes: ["Click an empty square on the pavement to build a wall or a trap — traps can go on the road too", "Smashed walls are gone; damaged ones are patched by morning", "Fortification (the Crafting Room) makes walls sturdier and traps sharper: +1% a point"] })}</h3>
+      <h3>🛡 Entrance Defenses ${infoDot({ notes: ["Click an empty square on the pavement to build a wall or a trap", "Smashed walls are gone; damaged ones are patched by morning", "Fortification (the Crafting Room) makes walls sturdier and traps sharper: +1% a point"] })}</h3>
       <p class="room-tagline">Fortification ${state.fortification} · walls &amp; traps <b>+${Math.round((fortifyMult(state) - 1) * 100)}%</b></p>
       <div class="mini-label">What you can build</div>
       <div class="armory-list">${structures}</div>

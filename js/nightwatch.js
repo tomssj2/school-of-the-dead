@@ -1,24 +1,26 @@
 // The Night Watch board's art: the school's front at night, drawn in code as pixel art in the
 // campus colours (cream walls, blue trim, the red sign), then lit — moonlight everywhere, a warm
 // glow from the lit windows — and small pixel sprites for the defenses built on it. The board is
-// the entrance grid: the school's doors across the top, the front steps (rows 0-2),
-// the open lawn of the courtyard (rows 3-4), the pavement (row 5) and the road the horde comes up
-// (row 6). Nothing stands in the lanes but what's placed there.
+// the entrance grid: the school's doors across the top, the front steps, the lawn of the courtyard,
+// the pavement and the road the horde comes up (data.js ENTRANCE_ZONES). Nothing stands in the
+// lanes but what's placed there.
 
 import { shadowOf, lightOf, mix } from "./sprite.js";
-import { ENTRANCE_ROWS } from "./data.js";
+import { ENTRANCE_ROWS, ENTRANCE_ZONES, DEFENSE_ROW0, STREET_ROW0 } from "./data.js";
 
-// The art's bands, by row: the three front steps, the two rows of lawn, then the pavement and the
-// road (where students, walls and the horde go is data.js ENTRANCE_ZONES — the art doesn't move).
-const STEP_ROWS = 3;
-const LAWN_ROW0 = 3;
-const PAVEMENT_ROW = 5;
+// The art's bands, by row: the front steps, the lawn, the pavement and the road.
+const STEP_ROWS = ENTRANCE_ZONES.steps;
+const LAWN_ROW0 = STEP_ROWS;
+const PAVEMENT_ROW0 = DEFENSE_ROW0;
+const ROAD_ROW0 = STREET_ROW0;
 import { hash, hash2, buffer, lightUp } from "./lighting.js";
 
-// Art pixels: each square is CELL_W x CELL_H, under a facade FACADE_H tall.
+// Art pixels: each square is CELL_W x CELL_H, under a facade FACADE_H tall, with a MARGIN either
+// side of the squares for the stairs' side walls (the squares start and end at the handrails).
 export const CELL_W = 32;
 export const CELL_H = 20;
-export const FACADE_H = 36;
+export const FACADE_H = 26;
+export const MARGIN = 8;
 
 // 3x5 letters for the sign and the graffiti.
 const FONT = {
@@ -47,15 +49,16 @@ const BLOOD = "#7a1e1e";
 const LIT = ["#fff0b8", "#f8d888", "#f2c060", "#e6a848"];
 const GLASS_DARK = "#1a2340";
 
-// One classroom window on the facade: lit (curtains, someone's silhouette, a bloody handprint),
-// dark, broken or boarded up.
-function facadeWindow(p, x, y0, kind, lights) {
-  const y1 = y0 + 16;
+// One classroom window on the facade, `h` tall: lit (curtains, someone's silhouette, a bloody
+// handprint), dark, broken or boarded up.
+function facadeWindow(p, x, y0, kind, lights, h = 16) {
+  const y1 = y0 + h;
+  const at = (f) => y0 + Math.round(h * f); // a height inside it, as a share of it
   p.r(x - 1, y0 - 1, x + 14, y0 - 1, STONE_LT); // lintel
   p.r(x, y0, x + 13, y1, shadowOf(TRIM)); // frame
   const gx0 = x + 1, gx1 = x + 12, gy0 = y0 + 1, gy1 = y1 - 1;
   if (kind.startsWith("lit")) {
-    for (let y = gy0; y <= gy1; y++) p.r(gx0, y, gx1, y, LIT[Math.min(3, Math.floor((y - gy0) / 4))], 1);
+    for (let y = gy0; y <= gy1; y++) p.r(gx0, y, gx1, y, LIT[Math.min(3, Math.floor(((y - gy0) / (gy1 - gy0 + 1)) * 4))], 1);
     if (kind === "lit") {
       for (let y = gy0; y <= gy1; y++) {
         p.r(gx0, y, gx0 + 1, y, y % 2 ? "#d8805a" : "#c86a4a", 1); // curtains
@@ -63,35 +66,36 @@ function facadeWindow(p, x, y0, kind, lights) {
       }
     }
     if (kind === "litFigure") {
-      p.oval(x + 4, y0 + 9, 1.4, 1.5, "#2a1e1a", 1);
-      p.r(x + 2, y0 + 11, x + 6, gy1, "#2a1e1a", 1);
+      p.oval(x + 4, at(0.5), 1.4, 1.5, "#2a1e1a", 1);
+      p.r(x + 2, at(0.5) + 2, x + 6, gy1, "#2a1e1a", 1);
     }
     if (kind === "litHand") {
-      for (const [dx, dy] of [[9, 5], [10, 5], [9, 6], [10, 6], [8, 4], [9, 3], [10, 3], [11, 4], [10, 7], [10, 8], [9, 9]]) p.set(x + dx, y0 + dy, "#9a2424", 1);
+      for (const [dx, dy] of [[9, 2], [10, 2], [9, 3], [10, 3], [8, 1], [9, 0], [10, 0], [11, 1], [10, 4], [10, 5], [9, 6]]) p.set(x + dx, at(0.2) + dy, "#9a2424", 1);
     }
-    lights.push({ x: x + 7, y: y0 + 8, r: 17, k: 0.55, c: WARM });
+    lights.push({ x: x + 7, y: at(0.5), r: 17, k: 0.55, c: WARM });
   } else {
     p.r(gx0, gy0, gx1, gy1, GLASS_DARK, 1);
     for (let i = 0; i < 4; i++) p.set(gx0 + 1 + i, gy0 + 4 - i, "#3a4c7a", 1); // the moon on the glass
     p.set(gx1 - 2, gy0 + 1, "#6a80b8", 1);
     if (kind === "broken") {
-      for (let y = y0 + 7; y <= y0 + 13; y++) for (let xx = x + 7; xx <= x + 11; xx++) if (hash2(xx, y, 3) < 0.7 - Math.abs(y - y0 - 10) * 0.1) p.set(xx, y, "#070a14", 1);
-      for (const [dx, dy] of [[6, 8], [8, 6], [11, 7], [7, 13], [12, 12], [9, 14]]) p.set(x + dx, y0 + dy, "#8ea6d4", 1);
+      const cy = at(0.62);
+      for (let y = at(0.44); y <= y1 - 3; y++) for (let xx = x + 7; xx <= x + 11; xx++) if (hash2(xx, y, 3) < 0.7 - Math.abs(y - cy) * 0.1) p.set(xx, y, "#070a14", 1);
+      for (const [dx, f] of [[6, 0.5], [8, 0.38], [11, 0.44], [7, 0.8], [12, 0.75], [9, 0.88]]) p.set(x + dx, at(f), "#8ea6d4", 1);
     }
   }
   p.r(x + 6, gy0, x + 7, gy1, shadowOf(TRIM)); // mullions
-  p.r(gx0, y0 + 7, gx1, y0 + 7, shadowOf(TRIM));
+  p.r(gx0, at(0.45), gx1, at(0.45), shadowOf(TRIM));
   p.r(x, y0, x + 13, y0, TRIM);
   if (kind === "boarded") {
-    for (const py of [y0 + 3, y0 + 10]) {
+    for (const py of [at(0.18), at(0.62)]) {
       p.r(x - 1, py, x + 14, py + 2, "#9a6a3a");
       p.r(x - 1, py, x + 14, py, "#c08a50");
       p.r(x - 1, py + 2, x + 14, py + 2, "#5e3e22");
       for (const nx of [x, x + 13]) p.set(nx, py + 1, "#d0d4dc");
       for (let gx = x + 2; gx < x + 13; gx += 4) p.set(gx + (py % 3), py + 1, "#86592e");
     }
-    p.line(x, y0 + 14, x + 13, y0 + 1, "#8a5f33");
-    p.line(x + 1, y0 + 14, x + 13, y0 + 2, "#5e3e22");
+    p.line(x, y1 - 2, x + 13, y0 + 1, "#8a5f33");
+    p.line(x + 1, y1 - 2, x + 13, y0 + 2, "#5e3e22");
   }
   p.r(x - 1, y1 + 1, x + 14, y1 + 1, STONE_LT); // sill, its shadow, the stains under it
   p.r(x, y1 + 2, x + 13, y1 + 2, WALL_DK);
@@ -104,26 +108,17 @@ const cache = new Map();
 export function courtyardBackground(cols) {
   const key = `yard${cols}`;
   if (cache.has(key)) return cache.get(key);
-  const W = cols * CELL_W;
+  const W = cols * CELL_W + 2 * MARGIN;
   const H = FACADE_H + ENTRANCE_ROWS * CELL_H;
   const rowY = (row) => FACADE_H + row * CELL_H;
   const mid = Math.round(W / 2);
   const p = buffer(W, H);
   const lights = [];
 
-  // ===== the school's front =====
-  // the sky over the roof, a crescent moon
-  p.r(0, 0, W - 1, 3, "#141c3c", 1);
-  for (let i = 0; i < 9; i++) p.set(Math.floor(hash(i, 40) * W), Math.floor(hash(i, 41) * 4), i % 3 ? "#8a98d0" : "#dce4ff", 1);
-  p.oval(W - 20, 1.5, 2, 2, "#e8ecff", 1);
-  p.oval(W - 19, 1, 2, 2, "#141c3c", 1);
-  // the wings: cream walls under a blue cornice with dentils
-  p.r(0, 4, W - 1, 30, WALL);
-  for (let i = 0; i < W * 2; i++) p.set(Math.floor(hash(i, 42) * W), 8 + Math.floor(hash(i, 43) * 23), mix(WALL, "#c8bfa8", 0.5));
-  p.r(0, 4, W - 1, 4, lightOf(TRIM));
-  p.r(0, 5, W - 1, 6, TRIM);
-  for (let x = 1; x < W; x += 3) p.set(x, 6, shadowOf(TRIM));
-  p.r(0, 7, W - 1, 7, WALL_DK);
+  // ===== the school's front (no roofline: the wall runs off the top of the board) =====
+  // the wings: cream walls
+  p.r(0, 0, W - 1, 21, WALL);
+  for (let i = 0; i < W * 2; i++) p.set(Math.floor(hash(i, 42) * W), Math.floor(hash(i, 43) * 22), mix(WALL, "#c8bfa8", 0.5));
   // classroom windows, three a wing, pilasters between them
   const cb0 = mid - 28;
   const cb1 = mid + 27;
@@ -135,83 +130,79 @@ export function courtyardBackground(cols) {
     const xs = Array.from({ length: n }, (_, i) => a + Math.round(i * step + (step - 14) / 2));
     xs.slice(1).forEach((x, i) => {
       const px = Math.round((xs[i] + 14 + x) / 2) - 1;
-      p.r(px, 8, px + 2, 30, WALL_LT);
-      p.r(px + 2, 8, px + 2, 30, mix(WALL, WALL_DK, 0.6));
+      p.r(px, 0, px + 2, 21, WALL_LT);
+      p.r(px + 2, 0, px + 2, 21, mix(WALL, WALL_DK, 0.6));
     });
-    xs.forEach((x, i) => facadeWindow(p, x, 10, kinds[i % kinds.length], lights));
+    xs.forEach((x, i) => facadeWindow(p, x, 3, kinds[i % kinds.length], lights, 14));
   }
   // corner quoins
-  for (let y = 8; y <= 30; y += 4) {
+  for (let y = 1; y <= 19; y += 4) {
     p.r(0, y, 2, y + 1, STONE_LT);
     p.r(W - 3, y, W - 1, y + 1, STONE_LT);
   }
-  // the entrance block in the middle: taller, a lighter wall, its own cornice
-  p.r(cb0, 0, cb1, 30, WALL_LT);
-  p.r(cb0, 0, cb1, 0, lightOf(TRIM));
-  p.r(cb0, 1, cb1, 2, TRIM);
-  for (let x = cb0 + 1; x < cb1; x += 3) p.set(x, 2, shadowOf(TRIM));
-  p.r(cb0, 3, cb1, 3, mix(WALL_LT, WALL_DK, 0.6));
-  p.r(cb0, 4, cb0 + 2, 30, "#fbf8f0");
-  p.r(cb1 - 2, 4, cb1, 30, mix(WALL_LT, WALL_DK, 0.45));
-  p.r(cb1 + 1, 7, cb1 + 2, 30, WALL_DK); // its shadow on the right wing
-  // the red sign
-  p.r(mid - 14, 9, mid + 14, 15, "#8a2a2a");
-  p.r(mid - 13, 10, mid + 13, 14, "#d64545");
-  p.r(mid - 13, 10, mid + 13, 10, lightOf("#d64545"));
-  text(p, "SCHOOL", mid - 11, 10, WALL_LT);
-  for (const [x, y] of [[mid - 13, 10], [mid + 13, 10], [mid - 13, 14], [mid + 13, 14]]) p.set(x, y, "#f4d35e");
-  // the doors — the gate: steel double doors in a dark frame, a lit transom, chained shut
+  // the entrance block in the middle: a lighter wall, lit on its left edge, its shadow on the right
+  p.r(cb0, 0, cb1, 21, WALL_LT);
+  p.r(cb0, 0, cb0 + 2, 21, "#fbf8f0");
+  p.r(cb1 - 2, 0, cb1, 21, mix(WALL_LT, WALL_DK, 0.45));
+  p.r(cb1 + 1, 0, cb1 + 2, 21, WALL_DK);
+  // the red sign over the doors
+  p.r(mid - 14, 0, mid + 14, 6, "#8a2a2a");
+  p.r(mid - 13, 1, mid + 13, 5, "#d64545");
+  p.r(mid - 13, 1, mid + 13, 1, lightOf("#d64545"));
+  text(p, "SCHOOL", mid - 11, 1, WALL_LT);
+  for (const [x, y] of [[mid - 13, 1], [mid + 13, 1], [mid - 13, 5], [mid + 13, 5]]) p.set(x, y, "#f4d35e");
+  // the doors: steel double doors in a dark frame, a lit transom, chained shut
   const d0 = mid - 17;
   const d1 = mid + 16;
-  p.r(d0, 17, d1, 35, "#2c3444");
-  p.r(d0, 17, d0, 35, "#3e4a60");
-  p.r(d0 + 2, 18, d1 - 2, 20, LIT[1], 1);
-  p.r(d0 + 2, 18, d1 - 2, 18, LIT[0], 1);
-  for (let x = d0 + 7; x < d1 - 2; x += 6) p.r(x, 18, x, 20, "#2c3444");
+  p.r(d0, 8, d1, 25, "#2c3444");
+  p.r(d0, 8, d0, 25, "#3e4a60");
+  p.r(d0 + 2, 9, d1 - 2, 10, LIT[1], 1);
+  p.r(d0 + 2, 9, d1 - 2, 9, LIT[0], 1);
+  for (let x = d0 + 7; x < d1 - 2; x += 6) p.r(x, 9, x, 10, "#2c3444");
   for (const [l0, l1] of [[d0 + 2, mid - 1], [mid, d1 - 2]]) {
-    p.r(l0, 21, l1, 35, "#5a7fa0");
-    p.r(l0, 21, l1, 21, "#7a9fc0");
-    p.r(l0 + 1, 22, l0 + 1, 34, "#6a8fb0");
+    p.r(l0, 11, l1, 25, "#5a7fa0");
+    p.r(l0, 11, l1, 11, "#7a9fc0");
+    p.r(l0 + 1, 12, l0 + 1, 24, "#6a8fb0");
+    p.r(l0 + 2, 13, l1 - 2, 13, "#46688a");
     p.r(l0 + 2, 23, l1 - 2, 23, "#46688a");
-    p.r(l0 + 2, 33, l1 - 2, 33, "#46688a");
-    p.r(l0 + 2, 23, l0 + 2, 33, "#46688a");
-    p.r(l1 - 2, 23, l1 - 2, 33, "#46688a");
-    p.r(l0 + 1, 29, l1 - 1, 29, "#c8d0dc"); // push bar
-    p.r(l0 + 1, 30, l1 - 1, 30, "#3f5f7f");
-    p.r(l0, 34, l1, 34, "#8aa0b8"); // kick plate
+    p.r(l0 + 2, 13, l0 + 2, 23, "#46688a");
+    p.r(l1 - 2, 13, l1 - 2, 23, "#46688a");
+    p.r(l0 + 1, 19, l1 - 1, 19, "#c8d0dc"); // push bar
+    p.r(l0 + 1, 20, l1 - 1, 20, "#3f5f7f");
+    p.r(l0, 24, l1, 24, "#8aa0b8"); // kick plate
   }
   for (const wx of [d0 + 5, d1 - 7]) {
-    p.r(wx, 24, wx + 2, 27, LIT[2], 1);
-    p.r(wx, 24, wx + 2, 24, LIT[0], 1);
-    p.set(wx + 1, 26, LIT[3], 1);
+    p.r(wx, 14, wx + 2, 17, LIT[2], 1);
+    p.r(wx, 14, wx + 2, 14, LIT[0], 1);
+    p.set(wx + 1, 16, LIT[3], 1);
   }
-  p.r(mid - 1, 21, mid, 35, "#22303f"); // the seam
-  for (let x = mid - 9; x <= mid + 8; x++) p.set(x, 27 + (Math.abs(x - mid + 0.5) < 6 ? 1 : 0), x % 2 ? "#9aa0a8" : "#6a7078"); // the chain
-  p.r(mid - 2, 29, mid + 1, 31, "#d8b040");
-  p.r(mid - 2, 29, mid + 1, 29, "#f4d35e");
-  p.set(mid - 1, 30, "#7a5a1a");
-  for (let i = 0; i < 3; i++) p.line(d0 + 4 + i * 2, 33, d0 + 7 + i * 2, 30, "#2e4058"); // claw marks
-  for (const [x, y] of [[d1 - 5, 30], [d1 - 4, 31], [d1 - 5, 32], [d1 - 4, 33], [d1 - 6, 31], [d1 - 4, 34]]) p.set(x, y, BLOOD);
+  p.r(mid - 1, 11, mid, 25, "#22303f"); // the seam
+  for (let x = mid - 9; x <= mid + 8; x++) p.set(x, 17 + (Math.abs(x - mid + 0.5) < 6 ? 1 : 0), x % 2 ? "#9aa0a8" : "#6a7078"); // the chain
+  p.r(mid - 2, 19, mid + 1, 21, "#d8b040");
+  p.r(mid - 2, 19, mid + 1, 19, "#f4d35e");
+  p.set(mid - 1, 20, "#7a5a1a");
+  for (let i = 0; i < 3; i++) p.line(d0 + 4 + i * 2, 23, d0 + 7 + i * 2, 20, "#2e4058"); // claw marks
+  for (const [x, y] of [[d1 - 5, 20], [d1 - 4, 21], [d1 - 5, 22], [d1 - 4, 23], [d1 - 6, 21], [d1 - 4, 24]]) p.set(x, y, BLOOD);
   // ivy up the corners
-  for (let y = 9; y <= 35; y++) {
-    const reach = Math.round(((y - 9) / 26) * 7);
+  for (let y = 2; y <= 25; y++) {
+    const reach = Math.round(((y - 2) / 23) * 7);
     for (let x = 0; x <= reach; x++) if (hash2(x, y, 44) < 0.5) p.set(x, y, hash2(x, y, 45) < 0.3 ? "#5a9a54" : "#3f7a42");
-    const reachR = Math.round(((y - 18) / 17) * 4);
+    const reachR = Math.round(((y - 9) / 16) * 4);
     for (let x = 0; x <= reachR; x++) if (hash2(x, y, 46) < 0.45) p.set(W - 1 - x, y, hash2(x, y, 47) < 0.3 ? "#5a9a54" : "#3f7a42");
   }
   // the plinth, some graffiti, a bloody hand dragged down the wall
-  p.r(0, 31, d0 - 1, 35, "#b0a894");
-  p.r(d1 + 1, 31, W - 1, 35, "#b0a894");
-  p.r(0, 31, d0 - 1, 31, "#cfc7b4");
-  p.r(d1 + 1, 31, W - 1, 31, "#cfc7b4");
-  for (let x = 6; x < W; x += 14) if (x < d0 || x > d1) p.r(x, 32, x, 35, "#8e8676");
-  p.r(0, 35, d0 - 1, 35, "#8e8676");
-  p.r(d1 + 1, 35, W - 1, 35, "#8e8676");
-  p.r(d0, 35, d1, 35, STONE_LT); // threshold
-  text(p, "HELP", 28, 31, "#c23838");
+  p.r(0, 22, d0 - 1, 25, "#b0a894");
+  p.r(d1 + 1, 22, W - 1, 25, "#b0a894");
+  p.r(0, 22, d0 - 1, 22, "#cfc7b4");
+  p.r(d1 + 1, 22, W - 1, 22, "#cfc7b4");
+  for (let x = 6; x < W; x += 14) if (x < d0 || x > d1) p.r(x, 23, x, 25, "#8e8676");
+  p.r(0, 25, d0 - 1, 25, "#8e8676");
+  p.r(d1 + 1, 25, W - 1, 25, "#8e8676");
+  p.r(d0, 25, d1, 25, STONE_LT); // threshold
+  text(p, "HELP", 28 + MARGIN, 21, "#c23838");
   const hx = W - 46;
-  for (const [dx, dy] of [[0, 21], [1, 21], [0, 22], [1, 22], [-1, 20], [0, 19], [1, 19], [2, 20]]) p.set(hx + dx, dy, BLOOD);
-  for (let y = 23; y <= 30; y++) if (hash(y, 48) < 0.8) p.r(hx, y, hx + (y < 27 ? 1 : 0), y, BLOOD);
+  for (const [dx, dy] of [[0, 10], [1, 10], [0, 11], [1, 11], [-1, 9], [0, 8], [1, 8], [2, 9]]) p.set(hx + dx, dy, BLOOD);
+  for (let y = 12; y <= 19; y++) if (hash(y, 48) < 0.8) p.r(hx, y, hx + (y < 15 ? 1 : 0), y, BLOOD);
 
   // ===== the front steps: one stone step a row, lit along the nosing, a shadowed riser =====
   const stepsEnd = rowY(STEP_ROWS) - 1;
@@ -271,7 +262,7 @@ export function courtyardBackground(cols) {
   // ===== the courtyard: open lawn and the paved path, down to a stone edging at the pavement =====
   // Nothing stands in the lanes — students hold this ground now, and the horde walks across it.
   const yardTop = rowY(LAWN_ROW0);
-  const yardEnd = rowY(PAVEMENT_ROW); // the edging, where the lawn meets the pavement
+  const yardEnd = rowY(PAVEMENT_ROW0); // the edging, where the lawn meets the pavement
   for (let x = 0; x < W; x++) p.r(x, yardTop, x, yardEnd - 1, (x >> 3) & 1 ? "#5a9653" : "#4f8a4a");
   for (let i = 0; i < W * 2.2; i++) {
     const x = Math.floor(hash(i, 60) * W);
@@ -294,54 +285,141 @@ export function courtyardBackground(cols) {
     p.r(a, yardTop, b, yardTop + 1, "#5e4632");
     for (let x = a; x <= b; x += 2) if (hash(x, 66) < 0.7) p.set(x, yardTop + (x % 4 ? 0 : 1), ["#e98fb0", "#f4d35e", "#8a5ad6", "#f4f4f4"][Math.floor(hash(x, 67) * 4)]);
   }
+  // bushes down both sides of the lawn, past the rails' line
+  for (const side of [0, 1]) {
+    for (let i = 0; i < 5; i++) {
+      const cx = side ? W - 4 - Math.round(hash(i, 130 + side) * 3) : 3 + Math.round(hash(i, 130 + side) * 3);
+      const cy = yardTop + 3 + i * 8 + Math.round(hash(i, 132 + side) * 3);
+      const rx = 6 + Math.round(hash(i, 134 + side) * 2);
+      p.oval(cx, cy + 1, rx, 5, "#24482a");
+      p.oval(cx, cy, rx - 1, 4.5, "#2f5e34");
+      for (let k = 0; k < 18; k++) {
+        const x = cx - rx + Math.floor(hash2(i * 31 + k, side, 135) * rx * 2);
+        const y = cy - 4 + Math.floor(hash2(i * 17 + k, side, 136) * 7);
+        if (((x - cx) / rx) ** 2 + ((y - cy) / 4.5) ** 2 <= 1) p.set(x, y, hash2(x, y, 137) < 0.45 ? "#3f7a42" : y < cy - 1 ? "#5a9a54" : "#356b3a");
+      }
+      if (hash(i, 138 + side) < 0.5) p.set(cx + (side ? -2 : 2), cy - 2, ["#e98fb0", "#f4f4f4", "#c83a3a"][i % 3]); // a flower or a berry
+    }
+  }
   // the stone edging
   p.r(0, yardEnd, W - 1, yardEnd + 1, "#b8ae96");
   p.r(0, yardEnd, W - 1, yardEnd, STONE_LT);
   for (let x = 4; x < W; x += 10) p.set(x, yardEnd + 1, "#968c76");
 
-  // ===== the street: sidewalk, kerb, the road the horde comes up =====
-  const streetTop = rowY(PAVEMENT_ROW) + 2;
-  const kerbY = streetTop + 12;
-  p.r(0, streetTop, W - 1, kerbY - 1, "#a29e94");
-  for (let i = 0; i < W * 1.5; i++) p.set(Math.floor(hash(i, 72) * W), streetTop + Math.floor(hash(i, 73) * 12), hash(i, 74) < 0.5 ? "#98948a" : "#aeaaa0");
-  for (let x = 6; x < W; x += 12) p.r(x, streetTop, x, kerbY - 1, "#8a867c");
-  p.r(0, streetTop + 6, W - 1, streetTop + 6, "#8a867c");
-  for (let x = 6; x < W; x += 12) if (hash(x, 75) < 0.4) p.r(x, streetTop + 4, x, streetTop + 5, "#5a8a4a");
-  for (let y = streetTop; y < streetTop + 5; y++) for (let x = pa; x <= pb; x++) if (hash2(x, y, 76) < 0.03) p.set(x, y, "#d9d2c0");
-  p.r(0, kerbY, W - 1, kerbY, "#cdc9bf");
-  p.r(0, kerbY + 1, W - 1, kerbY + 1, "#9a968c");
-  p.r(0, kerbY + 2, W - 1, kerbY + 2, "#2a2d34");
-  const roadTop = kerbY + 3;
+  // ===== the pavement: square slabs on the board's grid (two a square each way), a kerb =====
+  const sideTop = yardEnd + 2;
+  const kerbY = rowY(ROAD_ROW0) - 3;
+  const slabRows = [sideTop];
+  for (let row = PAVEMENT_ROW0; row < ROAD_ROW0; row++) slabRows.push(rowY(row) + 10, rowY(row + 1));
+  slabRows[slabRows.length - 1] = kerbY; // (the last one ends at the kerb)
+  for (let r = 0; r + 1 < slabRows.length; r++) {
+    const y0 = r === 0 ? sideTop : slabRows[r] + 1;
+    const y1 = slabRows[r + 1] - 1;
+    for (let x0 = (MARGIN % 16) - 16; x0 < W; x0 += 16) { // (on the squares' grid)
+      const tone = ["#a6a298", "#a29e94", "#9c988e", "#aaa69c"][Math.floor(hash2(x0, r, 100) * 4)];
+      p.r(x0, y0, x0 + 15, y1, tone);
+      for (let i = 0; i < 18; i++) p.set(x0 + Math.floor(hash2(i, x0 + r * 97, 101) * 16), y0 + Math.floor(hash2(i, x0 + r * 89, 102) * (y1 - y0 + 1)), hash(i + x0, 103 + r) < 0.5 ? "#929086" : "#b2aea4");
+      p.r(x0, y0, x0 + 15, y0, mix(tone, "#ffffff", 0.12)); // a lit top edge
+      p.r(x0 + 15, y0, x0 + 15, y1, "#86827a"); // the joint
+      if (hash2(x0, r, 104) < 0.18) { // a crack across it
+        let cx = x0 + 3 + Math.floor(hash2(x0, r, 105) * 10);
+        for (let y = y0 + 1; y < y1; y++) {
+          p.set(cx, y, "#77736b");
+          cx += hash2(cx, y, 106) < 0.5 ? -1 : 1;
+          cx = Math.max(x0 + 1, Math.min(x0 + 14, cx));
+        }
+      }
+      if (hash2(x0, r, 107) < 0.3) for (let y = y0; y <= Math.min(y1, y0 + 2); y++) p.set(x0 + 15, y, "#5a8a4a"); // weeds in the joint
+    }
+    if (r > 0) p.r(0, y0 - 1, W - 1, y0 - 1, "#86827a");
+  }
+  // a chalk hopscotch someone drew before it all went wrong
+  const hop = W - 58;
+  const chalk = (x0, y0, x1, y1) => {
+    for (let x = x0; x <= x1; x++) for (const y of [y0, y1]) if (hash2(x, y, 108) < 0.8) p.set(x, y, "#d8d2e6");
+    for (let y = y0; y <= y1; y++) for (const x of [x0, x1]) if (hash2(x, y, 109) < 0.8) p.set(x, y, "#d8d2e6");
+  };
+  const hy = sideTop + 3;
+  chalk(hop, hy, hop + 7, hy + 6);
+  chalk(hop - 4, hy + 6, hop + 3, hy + 12);
+  chalk(hop + 3, hy + 6, hop + 11, hy + 12);
+  chalk(hop, hy + 12, hop + 7, hy + 18);
+  for (const [dx, dy] of [[3, 2], [3, 3], [3, 4], [0, 8], [1, 9], [7, 8], [8, 9], [3, 14], [4, 15]]) p.set(hop + dx, hy + dy, "#e6a8c8"); // the numbers, smudged
+  // tactile paving where the path meets the crossing
+  for (let y = kerbY - 5; y < kerbY; y++) for (let x = pa; x <= pb; x++) p.set(x, y, (x + y) % 3 ? "#c8a838" : "#e4c458");
+  // fallen leaves, a dropped schoolbag's papers, the blood trail carrying on
+  for (let i = 0; i < 22; i++) {
+    const x = Math.floor(hash(i, 110) * (W - 2));
+    const y = sideTop + Math.floor(hash(i, 111) * (kerbY - sideTop - 2));
+    const c = ["#b8642a", "#c88a30", "#8a4a22", "#a8743a"][i % 4];
+    p.set(x, y, c);
+    p.set(x + 1, y + (i % 2), c);
+  }
+  for (const [x, y] of [[34, sideTop + 9], [40, sideTop + 21]]) {
+    p.r(x, y, x + 3, y + 2, "#e8e4d8");
+    p.r(x + 1, y + 1, x + 2, y + 1, "#9aa8c0");
+  }
+  for (let y = sideTop; y < kerbY; y++) if (hash(y, 112) < 0.4) p.set(mid - 3 + Math.round(Math.sin(y / 6) * 2), y, BLOOD);
+  // the kerb, a storm drain in it
+  p.r(0, kerbY, W - 1, kerbY, "#d2cec4");
+  p.r(0, kerbY + 1, W - 1, kerbY + 1, "#a8a49a");
+  p.r(0, kerbY + 2, W - 1, kerbY + 2, "#26292f");
+  for (let x = 10; x < W; x += 16) p.set(x, kerbY + 1, "#8e8a80");
+  p.r(20, kerbY, 33, kerbY + 2, "#16181d");
+  for (let x = 21; x < 33; x += 2) p.r(x, kerbY, x, kerbY + 1, "#5a5e66");
+
+  // ===== the road: two lanes, the crossing from the school path, SCHOOL painted on it =====
+  const roadTop = rowY(ROAD_ROW0);
+  const roadH = H - roadTop;
   p.r(0, roadTop, W - 1, H - 1, "#434750");
-  for (let i = 0; i < W * 2.5; i++) p.set(Math.floor(hash(i, 77) * W), roadTop + Math.floor(hash(i, 78) * (H - roadTop)), hash(i, 79) < 0.5 ? "#4c505a" : "#3a3e46");
-  for (const [x, y, w, h] of [[W * 0.3, roadTop + 4, 12, 5], [W * 0.62, roadTop + 13, 9, 4]]) p.r(x, y, x + w, y + h, "#3e424a");
-  for (let c = 0; c < 4; c++) {
-    let cx = Math.floor(hash(c, 80) * W);
-    for (let cy = roadTop + 1 + c * 3; cy < H; cy++) {
-      if (hash2(cx, cy, 81) < 0.25) break;
+  for (let i = 0; i < W * 4; i++) p.set(Math.floor(hash(i, 113) * W), roadTop + Math.floor(hash(i, 114) * (H - roadTop)), hash(i, 115) < 0.5 ? "#4c505a" : "#3a3e46");
+  p.r(0, roadTop, W - 1, roadTop + 1, "#3a3d45"); // the gutter
+  // patched tarmac, potholes, cracks
+  for (const [x, y, w, h] of [[W * 0.18, roadTop + 6, 14, 7], [W * 0.7, roadTop + roadH - 9, 11, 6]]) p.r(Math.round(x), y, Math.round(x) + w, y + h, "#3d4048");
+  for (const [x, y] of [[W - 8, roadTop + roadH - 5], [W * 0.28, roadTop + 9]]) {
+    p.oval(Math.round(x), y, 3.5, 1.6, "#26282e");
+    p.r(Math.round(x) - 2, y - 1, Math.round(x) + 2, y - 1, "#2e3036");
+  }
+  for (let c = 0; c < 5; c++) {
+    let cx = Math.floor(hash(c, 116) * W);
+    for (let cy = roadTop + 2 + c * 6; cy < H; cy++) {
+      if (hash2(cx, cy, 117) < 0.2) break;
       p.set(cx, cy, "#2a2d33");
-      cx += hash2(cx, cy, 82) < 0.5 ? -1 : 1;
+      cx += hash2(cx, cy, 118) < 0.5 ? -1 : 1;
     }
   }
-  const roadMid = Math.round((roadTop + H - 1) / 2);
-  for (let x = 0; x < W; x++) if ((x + 4) % 20 < 10 && (x < pa - 2 || x > pb + 2)) p.r(x, roadMid, x, roadMid + 1, "#d8b040");
-  for (let x = pa + 1; x <= pb; x++) if ((x - pa - 1) % 6 < 4) for (let y = roadTop + 1; y < H; y++) if (hash2(x, y, 83) > 0.12) p.set(x, y, "#dcdcd4");
-  // a storm drain, a manhole, puddles, litter
-  p.r(22, kerbY + 1, 31, kerbY + 2, "#1a1c22");
-  for (let x = 23; x < 31; x += 2) p.set(x, kerbY + 1, "#5a5e66");
-  p.oval(62, H - 6, 5, 2.4, "#3a3d44");
-  p.oval(62, H - 6, 3, 1.2, "#4a4e56");
-  p.r(59, H - 6, 65, H - 6, "#33363d");
-  p.oval(36, H - 4, 7, 1.8, "#1e2a48", 1);
-  p.r(32, H - 5, 34, H - 5, "#4a5e8e", 1);
-  p.oval(52, roadTop + 4, 6, 1.8, "#1e2a48", 1);
-  p.r(50, roadTop + 4, 52, roadTop + 4, "#4a5e8e", 1);
-  for (let i = 0; i < 10; i++) {
-    const x = Math.floor(hash(i, 84) * W);
-    const y = streetTop + 2 + Math.floor(hash(i, 85) * (H - streetTop - 4));
-    p.r(x, y, x + 1, y, i % 3 ? "#d8d8d0" : "#3a2a20");
+  // the lane line between the road's rows (if it has two), broken by the crossing
+  const laneY = rowY(ROAD_ROW0 + 1);
+  if (laneY < H) for (let x = 0; x < W; x++) if ((x + 3) % 16 < 9 && (x < pa - 3 || x > pb + 3) && hash2(x, laneY, 119) > 0.1) p.r(x, laneY - 1, x, laneY, "#d8c060");
+  // the zebra crossing
+  for (let x = pa + 1; x <= pb; x++) if ((x - pa - 1) % 7 < 4) for (let y = roadTop + 3; y < H; y++) if (hash2(x, y, 120) > 0.05) p.set(x, y, hash2(x, y, 126) < 0.12 ? "#b8b8b0" : "#d4d4cc");
+  // SCHOOL in faded paint on the near lane
+  const sx = pb + 14;
+  [..."SCHOOL"].forEach((ch, i) => FONT[ch].forEach((row, dy) => [...row].forEach((b, dx) => {
+    if (b !== "1") return;
+    for (let yy = 0; yy < 2; yy++) for (let xx = 0; xx < 2; xx++) if (hash2(sx + i * 8 + dx * 2 + xx, dy * 2 + yy, 121) > 0.22) p.set(sx + i * 8 + dx * 2 + xx, roadTop + 5 + dy * 2 + yy, "#b8b4a8");
+  })));
+  // skid marks, a manhole, puddles catching the moon, glass and litter
+  for (let x = 8; x < 62; x++) {
+    const y = roadTop + 12 + Math.round(Math.sin(x / 14) * 3);
+    if (hash2(x, y, 122) < 0.8) { p.set(x, y, "#2c2f35"); p.set(x, y + 4, "#2c2f35"); }
   }
-  for (let y = streetTop; y < H; y++) if (hash(y, 86) < 0.45) p.set(mid - 2 + Math.round(Math.sin(y / 5) * 1.5), y, "#6a1818");
+  const mh = pa - 12; // the manhole, left of the crossing
+  p.oval(mh, H - 9, 5, 2.4, "#373a41");
+  p.oval(mh, H - 9, 3.4, 1.3, "#4a4e56");
+  p.r(mh - 4, H - 9, mh + 4, H - 9, "#30333a");
+  for (const [x, y, rx] of [[30, H - 5, 7], [W * 0.56, roadTop + 7, 6]]) {
+    p.oval(Math.round(x), y, rx, 1.8, "#1e2a48", 1);
+    p.r(Math.round(x) - 3, y, Math.round(x) - 1, y, "#5a70a8", 1);
+    p.set(Math.round(x) + 2, y - 1, "#8ea6d4", 1);
+  }
+  for (let i = 0; i < 14; i++) {
+    const x = Math.floor(hash(i, 123) * W);
+    const y = roadTop + 3 + Math.floor(hash(i, 124) * (H - roadTop - 5));
+    if (i % 3 === 0) p.set(x, y, "#a8c8e8", 1); // a glint of broken glass
+    else p.r(x, y, x + 1, y, i % 2 ? "#d8d8d0" : "#3a2a20");
+  }
+  for (let y = roadTop; y < H; y++) if (hash(y, 125) < 0.45) p.set(mid - 2 + Math.round(Math.sin(y / 5) * 1.5), y, "#6a1818");
   const url = `url('${lightUp(p, lights)}')`;
   cache.set(key, url);
   return url;

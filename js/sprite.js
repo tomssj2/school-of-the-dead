@@ -554,6 +554,142 @@ function appearance(c) {
   };
 }
 
+// ----- attack poses (the Night Watch): each class's attack, drawn over the standing figure -----
+// A pose redraws the arms (`back`: before the head, so a raised bat or net sits behind it; `front`:
+// over everything) and adds the class's prop. The grid's x 6-8 is the figure's right arm (on the
+// viewer's left), x 23-25 its left.
+
+function noArm(g, side) {
+  if (side !== "R") g.rect(6, 22, 8, 30, null);
+  if (side !== "L") g.rect(23, 22, 25, 30, null);
+}
+// An arm raised straight up beside the head, the hand at the top (side "L" = the viewer's left).
+function raisedArm(g, side) {
+  const xs = side === "L" ? [4, 5, 6] : [25, 26, 27];
+  for (const x of xs) {
+    g.rect(x, 12, x, 21, "l");
+    g.rect(x, 10, x, 11, "s");
+  }
+  g.rect(side === "L" ? 7 : 24, 21, side === "L" ? 8 : 24, 22, "l"); // the shoulder
+}
+// An arm from its shoulder down to a hand at (hx, hy), 3 wide.
+function armTo(g, side, hx, hy) {
+  const [sx, sy] = side === "L" ? [7, 22] : [24, 22];
+  const n = Math.max(Math.abs(hx - sx), Math.abs(hy - sy), 1);
+  for (let i = 0; i <= n; i++) {
+    const x = Math.round(sx + ((hx - sx) * i) / n);
+    const y = Math.round(sy + ((hy - sy) * i) / n);
+    if (i >= n - 1) g.rect(x - 1, y - 1, x + 1, y + 1, "s");
+    else {
+      g.rect(x - 1, y - 1, x + 1, y, "l");
+      g.rect(x - 1, y + 1, x + 1, y + 1, "U"); // its shadowed underside
+    }
+  }
+}
+// A thick stick (a bat, a handle): 2 wide, lit on one side.
+function stick(g, x0, y0, x1, y1, k = "o", k2 = "O") {
+  const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+  for (let i = 0; i <= n; i++) {
+    const x = Math.round(x0 + ((x1 - x0) * i) / n);
+    const y = Math.round(y0 + ((y1 - y0) * i) / n);
+    g.set(x, y, k);
+    g.set(x + 1, y, k2);
+  }
+}
+
+const POSES = {
+  // Brawler, wind-up: the bat raised high behind the head
+  brawlerA: {
+    back(g) {
+      noArm(g, "L");
+      raisedArm(g, "L");
+      stick(g, 4, 9, 4, 0);
+      g.rect(3, 0, 6, 3, "o"); // the bat's fat end
+      g.rect(6, 0, 6, 3, "O");
+    },
+  },
+  // Brawler, the swing: the arm across the body, the bat down at the zombie in front
+  brawlerB: {
+    back(g) { noArm(g, "L"); },
+    front(g) {
+      armTo(g, "L", 19, 27);
+      stick(g, 20, 28, 28, 37);
+      stick(g, 25, 33, 29, 39); // the fat end
+      g.points([[29, 30], [30, 32], [31, 34], [27, 28]], "w"); // a swish
+    },
+  },
+  // Shooter: both arms in, aiming at the street, a flash at the muzzle
+  shooter: {
+    back(g) { noArm(g); },
+    front(g) {
+      armTo(g, "L", 13, 26);
+      armTo(g, "R", 18, 26);
+      g.rect(14, 24, 17, 27, "K");
+      g.rect(14, 24, 17, 24, "N");
+      g.rect(14, 28, 17, 31, "t"); // the flash
+      g.points([[13, 29], [18, 29], [13, 30], [18, 30], [15, 32], [16, 32], [12, 28], [19, 28]], "t");
+      g.rect(15, 29, 16, 30, "w");
+    },
+  },
+  // Tank: a riot shield in front, the head over it
+  tank: {
+    back(g) { noArm(g); },
+    front(g) {
+      g.rect(7, 20, 24, 35, "n");
+      g.rect(7, 20, 24, 20, "N");
+      g.rect(7, 35, 24, 35, "N");
+      g.rect(7, 20, 7, 35, "N");
+      g.rect(24, 20, 24, 35, "N");
+      g.rect(11, 23, 20, 24, "K"); // the viewport
+      g.rect(8, 30, 23, 31, "a"); // a band in their colour
+      g.points([[9, 22], [22, 22], [9, 33], [22, 33]], "N"); // rivets
+      g.rect(6, 25, 6, 27, "s"); // hands round its edges
+      g.rect(25, 25, 25, 27, "s");
+    },
+  },
+  // Trapper: a net bundled up over their head, about to be thrown
+  trapper: {
+    back(g) {
+      noArm(g, "L");
+      raisedArm(g, "L");
+      // an open rope mesh, its holes see-through, gathered in the hand
+      for (let y = 0; y <= 9; y++) for (let x = 0; x <= 11; x++) {
+        const r = (x - 5.5) ** 2 / 36 + (y - 4.5) ** 2 / 25;
+        if (r > 1) continue;
+        if (r > 0.72 || (x + y) % 3 === 0 || (x - y + 30) % 3 === 0) g.set(x, y, r > 0.72 ? "D" : "d");
+      }
+      g.points([[1, 8], [10, 8], [3, 1], [8, 1]], "N"); // weights
+    },
+  },
+  // Medic: a first-aid kit held out, green sparkles round it
+  medic: {
+    back(g) { noArm(g); },
+    front(g) {
+      armTo(g, "L", 11, 26);
+      armTo(g, "R", 20, 26);
+      g.rect(12, 23, 19, 29, "c");
+      g.rect(14, 22, 17, 22, "N"); // the handle
+      g.rect(15, 24, 16, 28, "z");
+      g.rect(13, 26, 18, 26, "z");
+      g.points([[9, 20], [22, 19], [8, 31], [23, 31], [11, 32], [20, 21]], "G");
+    },
+  },
+  // Rallier: a fist in the air, the megaphone at the mouth
+  rallier: {
+    back(g) {
+      noArm(g);
+      raisedArm(g, "L");
+    },
+    front(g) {
+      armTo(g, "R", 21, 18);
+      for (let x = 18; x <= 29; x++) {
+        const h = Math.round(1 + (x - 18) * 0.45);
+        g.rect(x, 15 - h, x, 15 + h, x === 22 ? "z" : x >= 28 ? "N" : "c");
+      }
+    },
+  },
+};
+
 // ---------- rendering ----------
 
 const GROUP = {
@@ -565,10 +701,12 @@ const GROUP = {
   f: "shoes",
   r: "hat", R: "hat",
   t: "fx",
+  o: "prop", O: "prop", n: "prop", N: "prop", K: "prop", G: "prop",
 };
 const RIM_SHADED = new Set(["s", "h", "u", "l", "p", "f", "r", "c"]);
 
-function build(c, injury) {
+function build(c, injury, pose = null) {
+  const P = pose && POSES[pose];
   const look = appearance(c);
   const dead = !c.alive;
   if (dead) {
@@ -585,6 +723,7 @@ function build(c, injury) {
     g.rect(9, 31, 14, 33, "c");
     g.rect(17, 31, 22, 33, "c");
   }
+  if (P?.back) P.back(g);
   drawHead(g, look.chin);
 
   g.paintOnto(BROWS[look.brows], "b", ["s"]);
@@ -603,6 +742,7 @@ function build(c, injury) {
   else if (look.hairAcc) HAIR_ACCESSORIES[look.hairAcc](g);
   if (injury && !dead) drawInjury(g, injury, !!look.hatKind);
   if (c.legendary && !dead) g.points([[27, 1], [26, 2], [27, 2], [28, 2], [27, 3]], "t");
+  if (P?.front) P.front(g);
 
   const base = {
     s: look.skin, S: shadowOf(look.skin),
@@ -620,6 +760,7 @@ function build(c, injury) {
     r: look.hatColor, R: shadowOf(look.hatColor),
     d: "#f2dcb5", D: "#d6b688", z: "#b3261e",
     t: "#ffe27a",
+    o: "#b8865a", O: "#7a5230", n: "#9aa6b6", N: "#5a6272", K: "#24272e", G: "#7fe0a8",
   };
 
   // Rim shading: light from the top-left. Skin right under the fringe gets the hair's shadow; hair
@@ -679,13 +820,14 @@ function build(c, injury) {
 // instead of hundreds of pixel rects.
 const cache = new Map();
 
-export function characterSprite(c, sizePx = 112) {
+// `pose`: one of POSES (the Night Watch's attack poses), or none for standing.
+export function characterSprite(c, sizePx = 112, pose = null) {
   const ratio = c.maxHp ? c.hp / c.maxHp : 1;
   const injury = c.alive ? (ratio < 0.25 ? 2 : ratio < 0.5 ? 1 : 0) : 0;
-  const key = [c.spriteSeed || c.id, c.role, c.gender, c.teachSubject || "", c.alive ? 1 : 0, injury, c.legendary ? 1 : 0].join("|");
+  const key = [c.spriteSeed || c.id, c.role, c.gender, c.teachSubject || "", c.alive ? 1 : 0, injury, c.legendary ? 1 : 0, pose || ""].join("|");
   let uri = cache.get(key);
   if (!uri) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" shape-rendering="crispEdges">${build(c, injury)}</svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" shape-rendering="crispEdges">${build(c, injury, pose)}</svg>`;
     uri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
     cache.set(key, uri);
   }

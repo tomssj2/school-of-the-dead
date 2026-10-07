@@ -14,7 +14,7 @@ import {
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
   EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
-  ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
+  ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
   NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
   ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay,
@@ -131,7 +131,7 @@ export function createInitialState() {
     exploredHexes: [], // "q,r" keys the fog of war has been lifted from
     mapMilestones: [], // MAP_MILESTONES (percent of the map scouted) already paid out
     techUnlocked: [], // TECH_TREE ids purchased with banked Research
-    entranceGrid: { size: ENTRANCE_GRID_SIZE, students: {}, defenses: {}, v2: true }, // "row,col" -> id
+    entranceGrid: { size: ENTRANCE_GRID_SIZE, students: {}, defenses: {}, v2: true, stepsV2: true, rows10: true }, // "row,col" -> id
     rescue: null, // { day, evacuated, landed } once satellite communications reach the military
     victory: false,
     bossesSlain: [], // boss names, for the epilogue
@@ -2109,7 +2109,7 @@ export function battleTick(state, b) {
     if (type === "boss") events.push({ type: "bossArrives", at: [road, col] });
     b.spawned++;
     b.waveSpawned++;
-    springTrap(b, z, events); // a trap on the road gets it as it arrives
+    springTrap(b, z, events); // (a trap under it gets it as it arrives)
   }
 
   // reinforcements: whoever the line-up couldn't pay for joins, in order, as soon as morale allows
@@ -2929,7 +2929,7 @@ export function advanceTurn(state) {
     rollMapDrop(state);
   }
   // the watch's 📌 Stay: as the night ends, remember who stood on which square
-  if (state.turn === 1 && staysInRoom(state, "watch")) state.keptWatch = { ...state.entranceGrid.students };
+  if (state.turn === 1) state.keptWatch = { ...state.entranceGrid.students };
   for (const c of state.characters) {
     c.gymToday = false;
     c.radioToday = false;
@@ -3813,21 +3813,21 @@ export function setDefending(state, charId, value) {
 
 // ---------- entrance battle grid ----------
 
-// The night begins: with the watch's 📌 Stay on, last night's defenders take their squares again.
-// Anyone who can't stand watch now (fallen, infected) leaves their square empty.
+// The night begins: last night's defenders take their squares again. Anyone who can't stand watch
+// now (fallen, infected) leaves their square empty.
 function restoreWatch(state) {
   const kept = state.keptWatch;
   delete state.keptWatch;
-  if (!kept || !staysInRoom(state, "watch")) return;
+  if (!kept) return;
   for (const [key, id] of Object.entries(kept)) {
     if (Number(key.split(",")[1]) < state.entranceGrid.size) moveEntranceStudent(state, key, id);
   }
 }
 
-// Where a defense can go: walls and traps on the pavement, traps (not walls) on the road too.
-export function canBuildAt(cellKey, def) {
+// Where a defense can go: walls and traps on the pavement's rows (the road's only for the horde).
+export function canBuildAt(cellKey) {
   const [row] = cellKey.split(",").map(Number);
-  return row === DEFENSE_ROW0 || (row === ENTRANCE_ROWS - 1 && !def.blocks);
+  return row >= DEFENSE_ROW0 && row < STREET_ROW0;
 }
 
 export function placeEntranceStudent(state, cellKey, studentId) {

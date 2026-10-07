@@ -5482,6 +5482,20 @@ const ICONS = {
     "................",
     "................",
   ], { s: "#f2c9a0", h: "#6b4a3a", c: "#e0605a", b: "#3f6fb5", k: "#2c2c34" }),
+  // Gymnastics rings: two wooden rings on their straps (Acrobatics' empty slots)
+  rings: () => {
+    const g = blank(16);
+    for (const cx of [4, 12]) {
+      for (let y = 0; y <= 6; y++) g[y][cx] = y === 3 ? "#c9ced4" : "#8a6a4a"; // the strap, its buckle
+      g[3][cx - 1] = g[3][cx + 1] = "#c9ced4";
+      for (let y = 6; y < 14; y++) for (let x = cx - 4; x <= cx + 4; x++) {
+        const d = Math.hypot(x - cx, y - 9.8);
+        if (d < 1.9 || d > 3.3 || x < 0 || x > 15) continue;
+        g[y][x] = x - cx + (y - 9.8) < -1.5 ? "#f0c870" : x - cx + (y - 9.8) > 1.5 ? "#a0702a" : "#d8a24a";
+      }
+    }
+    return g;
+  },
   barbell: () => ascii([
     "................",
     "................",

@@ -3,7 +3,7 @@
 import * as G from "./game.js";
 import { makeCharacter, makeLegendaryCharacter, makeItem } from "./characters.js";
 import { MAP_RADIUS } from "./map.js";
-import { CLASSROOM_IDS, PRODUCERS, YARD_JOBS, GREENHOUSE_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_ROW0, STREET_ROW0 } from "./data.js";
+import { CLASSROOM_IDS, PRODUCERS, YARD_JOBS, GREENHOUSE_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_ROW0, STREET_ROW0, ENTRANCE_ZONES } from "./data.js";
 
 // Every room and facility to the top level, and every slot filled: teachers in every post,
 // every classroom seat, training, resting, beds, outside workers, plots and pens. Hires whoever is
@@ -155,18 +155,20 @@ export function mapEvents(state) {
 
 // Jumps to the Night Watch of `day` (a bigger horde, maybe a boss, its weather) with the best
 // fighters posted on the steps, front row first, and some scrap and medicine for night actions.
-export function setNight(state, day = 8) {
+export function setNight(state, day = 8, classes = null) {
   state.day = day;
   state.turn = 3;
   state.pendingRaid = null;
   state.pendingAssault = false;
   for (const key of Object.keys(state.entranceGrid.students)) G.clearEntranceStudentCell(state, key);
   const size = state.entranceGrid.size;
-  const third = 5; // the defenders' rows: the 3 steps and the 2 rows of lawn (data.js ENTRANCE_ZONES.students)
-  const fighters = state.characters
-    .filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null)
-    .sort((a, b) => (b.grades.PE + b.grades.Gymnastics) - (a.grades.PE + a.grades.Gymnastics))
-    .slice(0, size * third);
+  const third = ENTRANCE_ZONES.students; // the defenders' rows: the steps and the grass
+  // the best of each class first (so a fight shows every class), then the best fighters
+  const free = state.characters
+    .filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null && (!classes || classes.includes(G.nightClass(c))))
+    .sort((a, b) => (b.grades.PE + b.grades.Gymnastics) - (a.grades.PE + a.grades.Gymnastics));
+  const firsts = [...new Set(free.map((c) => G.nightClass(c)))].map((cls) => free.find((c) => G.nightClass(c) === cls));
+  const fighters = [...firsts, ...free.filter((c) => !firsts.includes(c))].slice(0, size * third);
   fighters.forEach((c, i) => G.moveEntranceStudent(state, `${third - 1 - Math.floor(i / size)},${i % size}`, c.id));
   state.resources.materials = Math.max(state.resources.materials, 30);
   state.resources.medicine = Math.max(state.resources.medicine, 20);
