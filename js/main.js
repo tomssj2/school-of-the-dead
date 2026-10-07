@@ -1,7 +1,7 @@
 import * as G from "./game.js";
 import { WORLD_W, WORLD_H } from "./citymap.js";
 import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict } from "./ui.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, renderDefenseBuildModal, renderPlotModal,
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionSkirmish,
@@ -17,7 +17,7 @@ import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapE
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
-  HAPPINESS_START, ENTRANCE_GRID_SIZE, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
+  HAPPINESS_START, ENTRANCE_GRID_SIZE, ENTRANCE_ROWS, NIGHT_CLASSES, DEFENSE_STRUCTURES, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
   INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES, LEGACY_DEFENSE_IDS,
 } from "./data.js";
 
@@ -63,7 +63,7 @@ let openUpgrade = null; // room key whose Upgrade popup is open
 let openMenu = false; // the Cafeteria's menu pop-up
 let openQuarantine = false; // the Nurse's Office quarantine pop-up
 let openEnemyGuide = false; // the Night Watch's "Know your enemy" pop-up
-let openDefenseGuide = false; // its "🛡 Defenses" pop-up: the gate and what can be built
+let openDefenseGuide = false; // its "🛡 Defenses" pop-up: what can be built
 let assaultPick = null; // Set of ids picked to chase the retreating horde (all of tonight's defenders at first)
 let openPlot = null; // { kind: a crop or animal (PRODUCERS id), index } of the Farm slot being looked at
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
@@ -335,6 +335,23 @@ function migrateState(s) {
     G.addLog(s, `🧠 The Research tree was redesigned around permanent buffs — ${refund} research refunded from ${legacyTech.length} old project(s).`);
   }
   if (!s.entranceGrid) s.entranceGrid = { size: ENTRANCE_GRID_SIZE, students: {}, defenses: {} };
+  // The Night Watch's lawn became the students' front line: walls and traps built there move out
+  // to the pavement (row 5) in their lane — a trap to the road if the pavement's taken — or are
+  // refunded if there's no room.
+  if (!s.entranceGrid.v2) {
+    const defs = s.entranceGrid.defenses;
+    for (const key of Object.keys(defs)) {
+      const [row, col] = key.split(",").map(Number);
+      if (row !== 3 && row !== 4) continue;
+      const def = DEFENSE_STRUCTURES.find((d) => d.id === defs[key]);
+      delete defs[key];
+      if (!def) continue;
+      const spot = [`5,${col}`, ...(def.blocks ? [] : [`6,${col}`])].find((k) => !defs[k]);
+      if (spot) defs[spot] = def.id;
+      else for (const [res, amt] of Object.entries(def.cost)) s.resources[res] = (s.resources[res] || 0) + amt;
+    }
+    s.entranceGrid.v2 = true;
+  }
   if (s.rescue === undefined) s.rescue = null;
   // The Student Council became the Radio Station, and the antenna repairs its upgrades: an old
   // save's repairs carry over, and a finished antenna keeps its rescue date.
@@ -672,7 +689,7 @@ function render() {
     ? renderExpeditionSkirmish(state, skirmish)
     : expeditionReport
     ? renderExpeditionReport(state, expeditionReport)
-    : battleAnimation
+    : battleAnimation && battleAnimation.kind !== "grid" // (the night's fight plays on the board)
     ? renderBattleAnimation(state, battleAnimation)
     : fightAnimation
     ? renderFightAnimation(state, fightAnimation)
@@ -719,8 +736,14 @@ function render() {
   const contentScroll = sameTab ? root.querySelector(".content")?.scrollTop || 0 : 0;
   const barsBefore = sameTab ? new Map([...barWidths()].map(([key, el]) => [key, el.style.width])) : null;
   if (state.gameOver || state.victory) recordRun(state, G.aliveChars(state).length);
+  setNightBattle(battleAnimation?.kind === "grid" ? battleAnimation : null);
   root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml;
   if (barsBefore) slideBars(barsBefore);
+  if (reachShown) {
+    const { battle, studentId, row, col } = reachShown;
+    reachShown = null;
+    showReach(root.querySelector(battle ? ".nw-battle" : ".nw-main > .nw-board"), studentId, row, col);
+  }
   pixelizeDom(root); // any emoji left in the text becomes its pixel icon
   const newContent = root.querySelector(".content");
   if (newContent) newContent.scrollTop = contentScroll;
@@ -840,11 +863,15 @@ document.addEventListener("dragstart", (e) => {
 });
 document.addEventListener("dragend", () => {
   dragStudentId = null;
+  clearReach();
   document.body.classList.remove("nw-dragging");
   clearDropHighlights();
 });
 document.addEventListener("dragover", (e) => {
   if (!dragStudentId) return;
+  const over = e.target.closest?.(".nw-board [data-drop-cell], .nw-board [data-row][data-col]");
+  if (over) showReach(over.closest(".nw-board"), dragStudentId, Number(over.dataset.row ?? over.dataset.dropCell.split(",")[0]), Number(over.dataset.col ?? over.dataset.dropCell.split(",")[1]));
+  else if (reachShown) clearReach();
   const target = turnOneSlot(e.target) || e.target.closest?.("[data-drop-cell], [data-drop-roster], [data-drop-team], [data-drop-role]");
   document.querySelectorAll(".nw-drop-over").forEach((x) => x !== target && x.classList.remove("nw-drop-over"));
   if (!target) return;
@@ -910,20 +937,58 @@ document.addEventListener("drop", (e) => {
   render();
 });
 
-// Hovering a defender lights up the squares they reach: melee close in, ranged further out.
-let reachEl = null;
+// What a student reaches from a square, by their class: red squares they attack (the one in front,
+// or the rest of their lane; Lunge a second one, Cleave the squares either side), green ones a Medic
+// heals (Field Surgeon: their lane too), yellow ones a Rallier with Rally Cry boosts (their lane). Shown over the board (overlays in its .nw-cells) when hovering a
+// defender, dragging a student over a square, or picking a square to post them mid-fight.
+function reachSquares(cls, ab2, ab3, row, col) {
+  const C = NIGHT_CLASSES[cls];
+  const size = state.entranceGrid.size;
+  const out = [];
+  const add = (r, c, kind) => { if (r >= 0 && r < ENTRANCE_ROWS && c >= 0 && c < size && !(r === row && c === col)) out.push({ r, c, kind }); };
+  const around = (d, kind) => { for (let dr = -d; dr <= d; dr++) for (let dc = -d; dc <= d; dc++) add(row + dr, col + dc, kind); };
+  const lane = (kind) => { for (let r = 0; r < ENTRANCE_ROWS; r++) if (!out.some((o) => o.r === r && o.c === col)) add(r, col, kind); };
+  if (cls === "medic") { around(ab2 ? C.ability2.reach : 1, "heal"); if (ab3) lane("heal"); }
+  else if (cls === "rallier") { if (ab2) lane("buff"); }
+  else if (C.range === "front") {
+    for (let d = 1; d <= (cls === "brawler" && ab3 ? C.ability3.reach : 1); d++) {
+      add(row + d, col, "attack");
+      if (cls === "brawler" && ab2) { add(row + d, col - 1, "attack"); add(row + d, col + 1, "attack"); }
+    }
+  } else if (C.range === "lane") for (let r = row + 1; r < ENTRANCE_ROWS; r++) add(r, col, "attack");
+  return out;
+}
+// (A redraw wipes the overlays, so render() puts them back: reachShown remembers what's shown.)
+let reachShown = null;
+function clearReach() {
+  document.querySelectorAll(".nw-reach").forEach((x) => x.remove());
+  reachShown = null;
+}
+function showReach(board, studentId, row, col) {
+  const c = board && G.getChar(state, studentId);
+  if (!c) return clearReach();
+  const key = `${studentId}@${row},${col}`;
+  if (key === reachShown?.key && board.querySelector(".nw-reach")) return;
+  clearReach();
+  reachShown = { key, battle: board.classList.contains("nw-battle"), studentId, row, col };
+  const layer = board.querySelector(".nw-cells");
+  const html = [{ r: row, c: col, kind: "self" }, ...reachSquares(G.nightClass(c), G.nightAbility2(c), G.nightAbility3(c), row, col)]
+    .map(({ r, c: cc, kind }) => `<div class="nw-cell nw-reach nw-reach-${kind}" style="--r:${r};--c:${cc}"></div>`).join("");
+  layer.insertAdjacentHTML("beforeend", html);
+}
+// hovering a defender (on the planning board or in the fight), or a square while posting someone
 document.addEventListener("pointerover", (e) => {
-  const el = e.target.closest?.("[data-reach]") || null;
-  if (el === reachEl) return;
-  reachEl = el;
-  document.querySelectorAll(".nw-reach-melee, .nw-reach-ranged, .nw-reach-self").forEach((x) => x.classList.remove("nw-reach-melee", "nw-reach-ranged", "nw-reach-self"));
-  if (!el || document.body.classList.contains("nw-dragging")) return;
-  const [row, col, melee, ranged] = el.dataset.reach.split(",").map(Number);
-  el.closest(".nw-board")?.querySelectorAll(".nw-cell").forEach((cell) => {
-    const d = Math.max(Math.abs(cell.dataset.row - row), Math.abs(cell.dataset.col - col));
-    const cls = d === 0 ? "nw-reach-self" : d <= melee ? "nw-reach-melee" : d <= ranged ? "nw-reach-ranged" : null;
-    if (cls) cell.classList.add(cls);
-  });
+  if (document.body.classList.contains("nw-dragging")) return;
+  const unit = e.target.closest?.("[data-reach]");
+  if (unit) {
+    const [row, col] = unit.dataset.reach.split(",").map(Number);
+    return showReach(unit.closest(".nw-board"), unit.dataset.reachId, row, col);
+  }
+  const pick = e.target.closest?.('[data-action="post-square"]');
+  if (pick && battleAnimation?.target?.startsWith("post:")) {
+    return showReach(pick.closest(".nw-board"), battleAnimation.target.slice(5), Number(pick.dataset.row), Number(pick.dataset.col));
+  }
+  if (reachShown) clearReach();
 });
 
 // The player's own zoom on top of the fit: mapCam.z times the fitted scale (1 = the whole view),
@@ -1160,18 +1225,29 @@ function playBattleSounds(events) {
   if (has((e) => e.type === "heal")) playHeal();
   if (has((e) => e.type === "ability")) playAbility();
   if (has((e) => e.type === "bossArrives" || e.type === "telegraph" || e.type === "enrage")) playGrowl();
-  if (has((e) => e.type === "gate" || e.type === "breach" || e.type === "destroyed" || e.type === "slam" || e.type === "fire")) playBoom();
+  if (has((e) => e.type === "breach" || e.type === "destroyed" || e.type === "slam" || e.type === "fire")) playBoom();
   if (has((e) => e.type === "cleared")) playWave();
 }
 
 // The night battle, played live: a turn every BATTLE_TICK_MS. It waits at the break between
-// waves (for "Send them in") and while a night action is being aimed; "Skip" plays the rest out
+// waves (for "Send them in"), while paused, and while a night action is aimed or a student is being
+// posted (anim.target: an action's id, or "post:<id>"); "Skip" plays the rest out
 // at once, and "Continue" on the result screen runs `afterResult` to finish the turn.
-const BATTLE_TICK_MS = 650;
+// A turn takes BATTLE_TICK_MS at normal speed; the ⏩ button plays it 2× or 3× faster (remembered
+// from one night to the next).
+const BATTLE_TICK_MS = 1100;
+const BATTLE_SPEEDS = [1, 2, 3];
+let battleSpeed = 1;
+const tickMs = () => BATTLE_TICK_MS / battleSpeed;
 let battleTimer = null;
+// A new game (or a dev reset) drops whatever night fight was on, so it can't block the next turn.
+function dropNightBattle() {
+  clearTimeout(battleTimer);
+  battleAnimation = null;
+}
 function playNightBattle(afterResult) {
   const b = G.startNightBattle(state);
-  const anim = { kind: "grid", live: true, b, summary: b, frameIndex: 0, phase: "battle", target: null };
+  const anim = { kind: "grid", live: true, b, summary: b, frameIndex: 0, phase: "battle", target: null, paused: false, speed: battleSpeed };
   const sync = () => { anim.frameIndex = b.frames.length - 1; };
   const showResult = () => {
     if (anim.phase !== "battle") return;
@@ -1185,7 +1261,7 @@ function playNightBattle(afterResult) {
   };
   const step = () => {
     clearTimeout(battleTimer);
-    if (anim.phase !== "battle" || anim.target) return; // done, or paused while aiming
+    if (anim.phase !== "battle" || anim.target || anim.paused) return; // done, paused, or aiming
     if (b.phase === "done") return showResult();
     let lastKill = false;
     if (b.phase === "fight") {
@@ -1200,19 +1276,20 @@ function playNightBattle(afterResult) {
     } catch (err) {
       console.error("Night battle render failed:", err);
     }
-    if (b.phase === "fight") battleTimer = setTimeout(step, BATTLE_TICK_MS);
+    if (b.phase === "fight") battleTimer = setTimeout(step, tickMs());
     // the last kill lingers a moment (the board goes slow-motion) before the result
     else if (b.phase === "done") battleTimer = setTimeout(showResult, lastKill ? 1800 : 900);
     // a break waits for the player
   };
   anim.resume = step;
-  // after a night action: show what it did, then carry on a turn later
+  // after a night action (or a cancelled one): show what it did, then carry on a turn later — or,
+  // if the last zombie is already down, on to the result
   anim.resumeSoon = () => {
     clearTimeout(battleTimer);
     sync();
     playBattleSounds(b.frames[b.frames.length - 1].events);
     render();
-    if (b.phase === "fight") battleTimer = setTimeout(step, BATTLE_TICK_MS);
+    if (b.phase !== "break") battleTimer = setTimeout(step, tickMs());
   };
   anim.skip = () => {
     if (anim.phase !== "battle") return;
@@ -1224,9 +1301,11 @@ function playNightBattle(afterResult) {
   anim.finish = () => {
     clearTimeout(battleTimer);
     battleAnimation = null;
+    G.settleFallen(state, anim.summary.fallen); // whoever wasn't saved takes their chances
     afterResult();
   };
   battleAnimation = anim;
+  activeTab = "defense"; // it plays on the Night Watch board
   playHit();
   render();
   battleTimer = setTimeout(step, 900);
@@ -1366,7 +1445,7 @@ root.addEventListener("click", (e) => {
       render();
       break;
     case "resolve-turn":
-      resolveCurrentTurn();
+      if (!battleAnimation) resolveCurrentTurn();
       break;
     case "save-game":
       saveGame();
@@ -1374,6 +1453,7 @@ root.addEventListener("click", (e) => {
     case "reset-game":
       if (confirm("Start a brand new game? This will erase your current progress.")) {
         state = G.createInitialState();
+        dropNightBattle();
         lastTurnKey = null; // the new game opens on Turn 1's home tab
         render();
       }
@@ -1843,7 +1923,7 @@ root.addEventListener("click", (e) => {
     case "night-action": {
       // a night action: Rally goes off at once, the rest wait for a square (the battle pauses)
       const anim = battleAnimation;
-      if (!anim?.live || anim.phase !== "battle") break;
+      if (!anim?.live || anim.phase !== "battle" || anim.b.phase !== "fight") break; // (not once it's won or lost)
       const id = el.dataset.id;
       if (!NIGHT_ACTIONS[id].target) {
         if (!G.battleAction(state, anim.b, id)) flash("Can't do that right now.");
@@ -1860,40 +1940,75 @@ root.addEventListener("click", (e) => {
       const anim = battleAnimation;
       if (!anim?.target) break;
       if (!G.battleAction(state, anim.b, anim.target, Number(el.dataset.row), Number(el.dataset.col))) {
-        flash(anim.target === "focus" ? "Pick a square with a zombie on it." : anim.target === "patch" ? "Pick a hurt defender." : "Can't do that right now.");
+        flash(anim.target === "patch" ? "Pick a hurt defender." : "Can't do that right now.");
         break;
       }
       anim.target = null;
       anim.resumeSoon();
       break;
     }
-    case "use-ability": {
-      // a charged defender's ability goes off; the fight carries on a moment later
-      const anim = battleAnimation;
-      if (!anim?.live || anim.phase !== "battle") break;
-      if (!G.battleUseAbility(state, anim.b, el.dataset.id)) {
-        flash("Nothing in reach for that yet.");
-        break;
-      }
-      anim.resumeSoon();
-      break;
-    }
-    case "toggle-auto-abilities":
-      if (battleAnimation?.live) {
-        G.setAutoAbilities(battleAnimation.b, !battleAnimation.b.autoAbilities);
-        render();
-      }
-      break;
     case "night-cancel":
       if (battleAnimation?.target) {
         battleAnimation.target = null;
-        battleAnimation.resume();
+        battleAnimation.resumeSoon();
       }
       break;
+    case "post-pick": {
+      // a student on the bench: the fight waits while a square is picked for them
+      const anim = battleAnimation;
+      if (!anim?.live || anim.phase !== "battle" || anim.b.phase === "done") break;
+      const key = `post:${el.dataset.id}`;
+      clearTimeout(battleTimer);
+      anim.target = anim.target === key ? null : key;
+      if (anim.target) render();
+      else anim.resumeSoon();
+      break;
+    }
+    case "post-square": {
+      const anim = battleAnimation;
+      if (!anim?.target?.startsWith("post:")) break;
+      if (!G.battlePost(state, anim.b, anim.target.slice(5), Number(el.dataset.row), Number(el.dataset.col))) {
+        flash("Can't post them there.");
+        break;
+      }
+      anim.target = null;
+      anim.resumeSoon();
+      break;
+    }
+    case "battle-speed": {
+      // 1× → 2× → 3× → 1×; the next turn comes at the new pace
+      const anim = battleAnimation;
+      if (!anim?.live) break;
+      battleSpeed = BATTLE_SPEEDS[(BATTLE_SPEEDS.indexOf(battleSpeed) + 1) % BATTLE_SPEEDS.length];
+      anim.speed = battleSpeed;
+      if (anim.phase === "battle" && !anim.paused && !anim.target) {
+        clearTimeout(battleTimer);
+        render();
+        if (anim.b.phase === "fight") battleTimer = setTimeout(anim.resume, tickMs());
+      } else render();
+      break;
+    }
+    case "toggle-pause": {
+      const anim = battleAnimation;
+      if (!anim?.live || anim.phase !== "battle") break;
+      anim.paused = !anim.paused;
+      if (anim.paused) {
+        clearTimeout(battleTimer);
+        render();
+      } else anim.resumeSoon();
+      break;
+    }
     case "start-wave":
       if (battleAnimation?.live) {
         G.startNextWave(battleAnimation.b);
         battleAnimation.resume();
+      }
+      break;
+    case "save-fallen":
+      // after the fight: medicine for one of the fallen
+      if (battleAnimation?.kind === "grid" && battleAnimation.phase === "result") {
+        if (!G.saveFallen(state, battleAnimation.summary.fallen || [], el.dataset.id)) flash("Not enough medicine.");
+        render();
       }
       break;
     case "finish-battle":
@@ -2190,6 +2305,7 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
     },
     min() {
       state = beforeMax ? JSON.parse(beforeMax) : G.createInitialState();
+      dropNightBattle();
       const restored = !!beforeMax;
       beforeMax = null;
       openPicker = null;

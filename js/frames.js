@@ -643,12 +643,11 @@ function drawDusk() {
 }
 
 // The night's view (the Night Watch): standing on the school's front steps, looking out the way
-// the horde comes — the top steps and their handrails underfoot, the courtyard (the lawn, the path
-// down to the torn-open gate, hedges, the bench, a fire barrel, the flag at half mast), the low
-// wall with its iron railings, crumbled on the right where the dead are climbing through, then the
-// street under its lamps with a wreck's headlight still on, and beyond it the same ruined city as
+// the horde comes — the top steps and their handrails underfoot, the open lawn and its path (like
+// the Night Watch board: nothing standing in the lanes) down to a stone edging, the pavement with
+// the first of the dead on it, the street under its lamps, and beyond it the same ruined city as
 // the dusk — the sheared tower, the crane — dark under the moon, a few windows lit. Everything
-// below the city is drawn in perspective towards the gate (VP).
+// below the city is drawn in perspective towards the path (VP).
 function drawNight() {
   const k = sceneKit(960, 540);
   const { W, H, rect, disc, line } = k;
@@ -703,7 +702,7 @@ function drawNight() {
   rect(cx0, cy0 + 4, 12, 4, "#3ac07a");
   rect(cx0 + 5, cy0 + 1, 2, 10, "#8af0b4");
 
-  // the street: the far pavement, the road under its lamps, a wreck with one headlight on
+  // the street: the far pavement, the road under its lamps
   rect(0, street, W, 6, "#1c202c");
   rect(0, street, W, 1, "#2a3040");
   const road = street + 6, kerb = road + 28;
@@ -719,9 +718,6 @@ function drawNight() {
   }
   for (const [x, lean] of [[150, 0], [470, -1], [846, 0]]) lampPost(k, x, street + 2, lean, "#1e2230", 72);
   for (const x of [150, 846]) for (const [w, h, a] of [[44, 8, 0.05], [30, 5, 0.06]]) rect(x + 12 - w, kerb - 10 - h / 2, w * 2, h, `rgba(255,210,122,${a})`);
-  wreck(k, 780, kerb - 4, "#1c2232", "#46506c", "#2a3656", 1);
-  rect(778, kerb - 18, 3, 3, "#fff4d0");
-  for (let i = 0; i < 130; i++) rect(777 - i, kerb - 18 - i * 0.06, 1, 3 + i * 0.14, "rgba(255,240,200,0.045)"); // its beam down the road
   for (const [x, y, f] of [[36, kerb - 2, 1], [68, kerb, 1], [126, kerb - 3, -1], [700, kerb - 1, 1], [900, kerb - 2, -1], [934, kerb, -1]]) walker(k, x, y, f, "#06080e");
   rect(0, kerb, W, 2, "#3a3f50");
   // the near pavement, and two of the dead already on it
@@ -732,42 +728,13 @@ function drawNight() {
   // mist drifting along the street
   for (let y = HZ; y < wallTop; y += 2) rect(0, y, W, 2, `rgba(140,160,210,${(0.05 * Math.sin((Math.PI * (y - HZ)) / (wallTop - HZ))).toFixed(3)})`);
 
-  // the low wall and its railings, the gate torn open in the middle, crumbled on the right
-  const lawnTop = wallTop + 14, railTop = wallTop - 28;
-  const gateA = 412, gateB = 548; // the gateway, between its two pillars
-  const crumbled = (x) => x >= 850 && x <= 900;
-  for (let x = 0; x < W; x += 10) {
-    if ((x > gateA - 16 && x < gateB + 16) || crumbled(x) || x === 60 || x === 70) continue;
-    rect(x + 3, railTop + 2, 2, wallTop - railTop - 2, IRON);
-    rect(x + 3, railTop, 2, 2, IRON_LT);
-  }
-  line(63, wallTop - 1, 56, railTop + 4, IRON, 2); // bent bars
-  line(73, wallTop - 1, 80, railTop + 6, IRON, 2);
-  for (const y of [railTop + 4, wallTop - 4]) for (const [a, b] of [[0, gateA - 16], [gateB + 16, 850], [900, W]]) rect(a, y, b - a, 2, IRON);
-  for (let x = 0; x < W; x++) {
-    if ((x >= gateA && x < gateB) || crumbled(x)) continue;
-    rect(x, wallTop, 1, 3, STONE_LT);
-    rect(x, wallTop + 3, 1, 11, STONE);
-    if ((x + (x % 24 < 12 ? 0 : 6)) % 12 === 0) rect(x, wallTop + 3, 1, 11, STONE_DK); // stone joints
-  }
-  rect(0, wallTop + 8, gateA, 1, STONE_DK);
-  rect(gateB, wallTop + 8, 850 - gateB, 1, STONE_DK);
-  rect(900, wallTop + 8, W - 900, 1, STONE_DK);
-  for (let i = 0; i < 50; i++) { // the crumbled stretch: a heap of stones, a broken stub at each end
-    const x = 846 + Math.floor(hashAt(i, 81) * 58), y = wallTop + 4 + Math.floor(hashAt(i, 82) * 10);
-    rect(x, y, 4, 3, hashAt(i, 83) < 0.5 ? STONE : STONE_DK);
-  }
-  rect(846, wallTop + 2, 6, 12, STONE);
-  rect(898, wallTop + 5, 6, 9, STONE);
-  walker(k, 872, wallTop + 6, -1, "#05070c", 1.45); // climbing through
-  for (const [a, b] of [[gateA - 16, gateA], [gateB, gateB + 16], [176, 190], [764, 778]]) { // pillars
-    rect(a, railTop - 6, b - a, lawnTop - railTop + 6, STONE);
-    rect(a, railTop - 6, 2, lawnTop - railTop + 6, STONE_LT);
-    rect(b - 2, railTop - 6, 2, lawnTop - railTop + 6, STONE_DK);
-    rect(a - 2, railTop - 10, b - a + 4, 4, STONE_LT);
-  }
+  // a stone edging where the pavement meets the lawn
+  const lawnTop = wallTop + 3;
+  rect(0, wallTop, W, 1, STONE_LT);
+  rect(0, wallTop + 1, W, 2, STONE);
+  for (let x = 6; x < W; x += 20) rect(x, wallTop + 1, 1, 2, STONE_DK);
 
-  // the courtyard: the lawn mown in stripes running down towards the gate, the path to it
+  // the courtyard: the lawn mown in stripes running down towards the path
   for (let y = lawnTop; y < H; y++) {
     for (let x = 0; x < W; ) {
       const stripe = (xx) => Math.floor(((xx - VP.x) / (y - VP.y)) * 6) & 1;
@@ -788,43 +755,6 @@ function drawNight() {
     rect(a - 1, y, b - a + 2, 1, "#20222a");
     rect(a, y, b - a, 1, (Math.floor(Math.log(y - VP.y) * 14) & 1) ? "#33363f" : "#373a45"); // paving rows, deeper as they near
   }
-  // hedges along the wall, flowers in front of them
-  for (const [a, b] of [[0, gateA - 22], [gateB + 22, W]]) {
-    for (let x = a; x < b; x++) {
-      const h = 9 + Math.round(Math.sin(x / 5) * 1.5 + hashAt(x, 84) * 2);
-      rect(x, lawnTop + 12 - h, 1, h, "#0c160f");
-      if (hashAt(x, 85) < 0.5) rect(x, lawnTop + 12 - h, 1, 1, "#22382a");
-      if (hashAt(x, 86) < 0.05) rect(x, lawnTop + 13 + Math.floor(hashAt(x, 88) * 3), 1, 1, ["#6a4250", "#6e6434", "#44305e", "#5a5e6a"][Math.floor(hashAt(x, 87) * 4)]);
-    }
-  }
-  // the bench, the fire barrel, the bicycle, the bin, the flag at half mast
-  const by = lawnTop + 26;
-  for (const y of [by, by + 5]) {
-    rect(40, y, 70, 3, "#4a3a2c");
-    rect(40, y, 70, 1, "#6a5440");
-  }
-  for (const x of [44, 104]) rect(x, by + 8, 2, 8, IRON);
-  const fx = 172, fy = lawnTop + 34;
-  for (const [r, a] of [[80, 0.04], [50, 0.06], [28, 0.08]]) disc(fx, fy - 10, r, `rgba(255,140,70,${a})`);
-  rect(fx - 9, fy - 16, 18, 18, "#3a3230");
-  for (const y of [fy - 13, fy - 4]) rect(fx - 9, y, 18, 2, "#2a2422");
-  rect(fx - 9, fy - 16, 2, 18, "#5a4a40");
-  for (let i = 0; i < 12; i++) rect(fx - 7 + Math.floor(hashAt(i, 88) * 14), fy - 18 - Math.floor(hashAt(i, 89) * 10), 2, 3, ["#ffd27a", "#ffb060", "#ff7a3a"][i % 3]);
-  for (let i = 0; i < 8; i++) rect(fx - 10 + Math.floor(hashAt(i, 90) * 22), fy - 34 - Math.floor(hashAt(i, 91) * 40), 1, 1, "#ffb060"); // sparks
-  for (const [cx, cy] of [[792, lawnTop + 32], [812, lawnTop + 33]]) for (const [rx, c] of [[8, "#2a2e3a"], [6, "#1f3628"]]) {
-    for (let y = -3; y <= 3; y++) rect(cx - Math.round(rx * Math.sqrt(1 - (y * y) / 9)), cy + y, 2 * Math.round(rx * Math.sqrt(1 - (y * y) / 9)) + 1, 1, c);
-  }
-  line(792, lawnTop + 32, 802, lawnTop + 28, "#7a2a2a", 2);
-  line(802, lawnTop + 28, 812, lawnTop + 33, "#7a2a2a", 2);
-  rect(856, lawnTop + 30, 22, 10, "#24403a");
-  rect(856, lawnTop + 30, 22, 2, "#36584e");
-  for (let i = 0; i < 10; i++) rect(846 - Math.floor(hashAt(i, 92) * 14), lawnTop + 34 + Math.floor(hashAt(i, 93) * 8), 2, 1, i % 2 ? "#8a8a84" : "#4a3a2a");
-  const pole = 912;
-  rect(pole, 236, 2, lawnTop + 30 - 236, "#5a6070");
-  rect(pole + 2, 236, 1, lawnTop + 30 - 236, "#4a5060");
-  disc(pole + 1, 234, 2, "#c8a848");
-  for (let y = 0; y < 14; y++) rect(pole + 3, 316 + y, 30 - (y % 2) * 2 - (y > 9 ? 4 : 0), 1, y < 3 ? "#9a3434" : "#7a2626");
-
   // the steps underfoot: three treads going down towards the lawn, the cheek walls and handrails
   // either side; the school's lit windows behind throw a warm light down them
   const steps = [[470, 492], [492, 514], [514, H]];

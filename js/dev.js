@@ -162,7 +162,7 @@ export function setNight(state, day = 8) {
   state.pendingAssault = false;
   for (const key of Object.keys(state.entranceGrid.students)) G.clearEntranceStudentCell(state, key);
   const size = state.entranceGrid.size;
-  const third = 3; // the defenders' rows (data.js ENTRANCE_ZONES.students)
+  const third = 5; // the defenders' rows: the 3 steps and the 2 rows of lawn (data.js ENTRANCE_ZONES.students)
   const fighters = state.characters
     .filter((c) => c.role === "student" && c.alive && !c.infection && c.exploreTeam === null)
     .sort((a, b) => (b.grades.PE + b.grades.Gymnastics) - (a.grades.PE + a.grades.Gymnastics))

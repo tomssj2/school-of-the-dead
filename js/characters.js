@@ -175,12 +175,18 @@ export function giveFirstSkill(c) {
   c.skills = subject ? [`${subject}:${first(subject).tier}`] : [];
 }
 
-export function assignStudentFocus(c) {
+// arrange (new students only): the best grade rolled goes to the favourite, the second best to the
+// secondary, the rest to the others in their order — old saves keep their grades where they are.
+export function assignStudentFocus(c, arrange = false) {
   if (!c || c.role !== "student") return;
   const talents = (c.traits || []).map((id) => TRAITS.find((t) => t.id === id)?.subject).filter(Boolean);
   const order = SUBJECTS.map((s) => [s, (talents.includes(s) ? 1000 : 0) + c.grades[s] + Math.random() * 0.5]).sort((a, b) => b[1] - a[1]).map(([s]) => s);
   c.favorite = order[0];
   c.secondary = order[1];
+  if (arrange) {
+    const values = SUBJECTS.map((s) => c.grades[s]).sort((a, b) => b - a);
+    order.forEach((s, i) => (c.grades[s] = values[i]));
+  }
   for (const s of SUBJECTS) c.grades[s] = Math.min(c.grades[s], gradeCap(c, s));
 }
 
@@ -325,7 +331,7 @@ export function makeCharacter(role, gender) {
     log: [],
   };
   // a student's favourite and second subjects (their grade caps), and their first skill
-  assignStudentFocus(c);
+  assignStudentFocus(c, true);
   giveFirstSkill(c);
   c.maxHp = c.hp = maxHpFor(c.grades);
   c.maxStamina = c.stamina = maxStaminaFor(c);
@@ -341,7 +347,7 @@ export function makeLegendaryItem(template = pick(LEGENDARY_ITEM_TEMPLATES)) {
 export function makeLegendaryCharacter(role, gender) {
   const c = makeCharacter(role, gender);
   for (const s of SUBJECTS) c.grades[s] = bumpTier(c.grades[s]);
-  assignStudentFocus(c); // (the bump may have pushed a grade past its cap)
+  assignStudentFocus(c, true); // (the bump may have pushed a grade past its cap)
   giveFirstSkill(c); // (and may have changed their favourite)
   c.legendary = true;
   capTeacherGrades(c); // a legendary teacher's specialty is S, the rest A at most

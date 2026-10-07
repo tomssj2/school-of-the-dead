@@ -1,12 +1,18 @@
 // The Night Watch board's art: the school's front at night, drawn in code as pixel art in the
 // campus colours (cream walls, blue trim, the red sign), then lit — moonlight everywhere, a warm
-// glow from the lit windows and a fire barrel, a car's headlight — and small
-// pixel sprites for the defenses built on it. The board is the entrance grid: the school's doors —
-// the gate — across the top, the front steps where defenders stand (rows 0-2), the courtyard where
-// defenses go (rows 3-4) and the street the horde comes up from (rows 5-6).
+// glow from the lit windows — and small pixel sprites for the defenses built on it. The board is
+// the entrance grid: the school's doors across the top, the front steps (rows 0-2),
+// the open lawn of the courtyard (rows 3-4), the pavement (row 5) and the road the horde comes up
+// (row 6). Nothing stands in the lanes but what's placed there.
 
 import { shadowOf, lightOf, mix } from "./sprite.js";
-import { ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0 } from "./data.js";
+import { ENTRANCE_ROWS } from "./data.js";
+
+// The art's bands, by row: the three front steps, the two rows of lawn, then the pavement and the
+// road (where students, walls and the horde go is data.js ENTRANCE_ZONES — the art doesn't move).
+const STEP_ROWS = 3;
+const LAWN_ROW0 = 3;
+const PAVEMENT_ROW = 5;
 import { hash, hash2, buffer, lightUp } from "./lighting.js";
 
 // Art pixels: each square is CELL_W x CELL_H, under a facade FACADE_H tall.
@@ -27,8 +33,6 @@ function text(p, str, x, y, c, e = 0) {
 
 // Light colours (multipliers).
 const WARM = [1.0, 0.74, 0.42];
-const FIRE = [1.0, 0.52, 0.2];
-const BEAM = [0.82, 0.88, 0.95];
 
 // The campus palette (map.js's school tile).
 const WALL = "#ece4d0";
@@ -38,7 +42,6 @@ const TRIM = "#2f6f9f";
 const STONE = "#d6cfbd";
 const STONE_LT = "#ece6d6";
 const STONE_DK = "#aaa294";
-const IRON = "#262a33";
 const IRON_LT = "#4a5060";
 const BLOOD = "#7a1e1e";
 const LIT = ["#fff0b8", "#f8d888", "#f2c060", "#e6a848"];
@@ -211,8 +214,8 @@ export function courtyardBackground(cols) {
   for (let y = 23; y <= 30; y++) if (hash(y, 48) < 0.8) p.r(hx, y, hx + (y < 27 ? 1 : 0), y, BLOOD);
 
   // ===== the front steps: one stone step a row, lit along the nosing, a shadowed riser =====
-  const stepsEnd = rowY(ENTRANCE_ZONES.students) - 1;
-  for (let row = 0; row < ENTRANCE_ZONES.students; row++) {
+  const stepsEnd = rowY(STEP_ROWS) - 1;
+  for (let row = 0; row < STEP_ROWS; row++) {
     const y0 = rowY(row);
     p.r(0, y0, W - 1, y0 + 13, STONE);
     for (let i = 0; i < W * 1.4; i++) p.set(Math.floor(hash(i, 50 + row) * W), y0 + Math.floor(hash(i, 60 + row) * 14), hash(i, 70 + row) < 0.5 ? "#cdc6b3" : "#ddd7c6");
@@ -247,7 +250,7 @@ export function courtyardBackground(cols) {
     p.r(rail, rowY(0) + 2, rail, stepsEnd, "#9aa2ae");
     for (let y = rowY(0) + 2; y < stepsEnd; y += 2) p.set(rail, y, "#d0d8e2");
     p.r(rail + (rail < mid ? 1 : -1), rowY(0) + 3, rail + (rail < mid ? 1 : -1), stepsEnd, "#7e786c");
-    for (let row = 0; row < ENTRANCE_ZONES.students; row++) p.r(rail - 1, rowY(row) + 11, rail + 1, rowY(row) + 13, IRON_LT);
+    for (let row = 0; row < STEP_ROWS; row++) p.r(rail - 1, rowY(row) + 11, rail + 1, rowY(row) + 13, IRON_LT);
   }
   // a blood trail down the middle, spent shells, a dropped bat, a backpack
   for (let y = rowY(0) + 1; y < stepsEnd; y++) if (hash(y, 55) < 0.4) p.set(mid + 3 + Math.round(Math.sin(y / 7) * 3), y, BLOOD);
@@ -265,13 +268,14 @@ export function courtyardBackground(cols) {
   p.r(W - 36, rowY(2) + 7, W - 31, rowY(2) + 8, "#5a8ad0");
   p.r(W - 35, rowY(2) + 10, W - 32, rowY(2) + 10, "#2a4a80");
 
-  // ===== the courtyard: a mown lawn, a paved path to the gate, hedges and flowers =====
-  const yardTop = rowY(DEFENSE_ROW0);
-  const fenceY = rowY(STREET_ROW0) - 4; // the low wall's cap
-  for (let x = 0; x < W; x++) p.r(x, yardTop, x, fenceY - 1, (x >> 3) & 1 ? "#5a9653" : "#4f8a4a");
+  // ===== the courtyard: open lawn and the paved path, down to a stone edging at the pavement =====
+  // Nothing stands in the lanes — students hold this ground now, and the horde walks across it.
+  const yardTop = rowY(LAWN_ROW0);
+  const yardEnd = rowY(PAVEMENT_ROW); // the edging, where the lawn meets the pavement
+  for (let x = 0; x < W; x++) p.r(x, yardTop, x, yardEnd - 1, (x >> 3) & 1 ? "#5a9653" : "#4f8a4a");
   for (let i = 0; i < W * 2.2; i++) {
     const x = Math.floor(hash(i, 60) * W);
-    const y = yardTop + Math.floor(hash(i, 61) * (fenceY - yardTop));
+    const y = yardTop + Math.floor(hash(i, 61) * (yardEnd - yardTop));
     p.set(x, y, hash(i, 62) < 0.55 ? "#3f7a42" : "#6aa860");
     if (hash(i, 63) < 0.15) p.set(x, y - 1, "#7ab870");
   }
@@ -279,93 +283,24 @@ export function courtyardBackground(cols) {
   for (const [x, y] of [[18, yardTop + 20], [W - 22, yardTop + 24]]) p.oval(x, y, 4, 2, "#3f7a42");
   const pa = mid - 16;
   const pb = mid + 15;
-  p.r(pa, yardTop, pb, fenceY + 5, "#d9d2c0");
-  for (let y = yardTop + 5; y < fenceY + 5; y += 6) p.r(pa, y, pb, y, "#c4bca8");
-  for (let y = yardTop; y < fenceY + 5; y++) for (let x = pa + (Math.floor((y - yardTop) / 6) % 2 ? 4 : 0); x <= pb; x += 8) p.set(x, y, "#c4bca8");
-  p.r(pa - 1, yardTop, pa - 1, fenceY + 5, "#a8a090");
-  p.r(pb + 1, yardTop, pb + 1, fenceY + 5, "#a8a090");
-  for (let y = yardTop + 3; y < fenceY; y++) if (hash(y, 64) < 0.3) p.set(mid - 4 + Math.round(Math.sin(y / 5) * 2), y, BLOOD);
-  // hedges along the foot of the steps, flowers in front of them
-  for (const [a, b] of [[6, pa - 3], [pb + 3, W - 7]]) {
-    for (let x0 = a; x0 <= b - 6; x0 += 15) {
-      const x1 = Math.min(b, x0 + 12);
-      p.r(x0, yardTop + 1, x1, yardTop + 6, "#3a6e3c");
-      p.r(x0 + 1, yardTop + 1, x1 - 1, yardTop + 1, "#5a9a54");
-      p.r(x0, yardTop + 6, x1, yardTop + 6, "#2a4e2c");
-      for (let x = x0; x <= x1; x++) for (let y = yardTop + 2; y <= yardTop + 5; y++) if (hash2(x, y, 65) < 0.25) p.set(x, y, "#4a8a4a");
-      p.set(x0, yardTop + 1, "#4f8a4a");
-      p.set(x1, yardTop + 1, "#4f8a4a");
-    }
-    p.r(a, yardTop + 7, b, yardTop + 8, "#5e4632");
-    for (let x = a; x <= b; x += 2) if (hash(x, 66) < 0.7) p.set(x, yardTop + 7 + (x % 4 ? 0 : 1), ["#e98fb0", "#f4d35e", "#8a5ad6", "#f4f4f4"][Math.floor(hash(x, 67) * 4)]);
+  p.r(pa, yardTop, pb, yardEnd - 1, "#d9d2c0");
+  for (let y = yardTop + 5; y < yardEnd; y += 6) p.r(pa, y, pb, y, "#c4bca8");
+  for (let y = yardTop; y < yardEnd; y++) for (let x = pa + (Math.floor((y - yardTop) / 6) % 2 ? 4 : 0); x <= pb; x += 8) p.set(x, y, "#c4bca8");
+  p.r(pa - 1, yardTop, pa - 1, yardEnd - 1, "#a8a090");
+  p.r(pb + 1, yardTop, pb + 1, yardEnd - 1, "#a8a090");
+  for (let y = yardTop + 3; y < yardEnd; y++) if (hash(y, 64) < 0.3) p.set(mid - 4 + Math.round(Math.sin(y / 5) * 2), y, BLOOD);
+  // a flowerbed along the foot of the steps
+  for (const [a, b] of [[2, pa - 3], [pb + 3, W - 3]]) {
+    p.r(a, yardTop, b, yardTop + 1, "#5e4632");
+    for (let x = a; x <= b; x += 2) if (hash(x, 66) < 0.7) p.set(x, yardTop + (x % 4 ? 0 : 1), ["#e98fb0", "#f4d35e", "#8a5ad6", "#f4f4f4"][Math.floor(hash(x, 67) * 4)]);
   }
-  // a bench, a bicycle on its side, a knocked-over bin, the flag at half mast
-  const by = yardTop + 16;
-  p.r(8, by, 24, by + 1, "#9a6a3a");
-  p.r(8, by, 24, by, "#c08a50");
-  p.r(8, by + 3, 24, by + 4, "#9a6a3a");
-  p.r(8, by + 3, 24, by + 3, "#c08a50");
-  for (const x of [9, 23]) p.r(x, by + 5, x, by + 8, IRON);
-  p.r(8, by + 9, 24, by + 9, "#3a6e3c");
-  for (const [cx] of [[27], [37]]) {
-    p.oval(cx, yardTop + 31, 3, 2, IRON);
-    p.oval(cx, yardTop + 31, 2, 1, "#4f8a4a");
-  }
-  p.line(27, yardTop + 31, 32, yardTop + 29, "#c83a3a");
-  p.line(32, yardTop + 29, 37, yardTop + 31, "#c83a3a");
-  p.r(31, yardTop + 28, 33, yardTop + 28, IRON);
-  p.r(pb + 6, yardTop + 24, pb + 14, yardTop + 28, "#3f6f5a");
-  p.r(pb + 6, yardTop + 24, pb + 14, yardTop + 24, "#5a8f78");
-  p.r(pb + 14, yardTop + 23, pb + 15, yardTop + 29, "#2a4e3e");
-  for (let i = 0; i < 9; i++) p.set(pb + 4 - Math.floor(hash(i, 68) * 6), yardTop + 25 + Math.floor(hash(i, 69) * 5), i % 2 ? "#d8d8d0" : "#7a5a3a");
-  const fx = W - 12;
-  p.r(fx, yardTop + 6, fx, fenceY - 1, "#c8ccd4");
-  p.r(fx - 2, fenceY - 3, fx + 2, fenceY - 1, STONE_DK);
-  for (let y = 0; y < 6; y++) p.r(fx + 1, yardTop + 9 + y, fx + 7 - (y % 2) - (y > 3 ? 2 : 0), yardTop + 9 + y, y < 2 ? lightOf("#d64545") : "#d64545");
-  p.set(fx, yardTop + 5, "#f4d35e");
-
-  // ===== the fence: a low wall with iron railings, the gate torn open =====
-  const gapA = pa;
-  const gapB = pb;
-  const inGap = (x) => x >= gapA - 4 && x <= gapB + 4;
-  for (let x = 0; x < W; x++) {
-    if (inGap(x)) continue;
-    const crumbled = x >= W - 40 && x <= W - 30;
-    if (crumbled) continue;
-    p.set(x, fenceY, STONE);
-    p.r(x, fenceY + 1, x, fenceY + 5, "#b8ae96");
-    p.set(x, fenceY + 3, "#968c76");
-    if ((x + (0)) % 6 === 0) p.r(x, fenceY + 1, x, fenceY + 2, "#968c76");
-    if ((x + 3) % 6 === 0) p.r(x, fenceY + 4, x, fenceY + 5, "#968c76");
-    p.set(x, fenceY + 6, "#7a7262");
-  }
-  for (let i = 0; i < 10; i++) p.oval(W - 40 + hash(i, 70) * 10, fenceY + 2 + hash(i, 71) * 4, 1.2, 1, i % 2 ? "#b8ae96" : "#8e8676");
-  const railTop = fenceY - 10;
-  for (let x = 2; x < W - 2; x += 4) {
-    if (inGap(x) || (x >= W - 42 && x <= W - 28) || x === 22 || x === 26) continue;
-    p.r(x, railTop + 1, x, fenceY - 1, IRON);
-    p.set(x, railTop, IRON_LT);
-  }
-  p.line(22, fenceY - 1, 18, railTop + 2, IRON); // bent bars
-  p.line(26, fenceY - 1, 29, railTop + 3, IRON);
-  for (const y of [railTop + 2, fenceY - 2]) {
-    p.r(0, y, gapA - 5, y, IRON);
-    p.r(gapB + 5, y, W - 43, y, IRON);
-    p.r(W - 27, y, W - 1, y, IRON);
-  }
-  for (const [a, b] of [[gapA - 4, gapA - 1], [gapB + 1, gapB + 4], [0, 3], [W - 4, W - 1]]) {
-    p.r(a, railTop - 2, b, fenceY + 6, "#c4bca8");
-    p.r(a, railTop - 2, a, fenceY + 6, STONE_LT);
-    p.r(b, railTop - 2, b, fenceY + 6, "#a29a86");
-    p.r(a - 1, railTop - 4, b + 1, railTop - 3, STONE_LT);
-    p.r(a - 1, railTop - 2, b + 1, railTop - 2, "#a29a86");
-    p.r(a + 1, railTop - 6, b - 1, railTop - 5, STONE);
-  }
-  for (let x = gapB - 7; x <= gapB - 1; x += 2) p.r(x, railTop + 1, x, fenceY - 1, IRON); // one leaf hangs open
-  for (const y of [railTop + 2, fenceY - 2]) p.r(gapB - 7, y, gapB - 1, y, IRON);
+  // the stone edging
+  p.r(0, yardEnd, W - 1, yardEnd + 1, "#b8ae96");
+  p.r(0, yardEnd, W - 1, yardEnd, STONE_LT);
+  for (let x = 4; x < W; x += 10) p.set(x, yardEnd + 1, "#968c76");
 
   // ===== the street: sidewalk, kerb, the road the horde comes up =====
-  const streetTop = rowY(STREET_ROW0) + 2;
+  const streetTop = rowY(PAVEMENT_ROW) + 2;
   const kerbY = streetTop + 12;
   p.r(0, streetTop, W - 1, kerbY - 1, "#a29e94");
   for (let i = 0; i < W * 1.5; i++) p.set(Math.floor(hash(i, 72) * W), streetTop + Math.floor(hash(i, 73) * 12), hash(i, 74) < 0.5 ? "#98948a" : "#aeaaa0");
@@ -373,10 +308,6 @@ export function courtyardBackground(cols) {
   p.r(0, streetTop + 6, W - 1, streetTop + 6, "#8a867c");
   for (let x = 6; x < W; x += 12) if (hash(x, 75) < 0.4) p.r(x, streetTop + 4, x, streetTop + 5, "#5a8a4a");
   for (let y = streetTop; y < streetTop + 5; y++) for (let x = pa; x <= pb; x++) if (hash2(x, y, 76) < 0.03) p.set(x, y, "#d9d2c0");
-  // the fallen gate leaf on the sidewalk
-  p.r(pa + 2, streetTop, pa + 17, streetTop, IRON);
-  p.r(pa + 2, streetTop + 3, pa + 17, streetTop + 3, IRON);
-  for (let x = pa + 2; x <= pa + 17; x += 2) p.r(x, streetTop + 1, x, streetTop + 2, IRON);
   p.r(0, kerbY, W - 1, kerbY, "#cdc9bf");
   p.r(0, kerbY + 1, W - 1, kerbY + 1, "#9a968c");
   p.r(0, kerbY + 2, W - 1, kerbY + 2, "#2a2d34");
@@ -393,10 +324,9 @@ export function courtyardBackground(cols) {
     }
   }
   const roadMid = Math.round((roadTop + H - 1) / 2);
-  const carX = W - 46;
-  for (let x = 0; x < W; x++) if ((x + 4) % 20 < 10 && (x < pa - 2 || x > pb + 2) && x < carX - 4) p.r(x, roadMid, x, roadMid + 1, "#d8b040");
+  for (let x = 0; x < W; x++) if ((x + 4) % 20 < 10 && (x < pa - 2 || x > pb + 2)) p.r(x, roadMid, x, roadMid + 1, "#d8b040");
   for (let x = pa + 1; x <= pb; x++) if ((x - pa - 1) % 6 < 4) for (let y = roadTop + 1; y < H; y++) if (hash2(x, y, 83) > 0.12) p.set(x, y, "#dcdcd4");
-  // a storm drain, a manhole, puddles (one with the lamp in it), a cone, litter
+  // a storm drain, a manhole, puddles, litter
   p.r(22, kerbY + 1, 31, kerbY + 2, "#1a1c22");
   for (let x = 23; x < 31; x += 2) p.set(x, kerbY + 1, "#5a5e66");
   p.oval(62, H - 6, 5, 2.4, "#3a3d44");
@@ -406,62 +336,12 @@ export function courtyardBackground(cols) {
   p.r(32, H - 5, 34, H - 5, "#4a5e8e", 1);
   p.oval(52, roadTop + 4, 6, 1.8, "#1e2a48", 1);
   p.r(50, roadTop + 4, 52, roadTop + 4, "#4a5e8e", 1);
-  p.r(70, roadTop + 3, 75, roadTop + 4, "#e07030");
-  p.r(72, roadTop + 3, 73, roadTop + 4, "#f0f0e8");
-  p.r(76, roadTop + 2, 77, roadTop + 5, "#c05a20");
   for (let i = 0; i < 10; i++) {
     const x = Math.floor(hash(i, 84) * W);
     const y = streetTop + 2 + Math.floor(hash(i, 85) * (H - streetTop - 4));
     p.r(x, y, x + 1, y, i % 3 ? "#d8d8d0" : "#3a2a20");
   }
   for (let y = streetTop; y < H; y++) if (hash(y, 86) < 0.45) p.set(mid - 2 + Math.round(Math.sin(y / 5) * 1.5), y, "#6a1818");
-  // a fire in a barrel on the corner
-  const fx0 = 8;
-  const fy = streetTop + 2;
-  p.r(fx0, fy, fx0 + 7, kerbY - 2, "#6e4428");
-  p.r(fx0, fy, fx0, kerbY - 2, "#8e5a36");
-  p.r(fx0 + 7, fy, fx0 + 7, kerbY - 2, "#4a2e1c");
-  for (const y of [fy + 2, kerbY - 4]) p.r(fx0, y, fx0 + 7, y, "#4a2e1c");
-  p.r(fx0, fy, fx0 + 7, fy, "#3a2416");
-  for (let x = fx0; x <= fx0 + 7; x++) {
-    const h = 2 + Math.round(hash(x, 87) * 3 + (x > fx0 + 1 && x < fx0 + 6 ? 3 : 0));
-    for (let k = 0; k < h; k++) p.set(x, fy - 1 - k, k > h - 2 ? "#fff3b0" : k > h - 4 ? "#ffd36a" : k > 1 ? "#f4943a" : "#e8541e", 1);
-  }
-  for (const [x, y] of [[fx0 + 2, fy - 11], [fx0 + 5, fy - 13], [fx0 + 3, fy - 15]]) p.set(x, y, "#ffb84a", 1);
-  lights.push({ x: fx0 + 4, y: fy - 2, r: 36, sy: 1.2, k: 1.0, c: FIRE });
-  // a crashed car, its headlight still on
-  const cy = roadTop + 7;
-  p.r(carX + 2, cy + 12, carX + 40, cy + 14, "#2a2d33");
-  p.r(carX, cy + 4, carX + 40, cy + 11, "#b03030");
-  p.r(carX, cy + 4, carX + 40, cy + 4, "#d04848");
-  p.r(carX, cy + 11, carX + 40, cy + 11, "#7a2020");
-  for (let y = cy - 3; y < cy + 4; y++) {
-    const t = y - (cy - 3);
-    p.r(carX + 13 - t, y, carX + 30 + Math.floor(t / 2), y, "#b03030");
-  }
-  p.r(carX + 13, cy - 3, carX + 30, cy - 3, "#d04848");
-  for (let y = cy - 2; y < cy + 3; y++) {
-    const t = y - (cy - 2);
-    p.r(carX + 13 - t, y, carX + 20, y, GLASS_DARK, 1);
-    p.r(carX + 22, y, carX + 29 + Math.floor(t / 2), y, GLASS_DARK, 1);
-  }
-  for (const [dx, dy] of [[11, 1], [12, 0], [14, 1], [13, 2], [15, -1]]) p.set(carX + dx, cy + dy, "#8ea6d4", 1);
-  p.set(carX + 25, cy - 1, "#3a4c7a", 1);
-  p.r(carX + 21, cy - 2, carX + 21, cy + 10, "#8a2626");
-  p.r(carX + 24, cy + 6, carX + 25, cy + 6, "#e0d0d0");
-  for (const [dx, dy] of [[2, 5], [4, 6], [3, 8], [6, 7]]) p.set(carX + dx, cy + dy, "#7a2020"); // the crumpled nose
-  p.line(carX + 1, cy + 3, carX + 10, cy, "#c04040");
-  for (const wx of [carX + 8, carX + 33]) {
-    p.oval(wx, cy + 11, 3.6, 3.6, "#5a1818");
-    p.oval(wx, cy + 12, 3, 3, "#16181c");
-    p.r(wx - 1, cy + 11, wx, cy + 12, "#8a909a");
-  }
-  p.r(carX, cy + 5, carX + 1, cy + 6, "#fff8d8", 1);
-  p.r(carX - 1, cy + 9, carX + 1, cy + 10, "#8a909a");
-  p.r(carX + 40, cy + 5, carX + 40, cy + 6, "#ff4a3a", 1);
-  lights.push({ x: carX - 24, y: cy + 6, r: 32, sy: 2.2, k: 0.6, c: BEAM });
-  lights.push({ x: carX + 41, y: cy + 5, r: 8, k: 0.5, c: [1, 0.2, 0.15] });
-
   const url = `url('${lightUp(p, lights)}')`;
   cache.set(key, url);
   return url;

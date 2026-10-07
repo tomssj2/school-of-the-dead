@@ -957,7 +957,7 @@ html[data-gfx="low"] .staff-add { animation: none; }
   .tab-enter .content > *, .tab-enter .content .room, .scene-person, .scene-person::before, body::before, body::after { animation: none; }
 }
 
-/* ===== The Night Watch board (nightwatch.js art; ui.js renderNightBoard / renderGridBattle) =====
+/* ===== The Night Watch board (nightwatch.js art; ui.js renderNightBoard / gridBattle) =====
    The art is --size columns by --rows of 32x20 squares under a 36-tall facade (nightwatch.js FACADE_H), scaled by --px. Squares and units
    are placed over it with --r / --c. */
 .nw-layout { display: flex; gap: 14px; align-items: stretch; }
@@ -1024,9 +1024,12 @@ html[data-gfx="low"] .staff-add { animation: none; }
 body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px dashed rgba(79, 163, 255, 0.5); outline-offset: -3px; }
 .nw-cell.nw-drop-over { background: rgba(79, 163, 255, 0.38) !important; }
 /* a hovered defender's reach: melee in red, ranged in blue */
-.nw-cell.nw-reach-melee { background: rgba(214, 69, 69, 0.3); }
-.nw-cell.nw-reach-ranged { background: rgba(63, 167, 214, 0.24); }
-.nw-cell.nw-reach-self { outline: 2px solid #f4d35e; outline-offset: -2px; }
+/* a student's range (main.js showReach): red attack, green heal, yellow buff, their own square outlined */
+.nw-cell.nw-reach { z-index: 14; pointer-events: none; border: none; }
+.nw-cell.nw-reach-attack { background: rgba(230, 60, 50, 0.32); box-shadow: inset 0 0 0 2px rgba(255, 90, 70, 0.75); }
+.nw-cell.nw-reach-heal { background: rgba(70, 210, 110, 0.28); box-shadow: inset 0 0 0 2px rgba(110, 240, 150, 0.75); }
+.nw-cell.nw-reach-buff { background: rgba(244, 211, 94, 0.28); box-shadow: inset 0 0 0 2px rgba(255, 225, 110, 0.8); }
+.nw-cell.nw-reach-self { box-shadow: inset 0 0 0 2px #ffffff; background: rgba(255, 255, 255, 0.08); }
 
 /* people, zombies, defenses */
 .nw-unit {
@@ -1050,8 +1053,6 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
 .nw-hp-student i { background: var(--bar-hp); }
 .nw-hp-zombie i { background: var(--bar-hp); }
 .nw-hp-wall i { background: var(--bar-hp); }
-.nw-hp-gate { width: 90px; height: 6px; margin: 0; }
-.nw-hp-gate i { background: var(--bar-hp); }
 .nw-structure { display: block; line-height: 0; margin-bottom: 4px; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.6)); }
 .nw-cell > .nw-hp-wall { position: absolute; bottom: 3px; width: 50%; }
 .nw-rubble { opacity: 0.75; }
@@ -1062,34 +1063,12 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
   to { transform: translateX(2px); }
 }
 
-/* the doors at the top: the gate */
-.nw-gate {
-  position: absolute;
-  z-index: 16;
-  top: calc(3px * var(--px));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border-radius: 0;
-  border: 1px solid rgba(244, 211, 94, 0.55);
-  background: rgba(10, 12, 18, 0.82);
-  font-size: 12px;
-  white-space: nowrap;
-}
-.nw-gate-none { border-color: rgba(214, 69, 69, 0.7); color: #ffb0b0; }
 /* top left of the board: someone on the steps has no weapon; top right: the watch's 📌 Stay */
 .nw-stay { position: absolute; z-index: 16; top: calc(3px * var(--px)); right: calc(3px * var(--px)); line-height: 0; }
 .nw-unarmed {
   position: absolute; z-index: 16; top: calc(3px * var(--px)); left: calc(3px * var(--px));
   padding: 2px 8px; border: 1px solid rgba(255, 159, 67, 0.7); background: rgba(10, 12, 18, 0.82);
   color: #ffb36b; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: help;
-}
-.nw-gate-hit { animation: nw-gate-hit 0.45s ease-out; }
-@keyframes nw-gate-hit {
-  from { background: rgba(214, 69, 69, 0.85); transform: translateX(-50%) scale(1.12); }
 }
 
 /* the battle: zombies walk up from last turn's square, units lunge and flash, shots fly */
@@ -1158,7 +1137,7 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
 .nw-pop-bad { color: #ff7a7a; }
 .nw-pop-miss { color: #9aa3b8; font-size: 11px; font-weight: 600; }
 .nw-pop-big { font-size: 22px; }
-.nw-pop-gate { top: -4px; }
+.nw-pop-breach { top: -4px; }
 @keyframes nw-pop {
   from { opacity: 1; transform: translate(-50%, 4px) scale(1.25); }
   to { opacity: 0; transform: translate(-50%, -22px) scale(1); }
@@ -1556,7 +1535,6 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
 }
 .nw-pop-fire { color: #ffa040; }
 .nw-pop-heal { color: #7fe0a8; }
-.nw-focused::after { content: "🎯"; position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 14px; animation: cm-q-pulse 1s ease-in-out infinite; }
 .nw-rally { animation: nw-rally 0.6s ease-out; }
 @keyframes nw-rally { from { box-shadow: inset 0 0 50px 10px rgba(244, 211, 94, 0.6); } }
 .nw-rallied { color: #f4d35e; font-weight: 700; }
@@ -1597,8 +1575,6 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
 /* the planning panel: tonight's weather and actions */
 .nw-tonight { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .nw-cond { padding: 2px 10px; border-radius: 0; border: 1px solid rgba(79, 163, 255, 0.5); background: rgba(79, 163, 255, 0.1); cursor: help; }
-.nw-action-preview { display: flex; gap: 6px; flex-wrap: wrap; }
-.nw-action-preview span { padding: 2px 8px; border-radius: 0; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.05); font-size: 13px; cursor: help; }
 
 /* the side panel: tonight's horde, the facts, and the roster to drag defenders from */
 .nw-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -2608,18 +2584,18 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 }
 .fight-result-sub { font-size: 13px; color: var(--text); max-width: 320px; text-align: center; }
 
-/* ---------- Night battle playback (entrance grid) ---------- */
+/* ---------- Night battle (entrance grid) ---------- */
 
-.gb-overlay { gap: 12px; overflow-y: auto; justify-content: flex-start; padding-top: 24px; background: rgba(8, 10, 14, 0.95); }
-.gb-header { text-align: center; }
-.gb-title { font-size: 17px; font-weight: 700; }
-.gb-counters { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+/* the night's result: on the board once the fight's over, until the side panel's Summary button */
+.nw-result { position: absolute; inset: 0; z-index: 25; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.nw-result > .gb-result { pointer-events: auto; }
+.gb-result.nw-still { animation: none; }
 
 .gb-boss-result { font-size: 13px; font-weight: 700; }
 .gb-boss-result.fight-win { color: #f4c430; }
 .gb-boss-result.fight-lose { color: var(--muted); }
 
-.gb-result { gap: 6px; }
+.gb-result { gap: 6px; padding: 20px 32px; border: 1px solid var(--border); background: rgba(14, 17, 24, 0.97); }
 .gb-result .fight-result-icon { font-size: 40px; }
 .gb-result-stats { font-size: 12.5px; color: var(--muted); text-align: center; }
 
@@ -3953,8 +3929,8 @@ body[data-turn="3"], body[data-turn="over"] { --sky-now: var(--sky-night); }
 .t1-tab.active b { color: var(--text); }
 .t1-roster { --role: #6f9be8; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding: 2px; border: 1px dashed transparent; }
 .t1-roster .ex-rt-grid { grid-template-columns: repeat(4, 1fr); max-height: none; overflow: visible; }
-.t1-roster .t1-lv::before { content: none; }
-.t1-roster .t1-lv { font-size: 10px; font-weight: 600; color: var(--muted); }
+.ex-rt .t1-lv::before { content: none; }
+.ex-rt .t1-lv { font-size: 10px; font-weight: 600; color: var(--muted); }
 body.nw-dragging .t1-side .t1-roster { border-color: rgba(214, 69, 69, 0.45); }
 .t1-side.nw-drop-over .t1-roster { background: rgba(214, 69, 69, 0.12); }
 .t1-chip-busy { opacity: 0.5; }
@@ -3979,3 +3955,99 @@ body.nw-dragging .pt-empty:not(.pt-off) { outline: 1px dashed rgba(79, 163, 255,
 .nw-side .nw-roster .ex-rt-grid { max-height: none; overflow: visible; }
 .nw-head-btns { display: inline-flex; gap: 6px; }
 .defense-guide { width: min(640px, 94vw); }
+
+/* ===== The Night Watch's classes and morale (ui.js renderNightBoard, nightRoster) ===== */
+/* a defender tonight's morale can't pay for: they'd sit the night out */
+.nw-defender.nw-unpaid { opacity: 0.45; filter: grayscale(0.7); }
+.nw-defender.nw-unpaid::after {
+  content: "⏳ waits"; position: absolute; left: 50%; bottom: -2px; translate: -50% 0;
+  padding: 0 4px; background: rgba(10, 12, 18, 0.85); color: #ffb36b; font-size: 9px; font-weight: 700; white-space: nowrap;
+}
+.nw-morale b { color: #ffd27a; }
+.nw-tabs { margin: 2px 0 4px; }
+/* the fight's bench: today's morale, then everyone who could still be posted — click one, then a
+   free square (it lights up green) */
+.nw-bench { display: flex; align-items: center; gap: 10px; max-width: min(1100px, 92vw); padding: 6px 10px; border: 1px solid var(--border); background: rgba(14, 17, 24, 0.95); }
+.nw-bench-morale { flex: none; font-size: 15px; white-space: nowrap; }
+.nw-bench-morale b { color: #ffd27a; font-size: 18px; }
+.nw-bench-list { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; max-height: 92px; overflow-y: auto; scrollbar-width: thin; }
+.nw-bench-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; width: 44px; padding: 2px 0 3px;
+  border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04); color: var(--text); font: inherit; cursor: pointer;
+}
+.nw-bench-chip:hover:not(:disabled) { border-color: #7fe0a8; transform: translateY(-1px); }
+.nw-bench-chip:disabled { opacity: 0.35; cursor: not-allowed; }
+.nw-bench-chip.on { border-color: #7fe0a8; background: rgba(127, 224, 168, 0.2); }
+.nw-bench-chip.nw-bench-planned { border-style: dashed; }
+.nw-bench-face { line-height: 0; }
+.nw-bench-cost { font-size: 10px; line-height: 1; white-space: nowrap; }
+.nw-bench-cost b { color: #ffd27a; margin-left: 1px; }
+.nw-battle-buttons { display: flex; gap: 8px; }
+.nw-pick-post { background: rgba(127, 224, 168, 0.18); outline: 2px dashed rgba(127, 224, 168, 0.8); outline-offset: -3px; }
+.nw-pick-post:hover { background: rgba(127, 224, 168, 0.4); }
+
+/* a class badge whose second ability is unlocked (grade B in its subject) */
+.nw-xrole.nw-xrole-2 { padding: 1px; background: rgba(244, 211, 94, 0.25); box-shadow: 0 0 0 1px #f4d35e, 0 0 6px rgba(244, 211, 94, 0.6); }
+.nw-xrole.nw-xrole-3 { padding: 1px; background: rgba(255, 92, 72, 0.25); box-shadow: 0 0 0 1px #ff6a50, 0 0 7px rgba(255, 92, 72, 0.75); }
+
+/* the planning board's road: a red marker on each lane the first zombies come up */
+.nw-spawn-mark {
+  position: absolute; z-index: 17; left: 50%; top: 2px; translate: -50% 0;
+  color: #ff4a3a; font-size: 18px; line-height: 1; font-weight: 900; cursor: help;
+  text-shadow: 0 0 0 #000, 0 2px 0 #000, 0 0 8px rgba(255, 60, 40, 0.9);
+  animation: nw-spawn-bob 0.9s ease-in-out infinite alternate;
+}
+@keyframes nw-spawn-bob { to { transform: translateY(3px); } }
+html[data-gfx="medium"] .nw-spawn-mark { animation: none; }
+
+/* the night's fight, played on the Night Watch board: the same size as while planning, its controls
+   in the side panel (the bench fills what's left above the Summary button) */
+.nw-main > .nw-battle { --px: 3.2; }
+.nw-side-fight .nw-bench-list { flex: 1 1 auto; max-height: none; align-content: flex-start; }
+.nw-side-fight .nw-battle-buttons > .btn { flex: 1; }
+.nw-side-fight .nw-aim-hint { flex-wrap: wrap; padding: 4px 6px; font-size: 12px; }
+
+/* the night actions, side panel (planning and fight): three tiles, a big icon over its name and cost;
+   lit gold when there's the morale for it, greyed out when there isn't */
+.nw-side .nw-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.nw-side .nw-action { flex-direction: column; justify-content: center; gap: 2px; padding: 6px 4px; font-size: 12px; cursor: help; }
+.nw-side button.nw-action { cursor: pointer; }
+.nw-side .nw-action-icon { line-height: 0; }
+.nw-side .nw-action-icon .px-icon { width: 32px; height: 32px; }
+.nw-side .nw-action b { color: #ffd27a; }
+.nw-action-ok { border-color: #f4d35e; background: rgba(244, 211, 94, 0.12); box-shadow: 0 0 6px rgba(244, 211, 94, 0.4); }
+.nw-action-off, .nw-action:disabled { filter: grayscale(1); opacity: 0.45; }
+.nw-action-off b { color: var(--muted); }
+
+/* the night's morale, on the board top middle — the line of the ⚠ unarmed warning and the 📌 Stay */
+.nw-moralebar {
+  position: absolute; z-index: 16; top: calc(3px * var(--px)); left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid rgba(255, 210, 122, 0.6);
+  background: rgba(10, 12, 18, 0.82); font-size: 12px; white-space: nowrap;
+}
+.nw-moralebar b { color: #ffd27a; }
+
+.nw-banner-lost { color: #ff8a7a; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.6), 0 0 22px rgba(255, 60, 40, 0.9); }
+
+/* after the fight, the side panel's fallen: who went down, their odds, medicine to save them */
+.nw-fallen-list { flex: none; max-height: 168px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; scrollbar-width: thin; }
+.nw-fallen { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border: 1px solid rgba(214, 69, 69, 0.5); background: rgba(214, 69, 69, 0.08); }
+.nw-fallen-saved { border-color: rgba(127, 224, 168, 0.6); background: rgba(127, 224, 168, 0.08); }
+.nw-fallen-face { line-height: 0; }
+.nw-fallen-name { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; font-weight: 700; }
+.nw-fallen-name small { font-size: 11px; font-weight: 400; color: var(--muted); }
+.nw-fallen-saved small { color: #7fe0a8; }
+
+/* after the fight, the side panel's meters: a few rows per stat — rank, face, name over a bar, the number */
+.nw-stats { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin; }
+.nw-meter-head { margin-bottom: 3px; font-size: 12px; font-weight: 700; }
+.nw-meter-row { display: grid; grid-template-columns: 18px 24px minmax(0, 1fr) 40px; align-items: center; gap: 6px; padding: 1px 0; font-size: 12px; cursor: help; }
+.nw-meter-rank { text-align: center; color: var(--muted); font-size: 11px; }
+.nw-meter-face { line-height: 0; }
+.nw-meter-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nw-meter-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nw-meter-name small { color: var(--muted); }
+.nw-meter-bar { display: block; height: 5px; background: rgba(0, 0, 0, 0.55); }
+.nw-meter-bar i { display: block; height: 100%; background: var(--bar-other); }
+.nw-meter-row b { text-align: right; color: #ffd27a; }
+.nw-meter-top .nw-meter-name { color: #ffd27a; font-weight: 700; }

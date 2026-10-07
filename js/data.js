@@ -243,12 +243,12 @@ export const LEGENDARY_ITEM_TEMPLATES = [
 export const LEGENDARY_TITLES = ["the Relentless", "the Unbroken", "the Last Stand", "the Ironclad", "the Undying", "the Reaper's Bane"];
 
 // ===== Main Entrance battle grid =====
-// The grid the player builds and fights on at the Main Entrance: ENTRANCE_GRID_SIZE columns, and
-// rows top to bottom in three zones — the front steps where defenders stand, the courtyard where
-// defenses are built, and the street the horde comes up from. (state.entranceGrid.size is the
-// column count.)
+// The grid the player builds and fights on at the Main Entrance: ENTRANCE_GRID_SIZE columns — the
+// lanes the horde walks up — and rows top to bottom in three zones: where students stand (the three
+// front steps and the two rows of lawn), the pavement where walls and traps go, and the road the
+// horde comes up from (traps can go there too). (state.entranceGrid.size is the column count.)
 export const ENTRANCE_GRID_SIZE = 6;
-export const ENTRANCE_ZONES = { students: 3, defenses: 2, street: 2 };
+export const ENTRANCE_ZONES = { students: 5, defenses: 1, street: 1 };
 export const ENTRANCE_ROWS = ENTRANCE_ZONES.students + ENTRANCE_ZONES.defenses + ENTRANCE_ZONES.street;
 // The row each zone starts on.
 export const DEFENSE_ROW0 = ENTRANCE_ZONES.students;
@@ -270,7 +270,9 @@ export const LEGACY_DEFENSE_IDS = { barricade: "sandbag_wall", spike_trap: "razo
 // ===== Night battle tuning =====
 export const ZOMBIE_HIT_CHANCE = 0.65;
 export const FIST_WEAPON = { name: "Fists", icon: "👊", damage: 4, range: 1, category: "melee" };
-export const BATTLE_MAX_TICKS = 40;
+// A night goes on until every zombie is put down or gets in; this many turns of one wave only breaks a
+// stalemate (nobody left who can hurt them) — whatever's still out there then walks in.
+export const BATTLE_MAX_TICKS = 200;
 export const DOWNED_DEATH_CHANCE = 0.2; // before the Biology modifier, when there's no medicine to spare
 export const MEDICINE_PER_STABILIZE = 5; // spent automatically to save a downed defender outright
 // Raised alongside the stat rework (dodging, leadership, awareness, smarter traps) to keep an
@@ -292,7 +294,7 @@ export const ZOMBIE_TYPES = {
   walker: { name: "Walker", badge: "", hpMult: 1, dmgMult: 1, from: 1, desc: "Slow and relentless." },
   runner: { name: "Runner", badge: "💨", hpMult: 0.6, dmgMult: 0.8, speed: 2, meleeEvade: 0.3, from: 4, desc: "Covers two rows a turn and slips 30% of melee blows — shoot it." },
   brute: { name: "Brute", badge: "💪", hpMult: 2, dmgMult: 1.5, wallMult: 2, rangedMult: 0.6, heavy: true, from: 7, desc: "Armoured: ranged hits do 40% less — get up close. Winds up heavy smashes and breaks walls fast." },
-  spitter: { name: "Spitter", badge: "🤮", hpMult: 0.8, dmgMult: 0.7, spitRange: 3, rangedMult: 1.5, from: 10, desc: "Spits acid up to 3 squares away, but ranged hits do 50% more." },
+  spitter: { name: "Spitter", badge: "🤮", hpMult: 0.8, dmgMult: 0.7, spitRange: 3, rangedMult: 1.5, from: 10, desc: "Spits acid up to 3 squares away as it comes, but ranged hits do 50% more." },
   screamer: { name: "Screamer", badge: "📢", hpMult: 0.7, dmgMult: 0.5, howl: { range: 2, mult: 1.3 }, from: 13, desc: "Its howl makes every zombie within 2 squares hit 30% harder — take it down first." },
   boss: { name: "Boss", badge: "👑", hpMult: 5, dmgMult: 2, wallMult: 3, unsnaggable: true, rangedMult: 0.8, heavy: true, enrages: true, from: 5, desc: "Leads the horde every 5th night. Winds up smashes; at half health goes berserk and calls for help." },
 };
@@ -303,50 +305,62 @@ export const ZOMBIE_SMASH = { chance: 0.5, mult: 2.5, enrageDmg: 1.5, summons: 2
 
 // ===== The Night Watch, fought live =====
 // The horde comes in waves (1 up to 6 zombies, 2 up to 14, 3 beyond), with a break between them
-// to move defenders. Night actions can be used any time during the fight, a few times a night.
+// to move defenders. Night actions can be used any time during the fight, each for `morale`.
 export const NIGHT_ACTIONS = {
-  molotov: { name: "Molotov", icon: "🔥", uses: 2, cost: { materials: 5 }, target: "square", desc: "Sets a 3x3 patch alight — every zombie on it burns" },
-  focus: { name: "Focus Fire", icon: "🎯", uses: 3, target: "zombie", desc: "Everyone who can reach it goes for one zombie, this turn and next" },
-  patch: { name: "Patch Up", icon: "🩹", uses: 2, cost: { medicine: 3 }, target: "defender", desc: "Heals a defender by half their HP" },
-  rally: { name: "Rally", icon: "🔔", uses: 1, target: null, desc: "Everyone hits 50% harder for 3 turns" },
+  molotov: { name: "Molotov", icon: "🔥", morale: 40, target: "square", desc: "Sets a 3x3 patch alight — every zombie on it burns" },
+  patch: { name: "Patch Up", icon: "🩹", morale: 25, target: "defender", desc: "Heals a defender by half their HP" },
+  rally: { name: "Rally", icon: "🔔", morale: 50, target: null, desc: "Everyone hits 50% harder for 3 turns" },
 };
 export const MOLOTOV_DAMAGE = 0.8; // of a walker's HP tonight
 // A defender's critical hit: `mult`× damage, `base` chance plus `perDex` for every DEX point.
 export const BATTLE_CRIT = { base: 0.05, perDex: 0.001, mult: 2 };
-// Each defender's active ability, by their expedition role (EXPLORE_ROLES). It charges up during
-// the fight (ABILITY_CHARGE) and fires when the player clicks them; every skill learned in the
-// role's two stats makes it `perSkill` stronger.
-export const BATTLE_ABILITIES = {
-  fighter: { name: "Cleave", icon: "🌀", reach: 2, mult: 1.5, desc: "Hits every zombie within 2 squares for 1.5× melee damage and knocks them back a row" },
-  scout: { name: "Headshot", icon: "💢", mult: 2.5, desc: "A sure 2.5× critical hit on the toughest zombie in reach — it staggers and loses its next move" },
-  support: { name: "Rally Cry", icon: "💚", heal: 0.3, turns: 2, desc: "Heals them and every defender next to them by 30% HP; they all hit 50% harder for 2 turns" },
+// ===== The Night Watch's classes =====
+// A defender's class is their ★ favourite subject. Each has one job, and its numbers grow with that stat
+// (0–100): `range` is "front" (the square in front, towards the street), "lane" (anything further
+// down their lane) or none, listed in the stats' order (STR … CHA). Their second ability (`ability2`)
+// comes with learning the third talent on that subject's path (its B node: NIGHT_ABILITY2_SKILLS), their
+// third (`ability3`) with the fifth (S).
+export const NIGHT_CLASSES = {
+  brawler: { subject: "PE", name: "Brawler", icon: "💪", range: "front", weapon: "melee", desc: "Hits the zombie in front of them with their melee weapon",
+    ability2: { name: "Cleave", desc: "Also hits the zombies either side of their target" },
+    ability3: { name: "Lunge", reach: 2, desc: "Hits the nearest zombie up to 2 squares in front" } },
+  shooter: { subject: "Gymnastics", name: "Shooter", icon: "🏹", range: "lane", weapon: "ranged", desc: "Fires down the lane at the nearest zombie",
+    ability2: { name: "Quick Draw", chance: 0.5, desc: "50% chance to fire twice a turn" },
+    ability3: { name: "Double Shot", desc: "Always fires twice a turn" } },
+  tank: { subject: "Biology", name: "Tank", icon: "🛡", range: "front", weapon: "melee", hpMult: 1.5, dmgMult: 0.5, desc: "+50% HP to hold the lane, and a weak hit on the square in front",
+    ability2: { name: "Second Wind", revive: 0.5, desc: "Once a night, gets back up at 50% HP" },
+    ability3: { name: "Colossus", hpBonus: 0.5, desc: "Another +50% HP: double in all" } },
+  trapper: { subject: "Physics", name: "Trapper", icon: "🕸", range: "lane", weapon: "ranged", dmgMult: 0.5, slowTurns: 3, desc: "Fires down the lane for half a shot's damage and slows its target to half speed",
+    ability2: { name: "Repair", repair: 0.1, desc: "Patches the wall in their lane by 10% a turn" },
+    ability3: { name: "Wide Net", chance: 0.2, turns: 2, desc: "20% chance a hit nets every zombie in their lane for 2 turns" } },
+  medic: { subject: "History", name: "Medic", icon: "🩹", range: "around", heal: 0.05, healPerGrade: 1 / 2000, desc: "Heals the most hurt student next to them every turn — only shoves a zombie right in front with their fists",
+    ability2: { name: "Long Reach", reach: 2, desc: "Heals anyone up to 2 squares away" },
+    ability3: { name: "Field Surgeon", desc: "Also heals anyone in their lane" } },
+  rallier: { subject: "SocialStudies", name: "Rallier", icon: "📣", morale: 5, every: 2, desc: "Makes 5 morale every 2 turns — only shoves a zombie right in front with their fists",
+    ability2: { name: "Rally Cry", buff: 0.2, hp: 0.2, desc: "Students in their lane deal 20% more damage and have 20% more HP" },
+    ability3: { name: "Inspire", moraleMult: 2, desc: "Makes double morale" } },
 };
-// Formations on the steps, by expedition role (the front line is the row nearest the street,
-// "behind" is the row nearer the doors): the bonus each linked defender gets.
-export const FORMATIONS = {
-  guarded: { name: "Guarded", icon: "🛡", armor: 0.75, desc: "A Fighter with a Support right behind them takes 25% less damage" },
-  shieldWall: { name: "Shield Wall", icon: "🧱", armor: 0.85, desc: "Two Fighters side by side each take 15% less damage" },
-  crossfire: { name: "Crossfire", icon: "🎯", crit: 0.1, desc: "Two Scouts side by side each get +10% crit chance" },
-};
-export const ABILITY_CHARGE = { perTick: 14, perHit: 8, perHurt: 12, full: 100, perSkill: 0.15, inspired: 1.5 };
-// A defender's role is their best stat (the subject behind it).
-// What each expedition role (EXPLORE_ROLES) does on the Night Watch steps.
-export const NIGHT_ROLES = {
-  fighter: { hpBonus: 0.5, desc: "+50% HP on watch" },
-  scout: { reach: 2, desc: "Ranged weapons reach 2 squares further" },
-  support: { mend: 0.05, desc: "Heals the defender in front of them (a row nearer the street) by 5% of their HP every turn" },
-};
+export const NIGHT_ABILITY2_SKILLS = 3; // talents learned on the class's subject's path (D, C, then B)
+export const NIGHT_ABILITY3_SKILLS = 5; // … and all five (A, then S: only a ★ favourite gets there)
+// Morale, the night's currency: you start with the school's Morale, earn `perKill` for every
+// zombie put down (and whatever Ralliers make), and spend `post` on every student you post.
+// At dawn the school gains `perStar` Morale for each of the night's three stars.
+export const NIGHT_MORALE = { post: 10, perKill: 5, perStar: 1 };
+// What a Shooter or Trapper with no ranged weapon throws.
+export const THROWN_ROCKS = { name: "Rocks", icon: "🪨", damage: 3, category: "ranged" };
+// Zombies take a row every `walkEvery` turns (Runners every turn); a slowed one twice as long.
+export const ZOMBIE_WALK_EVERY = 2;
 // Tonight's weather: rolled at random each night (always clear on the first), by `weight`. Each
-// kind of bad weather holds back one kind of defender (their expedition `role`): their damage
-// (`dmg`, attacks and ability alike) or, for supports, their healing (`mend`).
+// kind of bad weather holds back one class (NIGHT_CLASSES, `role`): their damage (`dmg`) or a
+// Medic's healing (`mend`).
 export const NIGHT_CONDITIONS = {
   clear: { id: "clear", name: "Clear", icon: "🌙", weight: 70, desc: "Nothing out of the ordinary" },
-  rain: { id: "rain", name: "Rain", icon: "🌧️", weight: 10, role: "fighter", dmg: 0.8, desc: "Fighters deal 20% less damage" },
-  fog: { id: "fog", name: "Fog", icon: "🌫️", weight: 10, role: "scout", dmg: 0.8, desc: "Scouts deal 20% less damage" },
-  snow: { id: "snow", name: "Snow", icon: "❄️", weight: 10, role: "support", mend: 0.8, desc: "Supports heal 20% less" },
+  rain: { id: "rain", name: "Rain", icon: "🌧️", weight: 10, role: "brawler", dmg: 0.8, desc: "Brawlers deal 20% less damage" },
+  fog: { id: "fog", name: "Fog", icon: "🌫️", weight: 10, role: "shooter", dmg: 0.8, desc: "Shooters deal 20% less damage" },
+  snow: { id: "snow", name: "Snow", icon: "❄️", weight: 10, role: "medic", mend: 0.8, desc: "Medics heal 20% less" },
 };
 // Three stars for a perfect night: nobody got in, nobody went down, every zombie put down.
-export const NIGHT_STAR_REWARD = { materials: 10, happiness: 3 };
+export const NIGHT_STAR_REWARD = { materials: 10 };
 
 export const BOSS_EVERY = 5;
 const BOSS_NAMES = ["The Janitor", "Coach Carrion", "The Lunch Lady", "Principal Rot", "The Superintendent"];
@@ -422,44 +436,44 @@ export const SKILL_TREE = {
   PE: [
     { tier: "D", name: "Brawler", desc: "Throws a harder punch in a pinch." },
     { tier: "C", name: "Iron Grip", desc: "Holds the line better on defense." },
-    { tier: "B", name: "Juggernaut", desc: "Shrugs off hits others wouldn't." },
+    { tier: "B", name: "Juggernaut", desc: "Shrugs off hits others wouldn't. Night Watch: Brawlers cleave." },
     { tier: "A", name: "Warlord", desc: "Leads the charge on dangerous runs." },
-    { tier: "S", name: "Titan", desc: "A one-person wrecking crew." },
+    { tier: "S", name: "Titan", desc: "A one-person wrecking crew. Night Watch: Brawlers hit 2 squares deep." },
   ],
   Gymnastics: [
     { tier: "D", name: "Quick Step", desc: "Dodges the first swing." },
     { tier: "C", name: "Light Foot", desc: "Moves through danger almost unseen." },
-    { tier: "B", name: "Acrobat", desc: "Turns tight spots into escape routes." },
+    { tier: "B", name: "Acrobat", desc: "Turns tight spots into escape routes. Night Watch: Shooters may fire twice." },
     { tier: "A", name: "Ghost", desc: "Rarely where the horde expects." },
-    { tier: "S", name: "Untouchable", desc: "The horde can't lay a hand on them." },
+    { tier: "S", name: "Untouchable", desc: "The horde can't lay a hand on them. Night Watch: Shooters always fire twice." },
   ],
   Biology: [
     { tier: "D", name: "Tough Skin", desc: "Shrugs off minor scrapes." },
     { tier: "C", name: "Iron Stomach", desc: "Recovers faster from rough days." },
-    { tier: "B", name: "Survivor", desc: "Walks away from what should've hurt." },
+    { tier: "B", name: "Survivor", desc: "Walks away from what should've hurt. Night Watch: Tanks get a second wind." },
     { tier: "A", name: "Unbreakable", desc: "Bites and scratches barely slow them down." },
-    { tier: "S", name: "Immune", desc: "The horde's bite is the least of their worries." },
+    { tier: "S", name: "Immune", desc: "The horde's bite is the least of their worries. Night Watch: Tanks get another +50% HP." },
   ],
   Physics: [
     { tier: "D", name: "Quick Thinker", desc: "Spots the danger a beat sooner." },
     { tier: "C", name: "Tactician", desc: "Plans a safer route through trouble." },
-    { tier: "B", name: "Analyst", desc: "Reads a room before it turns deadly." },
+    { tier: "B", name: "Analyst", desc: "Reads a room before it turns deadly. Night Watch: Trappers repair walls." },
     { tier: "A", name: "Strategist", desc: "Keeps the whole team a step ahead." },
-    { tier: "S", name: "Mastermind", desc: "Turns any expedition into a calculated win." },
+    { tier: "S", name: "Mastermind", desc: "Turns any expedition into a calculated win. Night Watch: Trappers may net the whole lane." },
   ],
   History: [
     { tier: "D", name: "Keen Eye", desc: "Spots loot others would walk past." },
     { tier: "C", name: "Scavenger", desc: "Knows where the good stuff hides." },
-    { tier: "B", name: "Appraiser", desc: "Never leaves the valuable stuff behind." },
+    { tier: "B", name: "Appraiser", desc: "Never leaves the valuable stuff behind. Night Watch: Medics heal 2 squares away." },
     { tier: "A", name: "Treasure Hunter", desc: "Finds more than anyone expects." },
-    { tier: "S", name: "Archivist", desc: "Nothing worth taking gets missed." },
+    { tier: "S", name: "Archivist", desc: "Nothing worth taking gets missed. Night Watch: Medics heal their whole lane." },
   ],
   SocialStudies: [
     { tier: "D", name: "Friendly Face", desc: "Puts strangers at ease." },
     { tier: "C", name: "People Person", desc: "Talks their way past trouble." },
-    { tier: "B", name: "Persuader", desc: "Convinces survivors the school is safe." },
+    { tier: "B", name: "Persuader", desc: "Convinces survivors the school is safe. Night Watch: Ralliers rally their lane." },
     { tier: "A", name: "Natural Leader", desc: "Others want to follow them home." },
-    { tier: "S", name: "Icon", desc: "Word of them spreads through the whole city." },
+    { tier: "S", name: "Icon", desc: "Word of them spreads through the whole city. Night Watch: Ralliers make double morale." },
   ],
 };
 
@@ -710,6 +724,8 @@ export const INFECTION_CHANCE_DOWNED = 0.06; // students go down often in the ni
 // Ceiling for state.fortification. Raised from 60 to 300 alongside the deeper Research tree so
 // the tier 3-5 fortification techs (which sum to well over the old cap) aren't dead purchases.
 export const FORTIFICATION_CAP = 300;
+// Each point of it makes the Night Watch's walls 1% sturdier and its traps 1% sharper.
+export const FORTIFICATION_PER_POINT = 0.01;
 
 // ===== Scouting =====
 // Stamina to scout the ring right outside the school fence; it doubles for every ring further out
@@ -976,14 +992,14 @@ export const TECH_TREE = [
   // 🌙 → The Watch
   { id: "field_medics", path: "night", branch: "a", tier: 3, cost: 30, requires: "archery_club", icon: "⛑", name: "Field Medics", short: "Cheaper saves", perk: { stabilizeDiscount: 2, untreatedDeathReduction: 0.5 }, desc: "Saving a downed defender costs 3 medicine instead of 5, and without medicine their death chance is halved." },
   { id: "quick_reflexes", path: "night", branch: "a", tier: 4, cost: 45, requires: "field_medics", icon: "⏱", name: "Quick Reflexes", short: "+25% ability charge", perk: { abilityCharge: 0.25 }, desc: "Abilities charge 25% faster in the night battle." },
-  { id: "rally_drills", path: "night", branch: "a", tier: 5, cost: 60, requires: "quick_reflexes", icon: "📣", name: "Rally Drills", short: "+1 Rally a night", perk: { rallyUses: 1 }, desc: "One more Rally every night." },
+  { id: "rally_drills", path: "night", branch: "a", tier: 5, cost: 60, requires: "quick_reflexes", icon: "📣", name: "Rally Drills", short: "Rally −20 morale", perk: { rallyUses: 1 }, desc: "Rally costs 20 less morale." },
   { id: "lookouts", path: "night", branch: "a", tier: 6, cost: 80, requires: "rally_drills", icon: "👁", name: "Lookouts", short: "+10% hit chance", perk: { watchHit: 0.1 }, desc: "The whole watch hits 10% more often." },
   { id: "last_stand", path: "night", branch: "a", tier: 7, cost: 100, requires: "lookouts", icon: "🔥", name: "Last Stand", short: "2× dmg when hurt", perk: { lastStand: 1 }, desc: "Defenders below 25% HP deal double damage." },
   // 🌙 → Defenses (the upgrades replace sandbag walls and razor wire — see DEFENSE_STRUCTURES)
   { id: "concrete_barricades", path: "night", branch: "b", tier: 3, cost: 30, requires: "archery_club", icon: "🚧", name: "Concrete Barricades", short: "Concrete walls", perk: {}, desc: "Sandbag walls become concrete barricades (160 HP), the ones already built too." },
   { id: "trap_engineering", path: "night", branch: "b", tier: 4, cost: 45, requires: "concrete_barricades", icon: "🔧", name: "Trap Engineering", short: "+25% traps & walls", perk: { trapDamage: 0.25, wallHp: 0.25 }, desc: "Traps hit 25% harder and walls hold 25% more." },
   { id: "electric_fence", path: "night", branch: "b", tier: 5, cost: 60, requires: "trap_engineering", icon: "⚡", name: "Electric Fence", short: "Electric fences", perk: {}, desc: "Razor wire becomes an electric fence (shocks for 18), what's already built too." },
-  { id: "fortified_works", path: "night", branch: "b", tier: 6, cost: 80, requires: "electric_fence", icon: "🧱", name: "Fortified Works", short: "+50% walls & gate", perk: { wallHp: 0.5, gateHp: 0.5 }, desc: "Walls and the gate hold 50% more HP." },
+  { id: "fortified_works", path: "night", branch: "b", tier: 6, cost: 80, requires: "electric_fence", icon: "🧱", name: "Fortified Works", short: "+50% walls", perk: { wallHp: 0.5 }, desc: "Walls hold 50% more HP." },
   { id: "barbed_walls", path: "night", branch: "b", tier: 7, cost: 100, requires: "fortified_works", icon: "🔺", name: "Barbed Walls", short: "Walls bite back", perk: { wallThorns: 6 }, desc: "A zombie that smashes a wall takes 6 damage every time." },
 ];
 

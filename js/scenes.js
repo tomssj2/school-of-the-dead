@@ -2649,6 +2649,33 @@ const ICONS = {
     }
     return g;
   },
+  // A Trapper's net, mid-throw: held by a hand in the top right, it fans out into a triangle that
+  // opens to the bottom left — diamond mesh, lead weights along the mouth (its holes stay
+  // see-through: holes).
+  net: () => {
+    const g = blank(16);
+    const line = (x0, y0, x1, y1, c) => { // 1px, so the holes stay closed
+      const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+      for (let i = 0; i <= n; i++) g[Math.round(y0 + ((y1 - y0) * i) / n)][Math.round(x0 + ((x1 - x0) * i) / n)] = c;
+    };
+    const [A, L, B] = [[11, 4], [0, 7], [8, 15]]; // the hand, the mouth's two ends
+    const side = ([x0, y0], [x1, y1], x, y) => (x1 - x0) * (y - y0) - (y1 - y0) * (x - x0);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const inside = [side(A, L, x, y), side(L, B, x, y), side(B, A, x, y)];
+      if (!(inside.every((v) => v >= 0) || inside.every((v) => v <= 0))) continue;
+      const a = (x + y) % 4 === 3, b = (x - y + 16) % 4 === 3;
+      if (a || b) g[y][x] = a && b ? "#a89c84" : "#e8e0cc";
+    }
+    line(...A, ...L, "#d8cfb8");
+    line(...A, ...B, "#d8cfb8");
+    line(...L, ...B, "#b8ae96");
+    for (const [x, y] of [[0, 7], [2, 10], [5, 13], [8, 15]]) g[y][x] = "#7c8590";
+    // the hand round the rope, its sleeve off the corner
+    for (const [x, y, c] of [[11, 3, "#f0c08a"], [12, 3, "#c88a5a"], [11, 2, "#f0c08a"], [12, 2, "#f0c08a"], [13, 2, "#c88a5a"],
+      [12, 1, "#f0c08a"], [13, 1, "#f0c08a"], [14, 1, "#4a6aa8"], [13, 0, "#4a6aa8"], [14, 0, "#4a6aa8"], [15, 0, "#3a5288"], [15, 1, "#3a5288"], [14, 2, "#3a5288"]]) g[y][x] = c;
+    g.holes = true;
+    return g;
+  },
   // Medicine: a red medkit with a white cross.
   medicine: () => ascii([
     "................",
@@ -6326,8 +6353,20 @@ export function pixelIcon(name, size = 16) {
     const g = ICONS[name]();
     const n = g.length;
     const color = g.map((row) => [...row]);
+    // an icon with holes (g.holes) is only outlined from outside: the empty squares the edge reaches
+    const outside = new Set();
+    if (g.holes) {
+      const todo = [];
+      for (let i = 0; i < n; i++) todo.push([i, 0], [i, n - 1], [0, i], [n - 1, i]);
+      while (todo.length) {
+        const [x, y] = todo.pop();
+        if (x < 0 || y < 0 || x >= n || y >= n || g[y][x] || outside.has(y * n + x)) continue;
+        outside.add(y * n + x);
+        todo.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+      }
+    }
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      if (g[y][x]) continue;
+      if (g[y][x] || (g.holes && !outside.has(y * n + x))) continue;
       const touching = [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([dx, dy]) => g[y + dy]?.[x + dx]).find(Boolean);
       if (touching) color[y][x] = g.outline || outlineOf(touching);
     }
