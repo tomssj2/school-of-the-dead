@@ -549,14 +549,16 @@ export function structureSprite(id, sizePx = 64) {
 // The same squares as the Night Watch board: the wall the team came in through across the top (the
 // doorway, the dusk behind it), shelves down the sides, the floor running off into the dark the
 // zombies come out of — lit only by the team's torches, a beam down each lane. Wooden floors in
-// homes and barns, a tiled one everywhere else.
+// homes and barns, a tiled one everywhere else — and in the school's own rooms (ground "school",
+// Turn 1's clearing fights): the campus colours, a chalkboard, lockers and the desks knocked over.
 const ROOM_LOOK = {
+  school: { wall: WALL, trim: TRIM, floor: ["#c9c3b0", "#aea896"], seam: "#8f8a7a" },
   wood: { wall: "#8e7a68", trim: "#5a4636", floor: ["#8a6440", "#7a5634"], seam: "#4a3220" },
   tile: { wall: "#8fa39a", trim: "#4e5e58", floor: ["#b8b4a8", "#9a968c"], seam: "#77746b" },
 };
 const WOODEN = ["houses", "apartments", "field", "park"];
 export function roomBackground(cols, rows, ground = "", seed = 1) {
-  const kind = WOODEN.includes(ground) ? "wood" : "tile";
+  const kind = ground === "school" ? "school" : WOODEN.includes(ground) ? "wood" : "tile";
   const key = `room${cols}x${rows}:${kind}:${seed}`;
   if (cache.has(key)) return cache.get(key);
   const L = ROOM_LOOK[kind];
@@ -590,12 +592,30 @@ export function roomBackground(cols, rows, ground = "", seed = 1) {
     if (i % 3) p.r(x, y, x + 2, y + 1, i % 2 ? "#e8e4d8" : "#d8d0b8");
     else p.r(x, y, x + 1, y + 1, ["#c84a3a", "#3a7ac8", "#d8b040"][i % 3 === 0 ? Math.floor(hash(i, seed + 13) * 3) : 0]);
   }
+  // the desks, shoved about and knocked over
+  if (kind === "school") for (let i = 0; i < 2 + cols * 2; i++) {
+    const x = MARGIN + 2 + Math.floor(hash(i, seed + 30) * (cols * CELL_W - 12));
+    const y = FACADE_H + 8 + Math.floor(hash(i, seed + 31) * (H - FACADE_H - 22));
+    const over = hash(i, seed + 32) < 0.5;
+    p.r(x, y, x + 7, y + 2, "#b08a5a");
+    p.r(x, y + 2, x + 7, y + 2, "#7a5a38");
+    for (const lx of [x + 1, x + 6]) p.r(lx, over ? y - 3 : y + 3, lx, over ? y - 1 : y + 5, "#6a6a72");
+  }
   const trail = MARGIN + Math.floor(hash(1, seed + 14) * cols) * CELL_W + 10 + Math.floor(hash(2, seed + 14) * 12);
   for (let y = FACADE_H + 30; y < H; y++) if (hash(y, seed + 15) < 0.45) p.set(trail + Math.round(Math.sin(y / 6) * 3), y, BLOOD);
   p.oval(trail + 2, FACADE_H + 28, 3, 2, BLOOD);
 
   // shelves down both sides (past the squares)
   for (const [a, b] of [[0, MARGIN - 1], [W - MARGIN, W - 1]]) {
+    if (kind === "school") { // (lockers)
+      p.r(a, FACADE_H, b, H - 1, "#4a6a8a");
+      for (let y = FACADE_H; y < H; y += 14) {
+        p.r(a, y, b, y, "#2e4560");
+        for (let k = 2; k <= 6; k += 2) p.r(a + 2, y + k, b - 2, y + k, "#3a5676");
+        p.set(b - 2, y + 9, "#c8d0d8");
+      }
+      continue;
+    }
     p.r(a, FACADE_H, b, H - 1, "#3a3a42");
     for (let y = FACADE_H + 4; y < H; y += 9) {
       p.r(a, y, b, y, "#5a5a66");
@@ -612,19 +632,34 @@ export function roomBackground(cols, rows, ground = "", seed = 1) {
   const d0 = mid - 8;
   const d1 = mid + 7;
   p.r(d0 - 1, 3, d1 + 1, FACADE_H - 1, "#2a2420");
-  for (let y = 4; y < FACADE_H; y++) p.r(d0, y, d1, y, mix("#f0a860", "#a85a48", (y - 4) / (FACADE_H - 4)), 1);
-  p.r(d0, FACADE_H - 6, d1, FACADE_H - 1, "#4a3a3a", 1); // the street's far side
+  const school = kind === "school";
+  for (let y = 4; y < FACADE_H; y++) p.r(d0, y, d1, y, school ? mix("#c8d0dc", "#7a8498", (y - 4) / (FACADE_H - 4)) : mix("#f0a860", "#a85a48", (y - 4) / (FACADE_H - 4)), 1);
+  p.r(d0, FACADE_H - 6, d1, FACADE_H - 1, school ? "#8a8478" : "#4a3a3a", 1); // the corridor's floor / the street's far side
   p.r(d1 + 2, 4, d1 + 5, FACADE_H - 2, "#6a4a30");
   p.r(d1 + 2, 4, d1 + 2, FACADE_H - 2, "#8a6440");
-  lights.push({ x: mid, y: FACADE_H, r: 30, sy: 1.4, k: 0.5, c: [1.0, 0.72, 0.45] });
-  // a sign and a poster either side of it
-  p.r(6, 5, 22, 10, "#d8d0b8");
-  p.r(7, 7, 21, 7, "#6a6a72");
-  p.r(7, 9, 16, 9, "#6a6a72");
-  p.r(W - 22, 4, W - 9, 15, "#c84a3a");
-  p.r(W - 20, 6, W - 11, 13, "#e8c8a0");
-  p.line(W - 19, 12, W - 12, 7, "#5a2a2a");
-  for (const [dx, dy] of [[0, 0], [1, 1], [0, 2], [2, 1], [1, 3]]) p.set(14 + dx, 13 + dy, "#5a1818"); // a handprint
+  lights.push({ x: mid, y: FACADE_H, r: 30, sy: 1.4, k: 0.5, c: school ? [0.85, 0.9, 1.0] : [1.0, 0.72, 0.45] });
+  if (school) {
+    // the chalkboard, the last lesson still on it, and the clock
+    p.r(3, 3, d0 - 5, 16, "#8a6440");
+    p.r(4, 4, d0 - 6, 15, "#2f4a3a");
+    for (const [y, len] of [[6, 0.7], [8, 0.5], [10, 0.8], [12, 0.4]]) p.r(6, y, 6 + Math.round((d0 - 14) * len), y, "#a8b8a8");
+    p.r(4, 16, d0 - 6, 16, "#c8c0b0"); // the chalk ledge
+    p.oval(W - 14, 9, 4, 4, "#f4f0e4");
+    p.oval(W - 14, 9, 4, 4, "#2a2a2a");
+    p.oval(W - 14, 9, 3, 3, "#f4f0e4");
+    p.r(W - 14, 7, W - 14, 9, "#2a2a2a");
+    p.r(W - 14, 9, W - 12, 9, "#2a2a2a");
+    for (const [dx, dy] of [[0, 0], [1, 1], [0, 2], [2, 1], [1, 3]]) p.set(W - 24 + dx, 14 + dy, "#5a1818"); // a handprint
+  } else {
+    // a sign and a poster either side of it
+    p.r(6, 5, 22, 10, "#d8d0b8");
+    p.r(7, 7, 21, 7, "#6a6a72");
+    p.r(7, 9, 16, 9, "#6a6a72");
+    p.r(W - 22, 4, W - 9, 15, "#c84a3a");
+    p.r(W - 20, 6, W - 11, 13, "#e8c8a0");
+    p.line(W - 19, 12, W - 12, 7, "#5a2a2a");
+    for (const [dx, dy] of [[0, 0], [1, 1], [0, 2], [2, 1], [1, 3]]) p.set(14 + dx, 13 + dy, "#5a1818"); // a handprint
+  }
 
   // the far end: dark, darker the further in
   for (let y = H - CELL_H * 2; y < H; y++) {

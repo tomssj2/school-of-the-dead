@@ -3,7 +3,7 @@ import { WORLD_W, WORLD_H } from "./citymap.js";
 import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict } from "./ui.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
+  renderClearRoomModal, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionBattle,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
@@ -53,7 +53,6 @@ let fightAnimation = null; // { studentId, ambushed, phase: "clash" | "result" }
 let battleAnimation = null; // { kind: "defense" | "exploration", summary, phase: "clash" | "result" } or null
 let openPicker = null; // { kind, roomId, seatIndex, postKey } or null
 let clearRoom = null; // { roomKey, ids } while picking a squad to clear a boarded-up room
-let roomFight = null; // { report, frameIndex, phase } while a room-clearing fight replays
 let scoutReport = null; // { q, r, scoutName, result } — what the last scout found
 let openNest = null; // { q, r, ids } while picking a squad to clear a zombie nest
 let openRaid = null; // LANDMARKS id whose raid screen is open
@@ -702,9 +701,7 @@ function render() {
   const sameTab = activeTab === lastRenderedTab;
   root.classList.toggle("tab-enter", !sameTab);
   lastRenderedTab = activeTab;
-  const modalHtml = roomFight
-    ? renderRoomFight(state, roomFight)
-    : raidFight
+  const modalHtml = raidFight
     ? renderRaidFight(state, raidFight)
     : encounter
     ? renderEncounterModal(state, encounter)
@@ -783,7 +780,6 @@ function musicMood() {
   if (raidFight?.phase === "battle") return raidFight.report.kind === "chase" ? "fight" : "boss";
   if (battleAnimation?.kind === "grid" && battleAnimation.phase === "battle") return battleAnimation.b?.bossName ? "boss" : "fight";
   if (battleAnimation?.kind === "expedition" && battleAnimation.phase === "battle") return battleAnimation.b.bossName ? "boss" : "fight";
-  if (roomFight?.phase === "battle") return "fight";
   if (state.victory) return "morning";
   return ["morning", "afternoon", "night"][state.turn - 1] || "morning";
 }
@@ -1202,35 +1198,6 @@ function showRaidResult() {
   raidFight.phase = "result";
   raidFight.frameIndex = raidFight.report.frames.length - 1;
   (raidFight.report.won ? playSuccess : playFail)();
-  render();
-}
-
-// Replays a room-clearing fight a round at a time (slower on the tutorial fight, to read the tips).
-let roomFightTimer = null;
-function playRoomFight(report) {
-  roomFight = { report, frameIndex: 0, phase: "battle" };
-  playHit();
-  render();
-  const tick = report.tutorial ? 2200 : 900;
-  const step = () => {
-    if (!roomFight || roomFight.phase !== "battle") return;
-    if (roomFight.frameIndex >= report.frames.length - 1) {
-      showRoomFightResult();
-      return;
-    }
-    roomFight.frameIndex++;
-    playHit();
-    render();
-    roomFightTimer = setTimeout(step, tick);
-  };
-  roomFightTimer = setTimeout(step, tick);
-}
-function showRoomFightResult() {
-  if (!roomFight || roomFight.phase !== "battle") return;
-  clearTimeout(roomFightTimer);
-  roomFight.phase = "result";
-  roomFight.frameIndex = roomFight.report.frames.length - 1;
-  (roomFight.report.won ? playSuccess : playFail)();
   render();
 }
 
@@ -1824,23 +1791,18 @@ root.addEventListener("click", (e) => {
       break;
     case "go-clear-room": {
       if (!clearRoom || !clearRoom.ids.length) break;
-      const report = G.fightForRoom(state, clearRoom.roomKey, clearRoom.ids);
+      // the fight, on the board (the same as an expedition's), in its pop-up
+      const { roomKey, ids } = clearRoom;
+      const b = state.resources.materials >= G.boardedRoomCost(roomKey) && G.startClearBattle(state, roomKey, ids);
       clearRoom = null;
-      if (!report) {
+      if (!b) {
         flash("Can't clear it right now.");
         render();
         break;
       }
-      playRoomFight(report);
+      playBattle(b, "expedition", (fight) => G.finishClearBattle(state, roomKey, fight), () => render());
       break;
     }
-    case "skip-room-fight":
-      showRoomFightResult();
-      break;
-    case "finish-room-fight":
-      roomFight = null;
-      render();
-      break;
     case "close-scout-report":
       scoutReport = null;
       render();

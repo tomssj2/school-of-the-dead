@@ -343,11 +343,6 @@ function simulateRoomFight(state, squad, roomKey, zombieList = null) {
   return { won: zombies.every((z) => z.hp <= 0), fighters, frames };
 }
 
-// Rough win chance for the squad picker (plays the fight out a few times).
-export function roomFightOdds(state, roomKey, squad, trials = 120) {
-  if (!squad.length || !BOARDED_ROOMS[roomKey]) return 0;
-  return packFightOdds(state, roomZombies(roomKey), squad, trials);
-}
 export function packFightOdds(state, zombies, squad, trials = 120) {
   if (!squad.length) return 0;
   let wins = 0;
@@ -406,21 +401,46 @@ export function canFightForRoom(c) {
   return c && c.alive && !c.infection && c.role === "student" && c.stamina >= ROOM_FIGHT_STAMINA && c.hp > 1;
 }
 
-export function fightForRoom(state, roomKey, ids) {
+export const boardedRoomCost = (roomKey) => BOARDED_ROOMS[roomKey]?.cost ?? Infinity;
+// Clearing a boarded-up room: the same fight as an expedition's, on the same board — the squad at the
+// door, the room's own zombies (BOARDED_ROOMS, at ROOM_ZOMBIE strength) coming at them. Nobody dies
+// in here: anyone who goes down is dragged out.
+export function startClearBattle(state, roomKey, ids) {
   const room = BOARDED_ROOMS[roomKey];
-  if (!room || !isBoarded(state, roomKey) || state.resources.materials < room.cost) return null;
   const squad = ids.map((id) => getChar(state, id)).filter(canFightForRoom).slice(0, ROOM_FIGHT_SQUAD);
-  if (!squad.length) return null;
-  const tutorial = !state.roomFightsDone;
-  const sim = simulateRoomFight(state, squad, roomKey);
+  if (!room || !isBoarded(state, roomKey) || !squad.length) return null;
+  const b = roomBattle(state, squad, room.zombies.map((z) => z.type), ROOM_ZOMBIE, {
+    clear: roomKey, place: { name: room.name, ground: "school", difficulty: 1 }, tutorial: !state.roomFightsDone,
+  });
+  b.frames.push(battleSnapshot(b, []));
+  return b;
+}
+// The squad's chance, from the fight itself: `trials` of it played out in the background.
+export function clearOdds(state, roomKey, ids, trials = 60) {
+  let wins = 0;
+  for (let i = 0; i < trials; i++) {
+    const b = startClearBattle(state, roomKey, ids);
+    if (!b) return 0;
+    runNightBattle(state, b);
+    if (b.students.some((s) => !s.downed) && b.killed >= b.spawned) wins++;
+  }
+  return wins / trials;
+}
+// The fight's over: anyone still standing has cleared it (paid for in scrap, boarded back up). Their
+// HP as it ended (the downed dragged out at 10%), stamina spent, XP.
+export function finishClearBattle(state, roomKey, b) {
+  const room = BOARDED_ROOMS[roomKey];
+  const tutorial = b.tutorial;
   state.roomFightsDone = (state.roomFightsDone || 0) + 1;
+  const won = b.students.some((s) => !s.downed) && b.killed >= b.spawned && state.resources.materials >= room.cost;
   const hurt = [];
-  for (const f of sim.fighters) {
-    const c = getChar(state, f.id);
+  for (const s of b.students) {
+    const c = getChar(state, s.id);
+    if (!c) continue;
     c.stamina = Math.max(0, c.stamina - ROOM_FIGHT_STAMINA);
-    c.hp = Math.max(1, f.hp);
+    c.hp = s.downed ? Math.max(1, Math.round(c.maxHp * 0.1)) : Math.max(1, Math.min(c.maxHp, s.hp - (s.bonusHp || 0)));
     c.injured = c.hp < c.maxHp * 0.5;
-    if (f.down) {
+    if (s.downed) {
       const bitten = !tutorial && Math.random() < INFECTION_CHANCE_DOWNED && infect(state, c, "was bitten before they were dragged out");
       hurt.push(`${c.name} was dragged out${bitten ? " — 🦠 infected" : ""}`);
     }
@@ -428,14 +448,14 @@ export function fightForRoom(state, roomKey, ids) {
     grantXp(state, c.id, "Gymnastics", 2 + randInt(0, 2));
     gainExp(state, c, LEVEL_XP.roomFight);
   }
-  if (sim.won) {
+  if (won) {
     state.resources.materials -= room.cost;
     state.boardedRooms = state.boardedRooms.filter((k) => k !== roomKey);
     addLog(state, `The squad cleared the zombies out of ${roomLabel(roomKey)} and boarded the windows back up (-${room.cost} scrap). It's ready to use.`);
   } else {
     addLog(state, `The squad couldn't clear ${roomLabel(roomKey)} and fell back.`);
   }
-  return { roomKey, won: sim.won, frames: sim.frames, memberIds: squad.map((c) => c.id), zombies: roomZombies(roomKey), hurt, cost: room.cost, tutorial };
+  return { won, fallen: [], hurt, downedCount: hurt.length, cost: room.cost };
 }
 
 // ---------- the Headmaster's missions (work in progress) ----------
@@ -2309,8 +2329,9 @@ export function battleTick(state, b) {
   const advance = (z, T) => {
     const ahead = z.row - 1;
     if (ahead < 0) {
-      // (in a room a boss never leaves: it lunges in front of the nearest of them still standing)
-      const spot = b.room && z.type === "boss" && b.students
+      // (in a room a boss never leaves — nor does anything in the school's own rooms, with nowhere to
+      // go: it lunges in front of the nearest of them still standing)
+      const spot = b.room && (z.type === "boss" || b.clear) && b.students
         .filter((s) => !s.downed && s.row + 1 < b.rows && !zombieAt(b, s.row + 1, s.col))
         .sort((s1, s2) => Math.abs(s1.col - z.col) - Math.abs(s2.col - z.col))[0];
       if (spot) {
@@ -2318,6 +2339,7 @@ export function battleTick(state, b) {
         hurtStudent(z, spot, z.dmg, "bite");
         return false;
       }
+      if (b.room && (z.type === "boss" || b.clear) && b.students.some((s) => !s.downed)) return false; // (it waits for a way in)
       z.alive = false;
       b.breached++;
       events.push({ type: "breach", at: [z.row, z.col] });
@@ -2743,6 +2765,28 @@ export function startExpeditionBattle(state, run) {
   const boss = location.raid && last ? raidBoss(state, location) : null; // (a raid's boss, in the last room)
   const queue = shuffled([...kinds, ...Array(count - kinds.length).fill("walker")]).slice(boss ? R.raidBossRoomFewer : 0);
   if (boss) queue.push("boss");
+  const ambush = !!run.next?.ambush || (run.room > 0 && Math.random() < R.ambush * run.room + (run.horde ? N.hordeAmbush : 0));
+  const notice = run.notice;
+  run.next = null;
+  run.notice = null;
+  run.event = null;
+  const b = roomBattle(state, members, queue, zombieStatsForDay(day), { // (as strong as that later night's)
+    run, noise0: run.noise, notice,
+    teamIndex: run.teamIndex, locationId: location.id, difficulty: location.difficulty, roomNo: run.room, rooms: run.rooms, last, ambush,
+    bossName: boss?.name || null, bossStats: boss && { hp: Math.round(boss.hp * R.raidBossHp), dmg: Math.round(boss.damage * R.raidBossDmg) },
+    phase: ambush ? "fight" : "break",
+  });
+  // an ambush: the first of them are already right in front of the team
+  if (ambush) for (const col of shuffled([...Array(b.size).keys()]).slice(0, Math.min(queue.length - (boss ? 1 : 0), Math.ceil(b.size / 2)))) spawnZombie(b, queue[b.waveSpawned], R.teamRows, col);
+  b.frames.push(battleSnapshot(b, ambush ? [{ type: "ambush" }] : []));
+  return b;
+}
+// A fight in a room, on the small board (EXPEDITION_ROOM): `members` stand where they came in — the
+// Tanks and Brawlers in front, the rest behind, the Medic in the middle (4 lanes for more than 6) —
+// and `queue` comes out of the dark at `zStats` strength. `fields` say what kind of room it is.
+// It starts paused ("break") so the player can move them about first.
+function roomBattle(state, members, queue, zStats, fields) {
+  const R = EXPEDITION_ROOM;
   const sorted = [...members].sort((a, c) => ROOM_FRONT_ORDER[nightClass(a)] - ROOM_FRONT_ORDER[nightClass(c)]);
   const size = members.length > 6 ? 4 : R.cols;
   const cols = size === 4 ? [1, 2, 0, 3] : [1, 0, 2]; // the middle first
@@ -2752,27 +2796,15 @@ export function startExpeditionBattle(state, run) {
     ...sorted.slice(0, size).map((c, i) => nightFighter(state, c, R.teamRows - 1, cols[i], 0, condition, chili)),
     ...sorted.slice(size).reverse().map((c, i) => nightFighter(state, c, R.teamRows - 2, cols[i], 0, condition, chili)),
   ];
-  const ambush = !!run.next?.ambush || (run.room > 0 && Math.random() < R.ambush * run.room + (run.horde ? N.hordeAmbush : 0));
-  const notice = run.notice;
-  run.next = null;
-  run.notice = null;
-  run.event = null;
-  const b = {
-    run, noise0: run.noise, notice,
-    room: true, teamIndex: run.teamIndex, locationId: location.id, difficulty: location.difficulty, roomNo: run.room, rooms: run.rooms, last, ambush,
-    size, rows: R.rows, studentRows: R.teamRows, condition, thorns: 0,
-    zStats: zombieStatsForDay(day), // (as strong as that later night's, too)
+  return {
+    room: true, size, rows: R.rows, studentRows: R.teamRows, condition, thorns: 0, zStats,
     waves: [queue], wave: 0, waveSpawned: 0, waveTick: 0,
     toSpawn: queue.length, spawned: 0, killed: 0, breached: 0,
     zombies: [], students, structures: {}, squad: squadModifiers(state, members),
-    morale: 0, opening: [], reserve: [], lastStand: techPerk(state, "lastStand") > 0, bossName: boss?.name || null,
-    bossStats: boss && { hp: Math.round(boss.hp * R.raidBossHp), dmg: Math.round(boss.damage * R.raidBossDmg) },
-    chili, rally: 0, tick: 0, frames: [], phase: ambush ? "fight" : "break",
+    morale: 0, opening: [], reserve: [], lastStand: techPerk(state, "lastStand") > 0, bossName: null,
+    chili, rally: 0, tick: 0, frames: [], phase: "break",
+    ...fields,
   };
-  // an ambush: the first of them are already right in front of the team
-  if (ambush) for (const col of shuffled([...Array(size).keys()]).slice(0, Math.min(queue.length - (boss ? 1 : 0), Math.ceil(size / 2)))) spawnZombie(b, queue[b.waveSpawned], R.teamRows, col);
-  b.frames.push(battleSnapshot(b, ambush ? [{ type: "ambush" }] : []));
-  return b;
 }
 // A room's over: the team's HP as it ended (the downed at 10%, out of the rest of the run, to be saved
 // or not), and whether they made it — anyone still standing. Nothing else changes until

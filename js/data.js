@@ -563,7 +563,7 @@ export const CLASSROOM_IDS = ["1", "2", "3", "4"];
 
 // A new game opens with part of the school still overrun: these rooms (keyed like teacher posts)
 // start boarded up, so there are fewer jobs than teachers early on. Clearing one means fighting
-// the zombies still inside (see fightForRoom() in game.js) and then spending the scrap to board up
+// the zombies still inside (see startClearBattle() in game.js) and then spending the scrap to board up
 // the broken windows behind them. `look` picks the zombie sprite (zombies.js).
 export const BOARDED_ROOMS = {
   "classroom:2": { name: "Classroom 2", cost: 10, zombies: [{ type: "walker", look: "walker" }, { type: "walker", look: "walker" }] },
@@ -573,7 +573,7 @@ export const BOARDED_ROOMS = {
   crafting: { name: "Crafting Room", cost: 20, zombies: [{ type: "walker", look: "walker" }, { type: "brute", look: "soldier" }] },
   radio: { name: "Radio Station", cost: 20, zombies: [{ type: "walker", look: "jersey" }, { type: "runner", look: "walker" }, { type: "walker", look: "jersey" }] },
 };
-export const ROOM_ZOMBIE = { hp: 24, damage: 5 }; // before ZOMBIE_TYPES multipliers
+export const ROOM_ZOMBIE = { hp: 34, damage: 9 }; // before ZOMBIE_TYPES multipliers
 export const ROOM_FIGHT_SQUAD = 4; // students per room-clearing squad
 export const ROOM_FIGHT_STAMINA = 10; // each
 export const ROOM_FIGHT_MAX_ROUNDS = 10;
