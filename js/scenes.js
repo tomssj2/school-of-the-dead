@@ -3131,6 +3131,78 @@ const ICONS = {
     "................",
     "................",
   ], { k: "#6b7380", f: "#d64545", r: "#c0583a", w: "#f0ece2", c: "#f4d35e", g: "#7fc8f0", d: "#7a4a2a", s: "#9aa3ad" }),
+  diner: () => ascii([
+    "................",
+    "......s..s......",
+    ".....s..s.......",
+    "......s..s......",
+    "................",
+    "...wwwwwwwwww...",
+    "...wbbbbbbbbwww.",
+    "...wwwwwwwwww.w.",
+    "...wwwwwwwwww.w.",
+    "...wwwwwwwwwww..",
+    "...wwwwwwwwww...",
+    "....wwwwwwww....",
+    "..pppppppppppp..",
+    "................",
+    "................",
+    "................",
+  ], { w: "#eef0f2", b: "#6b3f22", s: "#c8ccd4", p: "#e05a7a" }),
+  sporting_goods: () => ascii([
+    "................",
+    "............oo..",
+    "...........oooo.",
+    "..........oooo..",
+    ".........oooo...",
+    "........ooo.....",
+    ".......ooo......",
+    "......ooo.......",
+    ".....ooo........",
+    "....ooo.........",
+    "...ooo.....www..",
+    "..OO......wrrww.",
+    ".OO.......wwwrw.",
+    "..........wrrww.",
+    "...........www..",
+    "................",
+  ], { o: "#c49a64", O: "#5e3e22", w: "#f4f4f4", r: "#d64545" }),
+  apartments: () => ascii([
+    "................",
+    "....rrrrrrrr....",
+    "....rrrrrrrr....",
+    "....ryyrrddr....",
+    "....ryyrrddr....",
+    "....rrrrrrrr....",
+    "....rddrryyr....",
+    "....rddrryyr....",
+    "....rrrrrrrr....",
+    "....ryyrrddr....",
+    "....ryyrrddr....",
+    "....rrrrrrrr....",
+    "....rrrkkrrr....",
+    "....rrrkkrrr....",
+    "...ssssssssss...",
+    "................",
+  ], { r: "#b0704a", y: "#f6d27a", d: "#3a4258", k: "#5a3b24", s: "#9aa3ad" }),
+  vet_clinic: () => ascii([
+    "................",
+    "....pp....pp....",
+    "...pppp..pppp...",
+    "...pppp..pppp...",
+    "....pp....pp....",
+    ".pp..........pp.",
+    "pppp..pppp..pppp",
+    "pppp.pppppp.pppp",
+    ".pp.pppppppp.pp.",
+    "....pppppppp....",
+    "....pppppppp....",
+    ".....pppppp.....",
+    "......pppp......",
+    "................",
+    "................",
+    "................",
+  ], { p: "#e8a05a" }),
   corner_store: () => ascii([
     "................",
     "................",
@@ -6359,6 +6431,396 @@ const ICONS = {
     return g;
   },
 };
+
+// ---------- the places' big icons (32x32): the City Map's pins ----------
+// One clear object a place, shaded like the 16x16 icons (light from the top-left); the outline is
+// added by pixelIcon. Named poi_<the place's id>.
+
+const pFill = (g, x0, y0, x1, y1, c) => {
+  for (let y = Math.max(0, Math.round(y0)); y <= Math.min(g.length - 1, Math.round(y1)); y++)
+    for (let x = Math.max(0, Math.round(x0)); x <= Math.min(g.length - 1, Math.round(x1)); x++) g[y][x] = c;
+};
+// a box, lit along its top and left, shaded along its bottom and right
+const pBox = (g, x0, y0, x1, y1, c) => {
+  pFill(g, x0, y0, x1, y1, c);
+  pFill(g, x0, y0, x1, y0, lightOf(c));
+  pFill(g, x0, y0, x0, y1, lightOf(c));
+  pFill(g, x0, y1, x1, y1, shadowOf(c));
+  pFill(g, x1, y0, x1, y1, shadowOf(c));
+};
+// a disc, lit on its top-left and shaded on its bottom-right
+const pBall = (g, cx, cy, rad, c) => {
+  for (let y = 0; y < g.length; y++) for (let x = 0; x < g.length; x++) {
+    const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+    if (dx * dx + dy * dy > rad * rad) continue;
+    g[y][x] = dx + dy < -rad * 0.55 ? lightOf(c) : dx + dy > rad * 0.6 ? shadowOf(c) : c;
+  }
+};
+const pDots = (g, pts, c) => pts.forEach(([x, y]) => { if (g[y] && x >= 0 && x < g.length) g[y][x] = c; });
+// rows of a shape: for each y, [x0, x1] (or null), filled and shaded at its ends
+const pRows = (g, y0, y1, span, c, light = lightOf(c), dark = shadowOf(c)) => {
+  for (let y = y0; y <= y1; y++) {
+    const s = span(y);
+    if (!s) continue;
+    const [a, b] = s.map(Math.round);
+    pFill(g, a, y, b, y, c);
+    pDots(g, [[a, y]], light);
+    pDots(g, [[b, y]], dark);
+  }
+};
+// a five-pointed star
+const pStar = (g, cx, cy, outer, inner, c) => {
+  for (let y = 0; y < g.length; y++) for (let x = 0; x < g.length; x++) {
+    const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+    const a = Math.atan2(dy, dx) + Math.PI / 2;
+    const k = ((((a / (Math.PI * 2 / 5)) % 1) + 1) % 1) * 2;
+    const lim = inner + (outer - inner) * Math.abs(1 - k);
+    if (Math.hypot(dx, dy) <= lim) g[y][x] = c;
+  }
+};
+
+const POI_ICONS = {
+  // --- tier 1 ---
+  corner_store() {
+    const g = blank(32);
+    pBox(g, 4, 12, 27, 28, "#e3d6c0");
+    for (let x = 3; x <= 28; x++) {
+      const c = Math.floor((x - 3) / 3) % 2 ? "#f4f4f4" : "#d64545";
+      pFill(g, x, 8, x, 11, c);
+      if ((x - 3) % 3 === 1) pDots(g, [[x, 12]], c);
+    }
+    pBox(g, 8, 2, 23, 7, "#2e6bd6");
+    pFill(g, 10, 4, 21, 5, "#cfe0ff");
+    pBox(g, 6, 15, 16, 24, "#7fc8f0");
+    rod(g, 8, 23, 13, 17, 0.7, "#d6efff");
+    pBox(g, 19, 15, 25, 28, "#7a4a2a");
+    pDots(g, [[20, 22]], "#f4d35e");
+    pFill(g, 2, 29, 29, 30, "#9aa3ad");
+    return g;
+  },
+  diner() {
+    const g = blank(32);
+    // a burger: sesame bun, lettuce, cheese, patty, bun
+    pRows(g, 6, 14, (y) => { const h = 11 * Math.sqrt(1 - ((14.5 - y) / 9) ** 2); return [15.5 - h, 15.5 + h]; }, "#e0a050");
+    pDots(g, [[11, 8], [16, 7], [21, 9], [13, 11], [19, 11], [9, 12], [23, 12]], "#fff0c8");
+    for (let x = 4; x <= 27; x++) pFill(g, x, 15, x, 16 + (x % 3 === 0 ? 1 : 0), x % 2 ? "#5fb84a" : "#4a9a3a");
+    pFill(g, 5, 17, 26, 17, "#f4c430");
+    pDots(g, [[8, 18], [8, 19], [15, 18], [21, 18], [21, 19], [22, 18]], "#f4c430");
+    pRows(g, 18, 21, (y) => [y === 18 || y === 21 ? 5 : 4, y === 18 || y === 21 ? 26 : 27], "#6b3a1e");
+    pDots(g, [[9, 19], [14, 20], [19, 19], [24, 20]], "#4a2a10");
+    pRows(g, 22, 25, (y) => [y === 25 ? 6 : 5, y === 25 ? 25 : 26], "#d89040");
+    return g;
+  },
+  pharmacy() {
+    const g = blank(32);
+    pBox(g, 3, 3, 25, 25, "#f4f6f8");
+    pDots(g, [[3, 3], [25, 3], [3, 25], [25, 25]], null);
+    pBox(g, 11, 6, 17, 22, "#2fa05a");
+    pBox(g, 6, 11, 22, 17, "#2fa05a");
+    pFill(g, 12, 11, 16, 17, "#2fa05a");
+    rod(g, 19.5, 28.5, 28.5, 19.5, 3.2, (t, side) => (t < 0.5 ? (side < 0 ? "#f07a6a" : "#d64545") : side < 0 ? "#ffffff" : "#d8dde2"));
+    return g;
+  },
+  neighborhood() {
+    const g = blank(32);
+    pRows(g, 4, 15, (y) => { const h = (y - 3) * 1.15; return [15.5 - h, 15.5 + h]; }, "#b04a3a");
+    pBox(g, 21, 4, 24, 10, "#8a5a4a");
+    pBox(g, 6, 15, 25, 28, "#e9dcc0");
+    pBox(g, 9, 18, 14, 23, "#f6d27a");
+    pFill(g, 11, 18, 11, 23, "#7a5a3a");
+    pFill(g, 9, 20, 14, 20, "#7a5a3a");
+    pBox(g, 18, 20, 22, 28, "#6b4a2f");
+    pDots(g, [[19, 24]], "#f4d35e");
+    pFill(g, 2, 29, 29, 30, "#5fa04a");
+    return g;
+  },
+  // --- tier 2 ---
+  sporting_goods() {
+    const g = blank(32);
+    rod(g, 5, 27, 12, 19, 1.4, "#3a3a44");
+    rod(g, 11, 20, 24, 5, 2.7, (t, side) => (side < 0 ? "#e8bc84" : "#c49a64"));
+    pBall(g, 4.5, 27.5, 2, "#3a3a44");
+    pBall(g, 22, 23, 6.3, "#f4f4f4");
+    pDots(g, [[18, 19], [19, 21], [19, 23], [18, 25], [25, 20], [24, 22], [24, 24], [25, 26]], "#d64545");
+    return g;
+  },
+  hardware_store() {
+    const g = blank(32);
+    // a wrench
+    rod(g, 7, 26, 23, 10, 2, (t, side) => (side < 0 ? "#d8dde2" : "#a8b0ba"));
+    pBall(g, 24.5, 8.5, 5, "#a8b0ba");
+    pFill(g, 25, 3, 29, 7, null);
+    pBall(g, 6.5, 26.5, 3.4, "#a8b0ba");
+    pFill(g, 3, 27, 5, 30, null);
+    // a hammer across it
+    rod(g, 25, 27, 10, 12, 1.7, (t, side) => (side < 0 ? "#d8a070" : "#a8754a"));
+    rod(g, 4, 14, 13, 5, 3, (t, side) => (side < 0 ? "#8a929c" : "#5a6270"));
+    return g;
+  },
+  gas_station() {
+    const g = blank(32);
+    pFill(g, 7, 3, 18, 5, "#b03030");
+    pBox(g, 6, 5, 19, 28, "#d64545");
+    pBox(g, 8, 8, 17, 14, "#22301f");
+    pDots(g, [[10, 10], [11, 10], [13, 10], [14, 10], [10, 12], [11, 12], [12, 12], [14, 12], [15, 12]], "#7fe07f");
+    pFill(g, 7, 18, 18, 19, "#f4f4f4");
+    pBox(g, 9, 21, 16, 25, "#f4c430");
+    pFill(g, 4, 28, 21, 30, "#5a5e66");
+    rod(g, 19, 12, 24, 12, 0.9, "#2a2a2e");
+    rod(g, 24, 12, 26, 22, 0.9, "#2a2a2e");
+    pBox(g, 23, 21, 28, 25, "#3a3a44");
+    pFill(g, 28, 23, 29, 23, "#3a3a44");
+    return g;
+  },
+  supermarket() {
+    const g = blank(32);
+    pBox(g, 9, 3, 13, 9, "#e0a050"); // a loaf
+    pBall(g, 18.5, 6.5, 3.2, "#d64545"); // an apple
+    pDots(g, [[19, 2], [20, 2]], "#4caf50");
+    pBox(g, 22, 4, 25, 9, "#3fa7d6"); // a carton
+    pRows(g, 9, 18, (y) => [6 + (y - 9) * 0.35, 27 - (y - 9) * 0.25], "#4a7fd0");
+    for (let y = 11; y <= 17; y += 3) pFill(g, 7, y, 25, y, "#8ab0f0");
+    for (let x = 10; x <= 24; x += 4) pFill(g, x, 10, x, 17, "#8ab0f0");
+    rod(g, 1.5, 5.5, 7, 9.5, 1, "#3f6fb5");
+    rod(g, 9, 19, 9, 22, 0.8, "#3f6fb5");
+    rod(g, 24, 19, 24, 22, 0.8, "#3f6fb5");
+    rod(g, 8, 22.5, 26, 22.5, 0.9, "#3f6fb5");
+    pBall(g, 10.5, 26.5, 2.4, "#2a2a2e");
+    pBall(g, 23.5, 26.5, 2.4, "#2a2a2e");
+    return g;
+  },
+  apartments() {
+    const g = blank(32);
+    pBox(g, 8, 3, 23, 29, "#b0704a");
+    pFill(g, 7, 2, 24, 3, "#8a5a3a");
+    const lit = [1, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 1];
+    let n = 0;
+    for (let y = 6; y <= 22; y += 4) for (const x of [10, 14, 18]) pBox(g, x, y, x + 2, y + 2, lit[n++] ? "#f6d27a" : "#3a4258");
+    pBox(g, 14, 25, 17, 29, "#5a3b24");
+    pFill(g, 13, 24, 18, 24, "#3a7a5a");
+    pFill(g, 5, 30, 26, 30, "#9aa3ad");
+    return g;
+  },
+  garden_center() {
+    const g = blank(32);
+    rod(g, 15.5, 21, 15.5, 12, 1, "#3f8a2a");
+    pBall(g, 11, 17, 3, "#4caf50");
+    pBall(g, 20.5, 16.5, 3, "#4caf50");
+    for (let a = 0; a < 12; a++) pBall(g, 15.5 + Math.cos(a * Math.PI / 6) * 6, 8.5 + Math.sin(a * Math.PI / 6) * 6, 2.6, "#f4c430");
+    pBall(g, 15.5, 8.5, 3.8, "#7a4a22");
+    pDots(g, [[14, 7], [16, 9], [15, 10], [17, 7]], "#4a2a10");
+    pFill(g, 8, 20, 23, 21, "#e07a4a");
+    pRows(g, 22, 29, (y) => [9 + (y - 22) * 0.4, 22 - (y - 22) * 0.4], "#c8643a");
+    return g;
+  },
+  // --- tier 3 ---
+  electronics_store() {
+    const g = blank(32);
+    rod(g, 15, 9, 9, 2, 0.7, "#5a6272");
+    rod(g, 17, 9, 23, 2, 0.7, "#5a6272");
+    pBall(g, 8.5, 1.5, 1.4, "#c8ccd4");
+    pBall(g, 23.5, 1.5, 1.4, "#c8ccd4");
+    pBox(g, 3, 9, 28, 27, "#4a5060");
+    pBox(g, 6, 12, 22, 24, "#3f8fd0");
+    for (let y = 14; y <= 23; y += 2) pFill(g, 7, y, 21, y, "#5aa8e8");
+    rod(g, 9, 21, 13, 15, 0.8, "#bfe3f5");
+    pBall(g, 25.5, 15, 1.7, "#c8ccd4");
+    pBall(g, 25.5, 20.5, 1.7, "#c8ccd4");
+    pFill(g, 6, 28, 9, 29, "#3a3f4a");
+    pFill(g, 22, 28, 25, 29, "#3a3f4a");
+    return g;
+  },
+  urgent_care() {
+    const g = blank(32);
+    pBox(g, 12, 6, 17, 9, "#3f6fff");
+    pFill(g, 15, 7, 16, 8, "#ff5a5a");
+    pBox(g, 1, 10, 23, 25, "#f4f6f8");
+    pBox(g, 23, 14, 30, 25, "#f4f6f8");
+    pBox(g, 25, 15, 29, 19, "#7fc8f0");
+    pFill(g, 1, 20, 30, 21, "#d64545");
+    pFill(g, 9, 12, 14, 18, "#f4f6f8");
+    pFill(g, 11, 12, 12, 18, "#d64545");
+    pFill(g, 8, 14, 15, 15, "#d64545");
+    pBall(g, 7.5, 26, 3.2, "#2a2a2e");
+    pBall(g, 7.5, 26, 1.3, "#9aa0a8");
+    pBall(g, 24.5, 26, 3.2, "#2a2a2e");
+    pBall(g, 24.5, 26, 1.3, "#9aa0a8");
+    return g;
+  },
+  vet_clinic() {
+    const g = blank(32);
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+      const dx = (x + 0.5 - 16) / 8, dy = (y + 0.5 - 21.5) / 7;
+      if (dx * dx + dy * dy <= 1) g[y][x] = dx + dy < -0.6 ? lightOf("#e8a05a") : dx + dy > 0.7 ? shadowOf("#e8a05a") : "#e8a05a";
+    }
+    pBall(g, 6.5, 12, 3.4, "#e8a05a");
+    pBall(g, 12.5, 6.5, 3.6, "#e8a05a");
+    pBall(g, 19.5, 6.5, 3.6, "#e8a05a");
+    pBall(g, 25.5, 12, 3.4, "#e8a05a");
+    return g;
+  },
+  farmstead() {
+    const g = blank(32);
+    pRows(g, 3, 12, (y) => { const h = y < 7 ? 4 + (y - 3) * 2.3 : 12.5; return [15.5 - h, 15.5 + h]; }, "#b03030");
+    pFill(g, 3, 12, 28, 12, "#f4f4f4");
+    pBox(g, 5, 13, 26, 29, "#c83a3a");
+    for (let x = 8; x <= 24; x += 3) pFill(g, x, 14, x, 28, "#a83030");
+    pBox(g, 13, 6, 18, 10, "#f4f4f4");
+    pFill(g, 14, 7, 17, 9, "#3a2a1a");
+    pBox(g, 10, 18, 21, 29, "#f4f4f4");
+    pFill(g, 11, 19, 20, 28, "#a02a2a");
+    rod(g, 11.5, 19.5, 20.5, 28.5, 0.8, "#f4f4f4");
+    rod(g, 20.5, 19.5, 11.5, 28.5, 0.8, "#f4f4f4");
+    return g;
+  },
+  petting_zoo() {
+    const g = blank(32);
+    for (const [x, y] of [[11, 26], [14, 27], [19, 27], [22, 26]]) pFill(g, x, y - 4, x + 1, y, "#3a3a44");
+    for (const [x, y, r] of [[9, 15, 5], [15, 11.5, 6], [21, 14, 5], [12, 19, 5], [19, 19, 5], [15.5, 16, 6]]) pBall(g, x, y, r, "#f2f0e8");
+    pBall(g, 25.5, 12.5, 4.2, "#3a3a44");
+    rod(g, 23, 9, 20.5, 7.5, 1, "#3a3a44");
+    pDots(g, [[26, 11], [27, 11]], "#f4f4f4");
+    pDots(g, [[27, 11]], "#1a1a1e");
+    pDots(g, [[26, 15], [27, 15]], "#e98fb0");
+    return g;
+  },
+  church() {
+    const g = blank(32);
+    pDots(g, [[15, 0], [16, 0], [15, 1], [16, 1], [14, 1], [17, 1], [15, 2], [16, 2]], "#e8c14a");
+    pRows(g, 3, 8, (y) => [15.5 - (y - 2) * 0.55, 15.5 + (y - 2) * 0.55], "#6b6259");
+    pBox(g, 12, 8, 19, 15, "#e9e4d8");
+    pBox(g, 14, 10, 17, 13, "#3fa7d6");
+    pRows(g, 11, 15, (y) => [4 + (15 - y) * 1.6, 27 - (15 - y) * 1.6], "#6b6259");
+    pFill(g, 4, 15, 27, 15, "#6b6259");
+    pBox(g, 4, 16, 27, 29, "#e9e4d8");
+    pBall(g, 15.5, 20, 2.8, "#8a5ad6");
+    pDots(g, [[15, 19], [16, 21]], "#3fa7d6");
+    pBox(g, 13, 24, 18, 29, "#6b4a2f");
+    pDots(g, [[13, 24], [18, 24]], "#e9e4d8");
+    pBox(g, 7, 19, 9, 25, "#3fa7d6");
+    pBox(g, 22, 19, 24, 25, "#3fa7d6");
+    return g;
+  },
+  library() {
+    const g = blank(32);
+    const book = (x0, y0, x1, y1, c, band) => {
+      pBox(g, x0, y0, x1, y1, c);
+      pFill(g, x1 - 3, y0 + 1, x1 - 1, y1 - 1, "#f4efe0");
+      for (let y = y0 + 2; y < y1 - 1; y += 2) pFill(g, x1 - 3, y, x1 - 1, y, "#d8d0bc");
+      pFill(g, x0 + 3, y0 + 1, x0 + 4, y1 - 1, band);
+    };
+    book(3, 22, 28, 29, "#2e6bd6", "#e8c14a");
+    book(6, 15, 26, 21, "#d64545", "#f4f4f4");
+    book(4, 8, 24, 14, "#3f8a4a", "#e8c14a");
+    rod(g, 18, 8, 18, 3, 0.7, "#d64545"); // a bookmark
+    return g;
+  },
+  marina() {
+    const g = blank(32);
+    pRows(g, 4, 20, (y) => [15 - (y - 3) * 0.62, 15], "#f4f4f4", "#ffffff", "#d8d4c8");
+    pRows(g, 7, 20, (y) => [17, 17 + (y - 6) * 0.5], "#e8e4dc", "#ffffff", "#c8c0b0");
+    rod(g, 16, 1.5, 16, 22, 0.6, "#6b4a2f");
+    pFill(g, 17, 2, 19, 3, "#d64545");
+    pRows(g, 22, 26, (y) => [4 + (y - 22) * 1.1, 28 - (y - 22) * 1.1], "#c83a3a");
+    pFill(g, 4, 22, 28, 22, "#f4f4f4");
+    for (let x = 1; x <= 30; x++) pFill(g, x, 28 + (x % 6 < 3 ? 0 : 1), x, 30, x % 6 === 1 ? "#8ab8ee" : "#3a7ac8");
+    return g;
+  },
+  // --- tier 4 ---
+  fire_station() {
+    const g = blank(32);
+    pRows(g, 6, 18, (y) => { const h = 11 * Math.sqrt(Math.max(0, 1 - ((18 - y) / 12.5) ** 2)); return [16 - h, 16 + h]; }, "#d64545");
+    pFill(g, 15, 5, 16, 18, "#b03030");
+    pRows(g, 18, 21, (y) => [2 + (y - 18), 29 - (y - 18) * 0.5], "#c83a3a");
+    pBox(g, 11, 9, 20, 16, "#e8c14a");
+    pDots(g, [[15, 11], [16, 11], [15, 12], [15, 13], [15, 14], [16, 14]], "#b0882a");
+    return g;
+  },
+  police_station() {
+    const g = blank(32);
+    pRows(g, 3, 29, (y) => {
+      if (y < 7) return [7 - (y - 3) * 0.5 + (y === 3 ? 4 : 0), 24 + (y - 3) * 0.5 - (y === 3 ? 4 : 0)];
+      const h = y < 19 ? 10.5 : 10.5 - (y - 19) * 1.05;
+      return h < 0.5 ? null : [15.5 - h, 15.5 + h];
+    }, "#e8c14a");
+    pRows(g, 7, 25, (y) => { const h = y < 19 ? 8 : 8 - (y - 19) * 1.15; return h < 0.5 ? null : [15.5 - h, 15.5 + h]; }, "#c89a2a", "#b0882a", "#a07820");
+    pStar(g, 16, 15.5, 7, 3, "#2e5fa8");
+    pStar(g, 15.5, 15, 4.5, 2, "#4a7fd0");
+    return g;
+  },
+  warehouse() {
+    const g = blank(32);
+    const crate = (x0, y0, x1, y1) => {
+      pBox(g, x0, y0, x1, y1, "#c8925a");
+      pFill(g, Math.round((x0 + x1) / 2) - 1, y0, Math.round((x0 + x1) / 2), y1, "#e8d090");
+      pDots(g, [[x0 + 2, y1 - 3], [x0 + 3, y1 - 3], [x0 + 2, y1 - 2]], "#d64545");
+    };
+    crate(2, 17, 15, 29);
+    crate(16, 17, 29, 29);
+    crate(9, 4, 22, 16);
+    return g;
+  },
+  army_surplus() {
+    const g = blank(32);
+    pRows(g, 7, 20, (y) => { const h = 12 * Math.sqrt(Math.max(0, 1 - ((20 - y) / 13.5) ** 2)); return [16 - h, 16 + h]; }, "#5a7a3a");
+    for (const [x, y, r, c] of [[10, 13, 2.4, "#3f5a2a"], [19, 11, 2, "#7a8a4a"], [22, 16, 2.2, "#3f5a2a"], [13, 18, 1.8, "#7a8a4a"]]) {
+      for (let yy = 0; yy < 32; yy++) for (let xx = 0; xx < 32; xx++) if (g[yy][xx] && (xx + 0.5 - x) ** 2 + (yy + 0.5 - y) ** 2 <= r * r) g[yy][xx] = c;
+    }
+    pRows(g, 20, 22, (y) => [2 + (y - 20), 29 - (y - 20)], "#4a6a2a");
+    pStar(g, 16, 13, 3.5, 1.5, "#e8e4c8");
+    rod(g, 6, 23, 10, 28, 0.7, "#3a3a2a");
+    rod(g, 26, 23, 22, 28, 0.7, "#3a3a2a");
+    return g;
+  },
+  // --- the raids ---
+  mall() {
+    const g = blank(32);
+    rod(g, 11, 11, 11, 6, 1, "#7a2a4a");
+    rod(g, 11, 6, 13, 3.5, 1, "#7a2a4a");
+    rod(g, 13, 3.5, 18, 3.5, 1, "#7a2a4a");
+    rod(g, 18, 3.5, 20, 6, 1, "#7a2a4a");
+    rod(g, 20, 6, 20, 11, 1, "#7a2a4a");
+    pRows(g, 10, 29, (y) => [5 - (y - 10) * 0.08, 26 + (y - 10) * 0.08], "#e05a9a");
+    pFill(g, 5, 10, 26, 11, "#f08ab8");
+    for (const [x, y, r] of [[13, 19, 2.6], [18, 19, 2.6]]) pBall(g, x, y, r, "#ffe0ee");
+    pRows(g, 20, 25, (y) => [15.5 - (25 - y) * 0.9, 15.5 + (25 - y) * 0.9], "#ffe0ee", "#ffe0ee", "#ffe0ee");
+    return g;
+  },
+  hospital() {
+    const g = blank(32);
+    pBox(g, 4, 11, 27, 29, "#f4f6f8");
+    pBall(g, 15.5, 7, 6.5, "#f4f6f8");
+    pBox(g, 14, 2, 17, 12, "#d64545");
+    pBox(g, 10, 5, 21, 8, "#d64545");
+    pFill(g, 14, 5, 17, 8, "#d64545");
+    for (let y = 15; y <= 21; y += 4) for (const x of [7, 12, 19, 24]) pBox(g, x - 1, y, x + 1, y + 2, "#7fc8f0");
+    pBox(g, 13, 24, 18, 29, "#7fc8f0");
+    pFill(g, 15, 24, 16, 29, "#5aa0d0");
+    return g;
+  },
+  military_base() {
+    const g = blank(32);
+    pBox(g, 2, 20, 29, 27, "#3a3f2a");
+    for (const x of [6, 11, 16, 21, 26]) pBall(g, x, 23.5, 2.2, "#7a7f6a");
+    pBox(g, 4, 15, 27, 20, "#5a7a3a");
+    pBox(g, 9, 9, 20, 15, "#4a6a2a");
+    rod(g, 20, 11.5, 30.5, 11.5, 1.2, (t, side) => (side < 0 ? "#6a8a4a" : "#3a5a2a"));
+    pStar(g, 14.5, 12, 2.6, 1.1, "#e8e4c8");
+    return g;
+  },
+  institute() {
+    const g = blank(32);
+    // a flask of something glowing green
+    pBox(g, 13, 2, 18, 11, "#cfe8f0");
+    pFill(g, 12, 2, 19, 3, "#e8f4f8");
+    pRows(g, 11, 28, (y) => [13 - (y - 11) * 0.5, 18 + (y - 11) * 0.5], "#cfe8f0", "#ffffff", "#a8c8d4");
+    pRows(g, 18, 28, (y) => [13 - (y - 11) * 0.5 + 1, 18 + (y - 11) * 0.5 - 1], "#7fe05a", "#b8ff8a", "#4caf3a");
+    for (const [x, y, r] of [[13, 22, 1.4], [18, 25, 1.7], [16, 20, 1]]) pBall(g, x, y, r, "#d8ffb0");
+    rod(g, 15, 13, 15, 16, 0.6, "#b8e8f4");
+    return g;
+  },
+};
+for (const [id, draw] of Object.entries(POI_ICONS)) ICONS[`poi_${id}`] = draw;
 
 const iconCache = new Map();
 

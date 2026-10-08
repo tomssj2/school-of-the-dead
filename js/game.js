@@ -16,7 +16,7 @@ import {
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
   ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
   NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
-  ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
+  EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay,
   RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, SITE_STAT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
   EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
@@ -1607,7 +1607,7 @@ function itemTier(t) {
 // Legendary gear never drops here — it only arrives on legendary survivors. Harder places find
 // gear more often, and better (expeditionGearLevel).
 function rollExpeditionItem(state, location, success, bonus = 0) {
-  const chance = (success ? expeditionGearChance(location) : EXPEDITION_ITEM_CHANCE_FAILED) + techPerk(state, "itemChance") + bonus;
+  const chance = (success ? expeditionGearChance(location) + (location.gearBonus || 0) : EXPEDITION_ITEM_CHANCE_FAILED) + techPerk(state, "itemChance") + bonus;
   if (Math.random() >= chance) return null;
   const maxTier = expeditionGearTier(location);
   const pool = ITEM_TEMPLATES.filter((t) => itemTier(t) <= maxTier);
@@ -1663,7 +1663,9 @@ export function resolveEncounter(state, teamIndex, encounterId, role) {
 }
 const teamLabelFor = (i) => `Team ${i + 1}`;
 
-export function resolveExploration(state) {
+// `fights`: each team's run through its place (startExpeditionRun), by team — a team without one
+// rolls its odds.
+export function resolveExploration(state, fights = {}) {
   let teamsSent = 0;
   let successes = 0;
   const itemsFound = [];
@@ -1680,38 +1682,38 @@ export function resolveExploration(state) {
     const report = {
       teamIndex, locationId: location.id, memberIds: members.map((c) => c.id), nearNest,
       success: false, loot: {}, finds: [], hurt: [], lost: [], recruit: null,
-      hurtIds: {}, lostIds: [], danger: location.danger, encounter: (state.encounters || {})[teamIndex] || null, // for the skirmish replay
+      hurtIds: {}, lostIds: [], encounter: (state.encounters || {})[teamIndex] || null, // for the report
     };
     teams.push(report);
 
     const avg = (statKey) => members.reduce((sum, c) => sum + effectiveGrade(state, c, statKey), 0) / members.length;
     const safety = (avg("Biology") + avg("History")) / 2; // CON and WIS keep a team safe
-    const avgSkill = (subject) => members.reduce((sum, c) => sum + skillBonus(c, subject), 0) / members.length;
     const bestSkill = (subject) => members.reduce((m, c) => Math.max(m, skillBonus(c, subject)), 0);
-    const wis = avg("History");
     const cha = avg("SocialStudies");
 
     // the team's power against what the place needs (expeditionNeed: further out needs more)
     // ...and how its encounter on the way in went (+ or − on the odds)
     const encounterBonus = report.encounter ? (report.encounter.ok ? ENCOUNTER_EFFECT.good : ENCOUNTER_EFFECT.bad) : 0;
     const successChance = clamp01(expeditionOdds(state, teamIndex, location) + encounterBonus);
-    const success = Math.random() < successChance;
+    const fight = fights[teamIndex];
+    const success = fight ? fight.won : Math.random() < successChance;
     report.success = success;
+    if (fight) {
+      Object.assign(report, { rooms: [fight.room, fight.rooms], noise: fight.noise, horde: fight.horde, recruit: fight.recruit });
+      report.finds.push(...fight.finds);
+    }
 
-    // WIS finds more, and harder places have more to find (expeditionLootScale)
-    const lootMult = (0.5 + wis / 100) * (success ? 1 : 0.35) * (1 + techPerk(state, "expeditionLoot")) * (1 + avgSkill("History")) * expeditionLootScale(location);
-    // What the team can physically carry home: STR, for the bulky stuff.
-    const carry = (key) => (key === "food" || key === "materials" ? 0.8 + avg("PE") * TUNE.carryPerStr : 1);
+    // WIS finds more, and harder places have more to find; a run brings home its share (by the rooms cleared)
+    const haul = expeditionHaul(state, members, location, fight ? runShare(fight) : success ? 1 : 0.35);
     const dangerReq = location.danger * 15;
     const baseCasualty =
       clamp01(0.05 + (dangerReq - safety) / 150 + (nearNest ? NEST_EXPEDITION_PENALTY : 0)) * (success ? 0.5 : 1.2) * (1 - techPerk(state, "casualtyReduction")) *
       (1 - avg("Gymnastics") * TUNE.expeditionStealthPerDex); // a stealthy team gets jumped less
 
-    const stewMult = (key) => (key === "materials" ? dishMultiplier(state, "expeditionMaterials") : 1);
     if (success) {
       successes++;
       for (const key of Object.keys(location.rewards)) {
-        const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * carry(key) * (0.8 + Math.random() * 0.4));
+        const amt = Math.round(haul[key] * (0.8 + Math.random() * 0.4));
         state.resources[key] += amt;
         report.loot[key] = amt;
       }
@@ -1723,7 +1725,7 @@ export function resolveExploration(state) {
       }
     } else {
       for (const key of Object.keys(location.rewards)) {
-        const amt = Math.round(location.rewards[key] * lootMult * stewMult(key) * carry(key) * (0.5 + Math.random() * 0.5));
+        const amt = Math.round(haul[key] * (fight ? 0.8 + Math.random() * 0.4 : 0.5 + Math.random() * 0.5)); // (a run's share is already halved)
         state.resources[key] += amt;
         report.loot[key] = amt;
       }
@@ -1731,7 +1733,7 @@ export function resolveExploration(state) {
       adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL);
     }
 
-    const found = rollExpeditionItem(state, location, success, avg("Physics") * TUNE.itemChancePerInt);
+    const found = rollExpeditionItem(state, location, success, avg("Physics") * TUNE.itemChancePerInt + (fight && fight.room >= fight.rooms ? EXPEDITION_ROOM.clearGear : 0));
     if (found) {
       itemsFound.push(found);
       report.finds.push(`${found.icon} ${found.name}`);
@@ -1753,8 +1755,23 @@ export function resolveExploration(state) {
 
     const staminaCost = exploreStaminaCost(state);
     gainExpAll(state, members, LEVEL_XP.expedition + (success ? LEVEL_XP.expeditionWin : 0));
+    const dead = fight ? settleFallen(state, fight.fallen, `at the ${location.name}`) : [];
     for (const c of members) {
       c.stamina = Math.max(0, c.stamina - staminaCost);
+      if (fight) {
+        if (dead.includes(c.id)) {
+          report.lost.push(c.name);
+          report.lostIds.push(c.id);
+        } else if (fight.hurt[c.id]) {
+          report.hurt.push(`${c.name} (-${fight.hurt[c.id]} HP)`);
+          report.hurtIds[c.id] = fight.hurt[c.id];
+        }
+        if (!fight.fallen.some((f) => f.id === c.id)) {
+          grantXp(state, c.id, "PE", 2 + randInt(0, 2));
+          grantXp(state, c.id, "Gymnastics", 2 + randInt(0, 2));
+        }
+        continue;
+      }
       const roll = Math.random();
       const personalCasualty = clamp01(baseCasualty - (effectiveGrade(state, c, "Biology") - 40) / 400);
       if (roll < personalCasualty) {
@@ -1793,7 +1810,7 @@ export function resolveExploration(state) {
 
   }
 
-  const raid = resolveRaid(state);
+  const raid = resolveRaid(state, fights[RAID_TEAM]);
 
   state.expeditionsSent = (state.expeditionsSent || 0) + teamsSent;
   if (state.today) {
@@ -2079,6 +2096,18 @@ function springTrap(b, z, events) {
   return true;
 }
 
+// The wave's next zombie appears on (row, col).
+function spawnZombie(b, type, row, col) {
+  const T = ZOMBIE_TYPES[type];
+  const raidBoss = type === "boss" && b.bossStats; // (a raid's boss brings its own)
+  const hp = raidBoss ? raidBoss.hp : Math.round(b.zStats.hp * T.hpMult);
+  const z = { id: b.spawned + 1, type, row, col, hp, maxHp: hp, dmg: raidBoss ? raidBoss.dmg : Math.max(1, Math.round(b.zStats.damage * T.dmgMult)), alive: true, snagged: false, walk: 0, slow: 0 };
+  b.zombies.push(z);
+  b.spawned++;
+  b.waveSpawned++;
+  return z;
+}
+
 // One turn of the night: the next zombies of this wave appear on the road, the defenders do their
 // class's job, the horde moves up its lanes. Then: a break before the next wave once this one's
 // all spawned and gone, or the end of the night after the last.
@@ -2100,15 +2129,8 @@ export function battleTick(state, b) {
     // the opening zombies take the lanes the planning board marked
     const planned = b.tick === 1 ? b.opening.shift() : undefined;
     const col = planned !== undefined && free.includes(planned) ? planned : pick(free);
-    const type = wave[b.waveSpawned];
-    const T = ZOMBIE_TYPES[type];
-    const hp = Math.round(b.zStats.hp * T.hpMult);
-    const dmg = Math.max(1, Math.round(b.zStats.damage * T.dmgMult));
-    const z = { id: b.spawned + 1, type, row: road, col, hp, maxHp: hp, dmg, alive: true, snagged: false, walk: 0, slow: 0 };
-    b.zombies.push(z);
-    if (type === "boss") events.push({ type: "bossArrives", at: [road, col] });
-    b.spawned++;
-    b.waveSpawned++;
+    const z = spawnZombie(b, wave[b.waveSpawned], road, col);
+    if (z.type === "boss") events.push({ type: "bossArrives", at: [road, col] });
     springTrap(b, z, events); // (a trap under it gets it as it arrives)
   }
 
@@ -2201,7 +2223,7 @@ export function battleTick(state, b) {
     const C = NIGHT_CLASSES[s.cls];
     if (s.cls === "rallier") {
       // morale every few turns, more the higher their CHA
-      if (++s.timer % C.every === 0) {
+      if (++s.timer % C.every === 0 && !b.room) {
         const gain = C.morale * (s.ability3 ? C.ability3.moraleMult : 1); // Inspire: double
         b.morale += gain;
         s.stats.morale += gain;
@@ -2287,9 +2309,21 @@ export function battleTick(state, b) {
   const advance = (z, T) => {
     const ahead = z.row - 1;
     if (ahead < 0) {
+      // (in a room a boss never leaves: it lunges in front of the nearest of them still standing)
+      const spot = b.room && z.type === "boss" && b.students
+        .filter((s) => !s.downed && s.row + 1 < b.rows && !zombieAt(b, s.row + 1, s.col))
+        .sort((s1, s2) => Math.abs(s1.col - z.col) - Math.abs(s2.col - z.col))[0];
+      if (spot) {
+        [z.row, z.col] = [spot.row + 1, spot.col];
+        hurtStudent(z, spot, z.dmg, "bite");
+        return false;
+      }
       z.alive = false;
       b.breached++;
       events.push({ type: "breach", at: [z.row, z.col] });
+      // (in a room it's got behind the team: it bites someone on its way past)
+      const victim = b.room && pick(b.students.filter((s) => !s.downed));
+      if (victim) hurtStudent(z, victim, z.dmg, "bite");
       return false;
     }
     const wall = wallAt(b, ahead, z.col);
@@ -2416,7 +2450,7 @@ function checkEnrage(b, events) {
 // Mid-fight: post a student who isn't fighting onto a free square of the steps or the lawn, paying
 // their class's morale. They stay there for tomorrow too (the line-up).
 export function battlePost(state, b, studentId, row, col) {
-  if (b.phase === "done" || row < 0 || row >= ENTRANCE_ZONES.students || col < 0 || col >= b.size) return false;
+  if (b.room || b.phase === "done" || row < 0 || row >= ENTRANCE_ZONES.students || col < 0 || col >= b.size) return false;
   if (studentAt(b, row, col) || zombieAt(b, row, col) || b.students.some((s) => s.id === studentId)) return false;
   const c = getChar(state, studentId);
   if (!c || c.role !== "student" || !c.alive || c.infection || c.exploreTeam !== null) return false;
@@ -2443,13 +2477,13 @@ export function startNextWave(b) {
 
 // Between waves: move a defender to another square of the steps (swapping with whoever's there).
 export function battleMoveDefender(state, b, studentId, row, col) {
-  if (b.phase !== "break" || row >= ENTRANCE_ZONES.students) return false;
+  if (b.phase !== "break" || row >= (b.studentRows ?? ENTRANCE_ZONES.students) || col >= b.size) return false;
   const s = b.students.find((x) => x.id === studentId && !x.downed);
   if (!s) return false;
   const other = b.students.find((x) => x !== s && x.row === row && x.col === col);
   if (other) [other.row, other.col] = [s.row, s.col];
   [s.row, s.col] = [row, col];
-  moveEntranceStudent(state, `${row},${col}`, studentId); // keep them there for tomorrow too
+  if (!b.room) moveEntranceStudent(state, `${row},${col}`, studentId); // keep them there for tomorrow too
   b.frames.push(battleSnapshot(b, []));
   return true;
 }
@@ -2487,6 +2521,287 @@ export function battleAction(state, b, actionId, row, col) {
   return true;
 }
 
+// ---------- Turn 2: a team fights its way through its place, room by room ----------
+// A run (startExpeditionRun) keeps what's happened so far: the rooms cleared, who went down (out of
+// the rest of it, carried), the fallen to settle and the HP lost. Each room is the same fight as the
+// night's, on a small board (EXPEDITION_ROOM): the team stands where they came in — the Tanks and
+// Brawlers in front, the rest behind, the Medic in the middle — and the zombies come out of the dark.
+// It starts paused ("break") so the player can move them about first — unless it's an ambush.
+// The place a run is in: a City Map place — or, for a raid, its landmark, harder by tier (and,
+// for the gear it might turn up, as far out as the map goes).
+export function expeditionPlace(id) {
+  const lm = LANDMARKS.find((l) => l.id === id);
+  return lm ? { ...lm, raid: true, difficulty: 1 + (lm.tier - 1) * EXPEDITION_ROOM.raidPerTier, ground: "", hex: { q: MAP_RADIUS, r: 0 } } : LOCATIONS.find((l) => l.id === id);
+}
+// Whether today's raid goes ahead: a target, the raids open, and a big enough squad.
+export function raidReady(state) {
+  const lm = LANDMARKS.find((l) => l.id === state.raidTarget);
+  return !!lm && raidUnlocked(state) && teamMembers(state, RAID_TEAM).length >= lm.minTeam;
+}
+export function startExpeditionRun(state, teamIndex) {
+  const location = expeditionPlace(teamIndex === RAID_TEAM ? state.raidTarget : state.teamLocations[teamIndex]);
+  const hpBefore = Object.fromEntries(teamMembers(state, teamIndex).map((c) => [c.id, c.hp]));
+  return { teamIndex, locationId: location.id, rooms: expeditionRooms(location), room: 0, won: true, out: [], fallen: [], hurt: {}, hpBefore, noise: 0, horde: false, next: null, notice: null, bonus: 0, event: null, finds: [], recruit: null };
+}
+// How many rooms a place has, and how many zombies wait in each (before the nest, the noise and so on).
+export const expeditionRooms = (location) => (location.raid ? EXPEDITION_ROOM.raidRooms : 2 + Math.ceil(location.difficulty / 2));
+export function expeditionRoomZombies(state, location, room) {
+  const R = EXPEDITION_ROOM;
+  return R.base + Math.floor(location.difficulty * R.perDifficulty) + Math.floor(state.day / R.perDays) + room + (room === expeditionRooms(location) - 1 ? 1 : 0);
+}
+// The odds for a team at a place, from the fight itself: `trials` runs played out in the background,
+// fighting every room (no sneaking, nothing turning up between rooms) — how often they clear the
+// first room, how often every room, and how many on average. Kept until anything it depends on
+// changes (the team, their HP, the place, the day).
+const forecastCache = new Map();
+export function expeditionForecast(state, teamIndex, location, trials = 24) {
+  const members = teamMembers(state, teamIndex);
+  if (!members.length) return null;
+  const key = [teamIndex, location.id, state.day, state.horde?.q, state.horde?.r, (state.encounters || {})[teamIndex]?.ok, ...members.map((c) => `${c.id}:${c.hp}:${c.level}`)].join("|");
+  if (forecastCache.has(key)) return forecastCache.get(key);
+  const hp = new Map(members.map((c) => [c.id, c.hp]));
+  const raid = teamIndex === RAID_TEAM; // (a raid's target is state.raidTarget already)
+  const was = state.teamLocations[teamIndex];
+  if (!raid) state.teamLocations[teamIndex] = location.id;
+  let first = 0;
+  let all = 0;
+  let rooms = 0;
+  for (let t = 0; t < trials; t++) {
+    const run = startExpeditionRun(state, teamIndex);
+    while (run.won && run.room < run.rooms) {
+      const b = startExpeditionBattle(state, run);
+      runNightBattle(state, b);
+      for (const s of b.students) {
+        const c = getChar(state, s.id);
+        c.hp = s.downed ? 1 : Math.max(1, Math.min(c.maxHp, s.hp - (s.bonusHp || 0)));
+        if (s.downed) run.out.push(c.id);
+      }
+      run.noise = Math.min(EXPEDITION_NOISE.max, run.noise + battleNoise(b));
+      run.horde = run.noise >= EXPEDITION_NOISE.horde;
+      if (b.students.some((s) => !s.downed)) run.room++;
+      else run.won = false;
+    }
+    if (run.room >= 1) first++;
+    if (run.room >= run.rooms) all++;
+    rooms += run.room;
+    for (const c of members) c.hp = hp.get(c.id);
+  }
+  if (!raid) state.teamLocations[teamIndex] = was;
+  const out = { first: first / trials, all: all / trials, rooms: rooms / trials, total: expeditionRooms(location) };
+  if (forecastCache.size > 200) forecastCache.clear();
+  forecastCache.set(key, out);
+  return out;
+}
+// The share of the place's supplies a run's bringing home so far (with what turned up between rooms).
+export const runShare = (run) => expeditionShare(run.room, run.rooms, run.won) + run.bonus * (run.won ? 1 : 0.5);
+const standing = (state, run) => teamMembers(state, run.teamIndex).filter((c) => !run.out.includes(c.id));
+const trackHurt = (run, c) => {
+  const lost = run.hpBefore[c.id] - c.hp;
+  if (lost > 0) run.hurt[c.id] = lost;
+  else delete run.hurt[c.id];
+};
+
+// ----- between rooms: something turns up (ROOM_EVENTS) -----
+// Who'd try an event's option, and their chance (sure, for one with no stat).
+export function roomEventOdds(state, run, option) {
+  if (!option.stat) return { who: null, chance: 1 };
+  const O = ROOM_EVENT_ODDS;
+  const who = standing(state, run).sort((a, c) => effectiveGrade(state, c, option.stat) - effectiveGrade(state, a, option.stat))[0] || null;
+  return { who, chance: who ? Math.min(O.max, O.base + effectiveGrade(state, who, option.stat) * O.perGrade) : 0 };
+}
+// The player picks option `index` of the run's event: tried, and whatever comes of it — or the next
+// event it leads to. Returns what happened.
+export function resolveRoomEvent(state, run, index) {
+  const opt = run.event && !run.event.done && ROOM_EVENTS[run.event.id].options[index];
+  if (!opt) return null;
+  const { who, chance } = roomEventOdds(state, run, opt);
+  if (opt.stat && !who) return null;
+  const ok = Math.random() < chance;
+  const fx = (ok ? opt.ok : opt.bad) || {};
+  const loc = expeditionPlace(run.locationId);
+  if (fx.loot) run.bonus += fx.loot;
+  if (fx.noise) addNoise(state, run, fx.noise);
+  if (fx.zombies) run.next = { ...run.next, fewer: (run.next?.fewer || 0) - fx.zombies };
+  if (fx.ambush) run.next = { ...run.next, ambush: true };
+  if (fx.hurt && who) {
+    who.hp = Math.max(1, who.hp - fx.hurt);
+    trackHurt(run, who);
+  }
+  if (fx.heal) for (const c of standing(state, run)) {
+    c.hp = Math.min(c.maxHp, c.hp + Math.round(c.maxHp * fx.heal));
+    c.injured = c.hp < c.maxHp * 0.5;
+    trackHurt(run, c);
+  }
+  if (fx.medicine) {
+    state.resources.medicine += fx.medicine;
+    run.finds.push(`🩹 Medicine ×${fx.medicine}`);
+  }
+  if (fx.item) {
+    const item = rollExpeditionItem(state, loc, true, 1);
+    if (item) run.finds.push(`${item.icon} ${item.name}`);
+  }
+  if (fx.recruit) {
+    const recruit = makeCharacter(rollRecruitRole(state), Math.random() < 0.5 ? "M" : "F");
+    if (addRecruit(state, recruit)) {
+      run.recruit = recruit.name;
+      addLog(state, `A survivor found at the ${loc.name}, ${recruit.name}, wants to join.`);
+    }
+  }
+  const text = who ? `${who.name.split(" ")[0]} ${fx.text}` : fx.text;
+  run.event.log.push({ ok: ok || !opt.stat, label: opt.label, text });
+  if (fx.next) run.event.id = fx.next;
+  else run.event.done = true;
+  return { ok, text };
+}
+// The noise a room's fight has made so far (EXPEDITION_NOISE), from its turns.
+export function battleNoise(b) {
+  const N = EXPEDITION_NOISE;
+  let noise = 0;
+  for (const f of b.frames) for (const e of f.events) {
+    if (e.type === "attack" && e.kind === "ranged") noise += N.shot;
+    else if (e.type === "kill") noise += N.kill;
+    else if (e.type === "breach") noise += N.past;
+    else if (e.type === "downed") noise += N.down;
+  }
+  return noise;
+}
+// Noise added to (or taken off) a run; the first time it reaches the horde's mark, the map's horde
+// comes to a block next to the place.
+function addNoise(state, run, n) {
+  const N = EXPEDITION_NOISE;
+  run.noise = Math.max(0, Math.min(N.max, run.noise + n));
+  if (run.noise < N.horde || run.horde) return;
+  run.horde = true;
+  const loc = expeditionPlace(run.locationId);
+  if (loc.raid) return; // (the landmarks are off the map's blocks)
+  const spots = HEX_NEIGHBOR_OFFSETS.map(([dq, dr]) => ({ q: loc.hex.q + dq, r: loc.hex.r + dr }))
+    .filter((h) => hexDistance(h.q, h.r) >= SCHOOL_RADIUS + 2 && hexDistance(h.q, h.r) <= MAP_RADIUS && !locationAt(h.q, h.r));
+  if (spots.length) state.horde = pick(spots);
+  addLog(state, `🧟 The noise at the ${loc.name} drew the horde — it's right next door now.`);
+}
+// Who'd try to sneak the team past the next room ("sneak", DEX) or pick a side door ("lock", INT):
+// the best at it still standing, and their chance.
+export function expeditionSneakOdds(state, run, kind) {
+  const K = EXPEDITION_NOISE[kind];
+  const who = teamMembers(state, run.teamIndex).filter((c) => !run.out.includes(c.id))
+    .sort((a, c) => effectiveGrade(state, c, K.stat) - effectiveGrade(state, a, K.stat))[0] || null;
+  return { who, chance: who ? Math.min(K.max, K.base + effectiveGrade(state, who, K.stat) * K.perGrade) : 0 };
+}
+// …and they try: sneaking by counts the room as cleared, a side door means fewer zombies in it — or
+// they're spotted (an ambush) or the lock snaps. Either way the noise moves. Returns what happened.
+export function expeditionSneak(state, run, kind) {
+  const K = EXPEDITION_NOISE[kind];
+  const { who, chance } = expeditionSneakOdds(state, run, kind);
+  if (!who) return null;
+  const ok = Math.random() < chance;
+  const name = who.name.split(" ")[0];
+  addNoise(state, run, ok ? -K.quiet : K.loud);
+  if (kind === "sneak" && ok) run.room++;
+  run.next = ok ? (kind === "lock" ? { fewer: K.fewer } : null) : kind === "sneak" ? { ambush: true } : null;
+  run.notice = {
+    ok,
+    text: kind === "sneak"
+      ? (ok ? `🤫 ${name} got them past room ${run.room} unseen` : `🤫 ${name} was spotted — they're on you!`)
+      : (ok ? `🔓 ${name} picked a side door — a quieter way in` : `🔓 The lock snapped under ${name}'s pick — loud`),
+  };
+  return { ok, who };
+}
+// What the team would carry home with `share` of the place's supplies (expeditionShare), before luck:
+// more with WIS (and its tree, research), the bulky stuff with STR, the scrap with the Stew.
+export function expeditionHaul(state, members, location, share) {
+  const avg = (statKey) => members.reduce((sum, c) => sum + effectiveGrade(state, c, statKey), 0) / Math.max(1, members.length);
+  const avgSkill = (subject) => members.reduce((sum, c) => sum + skillBonus(c, subject), 0) / Math.max(1, members.length);
+  const mult = (0.5 + avg("History") / 100) * share * (1 + techPerk(state, "expeditionLoot")) * (1 + avgSkill("History")) * expeditionLootScale(location);
+  const carry = (key) => (key === "food" || key === "materials" ? 0.8 + avg("PE") * TUNE.carryPerStr : 1);
+  const stew = (key) => (key === "materials" ? dishMultiplier(state, "expeditionMaterials") : 1);
+  return Object.fromEntries(Object.keys(location.rewards).map((key) => [key, location.rewards[key] * mult * stew(key) * carry(key)]));
+}
+const ROOM_FRONT_ORDER = { tank: 0, brawler: 1, trapper: 2, shooter: 3, rallier: 4, medic: 5 };
+export function startExpeditionBattle(state, run) {
+  const R = EXPEDITION_ROOM;
+  const location = expeditionPlace(run.locationId);
+  const members = teamMembers(state, run.teamIndex).filter((c) => !run.out.includes(c.id));
+  // a breather before every room after the first: whoever's standing gets a little HP back
+  if (run.room > 0 && !run.rested?.includes(run.room)) {
+    (run.rested ||= []).push(run.room);
+    for (const c of members) {
+      c.hp = Math.min(c.maxHp, c.hp + Math.round(c.maxHp * R.breather));
+      c.injured = c.hp < c.maxHp * 0.5;
+      trackHurt(run, c);
+    }
+  }
+  const encounter = run.room === 0 && (state.encounters || {})[run.teamIndex];
+  const last = run.room === run.rooms - 1;
+  const N = EXPEDITION_NOISE;
+  const count = Math.max(1, expeditionRoomZombies(state, location, run.room)
+    + (!location.raid && nextToNest(state, location.hex.q, location.hex.r) ? R.nest : 0) + (encounter ? (encounter.ok ? -1 : 1) : 0)
+    + (run.noise >= N.horde ? N.hordeZombies : run.noise >= N.loud ? N.loudZombies : 0) - (run.next?.fewer || 0));
+  // the kinds, as a night that many days on would bring them (its shares, rounded down)
+  const day = Math.round(state.day * R.dayShare) + R.daysPerDifficulty * (location.difficulty - 1 + (last ? 1 : 0));
+  const share = { runner: 0.25, brute: 0.15, spitter: 0.15, screamer: 0.08 };
+  const kinds = Object.keys(share).flatMap((t) => Array(day >= ZOMBIE_TYPES[t].from ? Math.floor(count * share[t]) : 0).fill(t));
+  const boss = location.raid && last ? raidBoss(state, location) : null; // (a raid's boss, in the last room)
+  const queue = shuffled([...kinds, ...Array(count - kinds.length).fill("walker")]).slice(boss ? R.raidBossRoomFewer : 0);
+  if (boss) queue.push("boss");
+  const sorted = [...members].sort((a, c) => ROOM_FRONT_ORDER[nightClass(a)] - ROOM_FRONT_ORDER[nightClass(c)]);
+  const size = members.length > 6 ? 4 : R.cols;
+  const cols = size === 4 ? [1, 2, 0, 3] : [1, 0, 2]; // the middle first
+  const chili = dishMultiplier(state, "battleDamage");
+  const condition = NIGHT_CONDITIONS.clear;
+  const students = [
+    ...sorted.slice(0, size).map((c, i) => nightFighter(state, c, R.teamRows - 1, cols[i], 0, condition, chili)),
+    ...sorted.slice(size).reverse().map((c, i) => nightFighter(state, c, R.teamRows - 2, cols[i], 0, condition, chili)),
+  ];
+  const ambush = !!run.next?.ambush || (run.room > 0 && Math.random() < R.ambush * run.room + (run.horde ? N.hordeAmbush : 0));
+  const notice = run.notice;
+  run.next = null;
+  run.notice = null;
+  run.event = null;
+  const b = {
+    run, noise0: run.noise, notice,
+    room: true, teamIndex: run.teamIndex, locationId: location.id, difficulty: location.difficulty, roomNo: run.room, rooms: run.rooms, last, ambush,
+    size, rows: R.rows, studentRows: R.teamRows, condition, thorns: 0,
+    zStats: zombieStatsForDay(day), // (as strong as that later night's, too)
+    waves: [queue], wave: 0, waveSpawned: 0, waveTick: 0,
+    toSpawn: queue.length, spawned: 0, killed: 0, breached: 0,
+    zombies: [], students, structures: {}, squad: squadModifiers(state, members),
+    morale: 0, opening: [], reserve: [], lastStand: techPerk(state, "lastStand") > 0, bossName: boss?.name || null,
+    bossStats: boss && { hp: Math.round(boss.hp * R.raidBossHp), dmg: Math.round(boss.damage * R.raidBossDmg) },
+    chili, rally: 0, tick: 0, frames: [], phase: ambush ? "fight" : "break",
+  };
+  // an ambush: the first of them are already right in front of the team
+  if (ambush) for (const col of shuffled([...Array(size).keys()]).slice(0, Math.min(queue.length - (boss ? 1 : 0), Math.ceil(size / 2)))) spawnZombie(b, queue[b.waveSpawned], R.teamRows, col);
+  b.frames.push(battleSnapshot(b, ambush ? [{ type: "ambush" }] : []));
+  return b;
+}
+// A room's over: the team's HP as it ended (the downed at 10%, out of the rest of the run, to be saved
+// or not), and whether they made it — anyone still standing. Nothing else changes until
+// resolveExploration.
+export function finishExpeditionBattle(state, run, b) {
+  const fallen = [];
+  for (const s of b.students) {
+    const c = getChar(state, s.id);
+    if (!c) continue;
+    const before = c.hp;
+    if (s.downed) {
+      c.hp = Math.max(1, Math.round(c.maxHp * 0.1));
+      fallen.push({ id: c.id, deathChance: downedDeathChance(state, c), saved: false });
+    } else c.hp = Math.max(1, Math.min(c.maxHp, s.hp - (s.bonusHp || 0)));
+    c.injured = c.hp < c.maxHp * 0.5;
+    if (c.hp < run.hpBefore[c.id]) run.hurt[c.id] = run.hpBefore[c.id] - c.hp;
+  }
+  const bossKilled = !b.bossName || b.zombies.some((z) => z.type === "boss" && z.killed);
+  const won = b.students.some((s) => !s.downed) && bossKilled;
+  run.out.push(...fallen.map((f) => f.id));
+  run.fallen.push(...fallen);
+  addNoise(state, run, battleNoise(b));
+  if (won) run.room++;
+  else run.won = false;
+  // half the time, something turns up before the next room
+  run.event = won && run.room < run.rooms && Math.random() < ROOM_EVENT_CHANCE ? { id: pick(ROOM_EVENT_STARTS), log: [], done: false } : null;
+  return { won, fallen, downedCount: fallen.length, cleared: run.room, rooms: run.rooms, bossKilled };
+}
+
 // Plays the rest of the night straight through (waves start on their own).
 export function runNightBattle(state, b) {
   while (b.phase !== "done") {
@@ -2506,20 +2821,26 @@ export function saveFallen(state, fallen, id) {
   f.saved = true;
   return true;
 }
-// …and once the night's done: anyone not saved may not get back up (their deathChance); whoever
-// does might have been bitten while they were down.
-export function settleFallen(state, fallen = []) {
+// The chance someone who went down in a fight doesn't get back up: less the higher their CON.
+const downedDeathChance = (state, c) =>
+  clamp01(DOWNED_DEATH_CHANCE - (effectiveGrade(state, c, "Biology") - 40) / 200) * (1 - techPerk(state, "untreatedDeathReduction"));
+// …and once the fight's done: anyone not saved may not get back up (their deathChance); whoever
+// does might have been bitten while they were down. Returns the ids of those who died.
+export function settleFallen(state, fallen = [], where = "defending the entrance") {
+  const dead = [];
   for (const f of fallen) {
     const c = getChar(state, f.id);
     if (!c?.alive) continue;
     if (!f.saved && Math.random() < f.deathChance) {
       killCharacter(state, c);
-      addLog(state, `${c.name} fell defending the entrance.`);
+      dead.push(c.id);
+      addLog(state, `${c.name} fell ${where}.`);
       continue;
     }
-    addLog(state, f.saved ? `${c.name} went down at the entrance — patched up with medicine.` : `${c.name} went down at the entrance but was dragged to safety.`);
+    addLog(state, f.saved ? `${c.name} went down ${where} — patched up with medicine.` : `${c.name} went down ${where} but was dragged to safety.`);
     if (Math.random() < INFECTION_CHANCE_DOWNED) infect(state, c, "was bitten while they were down");
   }
+  return dead;
 }
 
 // The night's over: what it did to the defenders, the defenses and the school.
@@ -2555,9 +2876,7 @@ export function finishNightBattle(state, b) {
       clearEntranceCellForChar(state, c.id);
       c.hp = Math.max(1, Math.round(c.maxHp * 0.1));
       c.injured = true;
-      const deathChance =
-        clamp01(DOWNED_DEATH_CHANCE - (effectiveGrade(state, c, "Biology") - 40) / 200) * (1 - techPerk(state, "untreatedDeathReduction"));
-      fallen.push({ id: c.id, deathChance, saved: false });
+      fallen.push({ id: c.id, deathChance: downedDeathChance(state, c), saved: false });
       continue;
     }
     c.hp = Math.max(1, Math.min(c.maxHp, s.hp - (s.bonusHp || 0))); // a fighter's extra HP goes first
@@ -3665,10 +3984,6 @@ export function raidEstimate(state, landmark, squad) {
   return { boss, perRound: Math.round(perRound), rounds: perRound ? Math.ceil(boss.hp / perRound) : Infinity };
 }
 
-function simulateRaid(state, landmark, squad) {
-  return simulateBossFight(state, raidBoss(state, landmark), squad);
-}
-
 // A squad against one big zombie, round by round (up to RAID_MAX_ROUNDS): a raid boss, or the
 // pack leader the squad runs down when chasing the horde. Half-dead, it goes berserk.
 function simulateBossFight(state, boss, squad) {
@@ -3712,8 +4027,9 @@ function simulateBossFight(state, boss, squad) {
   return { boss, won: bossHp <= 0, fighters, frames };
 }
 
-// Runs today's raid, if a big enough squad was sent. Returns the report the raid screen replays.
-function resolveRaid(state) {
+// Today's raid, settled from its run (startExpeditionRun) — or called off, if the squad's too small.
+// Returns its report.
+function resolveRaid(state, run) {
   const landmark = LANDMARKS.find((l) => l.id === state.raidTarget);
   if (!landmark || !raidUnlocked(state)) return null; // (the map isn't fully scouted yet)
   const squad = state.characters.filter((c) => c.exploreTeam === RAID_TEAM && c.alive);
@@ -3722,39 +4038,29 @@ function resolveRaid(state) {
     addLog(state, `The raid on the ${landmark.name} was called off — it needs at least ${landmark.minTeam} students.`);
     return { calledOff: true, landmarkId: landmark.id, squadSize: squad.length, minTeam: landmark.minTeam };
   }
-  const sim = simulateRaid(state, landmark, squad);
+  if (!run) return null;
+  const boss = raidBoss(state, landmark);
+  const won = run.won && run.room >= run.rooms;
   const report = {
-    landmarkId: landmark.id, bossName: sim.boss.name, look: landmark.boss.look, bossMaxHp: sim.boss.hp,
-    won: sim.won, frames: sim.frames, memberIds: squad.map((c) => c.id), loot: {}, items: [], recruit: null, hurt: [], lost: [],
+    landmarkId: landmark.id, bossName: boss.name, won, rooms: [run.room, run.rooms], finds: run.finds, noise: run.noise,
+    memberIds: squad.map((c) => c.id), loot: {}, items: [], recruit: run.recruit, hurt: [], lost: [],
   };
   const staminaCost = exploreStaminaCost(state);
-  const stabilizeCost = MEDICINE_PER_STABILIZE - techPerk(state, "stabilizeDiscount");
-  for (const f of sim.fighters) {
-    const c = getChar(state, f.id);
+  const dead = settleFallen(state, run.fallen, `fighting their way to ${boss.name}`);
+  for (const c of squad) {
     c.stamina = Math.max(0, c.stamina - staminaCost);
-    if (f.down) {
-      const stabilized = state.resources.medicine >= stabilizeCost;
-      if (!stabilized && Math.random() < DOWNED_DEATH_CHANCE * 1.5) {
-        killCharacter(state, c);
-        report.lost.push(c.name);
-        addLog(state, `${c.name} fell fighting ${sim.boss.name}.`);
-        continue;
-      }
-      if (stabilized) state.resources.medicine -= stabilizeCost;
-      c.hp = Math.max(1, Math.round(c.maxHp * 0.1));
-      c.injured = true;
-      const bitten = Math.random() < INFECTION_CHANCE_DOWNED && infect(state, c, `was bitten by ${sim.boss.name}`);
-      report.hurt.push(`${c.name} went down${stabilized ? ` (patched up, -${stabilizeCost} medicine)` : ""}${bitten ? " — 🦠 infected" : ""}`);
-    } else {
-      c.hp = Math.max(1, f.hp);
-      c.injured = c.hp < c.maxHp * 0.5;
+    if (dead.includes(c.id)) {
+      report.lost.push(c.name);
+      continue;
     }
+    if (run.hurt[c.id]) report.hurt.push(`${c.name} (-${run.hurt[c.id]} HP)`);
     grantXp(state, c.id, "PE", 5 + randInt(0, 3));
     grantXp(state, c.id, "Gymnastics", 5 + randInt(0, 3));
     gainExp(state, c, LEVEL_XP.raid);
   }
-  if (sim.won) {
-    for (const [key, amt] of Object.entries(landmark.rewards)) {
+  if (won) {
+    for (const [key, base] of Object.entries(landmark.rewards)) {
+      const amt = Math.round(base * (1 + run.bonus)); // (and whatever turned up on the way)
       state.resources[key] += amt;
       report.loot[key] = amt;
     }
@@ -3774,10 +4080,10 @@ function resolveRaid(state) {
     state.raidKills[landmark.id] = (state.raidKills[landmark.id] || 0) + 1;
     state.raidCooldowns[landmark.id] = state.day + landmark.respawnDays;
     adjustHappiness(state, HAPPINESS_GAIN_WIN * 2);
-    addLog(state, `☠ Raid on the ${landmark.name}: ${sim.boss.name} is dead! Loot: ${report.items.map((i) => `${i.icon} ${i.name}`).join(", ")}.${report.recruit ? ` ${report.recruit} was freed and wants to join.` : ""}`);
+    addLog(state, `☠ Raid on the ${landmark.name}: ${boss.name} is dead! Loot: ${report.items.map((i) => `${i.icon} ${i.name}`).join(", ")}.${report.recruit ? ` ${report.recruit} was freed and wants to join.` : ""}`);
   } else {
     adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL * 2);
-    addLog(state, `☠ Raid on the ${landmark.name}: the squad couldn't bring ${sim.boss.name} down and fell back.`);
+    addLog(state, `☠ Raid on the ${landmark.name}: the squad couldn't bring ${boss.name} down and fell back.`);
   }
   return report;
 }

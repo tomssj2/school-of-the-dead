@@ -37,8 +37,11 @@ export function isRiverHex(q, r) {
 const RINGS = [
   { maxDist: 3, table: [["street", 0.3], ["apartments", 0.3], ["shops", 0.2], ["parking", 0.2]] },
   { maxDist: 5, table: [["houses", 0.4], ["park", 0.2], ["street", 0.15], ["ruins", 0.15], ["parking", 0.1]] },
-  { maxDist: 99, table: [["woods", 0.4], ["field", 0.3], ["houses", 0.15], ["ruins", 0.15]] },
+  { maxDist: 99, table: [["woods", 0.35], ["park", 0.25], ["houses", 0.2], ["ruins", 0.2]] },
 ];
+// North of the river the town ends: woods, farmland and meadows, no buildings (but the places).
+const COUNTRY = [["woods", 0.4], ["field", 0.35], ["park", 0.25]];
+export const isNorthOfRiver = (q, r) => 2 * r + q < -6;
 
 export function hexDistance(q, r) {
   return (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2;
@@ -55,9 +58,13 @@ POIS.forEach((a, i) => {
   }
 });
 
+// A place's own block and the six round it take its `ground` (data.js), so a police station out at
+// the edge of town sits on its own car park among streets, not in the woods.
 export function hexTerrain(q, r) {
   if (isRiverHex(q, r)) return "river";
-  const { table } = RINGS.find((ring) => hexDistance(q, r) <= ring.maxDist);
+  const place = LOCATIONS.find((l) => l.ground && hexDistance(l.hex.q - q, l.hex.r - r) <= 1);
+  if (place) return place.ground;
+  const { table } = isNorthOfRiver(q, r) ? { table: COUNTRY } : RINGS.find((ring) => hexDistance(q, r) <= ring.maxDist);
   let roll = hexHash(q, r);
   for (const [terrain, weight] of table) {
     if (roll < weight) return terrain;
@@ -504,6 +511,76 @@ const TILES = {
       k.r(x + 2, 14, x + 4, 15, "#bfe3f5");
     }
     k.r(14, 18, 17, 24, "#9fc7e8");
+  },
+  diner(k) {
+    k.r(0, 0, 31, 27, "#3b3f47");
+    k.r(0, 24, 31, 27, "#8a8e96");
+    // a long low chrome diner, rounded ends, a row of windows and a pink stripe
+    k.r(3, 11, 28, 23, "#d8dde2");
+    k.r(3, 11, 28, 11, lightOf("#d8dde2"));
+    k.px(3, 11, "#3b3f47");
+    k.px(28, 11, "#3b3f47");
+    for (let x = 5; x <= 25; x += 4) k.r(x, 13, x + 2, 16, "#f6d27a");
+    k.r(3, 18, 28, 19, "#e05a7a");
+    k.r(3, 22, 28, 23, "#9aa0a8");
+    k.r(14, 15, 17, 23, "#9fc7e8");
+    // EAT on a sign on the roof
+    k.r(8, 2, 23, 9, "#c83a5a");
+    const glyph = (x0, rows) => rows.forEach((row, dy) => [...row].forEach((b, dx) => b === "1" && k.px(x0 + dx, 3 + dy, "#fff0f4")));
+    glyph(10, ["111", "100", "110", "100", "111"]);
+    glyph(14, ["111", "101", "111", "101", "101"]);
+    glyph(18, ["111", "010", "010", "010", "010"]);
+    k.r(12, 10, 12, 10, "#6b6f78");
+    k.r(19, 10, 19, 10, "#6b6f78");
+  },
+  sporting_goods(k) {
+    k.r(0, 0, 31, 27, "#3b3f47");
+    k.r(0, 23, 31, 27, "#8a8e96");
+    k.r(4, 9, 27, 23, "#3a7a5a");
+    k.r(4, 9, 27, 9, lightOf("#3a7a5a"));
+    striped(k, 4, 27, 10, 11, "#f08a3a", "#f4f4f4");
+    // a basketball for a sign
+    k.disc(15.5, 4.5, 3.4, "#e07a2a");
+    k.r(12, 4, 19, 4, "#7a3a10");
+    k.r(15, 1, 15, 8, "#7a3a10");
+    // a bat and a ball in the windows
+    k.r(6, 13, 13, 20, "#9fc7e8");
+    for (let i = 0; i < 6; i++) k.px(7 + i, 19 - i, "#c49a64");
+    k.r(18, 13, 25, 20, "#9fc7e8");
+    k.disc(21.5, 17.5, 1.6, "#f4f4f4");
+    k.px(21, 17, "#d64545");
+    k.r(14, 15, 17, 23, "#2a3a48");
+  },
+  apartments(k) {
+    k.r(0, 0, 31, 27, "#3b3f47");
+    k.r(0, 24, 31, 27, "#8a8e96");
+    // a tall brick block, some windows lit, balconies, a green awning over the door
+    k.r(5, 1, 26, 24, "#a8664a");
+    k.r(5, 1, 26, 1, lightOf("#a8664a"));
+    k.r(26, 1, 26, 24, shadowOf("#a8664a"));
+    for (const y of [3, 7, 11, 15]) {
+      for (const x of [7, 11, 15, 19, 23]) {
+        k.r(x, y, x + 1, y + 2, k.rng() < 0.35 ? "#f6d27a" : "#3a4258");
+        if (k.rng() < 0.3) k.r(x - 1, y + 3, x + 2, y + 3, "#6b6f78");
+      }
+    }
+    k.r(12, 18, 19, 18, "#3a7a5a");
+    k.r(13, 19, 18, 24, "#5a3b24");
+  },
+  vet_clinic(k) {
+    k.r(0, 0, 31, 27, "#3b3f47");
+    k.r(0, 23, 31, 27, "#8a8e96");
+    k.r(5, 9, 26, 23, "#e8eef0");
+    k.r(26, 9, 26, 23, shadowOf("#e8eef0"));
+    k.r(4, 7, 27, 9, "#3f7fb0");
+    k.r(7, 12, 12, 17, "#9fc7e8");
+    k.r(19, 12, 24, 17, "#9fc7e8");
+    k.r(14, 15, 17, 23, "#5a8a6a");
+    // a paw print on a sign
+    k.r(10, 0, 21, 6, "#f4f4f4");
+    k.r(10, 6, 21, 6, "#c9ced4");
+    k.r(14, 3, 17, 5, "#3f7fb0");
+    for (const [x, y] of [[12, 2], [14, 1], [17, 1], [19, 2]]) k.px(x, y, "#3f7fb0");
   },
   neighborhood(k) {
     k.r(0, 0, 31, 27, "#5f9e5a");

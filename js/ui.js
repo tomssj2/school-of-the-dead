@@ -10,7 +10,7 @@ import {
   RESEARCH_ROOM_INT_PER_POINT, RESEARCH_BONUS_BY_LEVEL, HELPER_SLOTS_BY_LEVEL, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, ROOM_FIGHT_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
-  RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
+  RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, expeditionShare, EXPEDITION_NOISE, EXPEDITION_ROOM, ROOM_EVENTS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus, gradeCap, gradeCapLetter,
@@ -19,7 +19,7 @@ import {
 import {
   getChar, aliveChars, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionHaul, expeditionPlace, expeditionForecast, expeditionRooms, expeditionRoomZombies, battleNoise, expeditionSneakOdds, runShare, roomEventOdds, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, roomFightOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM,
 } from "./game.js";
@@ -28,7 +28,7 @@ import {
 } from "./map.js";
 import { hexToWorld, viewBox, cityBaseUrl, fogUrl, WORLD_W, WORLD_H } from "./citymap.js";
 import { zombieSprite, hordeSprite } from "./zombies.js";
-import { courtyardBackground, structureSprite } from "./nightwatch.js";
+import { courtyardBackground, roomBackground, structureSprite } from "./nightwatch.js";
 import { raidBackdrop, streetBackdrop, duskBackdrop } from "./backdrops.js";
 import { characterSprite } from "./sprite.js";
 import { getBest, isBestRun } from "./score.js";
@@ -42,6 +42,9 @@ const TURN_NAMES = { 1: "Classes (Morning)", 2: "Exploration (Afternoon)", 3: "D
 
 // ---------- hex map (Turn 2) ----------
 
+// A place's pin on the City Map: its big icon (scenes.js POI_ICONS, 32x32) in a badge over the
+// building, so what's where reads at a glance.
+const poiPin = (id) => `<span class="cm-pin">${pixelIcon(`poi_${id}`, 32)}</span>`;
 // Every map place's pixel icon (scenes.js ICONS, named after the place) — filled in below,
 // once pxe() exists.
 const LOCATION_ICON = {};
@@ -1491,15 +1494,16 @@ function renderTurn2Summary(state) {
     const members = teamMembers(state, i);
     const loc = state.teamLocations[i] && LOCATIONS.find((l) => l.id === state.teamLocations[i]);
     const { power, rank } = teamPower(state, i);
-    const pct = loc && members.length ? Math.round(expeditionOdds(state, i, loc) * 100) : null;
+    const odds = loc && members.length ? expeditionForecast(state, i, loc) : null;
+    const pct = odds ? Math.round(odds.first * 100) : null;
     return overviewCard({
       tab: "citymap", art: art(members), name: teamLabel(i), style: `--team:${TEAM_COLORS[i]}`,
-      big: loc ? `${pct}%` : members.length ? `⚔ ${power}` : "—",
-      unit: loc ? `to succeed · ${LOCATION_ICON[loc.id]} ${esc(loc.name)}` : members.length ? `power · ${rank}` : "nobody yet",
+      big: loc ? `${odds.rooms.toFixed(1)}/${odds.total}` : members.length ? `⚔ ${power}` : "—",
+      unit: loc ? `rooms, about · ${LOCATION_ICON[loc.id]} ${esc(loc.name)}` : members.length ? `power · ${rank}` : "nobody yet",
       used: members.length, cap: EXPLORE_TEAM_SLOTS.length, meta: `${members.length}/${EXPLORE_TEAM_SLOTS.length} members · ⚔ ${power} ${rank}`,
       notes: [
         members.length && !loc ? bad("teamIdle", "Not sent anywhere") : null,
-        pct !== null && pct < 35 ? bad("lowOdds", `Only ${pct}% to succeed`) : null,
+        pct !== null && pct < 60 ? bad("lowOdds", `Only ${pct}% to get past the first room`) : null,
         members.length < EXPLORE_TEAM_SLOTS.length ? tip("teamEmpty", members.length ? `🧭 ${plural(EXPLORE_TEAM_SLOTS.length - members.length, "slot")} open` : "🧭 Empty — fill its slots") : null,
       ],
     });
@@ -1798,9 +1802,9 @@ function renderExplorationMap(state) {
       const rewards = lootLine(loc);
       cells += `<div class="cm-cell cm-place ${team !== undefined ? "cm-assigned" : ""}" data-action="open-mission" data-location="${loc.id}" style="${at(q, r)}${teamStyle}" ${tipAttr({
         title: `${LOCATION_ICON[loc.id]} ${esc(loc.name)}`,
-        rows: [["⚔ Power needed", `${expeditionNeed(loc)}`], ["📍 Distance", `${expeditionBlocks(loc)} blocks`], ["Danger", `${loc.danger}/5`], ["Loot (about)", rewards], ["Gear chance", `${Math.round(expeditionGearChance(loc) * 100)}%`], ...(loc.serumChance ? [["Rare", `${ri("serum")} serum`]] : [])],
+        rows: [["🚪 Rooms", `${expeditionRooms(loc)} · ${expeditionRoomZombies(state, loc, 0)}–${expeditionRoomZombies(state, loc, expeditionRooms(loc) - 1)} 🧟 each`], ["📍 Distance", `${expeditionBlocks(loc)} blocks`], ["Danger", `${loc.danger}/5`], ["Loot (about)", rewards], ["Gear chance", `${Math.round(expeditionGearChance(loc) * 100)}%`], ...(loc.serumChance ? [["Rare", `${ri("serum")} serum`]] : [])],
         notes: [esc(loc.desc), ...dangerNotes(state, q, r)],
-      })}>${squad}<span class="cm-label">${LOCATION_ICON[loc.id]}<span class="cm-name"> ${esc(loc.name)}</span></span></div>`;
+      })}>${squad}${poiPin(loc.id)}<span class="cm-label"><span class="cm-name">${esc(loc.name)}</span></span></div>`;
     } else if (isNest(state, q, r)) {
       cells += `<div class="cm-cell cm-nest" data-action="open-nest" data-q="${q}" data-r="${r}" style="${at(q, r)}" ${tipAttr({
         title: `${pxe("nest")} Zombie Nest`,
@@ -1845,7 +1849,7 @@ function renderExplorationMap(state) {
         title: `${LOCATION_ICON[lm.id]} ${esc(lm.name)} · tier ${lm.tier}`,
         rows: [["Best for", lm.focus], ["Boss", `${esc(boss.name)} · ${boss.hp} HP`], ["Squad", `${lm.minTeam}+ students, Lv ${lm.minLevel}+`]],
         notes: [cooldown ? `Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}` : "Click to plan a raid"],
-      })}>${squad}<span class="cm-label cm-label-raid">${mark}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
+      })}>${squad}${poiPin(lm.id)}<span class="cm-label cm-label-raid">${mark}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
   }
 
   const [vx, vy, vw, vh] = viewBox(shown);
@@ -1933,7 +1937,7 @@ export function renderRaidModal(state, landmarkId) {
       <div>
         <h3>${BOSS_ICON} ${esc(boss.name)}</h3>
         <div class="muted">Best for: ${lm.focus.toLowerCase()}${boss.kills ? ` · killed ${boss.kills}× — tougher each time` : ""}</div>
-        <div class="raid-boss-stats"><span>❤ ${boss.hp} HP</span><span>⚔ ${boss.damage} × ${boss.attacks} a round</span><span>⏱ ${RAID_MAX_ROUNDS} rounds</span></div>
+        <div class="raid-boss-stats"><span>❤ ${Math.round(boss.hp * EXPEDITION_ROOM.raidBossHp)} HP</span><span>⚔ ${Math.round(boss.damage * EXPEDITION_ROOM.raidBossDmg)} a hit</span><span>🚪 ${EXPEDITION_ROOM.raidRooms} rooms — it waits in the last</span></div>
       </div>
     </div>
     <p class="muted">${esc(lm.desc)}</p>
@@ -1972,12 +1976,19 @@ export function renderRaidModal(state, landmarkId) {
           : null;
         return { c, picked: onSquad, reason };
       });
-    const verdict = fightOdds(state, squad, bossFight(boss), Math.round(bossFightOdds(state, boss, squad) * 100), { rounds: RAID_MAX_ROUNDS, them: boss.name })
+    // the odds, from the fight itself (expeditionForecast), once the squad's big enough to go
+    const odds = squad.length >= lm.minTeam ? expeditionForecast(state, RAID_TEAM, expeditionPlace(lm.id)) : null;
+    const verdict = (odds ? `<div class="mission-success ${odds.all >= 0.6 ? "mission-ok" : odds.all >= 0.3 ? "" : "mission-bad"}" ${tipAttr({
+      title: `🎲 ${esc(boss.name)} — the odds`,
+      rows: [["Clear room 1", `${Math.round(odds.first * 100)}%`], [`Bring ${esc(boss.name)} down`, `${Math.round(odds.all * 100)}%`]],
+      total: ["Rooms, about", `${odds.rooms.toFixed(1)} of ${odds.total}`],
+      notes: ["From the fight itself, played out in the background", "If they fight every room — sneaking past and what turns up change it"],
+    })}>${BOSS_ICON} ${Math.round(odds.all * 100)}% to bring ${esc(boss.name)} down · about ${odds.rooms.toFixed(1)} of ${odds.total} rooms</div>` : "")
       + (squad.length && squad.length < lm.minTeam ? `<div class="mission-success mission-bad">Needs ${lm.minTeam - squad.length} more to go at all (at least ${lm.minTeam})</div>` : "");
     body = `<div class="mini-label">Raid squad (${squad.length}/${RAID_MAX_TEAM})</div>
       ${squadGrid(state, entries, { action: "raid-toggle" })}
       ${verdict}
-      <p class="muted">The raid launches with the day's expeditions. Anyone who goes down is patched up with ${MEDICINE_PER_STABILIZE} medicine if you have it — otherwise they might not make it.</p>
+      <p class="muted">The raid goes in after the day's expeditions, room by room. Anyone who goes down can be saved with medicine after each room — otherwise they might not make it.</p>
       <div class="row-actions">
         <button class="btn btn-danger btn-sm" data-action="clear-raid">Call off</button>
         <button class="btn btn-primary" data-action="close-raid">${BOSS_ICON} Confirm squad &amp; close</button>
@@ -2078,68 +2089,18 @@ export function renderEncounterModal(state, enc) {
         <div>
           <div class="enc-team"><i class="team-dot"></i>${teamLabel(cur.teamIndex)} → ${loc ? `${LOCATION_ICON[loc.id]} ${esc(loc.name)}` : ""}<span class="muted">${enc.queue.length > 1 ? ` · ${enc.idx + 1} of ${enc.queue.length}` : ""}</span></div>
           <h3>${e.icon} ${esc(e.text)}</h3>
-          <div class="muted">Who handles it? A success makes the expedition ${Math.round(ENCOUNTER_EFFECT.good * 100)}% likelier to succeed; a failure, ${Math.round(-ENCOUNTER_EFFECT.bad * 100)}% less.</div>
+          <div class="muted">Who handles it? A success means one zombie fewer inside; a failure, one more.</div>
         </div>
       </div>
       <div class="enc-options">${options}</div>
       ${res
         ? `<div class="enc-result ${res.ok ? "enc-result-ok" : "enc-result-bad"}">
             <span>${res.ok ? "✅" : "❌"} ${esc(res.text)}.</span>
-            <b>${res.ok ? `+${Math.round(ENCOUNTER_EFFECT.good * 100)}%` : `−${Math.round(-ENCOUNTER_EFFECT.bad * 100)}%`} odds</b>
+            <b>${res.ok ? "1 zombie fewer" : "1 zombie more"} inside</b>
           </div>
           <button class="btn btn-primary enc-next" data-action="encounter-next">${last ? "🧳 Head in" : "Next team →"}</button>`
         : ""}
     </div>
-  </div>`;
-}
-
-// The teams fighting their way in, a beat at a time (main.js runExpeditions): they face off with
-// the zombies (1 + the place's danger), strike (beat 1), take their hits (beat 2) — the real
-// injuries and losses — and clear the place or pull back (beat 3).
-export function renderExpeditionSkirmish(state, sk) {
-  const { beat } = sk;
-  const rows = sk.summary.teams.map((t, n) => {
-    const loc = LOCATIONS.find((l) => l.id === t.locationId);
-    const count = 1 + (t.danger || 2);
-    const killedAt = (i) => (t.success ? (i < Math.ceil(count / 2) ? 1 : 3) : i < Math.floor(count / 3) ? 1 : 99);
-    const zombieType = (i) => (i % 3 === 2 && (t.danger || 0) >= 3 ? "runner" : (t.danger || 0) >= 5 && i === 0 ? "brute" : "walker");
-    const zombies = Array.from({ length: count }, (_, i) => {
-      const dies = killedAt(i);
-      const dead = beat >= dies;
-      const hitNow = beat === dies || (beat === 1 && dies > 1);
-      const dmg = 6 + ((n * 7 + i * 11 + beat * 5) % 14);
-      return `<span class="sk-z ${dead ? "sk-dead" : ""} ${beat === dies ? "sk-dying" : ""} ${hitNow && !dead ? "nw-flash" : ""}">
-        ${hordeSprite(zombieType(i), 52)}
-        ${hitNow && beat >= 1 ? `<span class="sk-pop">-${dmg}</span><span class="nw-slash sk-slash" style="--rot:${(i * 53) % 90 - 45}deg"></span>` : ""}
-        ${beat === dies ? `<span class="nw-burst sk-burst">${Array.from({ length: 9 }, (_, k) => { const a = ((i * 40 + k * 40) * Math.PI) / 180; const d = 14 + ((k * 7) % 16); return `<i style="--dx:${Math.round(Math.cos(a) * d)}px;--dy:${Math.round(Math.sin(a) * d - 8)}px;--s:${2 + (k % 2)}px"></i>`; }).join("")}</span>` : ""}
-      </span>`;
-    }).join("");
-    const members = t.memberIds.map((id) => {
-      const c = state.characters.find((x) => x.id === id);
-      if (!c) return "";
-      const hurt = t.hurtIds[id];
-      const lost = t.lostIds.includes(id);
-      const hit = beat === 2 && (hurt || lost);
-      return `<span class="sk-m ${beat >= 1 ? "sk-strike" : ""} ${hit ? "nw-flash" : ""} ${beat >= 2 && lost ? "sk-down" : ""}">
-        ${characterSprite(c, 56)}
-        ${hit ? `<span class="sk-pop sk-pop-bad">${lost ? "💀" : `-${hurt}`}</span>` : ""}
-      </span>`;
-    }).join("");
-    const outcome = beat >= 3
-      ? `<span class="sk-outcome ${t.success ? "sk-won" : "sk-lost"}">${t.success ? "✅ Cleared!" : "⚠ Pulled back"}</span>`
-      : t.encounter ? `<span class="sk-enc ${t.encounter.ok ? "sk-enc-ok" : "sk-enc-bad"}">${t.encounter.ok ? "✅" : "❌"} ${esc(EXPEDITION_ENCOUNTERS.find((e) => e.id === t.encounter.id)?.icon || "")}</span>` : "";
-    return `<div class="sk-row ${beat >= 3 && !t.success ? "sk-retreat" : ""}" style="--team:${TEAM_COLORS[t.teamIndex]}">
-      <div class="sk-label"><i class="team-dot"></i>${teamLabel(t.teamIndex)}<span class="muted">${loc ? `${LOCATION_ICON[loc.id]} ${esc(loc.name)}` : ""}</span>${outcome}</div>
-      <div class="sk-field sk-art ${beat === 0 ? "sk-enter" : ""}" style="background-image:${duskBackdrop(t.locationId || "")}">
-        <div class="sk-team">${members}</div>
-        <div class="sk-vs">${beat === 1 ? "💥" : beat === 2 ? "🩸" : "⚔"}</div>
-        <div class="sk-horde">${zombies}</div>
-      </div>
-    </div>`;
-  }).join("");
-  return `<div class="modal-overlay fight-overlay sk-overlay">
-    <div class="sk-title">🧳 The teams fight their way in</div>
-    <div class="sk-rows">${rows}</div>
   </div>`;
 }
 
@@ -2164,12 +2125,13 @@ export function renderExpeditionReport(state, anim) {
   const rows = summary.teams.map((t) => {
     const loc = LOCATIONS.find((l) => l.id === t.locationId);
     const leader = getChar(state, t.memberIds[0]);
-    const tag = t.success ? `<span class="tag tag-ok">✅ Success</span>` : `<span class="tag tag-injured">⚠ Struggled</span>`;
-    const details = `${t.encounter ? `<div class="exp-enc ${t.encounter.ok ? "exp-enc-ok" : "exp-enc-bad"}">${EXPEDITION_ENCOUNTERS.find((e) => e.id === t.encounter.id)?.icon || ""} ${esc(t.encounter.text)} (${t.encounter.ok ? `+${Math.round(ENCOUNTER_EFFECT.good * 100)}` : `−${Math.round(-ENCOUNTER_EFFECT.bad * 100)}`}% odds)</div>` : ""}
+    const rooms = t.rooms ? ` · ${t.rooms[0]}/${t.rooms[1]} rooms` : "";
+    const tag = !t.success ? `<span class="tag tag-injured">⚠ Overrun${rooms}</span>` : t.rooms && t.rooms[0] < t.rooms[1] ? `<span class="tag tag-ok">🎒 Got out${rooms}</span>` : `<span class="tag tag-ok">✅ Cleared${rooms}</span>`;
+    const details = `${t.encounter ? `<div class="exp-enc ${t.encounter.ok ? "exp-enc-ok" : "exp-enc-bad"}">${EXPEDITION_ENCOUNTERS.find((e) => e.id === t.encounter.id)?.icon || ""} ${esc(t.encounter.text)} (${t.encounter.ok ? "1 zombie fewer" : "1 zombie more"})</div>` : ""}
       <div class="exp-finds">${lootChips(t.loot)}${t.finds.map((f) => `<span class="exp-chip">${pixelizeText(esc(f))}</span>`).join("")}${t.recruit ? `<span class="exp-chip exp-good">🙋 ${esc(t.recruit)} wants to join</span>` : ""}</div>
       ${t.hurt.length ? `<div class="exp-hurt">🩹 ${t.hurt.map(esc).join(", ")}</div>` : ""}
       ${t.lost.length ? `<div class="exp-bad">${SKULL_ICON} Lost: ${t.lost.map(esc).join(", ")}</div>` : ""}
-      ${t.nearNest ? `<div class="muted">A zombie nest next door made it harder.</div>` : ""}`;
+      ${t.horde ? `<div class="exp-bad">🧟 The noise drew the horde next door.</div>` : t.nearNest ? `<div class="muted">A zombie nest next door made it harder.</div>` : ""}`;
     return row(TEAM_COLORS[t.teamIndex], "school", loc.id, leader, `${teamLabel(t.teamIndex)} → ${esc(loc.name)}`, tag, details);
   });
   if (summary.raid?.calledOff) {
@@ -2183,8 +2145,9 @@ export function renderExpeditionReport(state, anim) {
   } else if (summary.raid) {
     const rd = summary.raid;
     const lm = LANDMARKS.find((l) => l.id === rd.landmarkId);
-    const tag = rd.won ? `<span class="tag tag-ok">${BOSS_ICON} Boss slain</span>` : `<span class="tag tag-injured">Retreated</span>`;
-    const details = `<div class="exp-finds">${rd.items.map((it) => `<span class="exp-chip exp-legend">${itemIcon(it)} ${esc(it.name)}</span>`).join("")}${rd.recruit ? `<span class="exp-chip exp-legend">🙋 ${esc(rd.recruit)}</span>` : ""}${lootChips(rd.loot)}</div>
+    const rooms = rd.rooms ? ` · ${rd.rooms[0]}/${rd.rooms[1]} rooms` : "";
+    const tag = rd.won ? `<span class="tag tag-ok">${BOSS_ICON} Boss slain</span>` : `<span class="tag tag-injured">Retreated${rooms}</span>`;
+    const details = `<div class="exp-finds">${rd.items.map((it) => `<span class="exp-chip exp-legend">${itemIcon(it)} ${esc(it.name)}</span>`).join("")}${rd.recruit ? `<span class="exp-chip exp-legend">🙋 ${esc(rd.recruit)}</span>` : ""}${lootChips(rd.loot)}${(rd.finds || []).map((f) => `<span class="exp-chip">${pixelizeText(esc(f))}</span>`).join("")}</div>
       ${rd.hurt.length ? `<div class="exp-hurt">🩹 ${rd.hurt.map(esc).join(", ")}</div>` : ""}
       ${rd.lost.length ? `<div class="exp-bad">${SKULL_ICON} Lost: ${rd.lost.map(esc).join(", ")}</div>` : ""}`;
     rows.push(row(TEAM_COLORS[RAID_TEAM], "school", `lair:${lm.id}`, getChar(state, rd.memberIds[0]), `Raid squad → ${esc(lm.name)}`, tag, details));
@@ -2301,7 +2264,8 @@ function gridBattle(state, anim) {
   const frame = summary.frames[anim.frameIndex];
   const prev = anim.frameIndex > 0 ? summary.frames[anim.frameIndex - 1] : null;
   const size = summary.size;
-  const third = ENTRANCE_ZONES.students;
+  const room = summary.room ? expeditionPlace(summary.locationId) : null; // (an expedition's fight, or a raid's)
+  const third = summary.studentRows ?? ENTRANCE_ZONES.students;
   const at = (row, col, extra = "") => `style="--r:${row};--c:${col};${extra}"`;
   const bar = (hp, max, cls) => `<span class="nw-hp ${cls}"><i style="width:${Math.max(0, Math.round((hp / max) * 100))}%"></i></span>`;
   const prevZombies = new Map((prev?.zombies || []).map((z) => [z.id, z]));
@@ -2444,6 +2408,13 @@ function gridBattle(state, anim) {
     } else if (e.type === "breach") {
       fx += `<span class="nw-pop nw-pop-bad nw-pop-big nw-pop-breach" ${at(0, e.at[1])}>🚨</span>`;
       shake = 2;
+    } else if (e.type === "ambush") {
+      banner = `<div class="nw-banner nw-banner-boss">⚠ Ambush!</div>`;
+      shake = 2;
+    } else if (e.type === "waveStart" && !banner && room) {
+      banner = `<div class="nw-banner">🧟 Here they come</div>`;
+    } else if (e.type === "cleared" && room) {
+      banner = `<div class="nw-banner nw-banner-clear">${summary.last ? "All clear!" : "Room cleared!"}</div>`;
     } else if (e.type === "waveStart" && !banner) {
       banner = `<div class="nw-banner">Wave ${e.wave + 1}${(summary.waves?.length || 1) > 1 ? ` of ${summary.waves.length}` : ""}</div>`;
     } else if (e.type === "bossArrives") {
@@ -2468,7 +2439,7 @@ function gridBattle(state, anim) {
   }
   // while it's on, the free squares of the steps and the grass take a student dragged from the bench
   // (posted there at once) — or, between waves, a defender moved from another square
-  if (anim.phase === "battle" && b && b.phase !== "done") {
+  if (anim.phase === "battle" && b && b.phase !== "done" && (!room || breakTime)) {
     const taken = new Set([...frame.students.filter((s) => !s.downed), ...frame.zombies].map((x) => `${x.row},${x.col}`));
     for (let row = 0; row < third; row++) for (let col = 0; col < size; col++) {
       if (!taken.has(`${row},${col}`)) units += `<div class="nw-cell nw-top nw-empty" ${at(row, col)} data-drop-cell="${row},${col}"></div>`;
@@ -2511,7 +2482,14 @@ function gridBattle(state, anim) {
   const waveNow = Math.min(waves, (frame.wave ?? 0) + 1);
 
   // the break between waves
-  const breakBanner = breakTime
+  const breakBanner = breakTime && room
+    ? `<div class="nw-break">
+        ${summary.notice ? `<em class="ex-notice ${summary.notice.ok ? "ex-notice-ok" : "ex-notice-bad"}">${esc(summary.notice.text)}</em>` : ""}
+        <b>🔦 Room ${summary.roomNo + 1} of ${summary.rooms}${summary.last ? " · the last" : ""}</b>
+        <span>${summary.last ? "Whatever's best is in here — and so is the worst." : "Something's moving in the dark."} Drag your team into place, then go in.</span>
+        <button class="btn btn-primary" data-action="start-wave">▶ Go in</button>
+      </div>`
+    : breakTime
     ? `<div class="nw-break">
         <b>🌙 Wave ${waveNow} of ${waves} is coming</b>
         <span>Drag your defenders to new spots, then send them in.</span>
@@ -2522,7 +2500,27 @@ function gridBattle(state, anim) {
   const total = summary.toSpawn ?? summary.spawned;
   const morale = anim.phase === "battle" && b ? Math.floor(b.morale) : frame.morale ?? 0;
   let controls = "";
-  if (anim.phase === "battle") {
+  if (anim.phase === "battle" && room) {
+    const queue = summary.waves[0];
+    const tiles = ["walker", "runner", "brute", "spitter", "screamer", "boss"].filter((t) => queue.includes(t)).map((t) => {
+      const T = ZOMBIE_TYPES[t];
+      const n = queue.filter((x) => x === t).length;
+      const boss = t === "boss" && summary.bossStats; // (a raid boss: its own name and numbers)
+      const hp = boss ? boss.hp : Math.round(summary.zStats.hp * T.hpMult);
+      const name = boss ? esc(summary.bossName) : `${T.name}${n === 1 ? "" : "s"}`;
+      return `<div class="nw-horde-tile ${boss ? "nw-horde-boss" : ""}" ${tipAttr({ title: `${T.badge || "🧟"} ${boss ? esc(summary.bossName) : T.name}`, rows: [["HP", `${hp}`], ["Hits for", `~${boss ? boss.dmg : Math.max(1, Math.round(summary.zStats.damage * T.dmgMult))}`]], notes: [esc(T.desc)] })}>
+        <span class="nw-horde-sprite">${hordeSprite(t, 22)}</span><span class="nw-horde-name">${name}</span><b>×${n}</b>
+      </div>`;
+    }).join("");
+    controls = `${noiseMeter(Math.min(EXPEDITION_NOISE.max, summary.noise0 + battleNoise(summary)))}<div class="mini-label">In the dark ${infoDot({ title: "🔦 The room", rows: [["Zombies", `${queue.length}`]], notes: ["The team stands where they came in; the zombies come out of the dark at the bottom", "Anyone still standing at the end: the place is cleared and the loot is theirs", "Everyone down: they drag themselves out with a little", "A zombie that gets past them bites someone on its way"] })}</div>
+      <div class="nw-horde">${tiles}</div>
+      <div class="nw-battle-buttons">
+        <button class="btn" data-action="toggle-pause" ${breakTime ? "disabled" : ""}>${anim.paused ? "▶ Resume" : "⏸ Pause"}</button>
+        <button class="btn nw-speed" data-action="battle-speed" title="How fast the fight plays — click to change">⏩ ${anim.speed || 1}×</button>
+        <button class="btn" data-action="skip-battle" title="Play the rest of this room out at once">⏭ Skip</button>
+        <button class="btn" data-action="expedition-auto" ${summary.run.auto ? "disabled" : ""} ${tipAttr({ title: "⏩ Auto", notes: ["Plays the rest of the place out on its own", "Whatever turns up: the likeliest try (60%+), or the safe option", "Deeper while nobody went down, it's still quiet and half of them are standing — out otherwise", "The fallen are saved with medicine while there's enough"] })}>⏩ Auto</button>
+      </div>`;
+  } else if (anim.phase === "battle") {
     const costs = nightActionCost(state);
     const actions = Object.keys(NIGHT_ACTIONS).map((id) =>
       actionTile(id, costs[id], b?.phase === "fight" && morale >= costs[id], { tag: "button", attrs: `data-action="night-action" data-id="${id}"`, on: anim.target === id })).join("");
@@ -2593,12 +2591,35 @@ function gridBattle(state, anim) {
     };
     const meters = meter("⚔", "Damage dealt", "dmg", 5) + meter("🛡", "Damage soaked", "taken") + meter("💚", "Healing", "healed")
       + meter("😊", "Morale made", "morale") + meter("📣", "Rally Cry damage", "buffed") + meter("🕸", "Zombies slowed", "slowed") + meter("🔧", "Walls repaired", "repaired");
-    controls = `<div class="mini-label">Fallen tonight · ${ri("medicine")} ${state.resources.medicine} medicine ${infoDot({ title: "🩸 The fallen", rows: [["Saving one", `${cost} medicine`]], notes: ["A saved defender pulls through for sure", "Anyone not saved might not get back up — the higher their CON, the better their odds", "Decided when you continue past the Summary"] })}</div>
-      <div class="nw-fallen-list">${tiles || '<p class="muted">Nobody went down tonight.</p>'}</div>
+    let haul = "";
+    if (room?.raid) {
+      const notice = summary.run.notice;
+      haul = `${noiseMeter(summary.run.noise)}${notice ? `<div class="ex-notice ${notice.ok ? "ex-notice-ok" : "ex-notice-bad"}">${esc(notice.text)}</div>` : ""}<div class="mini-label">${BOSS_ICON} ${esc(raidBossName(room))}'s hoard</div>
+      <div class="ex-haul"><div class="ex-haul-row"><small>${summary.won && summary.cleared >= summary.rooms ? "Theirs" : "If it falls"}</small>${Object.entries(room.rewards).map(([k, v]) => `<span>${ri(k)} ${Math.round(v * (1 + summary.run.bonus))}</span>`).join("")}</div></div>`;
+    } else if (room) {
+      const team = state.characters.filter((c) => c.exploreTeam === summary.teamIndex && c.alive);
+      const { cleared, rooms, won } = summary;
+      const now = expeditionHaul(state, team, room, runShare(summary.run));
+      const all = expeditionHaul(state, team, room, expeditionShare(rooms, rooms) + summary.run.bonus);
+      const line = (h) => Object.entries(h).map(([k, v]) => `<span>${ri(k)} ${Math.round(v)}</span>`).join("");
+      const notice = summary.run.notice;
+      haul = `${noiseMeter(summary.run.noise)}${notice ? `<div class="ex-notice ${notice.ok ? "ex-notice-ok" : "ex-notice-bad"}">${esc(notice.text)}</div>` : ""}<div class="mini-label">The haul ${infoDot({ title: "🎒 The haul", rows: [["Just going in", "25%"], ["Each room cleared", `+${Math.round(75 / rooms)}%`], ["Clearing it all", "+25%"]], total: ["All of it", "125%"], notes: ["Overrun: half of what they had", "About — luck adds or takes a little", "Clearing it all also gives better odds of gear"] })}</div>
+      <div class="ex-haul"><div class="ex-haul-row"><small>${won ? "So far" : "Bringing home"}</small>${line(now)}</div>${won && cleared < rooms ? `<div class="ex-haul-row ex-haul-all"><small>Clear all ${rooms}</small>${line(all)}</div>` : ""}</div>`;
+    }
+    controls = `${haul}<div class="mini-label">${room ? "Went down" : "Fallen tonight"} · ${ri("medicine")} ${state.resources.medicine} medicine ${infoDot({ title: "🩸 The fallen", rows: [["Saving one", `${cost} medicine`]], notes: ["A saved defender pulls through for sure", "Anyone not saved might not get back up — the higher their CON, the better their odds", "Decided when you continue past the Summary"] })}</div>
+      <div class="nw-fallen-list">${tiles || `<p class="muted">Nobody went down${room ? "" : " tonight"}.</p>`}</div>
       <div class="mini-label">Fight stats ${infoDot({ title: "📊 Fight stats", notes: ["The top defenders tonight in each — the bar is against the best", "Hover someone for everything they did"] })}</div>
       <div class="nw-stats">${meters || '<p class="muted">Nothing to show.</p>'}</div>`;
   }
-  const side = `
+  const side = room
+    ? `<div class="nw-side-head">
+      <span class="nw-cond" style="--team:${TEAM_COLORS[summary.teamIndex]}"><i class="team-dot"></i>${teamLabel(summary.teamIndex)}</span>
+      <h2>${esc(room.name)}</h2>
+      <span class="ov-chip" ${tipAttr({ title: `${esc(room.name)} ${"★".repeat(room.difficulty)}`, rows: [["Rooms", `${summary.rooms}`], ["Difficulty", `${room.difficulty}/5`]], notes: ["Each room deeper has more zombies; the last has the best loot"] })}>Room ${summary.roomNo + 1}/${summary.rooms}</span>
+    </div>
+    <div class="nw-facts"><span>🧟 ${frame.spawned}/${total} out</span><span>💀 ${frame.killed} down</span><span>🏃 ${frame.breached} got past</span></div>
+    ${controls}`
+    : `
     <div class="nw-side-head">
       <span class="nw-cond" ${weatherTip(condition)}>${condition.icon} ${condition.name}</span>
       <h2>${summary.bossName ? `${BOSS_ICON} ${esc(summary.bossName)}` : `Night ${state.day}`}</h2>
@@ -2609,7 +2630,24 @@ function gridBattle(state, anim) {
 
   // once it's over: the result and its stars, on the board until the night's finished
   let result = "";
-  if (anim.phase !== "battle") {
+  if (anim.phase !== "battle" && room) {
+    const { won, killed, spawned, breached, downedCount, cleared, rooms } = summary;
+    const clean = won && !downedCount && killed === spawned;
+    const text = !won && summary.bossName && !summary.bossKilled && summary.students.some((x) => !x.downed) ? `${esc(summary.bossName)} got away!`
+      : !won ? "The team was overrun!" : summary.bossName ? `${esc(summary.bossName)} is down!` : cleared >= rooms ? `The ${esc(room.name)} is clear!` : summary.snuck ? `Past room ${cleared} unseen!` : clean ? "A clean sweep!" : `Room ${cleared} cleared!`;
+    const sub = room.raid ? (won && cleared >= rooms ? "The hoard is theirs" : !won ? "The raid's failed" : `On to ${esc(raidBossName(room))}?`)
+      : !won ? "They drag themselves out with half of what they'd found" : cleared >= rooms ? "Every room — the best haul there is" : "Go deeper, or get out with what they've got";
+    result = `<div class="nw-result">
+      <div class="fight-result gb-result ${won ? "fight-win" : "fight-lose"} ${anim.resultDrawn ? "nw-still" : ""}">
+        <div class="fight-result-icon">${clean ? "🛡️" : won ? "✅" : "⚠️"}</div>
+        <div class="fight-result-text">${text}</div>
+        <div class="nw-star-reward">${sub}</div>
+        <div class="gb-result-stats">💀 ${killed}/${spawned} put down · 🏃 ${breached} got past · 🩸 ${downedCount} went down</div>
+      </div>
+      ${roomEventCard(state, summary.run)}
+    </div>`;
+    anim.resultDrawn = true;
+  } else if (anim.phase !== "battle") {
     const { won, routed, killed, spawned, breached, downedCount, bossName, bossKilled, stars = [], perfect, moraleLift = 0 } = summary;
     const icon = routed ? "🛡️" : won ? "✅" : "⚠️";
     const text = routed ? "The horde was routed!" : won ? "The entrance held!" : `${breached} zombie${breached === 1 ? "" : "s"} broke through!`;
@@ -2629,12 +2667,84 @@ function gridBattle(state, anim) {
     </div>`;
     anim.resultDrawn = true; // (it pops in once; redraws after that — saving someone — leave it be)
   }
-  const board = `<div class="nw-board nw-battle nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${ENTRANCE_ROWS};--steps:${ENTRANCE_ZONES.steps};background-image:${courtyardBackground(size)}">
+  const art = room ? roomBackground(size, summary.rows, room.ground, room.raid ? room.tier * 13 + 5 : room.hex.q * 31 + room.hex.r * 7 + 50) : courtyardBackground(size);
+  const board = `<div class="nw-board nw-battle ${room ? "nw-room" : ""} nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${summary.rows};--steps:${room ? 0 : ENTRANCE_ZONES.steps};background-image:${art}">
       <div class="nw-cells">${units}${fx}${aimCells}</div>
       ${result || (breakTime || !freshTurn ? "" : banner)}
       ${breakBanner}
     </div>`;
   return { board, side };
+}
+
+const raidBossName = (lm) => lm.boss.name;
+
+// What turned up between rooms (ROOM_EVENTS): what happened so far, then its options — who'd try
+// each and their chance — until it's settled.
+function roomEventCard(state, run) {
+  if (!run?.event) return "";
+  const ev = ROOM_EVENTS[run.event.id];
+  const log = run.event.log.map((l) => `<div class="ex-event-log ${l.ok ? "ex-event-ok" : "ex-event-bad"}">${l.ok ? "✅" : "❌"} ${esc(l.text)}</div>`).join("");
+  const options = run.event.done ? "" : `<div class="ex-event-head"><span class="ex-event-icon">${ev.icon}</span><b>${esc(ev.title)}</b></div>
+    <div class="muted">${esc(ev.text)}</div>
+    <div class="ex-event-options">${ev.options.map((o, i) => {
+      const { who, chance } = roomEventOdds(state, run, o);
+      const stat = o.stat && STAT_OF_SUBJECT[o.stat];
+      return `<button class="btn ex-event-option" data-action="room-event" data-index="${i}" ${o.stat && !who ? "disabled" : ""} ${tipAttr({
+        title: o.label,
+        rows: o.stat ? [["Who", who ? `${esc(who.name)} (${stat} ${effectiveGrade(state, who, o.stat)})` : "No one standing"], ["Chance", `${Math.round(chance * 100)}%`]] : [["Chance", "sure"]],
+        notes: [o.stat ? `The best ${stat} still standing tries it` : "Nothing to roll"],
+      })}><span>${esc(o.label)}</span>${o.stat ? `<small>${stat} · ${who ? esc(who.name.split(" ")[0]) : "—"}</small><b>${Math.round(chance * 100)}%</b>` : "<small>&nbsp;</small><b>sure</b>"}</button>`;
+    }).join("")}</div>`;
+  return `<div class="ex-event ${run.event.done ? "ex-event-done" : ""}">${log}${options}</div>`;
+}
+
+// A run's noise (EXPEDITION_NOISE): a bar with its two marks — loud, and the horde.
+function noiseMeter(noise) {
+  const N = EXPEDITION_NOISE;
+  const level = noise >= N.horde ? 2 : noise >= N.loud ? 1 : 0;
+  return `<div class="ex-noise ex-noise-${level}" ${tipAttr({
+    title: "🔊 Noise",
+    rows: [["Each kill", `+${N.kill}`], [`Every ${Math.round(1 / N.shot)} shots`, "+1"], ["Got past / went down", `+${N.past}`], [`Loud (${N.loud}+)`, `+${N.loudZombies} zombies a room`], [`The horde (${N.horde}+)`, `+${N.hordeZombies} a room, ambushes`]],
+    notes: ["Melee is quieter than shooting", "Sneaking past a room or picking a side door brings it down", "At the horde's mark the map's horde comes next door — and stays"],
+  })}>
+    <span class="ex-noise-label">🔊 Noise</span>
+    <span class="ex-noise-bar"><i style="width:${Math.min(100, (noise / N.max) * 100)}%"></i><b style="left:${N.loud}%"></b><b style="left:${N.horde}%"></b></span>
+    <em>${["Quiet", "Loud", "The horde heard"][level]} · ${Math.round(noise)}</em>
+  </div>`;
+}
+
+// Turn 2: a team's fight to get into its place (main.js playExpeditionBattle), the night's fight on
+// a small board of the place's inside, in a pop-up over the City Map.
+export function renderExpeditionBattle(state, anim) {
+  const { board, side } = gridBattle(state, anim);
+  const done = anim.phase !== "battle";
+  return `<div class="modal-overlay ex-fight-overlay">
+    <div class="card nw-card ex-fight" style="--rows:${anim.summary.rows}">
+      <div class="nw-layout">
+        <div class="nw-main">${board}</div>
+        <aside class="nw-side nw-side-fight">${side}
+          ${done && anim.summary.won && anim.summary.cleared < anim.summary.rooms
+            ? `<div class="ex-choice ${anim.summary.run.event && !anim.summary.run.event.done ? "ex-choice-wait" : ""}" title="${anim.summary.run.event && !anim.summary.run.event.done ? "Deal with what turned up first" : ""}">
+                ${["sneak", "lock"].map((kind) => {
+                  const { who, chance } = expeditionSneakOdds(state, anim.summary.run, kind);
+                  const K = EXPEDITION_NOISE[kind];
+                  const name = kind === "sneak" ? "Sneak past" : "Pick a door";
+                  return `<button class="btn ex-sneak" data-action="expedition-sneak" data-kind="${kind}" ${who ? "" : "disabled"} ${tipAttr({
+                    title: `${kind === "sneak" ? "🤫" : "🔓"} ${name} room ${anim.summary.cleared + 1}`,
+                    rows: [["Who", who ? `${esc(who.name)} (${kind === "sneak" ? "DEX" : "INT"} ${effectiveGrade(state, who, K.stat)})` : "No one standing"], ["Chance", `${Math.round(chance * 100)}%`]],
+                    notes: kind === "sneak"
+                      ? [`Unseen: the room counts as cleared, no fight, −${K.quiet} noise`, `Spotted: an ambush, +${K.loud} noise`]
+                      : [`Done: ${K.fewer} zombies fewer in the room, −${K.quiet} noise`, `Snapped: +${K.loud} noise, a normal fight`],
+                  })}>${kind === "sneak" ? "🤫" : "🔓"} ${name}<b>${Math.round(chance * 100)}%</b></button>`;
+                }).join("")}
+                <button class="btn btn-big" data-action="finish-battle" title="Head home with what they've got">🎒 Get out</button>
+                <button class="btn btn-primary btn-big" data-action="expedition-deeper" title="On to room ${anim.summary.cleared + 1} of ${anim.summary.rooms} — whoever went down sits it out">⬇ Go deeper</button>
+              </div>`
+            : `<button class="btn btn-primary btn-big nw-go" ${done ? 'data-action="finish-battle"' : "disabled"}>${done ? "▶ Continue" : anim.b.phase === "break" ? "🔦 Ready…" : "⚔ Fighting…"}</button>`}
+        </aside>
+      </div>
+    </div>
+  </div>`;
 }
 
 // The same clash -> result cinematic as renderFightAnimation, generalized to Turn 2's
@@ -2691,20 +2801,6 @@ function lootTip(loc) {
   };
 }
 
-// How a place's needed power adds up: its distance from the school, give or take its difficulty.
-function needTip(loc) {
-  const blocks = expeditionBlocks(loc);
-  const diff = (loc.difficulty - 3) * EXPEDITION_NEED.perDifficulty;
-  return {
-    title: `⚔ Power needed ${expeditionNeed(loc)}`,
-    rows: [[`${EXPEDITION_NEED.nearest} blocks out`, `${EXPEDITION_NEED.base}`],
-      ...(blocks > EXPEDITION_NEED.nearest ? [[`+${blocks - EXPEDITION_NEED.nearest} block${blocks - EXPEDITION_NEED.nearest === 1 ? "" : "s"} further`, `+${(blocks - EXPEDITION_NEED.nearest) * EXPEDITION_NEED.perBlock}`]] : []),
-      ...(diff ? [[`Difficulty ${loc.difficulty}/5`, `${diff > 0 ? "+" : "−"}${Math.abs(diff)}`]] : [])],
-    total: ["Needed", `${expeditionNeed(loc)}`],
-    notes: [`+${EXPEDITION_NEED.perBlock} for every block further from the school`],
-  };
-}
-
 // A place's pop-up: what's there, then the teams free to send (built in the side panel) with
 // their power and odds — or, once one is going, that team and a Recall.
 export function renderMissionModal(state, locationId) {
@@ -2712,12 +2808,11 @@ export function renderMissionModal(state, locationId) {
   if (!loc) return "";
   const sentIndex = state.teamLocations.indexOf(locationId);
 
-  const need = expeditionNeed(loc);
   const teamRow = (i) => {
     const members = teamMembers(state, i);
-    // the odds, as resolveExploration rolls them: the team's power against what the place needs
-    const pct = members.length ? Math.round(expeditionOdds(state, i, loc) * 100) : null;
-    const { power } = teamPower(state, i);
+    // the odds, from the fight itself (expeditionForecast)
+    const odds = members.length ? expeditionForecast(state, i, loc) : null;
+    const pct = odds ? Math.round(odds.first * 100) : null;
     const faces = teamSlotList(state, i).map(({ role, c }) => c
       ? `<span class="ms-face ex-role-${role}" title="${esc(c.name)}">${characterSprite(c, 26)}</span>`
       : `<span class="ms-face ms-face-empty ex-role-${role}">${EXPLORE_ROLES[role].icon}</span>`).join("");
@@ -2726,11 +2821,12 @@ export function renderMissionModal(state, locationId) {
       <div class="ms-team-name"><i class="team-dot"></i>${teamLabel(i)}</div>
       <div class="ms-faces">${faces}</div>
       ${teamPowerChip(state, i)}
-      <span class="ms-odds ${pct === null ? "muted" : pct >= 60 ? "ms-good" : pct >= 35 ? "ms-ok" : "ms-bad"}" ${pct === null ? "" : tipAttr({
-        title: `🎲 ${pct}% to succeed`,
-        rows: [["Team power", `${power}`], ["Power needed", `${need}`], ["Difference", `${power >= need ? "+" : "−"}${Math.abs(power - need)}`]],
-        notes: [`${Math.round(EXPEDITION_ODDS_AT_NEED * 100)}% with exactly the power needed, ±1% per ${EXPEDITION_POWER_PER_PERCENT} power`, `Never below ${Math.round(EXPEDITION_ODDS_RANGE[0] * 100)}% or above ${Math.round(EXPEDITION_ODDS_RANGE[1] * 100)}%`],
-      })}>${pct === null ? "Empty" : `${pct}%`}</span>
+      <span class="ms-odds ${pct === null ? "muted" : pct >= 80 ? "ms-good" : pct >= 55 ? "ms-ok" : "ms-bad"}" ${odds ? tipAttr({
+        title: `🎲 ${esc(loc.name)} — the odds`,
+        rows: [["Clear room 1", `${pct}%`], [`Clear all ${odds.total}`, `${Math.round(odds.all * 100)}%`]],
+        total: ["Rooms, about", `${odds.rooms.toFixed(1)} of ${odds.total}`],
+        notes: ["From the fight itself, played out in the background", "If they fight every room — sneaking past, getting out in time and what turns up change it"],
+      }) : ""}>${pct === null ? "Empty" : `${pct}% · ${odds.rooms.toFixed(1)}/${odds.total}`}</span>
       ${sent
         ? `<button class="btn btn-danger btn-sm" data-action="clear-mission" data-team="${i}">Recall</button>`
         : `<button class="btn btn-primary btn-sm" data-action="send-team" data-team="${i}" ${members.length ? "" : 'disabled title="Fill its slots in the side panel first"'}>🧭 Send</button>`}
@@ -2750,15 +2846,15 @@ export function renderMissionModal(state, locationId) {
       <h3>${LOCATION_ICON[locationId]} ${esc(loc.name)}</h3>
       <p class="muted">${esc(loc.desc)}</p>
       <div class="mission-stats-row">
-        <span class="ms-need" ${tipAttr(needTip(loc))}>⚔ Power needed <b>${need}</b></span>
+        <span class="ms-need" ${tipAttr({ title: `🚪 ${expeditionRooms(loc)} rooms`, rows: Array.from({ length: expeditionRooms(loc) }, (_, r) => [`Room ${r + 1}${r === expeditionRooms(loc) - 1 ? " (the last)" : ""}`, `${expeditionRoomZombies(state, loc, r)} 🧟`]), notes: ["Fought one at a time — go deeper or get out after each", "More with noise, beside a nest, or after a bad encounter"] })}>🚪 <b>${expeditionRooms(loc)}</b> rooms · 🧟 ${expeditionRoomZombies(state, loc, 0)}–${expeditionRoomZombies(state, loc, expeditionRooms(loc) - 1)} a room</span>
         <span>📍 ${expeditionBlocks(loc)} blocks out</span>
         <span>Danger ${loc.danger}/5</span>
         <span class="ms-loot" ${tipAttr(lootTip(loc))}>🎒 ${lootLine(loc)}</span>
         ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
         ${loc.serumChance ? `<span ${tipAttr({ title: `${ri("serum")} Antiviral Serum`, notes: ["The only cure for an infection — one per person", "Rare: found here, at the Pharmacy, Urgent Care and Fire Station", "Most of it comes from the General Hospital and Research Institute raids"] })}>${ri("serum")} Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
       </div>
-      ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">${dangerNotes(state, loc.hex.q, loc.hex.r).join(" · ")}: lower odds and more injuries.</div>` : ""}
-      <div class="mini-label ms-label">${sentIndex !== -1 ? "Heading here today" : "Send a team"} ${infoDot({ title: "🧭 Sending a team", notes: ["Build teams in the side panel — 2 fighters, a scout and 2 supports", "Odds: the team's power against the power this place needs", "Each team goes to one place a day"] })}</div>
+      ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">${dangerNotes(state, loc.hex.q, loc.hex.r).join(" · ")}: more zombies in every room.</div>` : ""}
+      <div class="mini-label ms-label">${sentIndex !== -1 ? "Heading here today" : "Send a team"} ${infoDot({ title: "🧭 Sending a team", notes: ["Build teams in the side panel — 2 fighters, a scout and 2 supports", "Odds: their chance to clear the first room, from the fight itself", "Each team goes to one place a day"] })}</div>
       <div class="ms-teams">${teamsHtml}</div>
     </div>
   </div>`;

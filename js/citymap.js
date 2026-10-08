@@ -185,8 +185,8 @@ const inBox = (b, x, y, pad = 0) => x >= b.x0 - pad && x <= b.x1 + pad && y >= b
 const RAID_DISTRICTS = {
   mall: ["shops", "parking", "shops", "street", "apartments"],
   hospital: ["street", "apartments", "park", "parking"],
-  military_base: ["field", "ruins", "woods", "field", "parking"],
-  institute: ["street", "parking", "apartments", "ruins"],
+  military_base: ["field", "woods", "field", "park"], // (the two out in the country: no buildings)
+  institute: ["woods", "park", "field", "woods"],
 };
 
 function zoneAt(x, y) {
@@ -570,6 +570,8 @@ export function cityBaseUrl() {
       if (c === "#3b3f47") p.dot(x0 + tx, y0 + ty, (tx + ty * 2) % 4 === 0 ? "#7a7e86" : hash2(tx, ty, 79) < 0.08 ? "#80848c" : "#8a8e96");
       else p.dot(x0 + tx, y0 + ty, c);
     }
+    // its lights still on: a warm pool round it, so the places stand out of the town at dusk
+    p.light({ x, y, r: 22, k: 0.45, c: [1.0, 0.86, 0.6] });
   }
 
   // 4b. the raids, past the edge: each compound on its grounds, behind a fence with a gate
@@ -660,6 +662,18 @@ export function fogUrl(clear, reachable, outskirtsOpen = false) {
       const dy = (vnoise(x, y, 11, 33) - 0.5) * 12 + (vnoise(x, y, 4, 34) - 0.5) * 3;
       const { q, r } = worldToHex(x + dx, y + dy);
       mask[y * W + x] = Math.abs(q) <= R && Math.abs(r) <= R ? status[(q + R) * side + r + R] : 3;
+    }
+  }
+  // a place that's been found is never half hidden: the fog pulls back off its whole building, in a
+  // ragged clearing a little wider than its block
+  const found = new Set(clear);
+  for (const place of LOCATIONS) {
+    if (!found.has(`${place.hex.q},${place.hex.r}`)) continue;
+    const { x: cx, y: cy } = hexToWorld(place.hex.q, place.hex.r);
+    for (let y = Math.floor(cy - 24); y <= cy + 24; y++) for (let x = Math.floor(cx - 28); x <= cx + 28; x++) {
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      const d = Math.hypot((x - cx) / 22, (y - cy) / 19) + (vnoise(x, y, 7, 52) - 0.5) * 0.3;
+      if (d <= 1) mask[y * W + x] = 0;
     }
   }
   // an open raid: a ragged clearing around its compound, like the fog's own edges

@@ -13,7 +13,7 @@ const STEP_ROWS = ENTRANCE_ZONES.steps;
 const LAWN_ROW0 = STEP_ROWS;
 const PAVEMENT_ROW0 = DEFENSE_ROW0;
 const ROAD_ROW0 = STREET_ROW0;
-import { hash, hash2, buffer, lightUp } from "./lighting.js";
+import { hash, hash2, buffer, lightUp, bayer } from "./lighting.js";
 
 // Art pixels: each square is CELL_W x CELL_H, under a facade FACADE_H tall, with a MARGIN either
 // side of the squares for the stairs' side walls (the squares start and end at the handrails).
@@ -543,4 +543,100 @@ export function structureSprite(id, sizePx = 64) {
     cache.set(key, spriteSvg(p));
   }
   return cache.get(key).replace("<svg ", `<svg class="nw-structure-sprite" style="width:${sizePx}px;height:auto" `);
+}
+
+// ---------- Turn 2: the inside of a place, for an expedition's fight ----------
+// The same squares as the Night Watch board: the wall the team came in through across the top (the
+// doorway, the dusk behind it), shelves down the sides, the floor running off into the dark the
+// zombies come out of — lit only by the team's torches, a beam down each lane. Wooden floors in
+// homes and barns, a tiled one everywhere else.
+const ROOM_LOOK = {
+  wood: { wall: "#8e7a68", trim: "#5a4636", floor: ["#8a6440", "#7a5634"], seam: "#4a3220" },
+  tile: { wall: "#8fa39a", trim: "#4e5e58", floor: ["#b8b4a8", "#9a968c"], seam: "#77746b" },
+};
+const WOODEN = ["houses", "apartments", "field", "park"];
+export function roomBackground(cols, rows, ground = "", seed = 1) {
+  const kind = WOODEN.includes(ground) ? "wood" : "tile";
+  const key = `room${cols}x${rows}:${kind}:${seed}`;
+  if (cache.has(key)) return cache.get(key);
+  const L = ROOM_LOOK[kind];
+  const W = cols * CELL_W + 2 * MARGIN;
+  const H = FACADE_H + rows * CELL_H;
+  const mid = Math.round(W / 2);
+  const p = buffer(W, H);
+  const lights = [];
+
+  // the floor
+  for (let y = FACADE_H; y < H; y++) {
+    const fy = y - FACADE_H;
+    for (let x = 0; x < W; x++) {
+      let c;
+      if (kind === "wood") {
+        const plank = Math.floor(fy / 5);
+        const joint = (x + plank * 13) % 29 === 0;
+        c = fy % 5 === 4 || joint ? L.seam : mix(L.floor[0], L.floor[1], hash(plank * 7 + Math.floor((x + plank * 13) / 29), seed));
+        if (hash2(x, y, seed + 3) < 0.07) c = mix(c, L.seam, 0.4);
+      } else {
+        c = x % 8 === 0 || fy % 8 === 0 ? L.seam : L.floor[(Math.floor(x / 8) + Math.floor(fy / 8)) % 2];
+        if (hash2(x, y, seed) < 0.06) c = mix(c, "#4a463e", 0.5);
+      }
+      p.set(x, y, c);
+    }
+  }
+  // what's left on it: papers, cans, a blood trail off into the dark
+  for (let i = 0; i < 10; i++) {
+    const x = 4 + Math.floor(hash(i, seed + 11) * (W - 8));
+    const y = FACADE_H + 6 + Math.floor(hash(i, seed + 12) * (H - FACADE_H - 10));
+    if (i % 3) p.r(x, y, x + 2, y + 1, i % 2 ? "#e8e4d8" : "#d8d0b8");
+    else p.r(x, y, x + 1, y + 1, ["#c84a3a", "#3a7ac8", "#d8b040"][i % 3 === 0 ? Math.floor(hash(i, seed + 13) * 3) : 0]);
+  }
+  const trail = MARGIN + Math.floor(hash(1, seed + 14) * cols) * CELL_W + 10 + Math.floor(hash(2, seed + 14) * 12);
+  for (let y = FACADE_H + 30; y < H; y++) if (hash(y, seed + 15) < 0.45) p.set(trail + Math.round(Math.sin(y / 6) * 3), y, BLOOD);
+  p.oval(trail + 2, FACADE_H + 28, 3, 2, BLOOD);
+
+  // shelves down both sides (past the squares)
+  for (const [a, b] of [[0, MARGIN - 1], [W - MARGIN, W - 1]]) {
+    p.r(a, FACADE_H, b, H - 1, "#3a3a42");
+    for (let y = FACADE_H + 4; y < H; y += 9) {
+      p.r(a, y, b, y, "#5a5a66");
+      for (let x = a + 1; x < b; x += 2) if (hash2(x, y, seed + 16) < 0.55) p.r(x, y - 3, x, y - 1, ["#c84a3a", "#e0c060", "#4a8ac8", "#8ac860", "#d8d0c0"][Math.floor(hash2(x, y, seed + 17) * 5)]);
+    }
+  }
+
+  // the wall they came in through
+  p.r(0, 0, W - 1, FACADE_H - 1, L.wall);
+  for (let i = 0; i < W * 2; i++) p.set(Math.floor(hash(i, seed + 20) * W), Math.floor(hash(i, seed + 21) * (FACADE_H - 3)), mix(L.wall, L.trim, 0.3));
+  p.r(0, FACADE_H - 3, W - 1, FACADE_H - 1, L.trim); // skirting
+  p.r(0, FACADE_H - 3, W - 1, FACADE_H - 3, mix(L.trim, "#ffffff", 0.2));
+  // the doorway: dusk outside, the door kicked open
+  const d0 = mid - 8;
+  const d1 = mid + 7;
+  p.r(d0 - 1, 3, d1 + 1, FACADE_H - 1, "#2a2420");
+  for (let y = 4; y < FACADE_H; y++) p.r(d0, y, d1, y, mix("#f0a860", "#a85a48", (y - 4) / (FACADE_H - 4)), 1);
+  p.r(d0, FACADE_H - 6, d1, FACADE_H - 1, "#4a3a3a", 1); // the street's far side
+  p.r(d1 + 2, 4, d1 + 5, FACADE_H - 2, "#6a4a30");
+  p.r(d1 + 2, 4, d1 + 2, FACADE_H - 2, "#8a6440");
+  lights.push({ x: mid, y: FACADE_H, r: 30, sy: 1.4, k: 0.5, c: [1.0, 0.72, 0.45] });
+  // a sign and a poster either side of it
+  p.r(6, 5, 22, 10, "#d8d0b8");
+  p.r(7, 7, 21, 7, "#6a6a72");
+  p.r(7, 9, 16, 9, "#6a6a72");
+  p.r(W - 22, 4, W - 9, 15, "#c84a3a");
+  p.r(W - 20, 6, W - 11, 13, "#e8c8a0");
+  p.line(W - 19, 12, W - 12, 7, "#5a2a2a");
+  for (const [dx, dy] of [[0, 0], [1, 1], [0, 2], [2, 1], [1, 3]]) p.set(14 + dx, 13 + dy, "#5a1818"); // a handprint
+
+  // the far end: dark, darker the further in
+  for (let y = H - CELL_H * 2; y < H; y++) {
+    const t = (y - (H - CELL_H * 2)) / (CELL_H * 2);
+    for (let x = 0; x < W; x++) if (bayer(x, y) < t * 0.9) p.set(x, y, mix(p.col[y * W + x] || "#000000", "#06060a", 0.7));
+  }
+
+  // the team's torches, a beam down each lane
+  for (let col = 0; col < cols; col++) {
+    lights.push({ x: MARGIN + col * CELL_W + CELL_W / 2, y: FACADE_H + CELL_H, len: (rows - 1) * CELL_H, w0: 5, spread: 0.32, k: 0.42, c: [1.0, 0.94, 0.75] });
+  }
+  const url = `url('${lightUp(p, lights, { ambient: [0.2, 0.22, 0.34], mist: false })}')`;
+  cache.set(key, url);
+  return url;
 }

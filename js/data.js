@@ -359,6 +359,84 @@ export const NIGHT_CONDITIONS = {
   fog: { id: "fog", name: "Fog", icon: "🌫️", weight: 10, role: "shooter", dmg: 0.8, desc: "Shooters deal 20% less damage" },
   snow: { id: "snow", name: "Snow", icon: "❄️", weight: 10, role: "medic", mend: 0.8, desc: "Medics heal 20% less" },
 };
+// Turn 2's fights: each team fights its way through its place a room at a time, on a small board of
+// the same squares — `cols` lanes, `rows` deep, the team on the top `teamRows` (where they came in),
+// the zombies coming out of the dark at the bottom. A place has 2 + difficulty/2 (rounded up) rooms;
+// after each the player goes deeper or gets out.
+// How many zombies in a room: `base` + `perDifficulty` for each of the place's difficulty + one every
+// `perDays` days + one for every room before it (+1 more in the last, +`nest` beside a nest, ±1 in the
+// first for how the encounter on the way in went, and the noise — EXPEDITION_NOISE). They're as strong,
+// and of the kinds, of the night on day × `dayShare`, plus `daysPerDifficulty` for each difficulty above
+// 1 (and in the last room) — the place matters more than the day. From the second room on, an `ambush`
+// chance for each room before it: the zombies are already on the team, no time to get ready.
+// Before each room after the first, whoever's standing gets `breather` of their HP back. Clearing the
+// last room adds `clearGear` to the gear chance.
+export const EXPEDITION_ROOM = { cols: 3, rows: 6, teamRows: 2, base: 2, perDifficulty: 0.75, perDays: 10, nest: 1, daysPerDifficulty: 5, dayShare: 0.5, ambush: 0.1, clearGear: 0.25, breather: 0.2, raidRooms: 3, raidBossHp: 0.3, raidBossDmg: 0.6, raidBossRoomFewer: 3, raidPerTier: 0.75 };
+// A raid is a run too: `raidRooms` rooms, of difficulty 1 + `raidPerTier` for each tier above the first, its boss (LANDMARKS
+// boss: `raidBossDmg` of its damage and `raidBossHp` of its HP — tuned for a board, where only its lane hits it) waiting in the last with `raidBossRoomFewer` fewer zombies around it — and the raid
+// only counts if it falls. A squad of more than 6 fights on 4 lanes.
+// The noise a run makes (0-`max`): each kill, each shot (ranged attack), each zombie that gets past
+// and each student who goes down. `loud` and over: `loudZombies` more in every room; `horde` and
+// over: the map's horde hears it and comes to the block next door — `hordeZombies` more in every
+// room and `hordeAmbush` more chance of an ambush.
+// Between rooms, instead of fighting the next one: `sneak` past it (the best DEX standing) — got by
+// unseen, it counts as cleared and the noise drops by `quiet`; spotted, it's an ambush and +`loud`
+// noise — or `lock`: pick a side door (the best INT standing), `fewer` zombies in the next room and
+// the noise down by `quiet`, or the lock snaps (+`loud`). Their chance: `base` + grade × `perGrade`.
+export const EXPEDITION_NOISE = {
+  kill: 2, shot: 0.25, past: 5, down: 5, loud: 40, horde: 80, max: 100, loudZombies: 1, hordeZombies: 3, hordeAmbush: 0.2,
+  sneak: { stat: "Gymnastics", base: 0.25, perGrade: 1 / 150, max: 0.85, quiet: 5, loud: 10 },
+  lock: { stat: "Physics", base: 0.25, perGrade: 1 / 150, max: 0.85, quiet: 10, loud: 10, fewer: 2 },
+};
+// Between rooms, half the time, something turns up (one of ROOM_EVENT_STARTS): a few options, each
+// tried by the best of the team still standing at its stat (`stat`, a subject) — their chance
+// ROOM_EVENT_ODDS — or sure, with none. What comes of it (`ok` or `bad`): `loot` (a share more of the
+// place's supplies), `noise`, `zombies` (more or fewer in the next room), `ambush` (the next room),
+// `hurt` (HP off whoever tried), `heal` (a share of everyone's HP), `medicine`, `item` (a piece of
+// gear), `recruit` (a survivor joins) — or `next`: another event follows on from it. `text` follows
+// the name of whoever tried (a sentence of its own when nobody does).
+export const ROOM_EVENT_CHANCE = 0.5;
+export const ROOM_EVENT_ODDS = { base: 0.3, perGrade: 1 / 150, max: 0.9 };
+export const ROOM_EVENTS = {
+  stash: { icon: "📦", title: "A stash behind a shelf", text: "Supplies, wedged behind a toppled shelf.", options: [
+    { label: "Heave the shelf", stat: "PE", ok: { loot: 0.15, text: "heaved it aside — a good haul" }, bad: { noise: 12, text: "dropped it with a crash" } },
+    { label: "Squeeze in", stat: "Gymnastics", ok: { loot: 0.1, text: "wriggled in and passed it all out" }, bad: { hurt: 8, text: "got cut up squeezing in" } },
+    { label: "Leave it", ok: { text: "They leave it be." } },
+  ] },
+  cry: { icon: "🙋", title: "A voice", text: "Someone calling for help, further in.", options: [
+    { label: "Call back", stat: "SocialStudies", ok: { next: "survivor", text: "talked them out of hiding" }, bad: { noise: 10, ambush: true, text: "called back — it wasn't a person" } },
+    { label: "Keep quiet", ok: { noise: 5, text: "The shouting goes on and on." } },
+  ] },
+  survivor: { icon: "🧍", title: "A survivor", text: "Scared, starving, clutching a bag.", options: [
+    { label: "Bring them home", ok: { recruit: true, text: "They'll join the school." } },
+    { label: "Trade for the bag", stat: "SocialStudies", ok: { loot: 0.2, text: "swapped a tin of food for the bag" }, bad: { text: "scared them off — bag and all" } },
+  ] },
+  gas: { icon: "⛽", title: "A gas leak", text: "The stink of gas from a broken pipe.", options: [
+    { label: "Rig it to blow", stat: "Physics", ok: { zombies: -3, noise: 15, text: "blew the next room half empty" }, bad: { hurt: 15, noise: 15, text: "set it off too soon" } },
+    { label: "Back away", ok: { text: "They give it a wide berth." } },
+  ] },
+  cabinet: { icon: "🩹", title: "A first-aid cabinet", text: "Locked, the glass already cracked.", options: [
+    { label: "Pick the lock", stat: "Physics", ok: { heal: 0.25, medicine: 3, text: "had it open — everyone patched up" }, bad: { noise: 6, heal: 0.1, text: "had to smash it — most of it's ruined" } },
+    { label: "Smash it", ok: { heal: 0.15, noise: 8, text: "Glass everywhere — and some bandages." } },
+  ] },
+  vents: { icon: "🐀", title: "Scratching in the vents", text: "Something's moving above the ceiling.", options: [
+    { label: "Wait it out", stat: "History", ok: { noise: -10, text: "waited, still — it moved on" }, bad: { zombies: 2, text: "waited too long — it brought friends" } },
+    { label: "Hurry on", ok: { zombies: 1, text: "It follows them." } },
+  ] },
+  door: { icon: "🚪", title: "\"DON'T OPEN\"", text: "A barricaded door, chalked in big letters.", options: [
+    { label: "Force it", stat: "PE", ok: { next: "sleepers", text: "got the boards off quietly" }, bad: { noise: 15, ambush: true, text: "tore the boards off with a bang" } },
+    { label: "Leave it", ok: { text: "They leave it shut." } },
+  ] },
+  sleepers: { icon: "💤", title: "Sleepers", text: "A room full of the dead, standing still. A crate in the middle.", options: [
+    { label: "Tiptoe to the crate", stat: "Gymnastics", ok: { item: true, loot: 0.1, text: "came back with the crate" }, bad: { zombies: 3, noise: 10, text: "kicked a can — they're waking" } },
+    { label: "Back out", ok: { text: "They back out, holding their breath." } },
+  ] },
+};
+export const ROOM_EVENT_STARTS = ["stash", "cry", "gas", "cabinet", "vents", "door"];
+// The share of a place's supplies a team brings home, by the rooms they cleared out of all of them:
+// a quarter for just going in, the rest room by room, a quarter more for clearing it all — and half
+// of that if they were overrun.
+export const expeditionShare = (cleared, rooms, won = true) => (0.25 + (0.75 * cleared) / rooms + (cleared >= rooms ? 0.25 : 0)) * (won ? 1 : 0.5);
 // Three stars for a perfect night: nobody got in, nobody went down, every zombie put down.
 export const NIGHT_STAR_REWARD = { materials: 10 };
 
@@ -1013,7 +1091,25 @@ export const TECH_TREE = [
 // their blocks.)
 export const LEGACY_LOCATION_IDS = { radio_station: "library", hospital: "urgent_care", mall: "electronics_store" };
 export const LEGACY_POI_HEXES = {
-  corner_store: ["1,0", "1,1"], pharmacy: ["2,0", "2,-2"], neighborhood: ["-1,-1"],
+  corner_store: ["1,0", "1,1", "2,1"],
+  pharmacy: ["2,0", "2,-2", "3,-2"],
+  neighborhood: ["-1,-1"],
+  hardware_store: ["-3,1"],
+  gas_station: ["-2,4"],
+  supermarket: ["0,3"],
+  apartments: ["1,4"],
+  electronics_store: ["4,-1"],
+  urgent_care: ["-2,-3"],
+  vet_clinic: ["-5,2"],
+  farmstead: ["-3,3"],
+  petting_zoo: ["-2,6"],
+  church: ["-5,5"],
+  library: ["-5,-1"],
+  marina: ["5,-4"],
+  fire_station: ["3,-5"],
+  police_station: ["5,0"],
+  warehouse: ["4,2"],
+  army_surplus: ["5,-6"],
 };
 export const LOCATIONS = [
   {
@@ -1025,39 +1121,43 @@ export const LOCATIONS = [
     rewards: { food: 12, materials: 4, medicine: 2 },
     ingredientBonus: 0.15,
     seedBonus: 0.1,
-    hex: { q: 2, r: 1 }, // distance 3 — the closest a location can be without touching the school grounds
+    ground: "shops",
+    hex: { q: 2, r: -3 }, // distance 3 — the closest a location can be without touching the school grounds
   },
   {
     id: "pharmacy",
     name: "Pharmacy",
     desc: "Shelves of medicine, if the shambling customers haven't gotten to it first.",
-    difficulty: 2,
+    difficulty: 1,
     danger: 2,
     rewards: { food: 2, materials: 2, medicine: 14, research: 8 },
     serumChance: 0.1,
-    hex: { q: 3, r: -2 }, // distance 3
+    ground: "shops",
+    hex: { q: 1, r: 2 }, // distance 3
   },
   {
     id: "supermarket",
     name: "Supermarket",
     desc: "Big box grocery store. Great food, but wide open and exposed.",
-    difficulty: 3,
+    difficulty: 2,
     danger: 3,
     rewards: { food: 28, materials: 6, medicine: 4 },
     ingredientBonus: 0.35,
     seedBonus: 0.15,
-    hex: { q: 0, r: 3 }, // distance 3
+    ground: "parking",
+    hex: { q: 4, r: -3 }, // distance 3
   },
   {
     id: "hardware_store",
     name: "Hardware Store",
     desc: "Tools and lumber for fortifying the school.",
-    difficulty: 3,
+    difficulty: 2,
     danger: 2,
     rewards: { food: 2, materials: 24, medicine: 1 },
     lootBias: "weapon",
     seedBonus: 0.25, // the garden aisle
-    hex: { q: -3, r: 1 }, // distance 3
+    ground: "parking",
+    hex: { q: -4, r: 2 }, // distance 3
   },
   {
     id: "urgent_care",
@@ -1068,7 +1168,8 @@ export const LOCATIONS = [
     rewards: { food: 2, materials: 6, medicine: 20, research: 14 },
     serumChance: 0.12,
     lootBias: "armor",
-    hex: { q: -2, r: -3 }, // distance 5
+    ground: "street",
+    hex: { q: 2, r: 3 }, // distance 5
   },
   {
     id: "police_station",
@@ -1078,7 +1179,8 @@ export const LOCATIONS = [
     danger: 5,
     rewards: { food: 2, materials: 30, medicine: 4 },
     lootBias: "weapon",
-    hex: { q: 5, r: 0 }, // distance 5 — clear across town
+    ground: "parking",
+    hex: { q: 7, r: -4 }, // distance 5 — clear across town
   },
   {
     id: "electronics_store",
@@ -1088,13 +1190,14 @@ export const LOCATIONS = [
     danger: 3,
     rewards: { food: 2, materials: 16, medicine: 2, research: 10 },
     lootBias: "accessory",
-    hex: { q: 4, r: -1 }, // distance 4
+    ground: "shops",
+    hex: { q: 6, r: 0 }, // distance 4
   },
   {
     id: "neighborhood",
     name: "Suburban Neighborhood",
     desc: "House to house searching. Slow, but people sometimes hide here.",
-    difficulty: 2,
+    difficulty: 1,
     danger: 3,
     rewards: { food: 10, materials: 6, medicine: 4 },
     recruitBonus: 1.5,
@@ -1102,7 +1205,8 @@ export const LOCATIONS = [
     seedBonus: 0.3, // backyard vegetable patches
     animals: ["chicken"], // ...and backyard coops
     animalChance: 0.15,
-    hex: { q: -2, r: -1 }, // distance 3
+    ground: "houses",
+    hex: { q: -1, r: 3 }, // distance 3
   },
   {
     id: "farmstead",
@@ -1114,18 +1218,20 @@ export const LOCATIONS = [
     seedBonus: 0.35,
     animals: ["chicken", "sheep", "cow"],
     animalChance: 0.5,
-    hex: { q: -3, r: 3 }, // distance 3
+    ground: "field",
+    hex: { q: 2, r: -6 }, // distance 3
   },
   // --- further out: rings 4-6 ---
   {
     id: "gas_station",
     name: "Gas Station",
     desc: "Pumps long since dry, but the shop shelves and the garage out back still hold plenty.",
-    difficulty: 3,
+    difficulty: 2,
     danger: 3,
     rewards: { food: 10, materials: 18, medicine: 2 },
     ingredientBonus: 0.25, // snack aisle
-    hex: { q: -2, r: 4 }, // distance 4
+    ground: "street",
+    hex: { q: 0, r: 4 }, // distance 4
   },
   {
     id: "garden_center",
@@ -1135,18 +1241,20 @@ export const LOCATIONS = [
     danger: 2,
     rewards: { food: 14, materials: 6, medicine: 2 },
     seedBonus: 0.6,
-    hex: { q: -4, r: 0 }, // distance 4
+    ground: "park",
+    hex: { q: 0, r: -4 }, // distance 4
   },
   {
     id: "fire_station",
     name: "Fire Station",
     desc: "The crews left in a hurry. Their turnout gear and medical kits are still on the hooks.",
-    difficulty: 4,
+    difficulty: 5,
     danger: 3,
     rewards: { food: 4, materials: 16, medicine: 14, research: 10 },
     serumChance: 0.1,
     lootBias: "armor",
-    hex: { q: 3, r: -5 }, // distance 5
+    ground: "field",
+    hex: { q: 0, r: -7 }, // distance 5
   },
   {
     id: "church",
@@ -1156,6 +1264,7 @@ export const LOCATIONS = [
     danger: 4,
     rewards: { food: 12, materials: 4, medicine: 10 },
     recruitBonus: 2,
+    ground: "park",
     hex: { q: -5, r: 5 }, // distance 5
   },
   {
@@ -1166,7 +1275,8 @@ export const LOCATIONS = [
     danger: 4,
     rewards: { food: 24, materials: 12, medicine: 2 },
     ingredientBonus: 0.2,
-    hex: { q: 5, r: -4 }, // distance 5, on the riverbank
+    ground: "street",
+    hex: { q: -6, r: 1 }, // distance 5, on the riverbank
   },
   {
     id: "warehouse",
@@ -1176,7 +1286,8 @@ export const LOCATIONS = [
     danger: 5,
     rewards: { food: 32, materials: 26, medicine: 4, research: 16 },
     ingredientBonus: 0.4,
-    hex: { q: 4, r: 2 }, // distance 6
+    ground: "parking",
+    hex: { q: 0, r: 7 }, // distance 6
   },
   {
     id: "library",
@@ -1185,7 +1296,8 @@ export const LOCATIONS = [
     difficulty: 4,
     danger: 3,
     rewards: { food: 2, materials: 6, medicine: 4, research: 18 },
-    hex: { q: -5, r: -1 }, // distance 6
+    ground: "park",
+    hex: { q: -3, r: 6 }, // distance 6
   },
   {
     id: "petting_zoo",
@@ -1197,7 +1309,8 @@ export const LOCATIONS = [
     seedBonus: 0.2,
     animals: ["chicken", "sheep", "cow"],
     animalChance: 0.8,
-    hex: { q: -2, r: 6 }, // distance 6
+    ground: "park",
+    hex: { q: 5, r: -6 }, // distance 6
   },
   {
     id: "army_surplus",
@@ -1207,7 +1320,61 @@ export const LOCATIONS = [
     danger: 5,
     rewards: { food: 6, materials: 22, medicine: 6 },
     lootBias: "weapon",
-    hex: { q: 5, r: -6 }, // distance 6
+    ground: "parking",
+    hex: { q: -7, r: 4 }, // distance 6
+  },
+  // Added 2026-10-08: an easy run, early weapons, a place to find people, a serum that isn't a raid.
+  {
+    id: "diner",
+    name: "Diner",
+    desc: "A 24-hour diner whose last shift never ended. The walk-in freezer is still cold.",
+    difficulty: 1,
+    danger: 1,
+    rewards: { food: 14, materials: 3, medicine: 1 },
+    ingredientBonus: 0.25,
+    seedBonus: 0,
+    ground: "parking",
+    hex: { q: -3, r: 0 },
+  },
+  {
+    id: "sporting_goods",
+    name: "Sporting Goods Store",
+    desc: "Bats, hockey sticks and pads in every size — the closest thing to an armory this side of town.",
+    difficulty: 2,
+    danger: 2,
+    rewards: { food: 2, materials: 10, medicine: 2 },
+    lootBias: "weapon",
+    gearBonus: 0.25,
+    ingredientBonus: 0,
+    seedBonus: 0,
+    ground: "parking",
+    hex: { q: 4, r: 0 },
+  },
+  {
+    id: "apartments",
+    name: "Apartment Block",
+    desc: "Twelve floors of locked doors. Most hide something hungry — a few hide people.",
+    difficulty: 2,
+    danger: 3,
+    rewards: { food: 10, materials: 8, medicine: 4 },
+    recruitBonus: 2,
+    ingredientBonus: 0.05,
+    seedBonus: 0,
+    ground: "apartments",
+    hex: { q: -3, r: 4 },
+  },
+  {
+    id: "vet_clinic",
+    name: "Veterinary Clinic",
+    desc: "An animal hospital with a well-stocked pharmacy — and a fridge of vaccines someone hoped might work on people.",
+    difficulty: 4,
+    danger: 3,
+    rewards: { food: 2, materials: 4, medicine: 18, research: 8 },
+    serumChance: 0.15,
+    ingredientBonus: 0,
+    seedBonus: 0,
+    ground: "field",
+    hex: { q: -2, r: -3 },
   },
 ];
 
@@ -1267,7 +1434,7 @@ export const RAID_MAX_ROUNDS = 15;
 export const RAID_BOSS_SCALING = 0.25;
 export const LANDMARKS = [
   {
-    id: "mall", name: "City Mall", tier: 1, corner: "nw", at: { x: 72, y: 62 },
+    id: "mall", name: "City Mall", tier: 1, corner: "sw", at: { x: 72, y: 402 },
     focus: "Food, scrap and accessories",
     desc: "Three floors of shops and a food court the dead never left. Mall security still walks the rounds.",
     boss: { name: "The Security Chief", look: "guard", hp: 520, damage: 18, attacks: 2 },
@@ -1275,7 +1442,7 @@ export const LANDMARKS = [
     rewards: { food: 60, materials: 25, medicine: 5 }, respawnDays: 4,
   },
   {
-    id: "hospital", name: "General Hospital", tier: 2, corner: "ne", at: { x: 344, y: 62 },
+    id: "hospital", name: "General Hospital", tier: 2, corner: "se", at: { x: 344, y: 402 },
     focus: "Medicine and serum",
     desc: "The mother lode of medicine — and of the infected. The head surgeon is still on call.",
     boss: { name: "The Head Surgeon", look: "surgeon", hp: 760, damage: 22, attacks: 2 },
@@ -1283,7 +1450,7 @@ export const LANDMARKS = [
     rewards: { food: 5, materials: 10, medicine: 60, serum: 2 }, respawnDays: 5,
   },
   {
-    id: "military_base", name: "Military Base", tier: 3, corner: "se", at: { x: 344, y: 402 },
+    id: "military_base", name: "Military Base", tier: 3, corner: "ne", at: { x: 344, y: 62 },
     focus: "Scrap, weapons and armour",
     desc: "The army's staging base, overrun on the first night. Something in there still wears the sergeant's stripes.",
     boss: { name: "Sergeant Rot", look: "soldier", hp: 1080, damage: 24, attacks: 3 },
@@ -1291,7 +1458,7 @@ export const LANDMARKS = [
     rewards: { food: 15, materials: 70, medicine: 10 }, respawnDays: 5,
   },
   {
-    id: "institute", name: "Research Institute", tier: 4, corner: "sw", at: { x: 72, y: 402 },
+    id: "institute", name: "Research Institute", tier: 4, corner: "nw", at: { x: 72, y: 62 },
     focus: "Research and serum",
     desc: "Where the outbreak started. Patient zero never left the building.",
     boss: { name: "Subject Zero", look: "labcoat", hp: 1520, damage: 28, attacks: 3 },

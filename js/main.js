@@ -4,7 +4,7 @@ import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict } f
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, renderRoomFight, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
-  renderEncounterModal, renderExpeditionSkirmish,
+  renderEncounterModal, renderExpeditionBattle,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor, assignStudentFocus, gradeCap } from "./characters.js";
@@ -18,7 +18,7 @@ import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ENTRANCE_ROWS, NIGHT_CLASSES, DEFENSE_STRUCTURES, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, NIGHT_MORALE, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES, LEGACY_DEFENSE_IDS,
+  EXPEDITION_NOISE, ROOM_EVENTS, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, NIGHT_MORALE, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES, LEGACY_DEFENSE_IDS,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -708,8 +708,8 @@ function render() {
     ? renderRaidFight(state, raidFight)
     : encounter
     ? renderEncounterModal(state, encounter)
-    : skirmish
-    ? renderExpeditionSkirmish(state, skirmish)
+    : battleAnimation?.kind === "expedition"
+    ? renderExpeditionBattle(state, battleAnimation)
     : expeditionReport
     ? renderExpeditionReport(state, expeditionReport)
     : battleAnimation && battleAnimation.kind !== "grid" // (the night's fight plays on the board)
@@ -782,7 +782,8 @@ function musicMood() {
   if (state.gameOver) return null;
   if (raidFight?.phase === "battle") return raidFight.report.kind === "chase" ? "fight" : "boss";
   if (battleAnimation?.kind === "grid" && battleAnimation.phase === "battle") return battleAnimation.b?.bossName ? "boss" : "fight";
-  if (roomFight?.phase === "battle" || skirmish) return "fight";
+  if (battleAnimation?.kind === "expedition" && battleAnimation.phase === "battle") return battleAnimation.b.bossName ? "boss" : "fight";
+  if (roomFight?.phase === "battle") return "fight";
   if (state.victory) return "morning";
   return ["morning", "afternoon", "night"][state.turn - 1] || "morning";
 }
@@ -816,7 +817,7 @@ function fitCityMap() {
 // fitCityMap) but never taller than the board at its full width, the side panel 330 wide down the
 // right, and the whole board (art, squares, people, zombies) zoomed up to fill the rest.
 function fitNightBoard() {
-  const layout = root.querySelector(".nw-layout");
+  const layout = root.querySelector(".content .nw-layout"); // (not an expedition's fight, in its pop-up)
   const board = layout?.querySelector(".nw-main > .nw-board");
   const content = root.querySelector(".content");
   if (!board || !content) return;
@@ -982,13 +983,12 @@ document.addEventListener("drop", (e) => {
 // or the rest of their lane; Lunge a second one, Cleave the squares either side), green ones a Medic
 // heals (Field Surgeon: their lane too), yellow ones a Rallier with Rally Cry boosts (their lane). Shown over the board (overlays in its .nw-cells) when hovering a
 // defender, dragging a student over a square, or picking a square to post them mid-fight.
-function reachSquares(cls, ab2, ab3, row, col) {
+function reachSquares(cls, ab2, ab3, row, col, size = state.entranceGrid.size, rows = ENTRANCE_ROWS) {
   const C = NIGHT_CLASSES[cls];
-  const size = state.entranceGrid.size;
   const out = [];
-  const add = (r, c, kind) => { if (r >= 0 && r < ENTRANCE_ROWS && c >= 0 && c < size && !(r === row && c === col)) out.push({ r, c, kind }); };
+  const add = (r, c, kind) => { if (r >= 0 && r < rows && c >= 0 && c < size && !(r === row && c === col)) out.push({ r, c, kind }); };
   const around = (d, kind) => { for (let dr = -d; dr <= d; dr++) for (let dc = -d; dc <= d; dc++) add(row + dr, col + dc, kind); };
-  const lane = (kind) => { for (let r = 0; r < ENTRANCE_ROWS; r++) if (!out.some((o) => o.r === r && o.c === col)) add(r, col, kind); };
+  const lane = (kind) => { for (let r = 0; r < rows; r++) if (!out.some((o) => o.r === r && o.c === col)) add(r, col, kind); };
   if (cls === "medic") { around(ab2 ? C.ability2.reach : 1, "heal"); if (ab3) lane("heal"); }
   else if (cls === "rallier") { if (ab2) lane("buff"); }
   else if (C.range === "front") {
@@ -996,7 +996,7 @@ function reachSquares(cls, ab2, ab3, row, col) {
       add(row + d, col, "attack");
       if (cls === "brawler" && ab2) { add(row + d, col - 1, "attack"); add(row + d, col + 1, "attack"); }
     }
-  } else if (C.range === "lane") for (let r = row + 1; r < ENTRANCE_ROWS; r++) add(r, col, "attack");
+  } else if (C.range === "lane") for (let r = row + 1; r < rows; r++) add(r, col, "attack");
   return out;
 }
 // (A redraw wipes the overlays, so render() puts them back: reachShown remembers what's shown.)
@@ -1013,7 +1013,7 @@ function showReach(board, studentId, row, col) {
   clearReach();
   reachShown = { key, battle: board.classList.contains("nw-battle"), studentId, row, col };
   const layer = board.querySelector(".nw-cells");
-  const html = [{ r: row, c: col, kind: "self" }, ...reachSquares(G.nightClass(c), G.nightAbility2(c), G.nightAbility3(c), row, col)]
+  const html = [{ r: row, c: col, kind: "self" }, ...reachSquares(G.nightClass(c), G.nightAbility2(c), G.nightAbility3(c), row, col, Number(board.style.getPropertyValue("--size")) || undefined, Number(board.style.getPropertyValue("--rows")) || undefined)]
     .map(({ r, c: cc, kind }) => `<div class="nw-cell nw-reach nw-reach-${kind}" style="--r:${r};--c:${cc}"></div>`).join("");
   layer.insertAdjacentHTML("beforeend", html);
 }
@@ -1283,18 +1283,27 @@ function dropNightBattle() {
   battleAnimation = null;
 }
 function playNightBattle(afterResult) {
-  const b = G.startNightBattle(state);
-  const anim = { kind: "grid", live: true, b, summary: b, frameIndex: 0, phase: "battle", target: null, paused: false, speed: battleSpeed };
+  activeTab = "defense"; // it plays on the Night Watch board
+  playBattle(G.startNightBattle(state), "grid", (b) => G.finishNightBattle(state, b), (summary) => {
+    G.settleFallen(state, summary.fallen); // whoever wasn't saved takes their chances
+    afterResult();
+  });
+}
+// A fight played live (the night's, or an expedition's): `b` from its start, `finish` settles it into
+// the summary, `afterResult` runs once the player moves on from the result.
+function playBattle(b, kind, finish, afterResult) {
+  const anim = { kind, live: true, b, summary: b, frameIndex: 0, phase: "battle", target: null, paused: false, speed: battleSpeed };
   const sync = () => { anim.frameIndex = b.frames.length - 1; };
   const showResult = () => {
     if (anim.phase !== "battle") return;
     clearTimeout(battleTimer);
     anim.target = null;
-    anim.summary = { ...b, ...G.finishNightBattle(state, b) };
+    anim.summary = { ...b, ...finish(b) };
     anim.phase = "result";
     sync();
     (anim.summary.won ? playSuccess : playFail)();
     render();
+    anim.onResult?.();
   };
   const step = () => {
     clearTimeout(battleTimer);
@@ -1335,62 +1344,71 @@ function playNightBattle(afterResult) {
     G.runNightBattle(state, b);
     showResult();
   };
-  anim.finish = () => {
+  // (`deeper`: an expedition's team goes on to the next room)
+  anim.finish = (deeper = false) => {
     clearTimeout(battleTimer);
     battleAnimation = null;
-    G.settleFallen(state, anim.summary.fallen); // whoever wasn't saved takes their chances
-    afterResult();
+    afterResult(anim.summary, deeper);
   };
   battleAnimation = anim;
-  activeTab = "defense"; // it plays on the Night Watch board
   playHit();
   render();
   battleTimer = setTimeout(step, 900);
 }
 
-// Turn 2, once the encounters are settled: the teams go in, fight it out (the skirmish, a beat
-// every SKIRMISH_BEAT_MS), then the report — or a raid's fight first, if a squad went raiding.
+// Turn 2, once the encounters are settled: each team fights its way through its place, one after the
+// other (playBattle on the place's inside) — the raid squad last, to its boss — then the report.
 let encounter = null; // { queue: [{ teamIndex, id }], idx, result }
-let skirmish = null; // { summary, beat }
-const SKIRMISH_BEAT_MS = 850;
 function runExpeditions() {
-  const summary = G.resolveExploration(state);
+  const queue = [...G.sentTeams(state), ...(G.raidReady(state) ? [G.RAID_TEAM] : [])];
+  const fights = {};
+  const next = () => {
+    if (!queue.length) return reportExpeditions(fights);
+    const run = G.startExpeditionRun(state, queue.shift());
+    fights[run.teamIndex] = run;
+    // a room at a time, for as long as they're standing and the player sends them deeper — or, on
+    // Auto (run.auto), played out and chosen for them
+    const room = () => {
+      playBattle(G.startExpeditionBattle(state, run), "expedition", (b) => G.finishExpeditionBattle(state, run, b), (summary, deeper) => (deeper ? room() : next()));
+      const anim = battleAnimation;
+      anim.auto = () => {
+        run.auto = true;
+        if (anim.phase === "battle") anim.skip();
+        else autoChoose(anim);
+      };
+      anim.onResult = () => run.auto && setTimeout(() => autoChoose(anim), 900);
+      if (run.auto) setTimeout(() => anim.phase === "battle" && anim.skip(), 500);
+    };
+    // Auto's choices: the fallen saved with medicine while there's enough (the likeliest to die first);
+    // whatever turned up, the likeliest try (60%+) or else the safe option; then deeper while nobody
+    // went down, it's still quiet and at least half of them are standing
+    const autoChoose = (anim) => {
+      if (battleAnimation !== anim || anim.phase !== "result") return;
+      for (const f of [...(anim.summary.fallen || [])].sort((x, y) => y.deathChance - x.deathChance)) G.saveFallen(state, anim.summary.fallen, f.id);
+      while (run.event && !run.event.done) {
+        const opts = ROOM_EVENTS[run.event.id].options.map((o, i) => ({ i, o, ...G.roomEventOdds(state, run, o) }));
+        const best = opts.filter((x) => x.o.stat && x.who && x.chance >= 0.6).sort((a, c) => c.chance - a.chance)[0] || opts.find((x) => !x.o.stat) || opts[0];
+        G.resolveRoomEvent(state, run, best.i);
+      }
+      const team = G.teamMembers(state, run.teamIndex).length;
+      const deeper = anim.summary.won && run.room < run.rooms && !anim.summary.downedCount && run.noise < EXPEDITION_NOISE.loud && (team - run.out.length) * 2 >= team;
+      render();
+      setTimeout(() => battleAnimation === anim && anim.finish(deeper), 700);
+    };
+    room();
+  };
+  next();
+}
+function reportExpeditions(fights) {
+  const summary = G.resolveExploration(state, fights);
   const report = () => {
     expeditionReport = { summary, phase: "report" };
     (summary.successes > 0 || summary.raid?.won ? playSuccess : playFail)();
     render();
   };
-  const showReport = () => {
-    if (!summary.teamsSent && !summary.raid) {
-      G.advanceTurn(state);
-      render();
-      return;
-    }
-    if (!summary.teamsSent) {
-      // only a raid: the old walk out, then the report
-      expeditionReport = { summary, phase: "travel" };
-      render();
-      setTimeout(() => expeditionReport && report(), 1700);
-      return;
-    }
-    // the teams fight their way in, a beat at a time
-    skirmish = { summary, beat: 0 };
-    render();
-    const beat = () => {
-      if (!skirmish) return;
-      skirmish.beat++;
-      const teams = summary.teams;
-      if (skirmish.beat === 1) { playSwing(); playShot(); }
-      if (skirmish.beat === 2 && teams.some((t) => Object.keys(t.hurtIds).length || t.lostIds.length)) playHit();
-      if (skirmish.beat === 3) (teams.some((t) => t.success) ? playKill : playFail)();
-      render();
-      if (skirmish.beat < 3) setTimeout(beat, SKIRMISH_BEAT_MS);
-      else setTimeout(() => { skirmish = null; report(); }, 1400);
-    };
-    setTimeout(beat, SKIRMISH_BEAT_MS);
-  };
-  if (summary.raid && !summary.raid.calledOff) playRaidFight(summary.raid, showReport);
-  else showReport();
+  if (summary.teamsSent || summary.raid) return report();
+  G.advanceTurn(state);
+  render();
 }
 
 function resolveCurrentTurn() {
@@ -2021,13 +2039,40 @@ root.addEventListener("click", (e) => {
       break;
     case "save-fallen":
       // after the fight: medicine for one of the fallen
-      if (battleAnimation?.kind === "grid" && battleAnimation.phase === "result") {
+      if (battleAnimation?.live && battleAnimation.phase === "result") {
         if (!G.saveFallen(state, battleAnimation.summary.fallen || [], el.dataset.id)) flash("Not enough medicine.");
         render();
       }
       break;
     case "finish-battle":
       if (battleAnimation && battleAnimation.finish) battleAnimation.finish();
+      break;
+    case "expedition-sneak": {
+      // sneaking past: got by, they choose again (the room's counted); otherwise into the next room
+      const anim = battleAnimation;
+      const run = anim?.kind === "expedition" && anim.summary.run;
+      const res = run && G.expeditionSneak(state, run, el.dataset.kind);
+      if (!res) break;
+      if (el.dataset.kind === "sneak" && res.ok) {
+        anim.summary = { ...anim.summary, cleared: run.room, roomNo: run.room - 1, snuck: true };
+        playSuccess();
+        render();
+      } else anim.finish(true);
+      break;
+    }
+    case "room-event": {
+      const run = battleAnimation?.kind === "expedition" && battleAnimation.summary.run;
+      const res = run && G.resolveRoomEvent(state, run, Number(el.dataset.index));
+      if (!res) break;
+      (res.ok ? playSuccess : playFail)();
+      render();
+      break;
+    }
+    case "expedition-auto":
+      if (battleAnimation?.kind === "expedition") battleAnimation.auto();
+      break;
+    case "expedition-deeper":
+      if (battleAnimation?.kind === "expedition") battleAnimation.finish(true);
       break;
     case "buy-tech":
       if (!G.buyTech(state, el.dataset.id)) flash("Can't buy that yet.");
@@ -2352,6 +2397,13 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       render();
       return summary;
     },
+    // schoolDev.reveal(q, r): lift the fog off one block, as a scout would.
+    reveal(q, r) {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      if (!G.isHexExplored(state, q, r)) state.exploredHexes.push(G.hexKey(q, r));
+      render();
+      return G.hexKey(q, r);
+    },
     // schoolDev.explore(rings): lift the fog out to `rings` hexes from the school (7 = everything).
     explore(rings) {
       if (!beforeMax) beforeMax = JSON.stringify(state);
@@ -2367,6 +2419,31 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       activeTab = "overview";
       render();
       return summary;
+    },
+    // schoolDev.expedition(placeId, day): Turn 2 of that day, Team 1 (the five strongest students who
+    // can go) sent to that place — and in they go, to its fight (or, with go = false, just sent).
+    expedition(placeId = "diner", day = state.day, go = true) {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      // (a raid's landmark: the whole map scouted, the raid squad sent — as many as it needs)
+      const lm = LANDMARKS.find((l) => l.id === placeId);
+      const loc = lm || LOCATIONS.find((l) => l.id === placeId);
+      if (!loc) return `no place "${placeId}"`;
+      state.day = day;
+      state.turn = 2;
+      if (lm) exploreMap(state, 7);
+      else if (!G.isHexExplored(state, loc.hex.q, loc.hex.r)) state.exploredHexes.push(G.hexKey(loc.hex.q, loc.hex.r));
+      for (const c of state.characters) c.exploreTeam = null;
+      state.teamLocations = lm ? [null, null, null] : [placeId, null, null];
+      state.raidTarget = lm ? placeId : null;
+      const slot = lm ? G.RAID_TEAM : 0;
+      const team = state.characters.filter((c) => c.role === "student" && c.alive).sort((a, b) => (b.level || 0) - (a.level || 0))
+        .filter((c) => G.setExploreTeam(state, c.id, slot)).slice(0, lm ? lm.minTeam : 5);
+      for (const c of state.characters) if (c.exploreTeam === slot && !team.includes(c)) c.exploreTeam = null;
+      state.encounters = {};
+      activeTab = "citymap";
+      if (go) runExpeditions();
+      else render();
+      return `${team.length} to the ${loc.name}, day ${day}: ${team.map((c) => `${c.name} (${G.nightClass(c)})`).join(", ")}`;
     },
     // schoolDev.research(n): n research to spend on the tree.
     research(n = 500) {

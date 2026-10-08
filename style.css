@@ -1282,42 +1282,10 @@ body.nw-dragging .nw-top { background: rgba(79, 163, 255, 0.14); outline: 1px da
 .enc-result-bad b { color: #ff8a8a; }
 @keyframes enc-in { from { opacity: 0; transform: translateY(6px); } }
 .enc-next { display: block; width: 100%; margin-top: 10px; }
-
-/* ----- the expedition skirmish ----- */
-.sk-overlay { gap: 14px; }
-.sk-title { font-size: 20px; font-weight: 900; letter-spacing: 0.04em; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6); }
-.sk-rows { display: flex; flex-direction: column; gap: 12px; width: 980px; max-width: 94vw; }
 .exp-enc { margin-bottom: 4px; font-size: 12px; }
 .exp-enc-ok { color: #9ff0a9; }
 .exp-enc-bad { color: #ffb35c; }
-.sk-row { padding: 8px 12px 10px; border-radius: 0; border: 1px solid var(--border); border-left: 4px solid var(--team); background: rgba(14, 18, 28, 0.92); }
-.sk-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
-.sk-label .team-dot { margin: 0; }
-.sk-label .muted { font-weight: 500; }
-.sk-outcome { margin-left: auto; font-weight: 900; animation: enc-pop 0.4s ease-out; }
-.sk-won { color: #7fe0a8; }
-.sk-lost { color: #ffb35c; }
-.sk-enc { margin-left: auto; font-size: 12px; }
-.sk-field { display: grid; grid-template-columns: 1fr 70px 1fr; align-items: end; min-height: 96px; }
-.sk-team, .sk-horde { position: relative; display: flex; align-items: flex-end; gap: 8px; }
-.sk-team { justify-content: flex-end; }
-.sk-vs { text-align: center; font-size: 24px; align-self: center; animation: enc-pop 0.4s ease-out; }
-.sk-enter .sk-team { animation: sk-in-left 0.6s ease-out; }
-.sk-enter .sk-horde { animation: sk-in-right 0.6s ease-out; }
-@keyframes sk-in-left { from { transform: translateX(-60px); opacity: 0; } }
-@keyframes sk-in-right { from { transform: translateX(60px); opacity: 0; } }
-.sk-m, .sk-z { position: relative; display: grid; place-items: end center; isolation: isolate; }
-.sk-m::before, .sk-z::before { content: ""; position: absolute; z-index: -1; left: 50%; bottom: -3px; width: 70%; height: 8px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), transparent); }
-.sk-strike svg { animation: nw-lunge 0.3s ease-out; }
-.sk-down svg { transform: rotate(80deg) translate(6px, -8px); filter: grayscale(1) brightness(0.55); }
-.sk-z svg { transform-origin: 50% 100%; animation: nw-shamble 0.7s ease-in-out infinite alternate; }
-.sk-dead { opacity: 0; transition: opacity 0.5s 0.2s; }
-.sk-dying svg { animation: nw-die 0.55s ease-in forwards; }
-.sk-retreat .sk-team { transform: translateX(-24px); opacity: 0.8; transition: transform 0.6s, opacity 0.6s; }
-.sk-pop { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); font-size: 14px; font-weight: 900; color: #ffd166; text-shadow: 0 0 3px #000; pointer-events: none; animation: nw-pop 0.8s ease-out forwards; }
-.sk-pop-bad { color: #ff7a7a; }
-.sk-slash { --c: 0; --r: 0; --px: 1; left: 50%; top: 40%; }
-.sk-burst { --c: 0; --r: 0; --px: 1; left: 50%; top: 60%; }
+
 
 /* ----- formations ----- */
 /* a defender's expedition role, bottom-left of them */
@@ -2874,7 +2842,6 @@ body.nw-dragging .ex-slot { outline: 1px dashed color-mix(in srgb, var(--role) 6
 /* the boss's name and health, across the top of the arena */
 .arena-boss-hud { position: absolute; top: 10px; right: 14px; z-index: 6; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .arena-boss-hud .raid-boss-bar { width: 230px; }
-.sk-field.sk-art { background-repeat: no-repeat; padding: 0 10px 4px; border-radius: 0; background-size: cover; background-position: center bottom; image-rendering: pixelated; box-shadow: inset 0 0 30px rgba(10, 8, 20, 0.5); }
 .fight-scene.fight-scene-art { background-repeat: no-repeat; box-sizing: border-box; width: min(560px, 90vw); height: 220px; align-items: flex-end; padding-bottom: 18px; border-radius: 0; border: 1px solid #3a4153; background-size: cover; background-position: center bottom; image-rendering: pixelated; box-shadow: inset 0 0 60px rgba(4, 6, 16, 0.6); }
 .raid-chase { border-color: #4a3a5a; box-shadow: 0 0 40px rgba(120, 90, 200, 0.2); }
 
@@ -4156,3 +4123,60 @@ html[data-gfx="medium"] .nw-spawn-mark { animation: none; }
 /* the Night Watch's tiles: one the night can't pay for yet, greyed out; one waiting in tonight's line-up */
 .ex-rt.ex-rt-off { opacity: 0.4; filter: grayscale(0.7); cursor: pointer; }
 .ex-rt.ex-rt-planned { outline: 1px dashed #4fa3ff; outline-offset: -3px; }
+
+/* a place's pin on the City Map: its big icon in a badge over the building (gold; red for a raid;
+   the team's colour when one is heading there) — a team's faces sit above it */
+.cm-pin {
+  position: absolute; left: 50%; top: 0; z-index: 2; transform: translate(-50%, -62%);
+  padding: 2px; line-height: 0; pointer-events: none;
+  background: rgba(11, 13, 18, 0.85); border: 1px solid rgba(244, 211, 94, 0.8);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+.cm-lair .cm-pin { border-color: rgba(224, 69, 95, 0.9); }
+.cm-assigned .cm-pin { border-color: var(--team); box-shadow: 0 0 6px var(--team); }
+.cm-cleared .cm-pin { filter: grayscale(0.8) brightness(0.8); }
+.cm-place .cm-squad, .cm-lair .cm-squad { transform: translate(-50%, calc(-75% - 36px)); }
+.cm-compact .cm-place .cm-label { display: none; }
+
+/* Turn 2: a team's fight inside its place (ui.js renderExpeditionBattle), in a pop-up */
+.ex-fight { width: auto; max-width: none; padding: 12px; }
+.ex-fight { --ex-px: 4.2; }
+.ex-fight .nw-main > .nw-battle { --px: var(--ex-px); }
+.ex-fight .nw-side { min-height: 0; height: calc((26px + var(--rows) * 20px) * var(--ex-px)); } /* as tall as the board */
+.ex-fight .nw-horde { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.nw-room::after { background: radial-gradient(ellipse at 50% 20%, transparent 40%, rgba(2, 3, 8, 0.7) 100%); }
+.ex-haul { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border); }
+.ex-haul-row { display: grid; grid-template-columns: 70px repeat(4, 1fr); align-items: center; gap: 4px; font-weight: 700; }
+.ex-haul-row > span { display: inline-flex; align-items: center; gap: 3px; }
+.ex-haul-row small { color: var(--muted); font-weight: 500; }
+.ex-haul-all { opacity: 0.7; }
+.ex-choice { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ex-fight .nw-stats { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+/* a run's noise: a blue bar with its two marks (loud, the horde) */
+.ex-noise { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 5px 8px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border); font-size: 12px; cursor: help; }
+.ex-noise-label { font-weight: 700; }
+.ex-noise-bar { position: relative; height: 8px; background: rgba(0, 0, 0, 0.6); }
+.ex-noise-bar i { display: block; height: 100%; background: var(--bar-other); transition: width 0.3s ease; }
+.ex-noise-bar b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: rgba(255, 255, 255, 0.55); }
+.ex-noise em { font-style: normal; font-weight: 700; color: var(--muted); }
+.ex-noise-1 em { color: #ffb35c; }
+.ex-noise-2 { border-color: rgba(224, 69, 95, 0.7); }
+.ex-noise-2 em { color: #ff7a7a; }
+.ex-notice { display: block; padding: 4px 8px; font-size: 12px; font-weight: 700; font-style: normal; }
+.ex-notice-ok { color: #9ff0a9; background: rgba(76, 175, 125, 0.14); }
+.ex-notice-bad { color: #ffb35c; background: rgba(214, 69, 69, 0.14); }
+.ex-sneak { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.ex-sneak b { color: #ffd27a; }
+/* what turned up between rooms, on the board under the room's result */
+.nw-room .nw-result { flex-direction: column; gap: 10px; }
+.ex-event { pointer-events: auto; box-sizing: border-box; width: 88%; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid rgba(244, 211, 94, 0.6); background: rgba(14, 17, 24, 0.97); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6); animation: enc-in 0.3s ease-out; }
+.ex-event-head { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.ex-event-icon { line-height: 0; }
+.ex-event-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; }
+.ex-event-option { display: grid; grid-template-rows: auto auto auto; justify-items: center; gap: 1px; padding: 6px 4px; font-size: 12px; }
+.ex-event-option small { color: var(--muted); font-size: 10.5px; }
+.ex-event-option b { color: #ffd27a; }
+.ex-event-log { padding: 3px 6px; font-size: 12px; font-weight: 700; }
+.ex-event-ok { color: #9ff0a9; background: rgba(76, 175, 125, 0.14); }
+.ex-event-bad { color: #ffb35c; background: rgba(214, 69, 69, 0.14); }
+.ex-choice-wait { opacity: 0.45; pointer-events: none; }
