@@ -2609,6 +2609,23 @@ function vest(colors, extra = []) {
   for (const [x, y, c] of extra) g[y][x] = c;
   return g;
 }
+// An item of a rarity (data RARITIES): its base icon ("it_bat~rare") outlined in the rarity's colour
+// — a Mythic set piece in a rainbow, with a sparkle in the corner like a legendary. (Common keeps the
+// plain dark outline.)
+const RARITY_OUTLINE = { uncommon: "#3fae5a", rare: "#3a8ee6", epic: "#a35ae6" };
+const RAINBOW = ["#ff5a5a", "#ffa94a", "#ffe45a", "#5ad66a", "#4aa8ff", "#a86aff"];
+function rarityIcon(name) {
+  const [base, rarity] = name.split("~");
+  if (!ICONS[base]) return null;
+  return () => {
+    const g = ICONS[base]().map((row) => [...row]);
+    if (rarity === "mythic") {
+      for (const [x, y] of [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]]) if (!g[y][x]) g[y][x] = "#ffffff";
+      g.outline = (x, y) => RAINBOW[Math.floor((x + y) / 2) % RAINBOW.length];
+    } else g.outline = RARITY_OUTLINE[rarity];
+    return g;
+  };
+}
 // A legendary item: its base icon with a gold outline and a sparkle in the corner.
 function legendary(base) {
   const g = ICONS[base]().map((row) => [...row]);
@@ -6826,7 +6843,7 @@ const iconCache = new Map();
 
 export function pixelIcon(name, size = 16) {
   if (!iconCache.has(name)) {
-    const g = ICONS[name]();
+    const g = (ICONS[name] || rarityIcon(name))();
     const n = g.length;
     const color = g.map((row) => [...row]);
     // an icon with holes (g.holes) is only outlined from outside: the empty squares the edge reaches
@@ -6844,7 +6861,7 @@ export function pixelIcon(name, size = 16) {
     for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
       if (g[y][x] || (g.holes && !outside.has(y * n + x))) continue;
       const touching = [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([dx, dy]) => g[y + dy]?.[x + dx]).find(Boolean);
-      if (touching) color[y][x] = g.outline || outlineOf(touching);
+      if (touching) color[y][x] = typeof g.outline === "function" ? g.outline(x, y) : g.outline || outlineOf(touching);
     }
     let rects = "";
     for (let y = 0; y < n; y++) {

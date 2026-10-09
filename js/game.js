@@ -14,7 +14,7 @@ import {
   FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
   EVENT_CHANCE, EVENTS, TECH_TREE,
   SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
-  ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, ITEM_TEMPLATES,
+  ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES,
   NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
   EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
   zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay,
@@ -28,14 +28,14 @@ import {
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
   OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
-  MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, LEGENDARY_ITEM_TEMPLATES,
+  MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES,
   LEGENDARY_TITLES, MAP_MILESTONES,
 } from "./data.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, capTeacherGrades, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, fitName, teachingBonus,
-  bestClassroomSubjectFor, emptyEquipment, makeItem, makeLegendaryItem, maxStaminaFor, skillCount, gradeCap,
+  bestClassroomSubjectFor, emptyEquipment, makeLegendaryItem, rollItem, weaponCategory, maxStaminaFor, skillCount, gradeCap,
 } from "./characters.js";
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -1142,11 +1142,10 @@ export function syncYard(state) {
   }
 }
 
-// A random tier 1-2 item, of a slot type if given ("weapon", "armor").
-function yardItem(slot) {
-  const pool = ITEM_TEMPLATES.filter((t) => itemTier(t) <= 2 && (!slot || t.slot === slot));
-  return makeItem(pick(pool).id);
-}
+// An item as a log or a find names it: its icon, its name and (past Common) its rarity.
+export const itemLabel = (it) => `${it.icon} ${it.name}${it.rarity && it.rarity !== "common" ? ` (${RARITIES[it.rarity].name})` : ""}`;
+// Something the yards turn up, of a slot type if given ("weapon", "armor") — as a tier 1 place's finds.
+const yardItem = (slot) => rollItem(ITEM_DROP_ODDS[1], slot);
 
 // The Scrapyard's day: the crew strips what's ready, then every pile builds up a day.
 function resolveYard(state) {
@@ -1209,7 +1208,7 @@ function resolveCourtyard(state) {
   tire(yardHands, YARD_STAMINA_COST);
   const yard = resolveYard(state);
   if (yardHands.length) {
-    const made = [`${haul + yard.scrap} scrap`, ...(yard.research ? [`${yard.research} research`] : []), ...yard.items.map((it) => `${it.icon} ${it.name}`), ...pantryText(yard.pantry)];
+    const made = [`${haul + yard.scrap} scrap`, ...(yard.research ? [`${yard.research} research`] : []), ...yard.items.map(itemLabel), ...pantryText(yard.pantry)];
     addLog(state, `The Scrapyard brings in ${made.join(", ")} from ${yardHands.length} student(s).`);
   }
   const herbs = own("greenhouse", herbHands);
@@ -1422,7 +1421,9 @@ export function expeditionGearLevel(location) {
   return Math.max(1, Math.min(5, Math.round((expeditionNeed(location) - EXPEDITION_LOOT.gearFrom) / EXPEDITION_LOOT.gearStep)));
 }
 export const expeditionGearChance = (location) => EXPEDITION_ITEM_CHANCE + expeditionGearLevel(location) * 0.08;
-export const expeditionGearTier = (location) => Math.min(4, Math.ceil(expeditionGearLevel(location) * 0.8));
+// A place's tier (1-4, by its difficulty: the rings out from the school) — or "raid" — for what its
+// finds turn out to be (ITEM_DROP_ODDS).
+export const poiTier = (location) => (location.raid ? "raid" : location.difficulty <= 2 ? location.difficulty : location.difficulty <= 4 ? 3 : 4);
 // A team's odds at a place: EXPEDITION_ODDS_AT_NEED with exactly the power it needs, ±1% per
 // EXPEDITION_POWER_PER_PERCENT over or under, plus research, minus a nest or the horde next door.
 export function expeditionOdds(state, teamIndex, location) {
@@ -1618,21 +1619,12 @@ export function resolveTraining(state) {
 
 // ---------- TURN 2: exploration ----------
 
-// Rough 1-4 power tier from an item's total stat bonuses, so harder locations can drop better gear.
-function itemTier(t) {
-  const sum = Object.values(t.bonuses).reduce((a, b) => a + b, 0);
-  return sum <= 4 ? 1 : sum <= 6 ? 2 : sum <= 8 ? 3 : 4;
-}
-
-// Legendary gear never drops here — it only arrives on legendary survivors. Harder places find
-// gear more often, and better (expeditionGearLevel).
+// Harder places find gear more often (expeditionGearLevel), and of a better rarity (their tier's
+// ITEM_DROP_ODDS); a place that leans toward a kind of gear (lootBias) turns it up half the time.
 function rollExpeditionItem(state, location, success, bonus = 0) {
   const chance = (success ? expeditionGearChance(location) + (location.gearBonus || 0) : EXPEDITION_ITEM_CHANCE_FAILED) + techPerk(state, "itemChance") + bonus;
   if (Math.random() >= chance) return null;
-  const maxTier = expeditionGearTier(location);
-  const pool = ITEM_TEMPLATES.filter((t) => itemTier(t) <= maxTier);
-  const weighted = pool.flatMap((t) => (t.slot === location.lootBias ? [t, t, t] : [t]));
-  const item = makeItem(pick(weighted).id);
+  const item = rollItem(ITEM_DROP_ODDS[poiTier(location)], location.lootBias && Math.random() < 0.5 ? location.lootBias : null);
   state.armory.push(item);
   return item;
 }
@@ -1756,8 +1748,8 @@ export function resolveExploration(state, fights = {}) {
     const found = rollExpeditionItem(state, location, success, avg("Physics") * TUNE.itemChancePerInt + (fight && fight.room >= fight.rooms ? EXPEDITION_ROOM.clearGear : 0));
     if (found) {
       itemsFound.push(found);
-      report.finds.push(`${found.icon} ${found.name}`);
-      addLog(state, `The team brought back ${found.icon} ${found.name} from the ${location.name} — it's in the armory.`);
+      report.finds.push(itemLabel(found));
+      addLog(state, `The team brought back ${itemLabel(found)} from the ${location.name} — it's in the armory.`);
     }
     const ingredient = rollExpeditionIngredient(state, location, success);
     if (ingredient) {
@@ -2232,10 +2224,14 @@ export function battleTick(state, b) {
       killZombie(b, z, events);
     }
   };
-  // a Medic or Rallier with a zombie right in front of them shoves it with their fists, so nothing
-  // can stand there biting them forever while the Medics patch them up
-  const shove = (s) => {
+  // a Rallier hits the zombie right in front of them (with their melee weapon, or fists); a Medic with
+  // nobody to heal fires at the nearest one down their lane (their ranged weapon, or rocks)
+  const swing = (s) => {
     const z = zombieAt(b, s.row + 1, s.col);
+    if (z) strike(s, z);
+  };
+  const shoot = (s) => {
+    const z = b.zombies.filter((x) => x.alive && x.col === s.col && x.row > s.row).sort((a, c) => a.row - c.row)[0];
     if (z) strike(s, z);
   };
   for (const s of b.students) {
@@ -2249,7 +2245,7 @@ export function battleTick(state, b) {
         s.stats.morale += gain;
         events.push({ type: "morale", at: [s.row, s.col], amount: gain });
       }
-      shove(s);
+      swing(s);
       continue;
     }
     if (s.cls === "medic") {
@@ -2264,8 +2260,7 @@ export function battleTick(state, b) {
         p.hp += heal;
         s.stats.healed += heal;
         events.push({ type: "mend", at: [p.row, p.col], from: [s.row, s.col], amount: heal });
-      }
-      shove(s);
+      } else shoot(s);
       continue;
     }
     // Repair: a Trapper patches the wall in their lane
@@ -2660,7 +2655,7 @@ export function resolveRoomEvent(state, run, index) {
   }
   if (fx.item) {
     const item = rollExpeditionItem(state, loc, true, 1);
-    if (item) run.finds.push(`${item.icon} ${item.name}`);
+    if (item) run.finds.push(itemLabel(item));
   }
   if (fx.recruit) {
     const recruit = makeCharacter(rollRecruitRole(state), Math.random() < 0.5 ? "M" : "F");
@@ -2738,7 +2733,7 @@ export function expeditionHaul(state, members, location, share) {
   const stew = (key) => (key === "materials" ? dishMultiplier(state, "expeditionMaterials") : 1);
   return Object.fromEntries(Object.keys(location.rewards).map((key) => [key, location.rewards[key] * mult * stew(key) * carry(key)]));
 }
-const ROOM_FRONT_ORDER = { tank: 0, brawler: 1, trapper: 2, shooter: 3, rallier: 4, medic: 5 };
+const ROOM_FRONT_ORDER = { tank: 0, brawler: 1, rallier: 2, trapper: 3, shooter: 4, medic: 5 };
 export function startExpeditionBattle(state, run) {
   const R = EXPEDITION_ROOM;
   const location = expeditionPlace(run.locationId);
@@ -2887,10 +2882,10 @@ export function finishNightBattle(state, b) {
     state.bossesSlain.push(bossName);
     state.resources.materials += 25;
     state.resources.food += 15;
-    const item = makeItem(pick(ITEM_TEMPLATES.filter((t) => itemTier(t) >= 3)).id);
+    const item = rollItem(ITEM_DROP_ODDS[3]);
     state.armory.push(item);
     adjustHappiness(state, HAPPINESS_GAIN_WIN);
-    addLog(state, `${bossName} is down! Its hoard: +25 scrap, +15 food and ${item.icon} ${item.name}.`);
+    addLog(state, `${bossName} is down! Its hoard: +25 scrap, +15 food and ${itemLabel(item)}.`);
   } else if (bossName) {
     addLog(state, `${bossName} survived the night and slunk back into the dark.`);
   }
@@ -3508,7 +3503,8 @@ export function autoEquip(state, charId) {
   c.equipment = c.equipment || { meleeWeapon: null, rangedWeapon: null, armor: null, accessories: [null, null, null] };
   const bonusSum = (it) => (it ? Object.values(it.bonuses || {}).reduce((s, v) => s + v, 0) : -1);
   let changes = 0;
-  for (const [slot, type, category] of [["meleeWeapon", "weapon", "melee"], ["rangedWeapon", "weapon", "ranged"], ["armor", "armor", null]]) {
+  const weaponSlot = weaponCategory(c) === "ranged" ? ["rangedWeapon", "weapon", "ranged"] : ["meleeWeapon", "weapon", "melee"];
+  for (const [slot, type, category] of [weaponSlot, ["armor", "armor", null]]) {
     const current = c.equipment[slot];
     const score = (it) => {
       c.equipment[slot] = it;
@@ -3550,6 +3546,7 @@ export function equipItem(state, charId, slot, itemUid) {
   if (item.slot !== requiredSlotType(slot)) return false;
   if (slot === "meleeWeapon" && item.category !== "melee") return false;
   if (slot === "rangedWeapon" && item.category !== "ranged") return false;
+  if (item.slot === "weapon" && item.category !== weaponCategory(c)) return false; // (their class's kind only)
   if (!meetsItemRequirement(c, item)) return false;
 
   state.armory.splice(idx, 1);
@@ -3771,9 +3768,9 @@ function rollHexFind(state, scout, q, r) {
     state.resources[key] += amt;
     text = `a stash of supplies: +${amt} ${RESOURCE_NAME[key]}`;
   } else if (type === "gear") {
-    const item = makeItem(pick(ITEM_TEMPLATES.filter((t) => itemTier(t) <= 2)).id);
+    const item = rollItem(ITEM_DROP_ODDS[1]);
     state.armory.push(item);
-    text = `${item.icon} ${item.name} — it's in the armory`;
+    text = `${itemLabel(item)} — it's in the armory`;
   } else if (type === "ingredient") {
     const id = pick(SCAVENGED_INGREDIENTS);
     const n = randInt(1, 2);
@@ -3879,9 +3876,9 @@ export function collectDrop(state, studentId, q, r) {
   } else if (drop.kind === "wreck") {
     const amt = randInt(12, 22);
     state.resources.materials += amt;
-    const item = Math.random() < 0.3 ? makeItem(pick(ITEM_TEMPLATES.filter((t) => itemTier(t) <= 2)).id) : null;
+    const item = Math.random() < 0.3 ? rollItem(ITEM_DROP_ODDS[1]) : null;
     if (item) state.armory.push(item);
-    text = `+${amt} scrap${item ? ` and ${item.icon} ${item.name}` : ""}`;
+    text = `+${amt} scrap${item ? ` and ${itemLabel(item)}` : ""}`;
   } else {
     const recruit = makeCharacter(rollRecruitRole(state), pick(["M", "F"]));
     text = addRecruit(state, recruit)
@@ -3913,14 +3910,14 @@ export function clearNest(state, q, r, ids) {
     state.nests = state.nests.filter((k) => k !== hexKey(q, r));
     const amt = randInt(8, 16);
     state.resources.materials += amt;
-    const item = Math.random() < 0.4 ? makeItem(pick(ITEM_TEMPLATES.filter((t) => itemTier(t) <= 3)).id) : null;
+    const item = Math.random() < 0.4 ? rollItem(ITEM_DROP_ODDS[2]) : null;
     if (item) state.armory.push(item);
     for (const c of squad) {
       grantXp(state, c.id, "PE", 3 + randInt(0, 2));
       grantXp(state, c.id, "Gymnastics", 3 + randInt(0, 2));
       gainExp(state, c, LEVEL_XP.nest);
     }
-    const loot = `+${amt} scrap${item ? ` and ${item.icon} ${item.name}` : ""}`;
+    const loot = `+${amt} scrap${item ? ` and ${itemLabel(item)}` : ""}`;
     addLog(state, `${names} burned out a zombie nest: ${loot}.`);
     return { won: true, loot, hurt: [] };
   }
@@ -3967,7 +3964,7 @@ export function checkMapMilestones(state) {
     const item = makeLegendaryItem();
     state.armory.push(item);
     reached.push({ pct: m, item });
-    addLog(state, `🗺 ${m}% of the town mapped — the scouts turned up ${item.icon} ${item.name} on the way. It's in the armory.`);
+    addLog(state, `🗺 ${m}% of the town mapped — the scouts turned up ${itemLabel(item)} on the way. It's in the armory.`);
     if (m === 100) addLog(state, `🗺 Every block is mapped. Out past the edge of town the four raids are open: the City Mall, the General Hospital, the Military Base and the Research Institute.`);
   }
   return reached;
@@ -4096,15 +4093,8 @@ function resolveRaid(state, run) {
       state.resources[key] += amt;
       report.loot[key] = amt;
     }
-    const legendaryPool = LEGENDARY_ITEM_TEMPLATES.filter((t) => !landmark.legendarySlot || t.slot === landmark.legendarySlot);
-    for (let i = 0; i < landmark.legendaryItems; i++) {
-      const item = makeLegendaryItem(pick(legendaryPool));
-      state.armory.push(item);
-      report.items.push(item);
-    }
-    const gearPool = ITEM_TEMPLATES.filter((t) => (landmark.gearSlots || []).includes(t.slot));
-    for (let i = 0; i < (landmark.extraGear || 0) && gearPool.length; i++) {
-      const item = makeItem(pick(gearPool).id);
+    for (let i = 0; i < landmark.drops; i++) {
+      const item = rollItem(ITEM_DROP_ODDS.raid, landmark.dropSlots.length ? pick(landmark.dropSlots) : null);
       state.armory.push(item);
       report.items.push(item);
     }
@@ -4112,7 +4102,7 @@ function resolveRaid(state, run) {
     state.raidKills[landmark.id] = (state.raidKills[landmark.id] || 0) + 1;
     state.raidCooldowns[landmark.id] = state.day + landmark.respawnDays;
     adjustHappiness(state, HAPPINESS_GAIN_WIN * 2);
-    addLog(state, `☠ Raid on the ${landmark.name}: ${boss.name} is dead! Loot: ${report.items.map((i) => `${i.icon} ${i.name}`).join(", ")}.${report.recruit ? ` ${report.recruit} was freed and wants to join.` : ""}`);
+    addLog(state, `☠ Raid on the ${landmark.name}: ${boss.name} is dead! Loot: ${report.items.map(itemLabel).join(", ")}.${report.recruit ? ` ${report.recruit} was freed and wants to join.` : ""}`);
   } else {
     adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL * 2);
     addLog(state, `☠ Raid on the ${landmark.name}: the squad couldn't bring ${boss.name} down and fell back.`);

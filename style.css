@@ -3499,7 +3499,10 @@ html[data-gfx="low"] .tt-ready, html[data-gfx="medium"] .tt-ready { animation: n
 .cs-uses span { padding: 1px 6px; border-radius: 0; background: rgba(255, 255, 255, 0.05); font-size: 10.5px; color: var(--muted); }
 
 /* Inventory: six slots, the totals and Auto-equip */
-.ci-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.ci-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+/* the weapon and the armour side by side, the three accessories under them */
+.ci-grid > .ci-slot { grid-column: span 2; }
+.ci-grid > .ci-slot:nth-child(-n + 2) { grid-column: span 3; }
 .ci-slot { position: relative; display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto auto auto; column-gap: 10px; row-gap: 2px; min-height: 92px; padding: 10px 12px; border-radius: 0; background: var(--panel-2); border: 1px solid var(--border); }
 .ci-label { grid-column: 1 / -1; font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); }
 .ci-icon { grid-row: 2 / 5; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 0; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08); font-size: 25px; }
@@ -4180,3 +4183,35 @@ html[data-gfx="medium"] .nw-spawn-mark { animation: none; }
 .ex-event-ok { color: #9ff0a9; background: rgba(76, 175, 125, 0.14); }
 .ex-event-bad { color: #ffb35c; background: rgba(214, 69, 69, 0.14); }
 .ex-choice-wait { opacity: 0.45; pointer-events: none; }
+
+/* ===== Item rarity (data RARITIES): the name's colour — a Mythic one in a moving rainbow ===== */
+.rar-common { color: #b4b9c0; }
+.rar-uncommon { color: #5ccf6e; }
+.rar-rare { color: #4a9eff; }
+.rar-epic { color: #b56ef5; }
+.rar-legendary { color: #f4c542; }
+.rar-mythic {
+  background: linear-gradient(90deg, #ff5a5a, #ffa94a, #ffe45a, #5ad66a, #4aa8ff, #a86aff, #ff5a5a);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: rar-rainbow 4s linear infinite;
+}
+@keyframes rar-rainbow { to { background-position: 200% 0; } }
+.rar-tag { margin-left: 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.02em; opacity: 0.85; }
+.armory-item.armory-uncommon { box-shadow: inset 3px 0 #5ccf6e; }
+.armory-item.armory-rare { box-shadow: inset 3px 0 #4a9eff; }
+.armory-item.armory-epic { box-shadow: inset 3px 0 #b56ef5; }
+.armory-item.armory-legendary { box-shadow: inset 3px 0 #f4c542; }
+.armory-item.armory-mythic { box-shadow: inset 3px 0 #ff8ad8; }
+.ci-slot.ci-uncommon { border-color: rgba(92, 207, 110, 0.6); }
+.ci-slot.ci-rare { border-color: rgba(74, 158, 255, 0.6); }
+.ci-slot.ci-epic { border-color: rgba(181, 110, 245, 0.65); }
+.ci-slot.ci-legendary { border-color: rgba(244, 197, 66, 0.7); }
+.ci-slot.ci-mythic { border-color: rgba(255, 138, 216, 0.75); box-shadow: 0 0 8px rgba(255, 138, 216, 0.25); }
+.ci-sets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ci-set { padding: 3px 8px; font-size: 12px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border); cursor: help; }
+.ci-set-on { border-color: rgba(255, 138, 216, 0.75); box-shadow: 0 0 8px rgba(255, 138, 216, 0.3); }
+.il-rarities { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.il-rarity { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border); }
+.il-sets { display: flex; flex-direction: column; gap: 10px; }
+.il-set-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; font-size: 13px; }

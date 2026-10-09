@@ -240,6 +240,67 @@ export const LEGENDARY_ITEM_TEMPLATES = [
   { id: "legendary_ring", name: "Captain's Signet", slot: "accessory", icon: "💍", bonuses: { CHA: 16, WIS: 6 }, legendary: true },
 ];
 
+// ===== Rarity =====
+// Every item has one. Common to Epic are the base items above with their numbers (stat bonuses and
+// damage) × `mult` and their STR/DEX floor + `req`; Legendary are the named items above
+// (LEGENDARY_ITEM_TEMPLATES) as they are; Mythic are the set pieces below (MYTHIC_SETS). `color`
+// is the name's and the icon's outline ("rainbow" for Mythic).
+export const RARITIES = {
+  common: { name: "Common", color: "#b4b9c0", mult: 1, req: 0 },
+  uncommon: { name: "Uncommon", color: "#5ccf6e", mult: 1.35, req: 5 },
+  rare: { name: "Rare", color: "#4a9eff", mult: 1.75, req: 10 },
+  epic: { name: "Epic", color: "#b56ef5", mult: 2.2, req: 15 },
+  legendary: { name: "Legendary", color: "#f4c542" },
+  mythic: { name: "Mythic", color: "rainbow" },
+};
+export const RARITY_ORDER = Object.keys(RARITIES);
+// What an item found somewhere turns out to be, by where: a City Map place's tier (1-4, the rings
+// out from the school — data LOCATIONS, game.js poiTier) or a raid. The rest of the map's finds
+// use these too: a scouted block, a wreck or the yards like a tier 1 place, a nest like a tier 2,
+// a boss night's hoard like a tier 3.
+export const ITEM_DROP_ODDS = {
+  1: { common: 0.3, uncommon: 0.6, rare: 0.1 },
+  2: { uncommon: 0.3, rare: 0.6, epic: 0.1 },
+  3: { rare: 0.3, epic: 0.6, legendary: 0.1 },
+  4: { rare: 0.2, epic: 0.6, legendary: 0.2 },
+  raid: { epic: 0.3, legendary: 0.6, mythic: 0.1 },
+};
+// Mythic sets, one for each stat: a weapon, an armour and an accessory. Each piece is about as strong
+// as a legendary; wearing all three adds the set's `bonus` on top. A piece's `look` is the base
+// item it's drawn as (in rainbow).
+export const MYTHIC_SETS = [
+  { id: "linebacker", name: "Varsity Linebacker", stat: "STR", bonus: { STR: 25, CON: 10 }, pieces: [
+    { id: "set_linebacker_sledge", name: "Linebacker's Sledge", slot: "weapon", category: "melee", look: "sledgehammer", icon: "🔨", bonuses: { STR: 16, CON: 4 }, damage: 34, range: 2, requires: { STR: 70 } },
+    { id: "set_linebacker_pads", name: "Linebacker's Pads", slot: "armor", look: "football_pads", icon: "🏈", bonuses: { CON: 14, STR: 8 } },
+    { id: "set_linebacker_ring", name: "Linebacker's Title Ring", slot: "accessory", look: "class_ring", icon: "💍", bonuses: { STR: 12, CHA: 4 } },
+  ] },
+  { id: "track_star", name: "Track Star", stat: "DEX", bonus: { DEX: 25, STR: 10 }, pieces: [
+    { id: "set_track_javelin", name: "Track Star's Javelin", slot: "weapon", category: "ranged", look: "javelin", icon: "🥍", bonuses: { DEX: 16, STR: 4 }, damage: 32, range: 8, requires: { DEX: 70 } },
+    { id: "set_track_jacket", name: "Track Star's Jacket", slot: "armor", look: "motorcycle_jacket", icon: "🏍", bonuses: { DEX: 10, CON: 10 } },
+    { id: "set_track_stopwatch", name: "Track Star's Stopwatch", slot: "accessory", look: "watch", icon: "⌚", bonuses: { DEX: 12, WIS: 4 } },
+  ] },
+  { id: "janitor", name: "Night Janitor", stat: "CON", bonus: { CON: 25, STR: 10 }, pieces: [
+    { id: "set_janitor_broom", name: "Janitor's Push Broom", slot: "weapon", category: "melee", look: "broom_spear", icon: "🧹", bonuses: { CON: 10, STR: 8 }, damage: 30, range: 2, requires: { STR: 60 } },
+    { id: "set_janitor_coveralls", name: "Janitor's Coveralls", slot: "armor", look: "riot_harness", icon: "🛡", bonuses: { CON: 22 } },
+    { id: "set_janitor_walkie", name: "Janitor's Walkie-Talkie", slot: "accessory", look: "walkie_talkie", icon: "📻", bonuses: { CON: 10, WIS: 6 } },
+  ] },
+  { id: "scientist", name: "Mad Scientist", stat: "INT", bonus: { INT: 25, WIS: 10 }, pieces: [
+    { id: "set_scientist_railgun", name: "Science Fair Railgun", slot: "weapon", category: "ranged", look: "potato_cannon", icon: "🥔", bonuses: { INT: 12, DEX: 6 }, damage: 34, range: 8, requires: { DEX: 65 } },
+    { id: "set_scientist_coat", name: "Hazmat Lab Coat", slot: "armor", look: "lab_coat", icon: "🥼", bonuses: { INT: 12, CON: 12 } },
+    { id: "set_scientist_goggles", name: "Goggles of Insight", slot: "accessory", look: "glasses", icon: "👓", bonuses: { INT: 16 } },
+  ] },
+  { id: "scout_leader", name: "Scout Leader", stat: "WIS", bonus: { WIS: 25, CON: 10 }, pieces: [
+    { id: "set_scout_longbow", name: "Scout Leader's Longbow", slot: "weapon", category: "ranged", look: "recurve_bow", icon: "🏹", bonuses: { WIS: 10, DEX: 8 }, damage: 30, range: 9, requires: { DEX: 65 } },
+    { id: "set_scout_coat", name: "Scout Leader's Field Coat", slot: "armor", look: "winter_coat", icon: "🧥", bonuses: { CON: 12, WIS: 10 } },
+    { id: "set_scout_compass", name: "Scout Leader's Compass", slot: "accessory", look: "compass", icon: "🧭", bonuses: { WIS: 16, INT: 4 } },
+  ] },
+  { id: "president", name: "Class President", stat: "CHA", bonus: { CHA: 25, WIS: 10 }, pieces: [
+    { id: "set_president_trophy", name: "President's Trophy", slot: "weapon", category: "melee", look: "trophy", icon: "🏆", bonuses: { CHA: 12, STR: 6 }, damage: 28, range: 1, requires: { STR: 55 } },
+    { id: "set_president_blazer", name: "President's Blazer", slot: "armor", look: "letterman_jacket", icon: "🏅", bonuses: { CHA: 12, CON: 10 } },
+    { id: "set_president_shades", name: "President's Shades", slot: "accessory", look: "sunglasses", icon: "🕶", bonuses: { CHA: 16 } },
+  ] },
+];
+
 export const LEGENDARY_TITLES = ["the Relentless", "the Unbroken", "the Last Stand", "the Ironclad", "the Undying", "the Reaper's Bane"];
 
 // ===== Main Entrance battle grid =====
@@ -333,10 +394,10 @@ export const NIGHT_CLASSES = {
   trapper: { subject: "Physics", name: "Trapper", icon: "🕸", range: "lane", weapon: "ranged", dmgMult: 0.5, slowTurns: 3, desc: "Fires down the lane for half a shot's damage and slows its target to half speed",
     ability2: { name: "Repair", repair: 0.1, desc: "Patches the wall in their lane by 10% a turn" },
     ability3: { name: "Wide Net", chance: 0.2, turns: 2, desc: "20% chance a hit nets every zombie in their lane for 2 turns" } },
-  medic: { subject: "History", name: "Medic", icon: "🩹", range: "around", heal: 0.05, healPerGrade: 1 / 2000, desc: "Heals the most hurt student next to them every turn — only shoves a zombie right in front with their fists",
+  medic: { subject: "History", name: "Medic", icon: "🩹", range: "around", weapon: "ranged", dmgMult: 0.5, heal: 0.05, healPerGrade: 1 / 2000, desc: "Heals the most hurt student next to them every turn — with nobody to heal, fires down the lane for half a shot's damage",
     ability2: { name: "Long Reach", reach: 2, desc: "Heals anyone up to 2 squares away" },
     ability3: { name: "Field Surgeon", desc: "Also heals anyone in their lane" } },
-  rallier: { subject: "SocialStudies", name: "Rallier", icon: "📣", morale: 5, every: 2, desc: "Makes 5 morale every 2 turns — only shoves a zombie right in front with their fists",
+  rallier: { subject: "SocialStudies", name: "Rallier", icon: "📣", range: "front", weapon: "melee", dmgMult: 0.6, morale: 5, every: 2, desc: "Makes 5 morale every 2 turns, and hits the zombie in front of them for a little over half a Brawler's damage",
     ability2: { name: "Rally Cry", buff: 0.2, hp: 0.2, desc: "Students in their lane deal 20% more damage and have 20% more HP" },
     ability3: { name: "Inspire", moraleMult: 2, desc: "Makes double morale" } },
 };
@@ -1423,8 +1484,8 @@ export const HORDE_START_RING = 5;
 // its own resources. They stay under the fog with the rest of the outskirts until every block of
 // the map has been scouted (MAP_MILESTONES' 100%). Each holds a raid boss that needs a
 // bigger, higher-level squad (up to RAID_MAX_TEAM, launched with the day's expeditions). Beating it
-// pays its `rewards`, `legendaryItems` from its `legendarySlot` (any slot if null), `extraGear`
-// common items from `gearSlots`, and can free a legendary survivor; it comes back `respawnDays`
+// pays its `rewards` and `drops` items (ITEM_DROP_ODDS.raid: epic, legendary or mythic) for its
+// `dropSlots` (any slot if empty), and can free a legendary survivor; it comes back `respawnDays`
 // later, 25% tougher for every time it's been killed. `at` is where it's drawn (world pixels).
 // Mapping the town: every 25% of the map's blocks scouted pays out a legendary item; 100% also
 // opens the raids and the outskirts.
@@ -1438,7 +1499,7 @@ export const LANDMARKS = [
     focus: "Food, scrap and accessories",
     desc: "Three floors of shops and a food court the dead never left. Mall security still walks the rounds.",
     boss: { name: "The Security Chief", look: "guard", hp: 520, damage: 18, attacks: 2 },
-    minTeam: 5, minLevel: 3, legendaryItems: 1, legendarySlot: "accessory", extraGear: 2, gearSlots: ["accessory"], legendaryRecruitChance: 0.5,
+    minTeam: 5, minLevel: 3, drops: 3, dropSlots: ["accessory"], legendaryRecruitChance: 0.5,
     rewards: { food: 60, materials: 25, medicine: 5 }, respawnDays: 4,
   },
   {
@@ -1446,7 +1507,7 @@ export const LANDMARKS = [
     focus: "Medicine and serum",
     desc: "The mother lode of medicine — and of the infected. The head surgeon is still on call.",
     boss: { name: "The Head Surgeon", look: "surgeon", hp: 760, damage: 22, attacks: 2 },
-    minTeam: 6, minLevel: 4, legendaryItems: 1, legendarySlot: "armor", extraGear: 1, gearSlots: ["armor"], legendaryRecruitChance: 0.4,
+    minTeam: 6, minLevel: 4, drops: 2, dropSlots: ["armor"], legendaryRecruitChance: 0.4,
     rewards: { food: 5, materials: 10, medicine: 60, serum: 2 }, respawnDays: 5,
   },
   {
@@ -1454,7 +1515,7 @@ export const LANDMARKS = [
     focus: "Scrap, weapons and armour",
     desc: "The army's staging base, overrun on the first night. Something in there still wears the sergeant's stripes.",
     boss: { name: "Sergeant Rot", look: "soldier", hp: 1080, damage: 24, attacks: 3 },
-    minTeam: 7, minLevel: 5, legendaryItems: 1, legendarySlot: "weapon", extraGear: 3, gearSlots: ["weapon", "armor"], legendaryRecruitChance: 0.4,
+    minTeam: 7, minLevel: 5, drops: 4, dropSlots: ["weapon", "armor"], legendaryRecruitChance: 0.4,
     rewards: { food: 15, materials: 70, medicine: 10 }, respawnDays: 5,
   },
   {
@@ -1462,7 +1523,7 @@ export const LANDMARKS = [
     focus: "Research and serum",
     desc: "Where the outbreak started. Patient zero never left the building.",
     boss: { name: "Subject Zero", look: "labcoat", hp: 1520, damage: 28, attacks: 3 },
-    minTeam: 8, minLevel: 6, legendaryItems: 2, legendarySlot: null, extraGear: 0, gearSlots: [], legendaryRecruitChance: 0.7,
+    minTeam: 8, minLevel: 6, drops: 2, dropSlots: [], legendaryRecruitChance: 0.7,
     rewards: { food: 10, materials: 15, medicine: 20, research: 60, serum: 3 }, respawnDays: 6,
   },
 ];

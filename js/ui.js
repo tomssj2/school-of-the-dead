@@ -3,7 +3,7 @@ import {
   CLASSROOM_CAPACITY, LOCATIONS,
   GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, CRAFT_HELP_WIS_PER_POINT, roomUpgradeCost,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
-  ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
+  ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, RARITIES, RARITY_ORDER, ITEM_DROP_ODDS, MYTHIC_SETS, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
   NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_CLASSES, NIGHT_MORALE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, GREENHOUSE_JOBS, GREENHOUSE_YIELD_MEDICINE, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
@@ -14,12 +14,12 @@ import {
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus, gradeCap, gradeCapLetter,
-  bestClassroomSubjectFor, stripHonorific,
+  bestClassroomSubjectFor, stripHonorific, setsWorn, weaponCategory,
 } from "./characters.js";
 import {
   getChar, aliveChars, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionHaul, expeditionPlace, expeditionForecast, expeditionRooms, expeditionRoomZombies, battleNoise, expeditionSneakOdds, runShare, roomEventOdds, expeditionGearChance, expeditionGearTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
+  techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionHaul, expeditionPlace, expeditionForecast, expeditionRooms, expeditionRoomZombies, battleNoise, expeditionSneakOdds, runShare, roomEventOdds, expeditionGearChance, poiTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
   fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
   gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, clearOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM,
 } from "./game.js";
@@ -138,8 +138,23 @@ const SKULL_ICON = pxe("skull");
 const DROP_ICON = Object.fromEntries(Object.entries(MAP_DROPS).map(([k, d]) => [k, d.icon]));
 // An item's pixel icon, by its template id ("it_<id>" in scenes.js). Saved items carry their own
 // copy of the old emoji, and several items share one, so the id — not the emoji — picks it.
+// Past Common, the icon's outline is the rarity's colour (scenes.js rarityIcon: "it_bat~rare"); a
+// Mythic set piece is drawn as its base item (`look`), in a rainbow; a Legendary has its own.
 const ITEM_IDS = new Set([...ITEM_TEMPLATES, ...LEGENDARY_ITEM_TEMPLATES].map((t) => t.id));
-const itemIcon = (it) => (it && ITEM_IDS.has(it.id) ? pxe(`it_${it.id}`) : it?.icon || "");
+const rarityOf = (it) => it?.rarity || (it?.legendary ? "legendary" : "common");
+const itemIcon = (it) => {
+  const base = it?.look || it?.id;
+  if (!base || !ITEM_IDS.has(base)) return it?.icon || "";
+  const r = rarityOf(it);
+  return pxe(r === "common" || r === "legendary" ? `it_${base}` : `it_${base}~${r}`);
+};
+// An item's name in its rarity's colour (a Mythic one in a rainbow), its rarity after it unless `bare`.
+const itemName = (it, bare = false) => {
+  const r = rarityOf(it);
+  return `<span class="rar rar-${r}">${esc(it.name)}${bare ? "" : ` <small class="rar-tag">${RARITIES[r].name}</small>`}</span>`;
+};
+// The odds of each rarity, as chips: "30% Common · 60% Uncommon · 10% Rare".
+const rarityOdds = (odds) => Object.entries(odds).map(([r, p]) => `<span class="rar rar-${r}">${Math.round(p * 100)}% ${RARITIES[r].name}</span>`).join(" · ");
 
 // Expedition teams 1-3 and the raid squad each get a colour for their route, markers and chips.
 const TEAM_COLORS = ["#4caf7d", "#3fa7d6", "#e0a536", "#e0455f"];
@@ -1867,8 +1882,7 @@ export function renderRaidModal(state, landmarkId) {
       <span class="raid-req raid-req-ok">⭐ Lv${lm.minLevel}+ each</span>
     </div>
     <div class="raid-rewards">
-      <span class="legend-text">🌟 ${lm.legendaryItems} legendary ${lm.legendarySlot ? { weapon: "weapon", armor: "armour", accessory: "accessory" }[lm.legendarySlot] : "item"}${lm.legendaryItems > 1 ? "s" : ""}</span>
-      ${lm.extraGear ? `<span class="legend-text">🧰 +${lm.extraGear} more ${lm.gearSlots.map((g) => ({ weapon: "weapons", armor: "armour", accessory: "accessories" }[g])).join(" / ")}</span>` : ""}
+      <span class="legend-text">🎁 ${lm.drops} ${lm.dropSlots.length ? lm.dropSlots.map((g) => ({ weapon: "weapons", armor: "armour", accessory: "accessories" }[g])).join(" / ") : "items"}: ${rarityOdds(ITEM_DROP_ODDS.raid)}</span>
       <span class="legend-text">🙋 ${Math.round(lm.legendaryRecruitChance * 100)}% legendary survivor</span>
       <span>${rewards}</span>
     </div>`;
@@ -1968,7 +1982,7 @@ export function renderRaidFight(state, anim) {
   const bossPct = Math.round((frame.bossHp / report.bossMaxHp) * 100);
   const done = anim.phase === "result";
   const loot = [
-    ...report.items.map((it) => `<span class="legend-text">${itemIcon(it)} ${esc(it.name)}</span>`),
+    ...report.items.map((it) => `<span class="legend-text">${itemIcon(it)} ${itemName(it)}</span>`),
     ...(report.recruit ? [`<span class="legend-text">🙋 ${esc(report.recruit)} wants to join</span>`] : []),
     ...Object.entries(report.loot).map(([k, v]) => `<span>${RESOURCE_ICON[k]} +${v}</span>`),
   ];
@@ -2086,7 +2100,7 @@ export function renderExpeditionReport(state, anim) {
     const lm = LANDMARKS.find((l) => l.id === rd.landmarkId);
     const rooms = rd.rooms ? ` · ${rd.rooms[0]}/${rd.rooms[1]} rooms` : "";
     const tag = rd.won ? `<span class="tag tag-ok">${BOSS_ICON} Boss slain</span>` : `<span class="tag tag-injured">Retreated${rooms}</span>`;
-    const details = `<div class="exp-finds">${rd.items.map((it) => `<span class="exp-chip exp-legend">${itemIcon(it)} ${esc(it.name)}</span>`).join("")}${rd.recruit ? `<span class="exp-chip exp-legend">🙋 ${esc(rd.recruit)}</span>` : ""}${lootChips(rd.loot)}${(rd.finds || []).map((f) => `<span class="exp-chip">${pixelizeText(esc(f))}</span>`).join("")}</div>
+    const details = `<div class="exp-finds">${rd.items.map((it) => `<span class="exp-chip">${itemIcon(it)} ${itemName(it)}</span>`).join("")}${rd.recruit ? `<span class="exp-chip exp-legend">🙋 ${esc(rd.recruit)}</span>` : ""}${lootChips(rd.loot)}${(rd.finds || []).map((f) => `<span class="exp-chip">${pixelizeText(esc(f))}</span>`).join("")}</div>
       ${rd.hurt.length ? `<div class="exp-hurt">🩹 ${rd.hurt.map(esc).join(", ")}</div>` : ""}
       ${rd.lost.length ? `<div class="exp-bad">${SKULL_ICON} Lost: ${rd.lost.map(esc).join(", ")}</div>` : ""}`;
     rows.push(row(TEAM_COLORS[RAID_TEAM], "school", `lair:${lm.id}`, getChar(state, rd.memberIds[0]), `Raid squad → ${esc(lm.name)}`, tag, details));
@@ -2741,14 +2755,14 @@ export function renderBattleAnimation(state, anim) {
 
 // A place's supplies as they'd come home, harder places paying more (before the team's WIS and luck).
 const lootLine = (loc) => Object.entries(loc.rewards).map(([k, v]) => `${RESOURCE_ICON[k]} ${Math.round(v * expeditionLootScale(loc))}`).join(" ");
-const GEAR_TIER_NAME = ["", "basic", "decent", "good", "great"];
 function lootTip(loc) {
   const scale = expeditionLootScale(loc);
   return {
     title: "🎒 Loot — about",
     rows: [...Object.entries(loc.rewards).map(([k, v]) => [`${RESOURCE_ICON[k]} ${RESOURCE_NAME[k] || k}`, `${Math.round(v * scale)}`]),
-      ["Gear chance", `${Math.round(expeditionGearChance(loc) * 100)}%`], ["Best gear", GEAR_TIER_NAME[expeditionGearTier(loc)]]],
-    notes: [`×${scale.toFixed(2)} for how hard it is — the more power a place needs, the more it pays`, "A wise team (WIS) finds more; a struggling one, about a third"],
+      ["Gear chance", `${Math.round(expeditionGearChance(loc) * 100)}%`],
+      ...Object.entries(ITEM_DROP_ODDS[poiTier(loc)]).map(([r, p]) => [`· <span class="rar rar-${r}">${RARITIES[r].name}</span>`, `${Math.round(p * 100)}%`])],
+    notes: [`×${scale.toFixed(2)} for how hard it is — the more power a place needs, the more it pays`, `Tier ${poiTier(loc)} place: what its gear turns out to be`, "A wise team (WIS) finds more; a struggling one, about a third"],
   };
 }
 
@@ -4647,9 +4661,9 @@ function armoryItemRow(it) {
   const req = weapon && it.requires && Object.keys(it.requires).length
     ? `🔒 ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}+`).join(" ")}`
     : "";
-  return `<div class="armory-item ${it.legendary ? "armory-legendary" : ""}">
+  return `<div class="armory-item armory-${rarityOf(it)}">
     <span class="armory-icon">${itemIcon(it)}</span>
-    <span class="armory-name">${it.legendary ? "✨ " : ""}${esc(it.name)}</span>
+    <span class="armory-name">${itemName(it)}</span>
     <span class="armory-bonus">${formatBonuses(it.bonuses)}</span>
     <span class="armory-cell">${weapon ? `⚔ ${it.damage} dmg` : ""}</span>
     <span class="armory-cell">${weapon ? `📏 ${it.range} range` : ""}</span>
@@ -4659,7 +4673,9 @@ function armoryItemRow(it) {
 
 export function renderArmory(state) {
   const grouped = { melee: [], ranged: [], armor: [], accessory: [] };
-  for (const it of state.armory) (grouped[armoryGroupKey(it)] || (grouped[armoryGroupKey(it)] = [])).push(it);
+  // (the best first: by rarity, then by damage and bonuses)
+  const strength = (it) => RARITY_ORDER.indexOf(rarityOf(it)) * 1000 + (it.damage || 0) * 10 + Object.values(it.bonuses).reduce((a, b) => a + b, 0);
+  for (const it of [...state.armory].sort((a, b) => strength(b) - strength(a))) (grouped[armoryGroupKey(it)] || (grouped[armoryGroupKey(it)] = [])).push(it);
 
   const section = (key) => {
     const items = grouped[key] || [];
@@ -4685,6 +4701,23 @@ export function renderItemList() {
   const all = [...ITEM_TEMPLATES, ...LEGENDARY_ITEM_TEMPLATES];
   const grouped = { melee: [], ranged: [], armor: [], accessory: [] };
   for (const it of all) (grouped[armoryGroupKey(it)] || (grouped[armoryGroupKey(it)] = [])).push(it);
+  const rarities = `<div class="subcard">
+      <h3>🌈 Rarity</h3>
+      <div class="il-rarities">${RARITY_ORDER.map((r) => {
+        // where it can be found (ITEM_DROP_ODDS), in its i
+        const where = [["Tier 1 places", 1], ["Tier 2 places", 2], ["Tier 3 places", 3], ["Tier 4 places", 4], ["Raids", "raid"]]
+          .filter(([, k]) => ITEM_DROP_ODDS[k][r]).map(([label, k]) => [label, `${Math.round(ITEM_DROP_ODDS[k][r] * 100)}%`]);
+        const also = { common: "Scouting, wrecks and the yards too", uncommon: "Scouting, wrecks, the yards and nests too", rare: "Scouting, wrecks, the yards, nests and boss nights too", epic: "Nests and boss nights too", legendary: "Boss nights, mapping the town and legendary survivors too" }[r];
+        return `<span class="il-rarity"><b class="rar rar-${r}">${RARITIES[r].name}</b>${infoDot({ title: `<span class="rar rar-${r}">${RARITIES[r].name}</span> — where to find it`, rows: where, notes: also ? [also] : [] })}</span>`;
+      }).join("")}</div>
+    </div>`;
+  const sets = `<div class="subcard">
+      <h3>🌈 Mythic sets <span class="muted">(${MYTHIC_SETS.length})</span></h3>
+      <div class="il-sets">${MYTHIC_SETS.map((set) => `<div class="il-set">
+        <div class="il-set-head"><b class="rar rar-mythic">${esc(set.name)}</b><span class="muted">${set.stat} set · all three: ${formatBonuses(set.bonus)}</span></div>
+        <div class="armory-list">${set.pieces.map((p) => armoryItemRow({ ...p, rarity: "mythic" })).join("")}</div>
+      </div>`).join("")}</div>
+    </div>`;
 
   const section = (key) => {
     const items = grouped[key] || [];
@@ -4695,12 +4728,14 @@ export function renderItemList() {
   };
 
   return `<div class="card">
-    <h2>📖 Item List ${infoDot({ notes: ["Expeditions bring back common gear — harder places, better gear", "The Hardware Store and Police Station lean toward weapons", "✨ Legendary items come with legendary survivors"] })}</h2>
+    <h2>📖 Item List ${infoDot({ notes: ["Every student starts with a Common weapon, armour and accessory", "Further out, better finds — the raids drop the best, Mythic set pieces too", "Below: every base item as a Common, then the Legendaries and the sets"] })}</h2>
     <p class="room-tagline">Everything that can turn up · one melee (needs STR) and one ranged weapon (needs DEX) per student</p>
+    ${rarities}
     ${section("melee")}
     ${section("ranged")}
     ${section("armor")}
     ${section("accessory")}
+    ${sets}
   </div>`;
 }
 
@@ -4722,13 +4757,14 @@ const ROSTER_SORT_FIELDS = [
 ];
 
 // What a student has on: weapons, armour and accessories, out of the six slots.
-const GEAR_SLOTS = (c) => { const e = c.equipment || {}; return [e.meleeWeapon, e.rangedWeapon, e.armor, ...(e.accessories || [null, null, null])]; };
+// (one weapon: the kind their class fights with)
+const GEAR_SLOTS = (c) => { const e = c.equipment || {}; return [weaponCategory(c) === "ranged" ? e.rangedWeapon : e.meleeWeapon, e.armor, ...(e.accessories || [null, null, null])]; };
 const gearCount = (c) => GEAR_SLOTS(c).filter(Boolean).length;
 // The Roster's gear column: No (nothing on), Yes (something on, how much), or Full (every slot).
 function gearPill(c) {
   const slots = GEAR_SLOTS(c);
   const n = slots.filter(Boolean).length;
-  const names = ["Melee", "Ranged", "Armour", "Accessory", "Accessory", "Accessory"];
+  const names = [weaponCategory(c) === "ranged" ? "Ranged" : "Melee", "Armour", "Accessory", "Accessory", "Accessory"];
   const [cls, label] = n === 0 ? ["gear-none", "No"] : n >= slots.length ? ["gear-full", "Full"] : ["gear-some", `Yes · ${n}/${slots.length}`];
   return `<button class="gear-pill ${cls}" data-action="open-card" data-id="${c.id}" data-card-tab="inventory" ${tipAttr({ title: `🎒 ${n}/${slots.length} slots filled`, rows: slots.map((it, i) => [names[i], it ? `${it.icon} ${esc(it.name)}` : "—"]), notes: ["Click to open their inventory and equip them"] })}>${label}</button>`;
 }
@@ -4991,10 +5027,10 @@ function renderInventoryTab(state, c) {
     const options = state.armory.filter((it) => it.slot === type && (!category || it.category === category));
     if (item) {
       const stats = item.slot === "weapon" ? `<span class="ci-weapon">⚔ ${item.damage} · ${pxe("ruler")} ${item.range}</span>` : "";
-      return `<div class="ci-slot ci-full" ${tipAttr({ title: `${itemIcon(item)} ${esc(item.name)}`, rows: [...Object.entries(item.bonuses).map(([k, v]) => [k, `+${v}`]), ...(item.slot === "weapon" ? [["Damage", `${item.damage}`], ["Range", `${item.range}`]] : [])], notes: [`${label} · ✕ to put it back in the Armory`] })}>
+      return `<div class="ci-slot ci-full ci-${rarityOf(item)}" ${tipAttr({ title: `${itemIcon(item)} ${itemName(item)}`, rows: [...Object.entries(item.bonuses).map(([k, v]) => [k, `+${v}`]), ...(item.slot === "weapon" ? [["Damage", `${item.damage}`], ["Range", `${item.range}`]] : [])], notes: [`${label} · ✕ to put it back in the Armory`] })}>
         <span class="ci-label">${icon} ${label}</span>
         <span class="ci-icon">${itemIcon(item)}</span>
-        <span class="ci-name">${esc(item.name)}</span>
+        <span class="ci-name">${itemName(item, true)}</span>
         <span class="ci-bonus">${Object.entries(item.bonuses).map(([k, v]) => `<b>+${v}</b> ${k}`).join(" ")}</span>
         ${stats}
         <button class="ci-remove" data-action="unequip-item" data-id="${c.id}" data-slot="${slotKey}" title="Take it off">✕</button>
@@ -5009,14 +5045,18 @@ function renderInventoryTab(state, c) {
         ${options.map((it) => {
           const ok = meetsItemRequirement(c, it);
           const req = it.requires && Object.keys(it.requires).length ? ` · needs ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}`).join(" ")}` : "";
-          return `<option value="${it.uid}" ${ok ? "" : "disabled"}>${ok ? "" : "🔒 "}${esc(it.name)} (${formatBonuses(it.bonuses)})${ok ? "" : req}</option>`;
+          const r = rarityOf(it);
+          return `<option value="${it.uid}" ${ok ? "" : "disabled"} style="color:${r === "mythic" ? "#ff8ad8" : RARITIES[r].color}">${ok ? "" : "🔒 "}${esc(it.name)} · ${RARITIES[r].name} (${formatBonuses(it.bonuses)})${ok ? "" : req}</option>`;
         }).join("")}
       </select>
     </div>`;
   };
+  // one weapon: the kind their class fights with
+  const C = NIGHT_CLASSES[nightClass(c)];
   const slots = [
-    slot("Melee", "🗡", "meleeWeapon", eq.meleeWeapon, "weapon", "melee"),
-    slot("Ranged", "🏹", "rangedWeapon", eq.rangedWeapon, "weapon", "ranged"),
+    weaponCategory(c) === "ranged"
+      ? slot(`Ranged · ${C.name}`, "🏹", "rangedWeapon", eq.rangedWeapon, "weapon", "ranged")
+      : slot(`Melee · ${C.name}`, "🗡", "meleeWeapon", eq.meleeWeapon, "weapon", "melee"),
     slot("Armour", "🛡", "armor", eq.armor, "armor"),
     ...[0, 1, 2].map((i) => slot(`Accessory ${i + 1}`, "💍", `accessory${i}`, eq.accessories[i], "accessory")),
   ].join("");
@@ -5024,7 +5064,14 @@ function renderInventoryTab(state, c) {
   const totals = {};
   for (const it of items) for (const [k, v] of Object.entries(it.bonuses)) totals[k] = (totals[k] || 0) + v;
   const spare = state.armory.length;
+  const sets = setsWorn(c).map(({ set, count, complete }) => `<span class="ci-set ${complete ? "ci-set-on" : ""}" ${tipAttr({
+    title: `🌈 ${esc(set.name)} · ${count}/${set.pieces.length}`,
+    rows: set.pieces.map((p) => [esc(p.name), [eq.meleeWeapon, eq.rangedWeapon, eq.armor, ...eq.accessories].some((it) => it?.id === p.id) ? "✓ worn" : "—"]),
+    total: ["All three", formatBonuses(set.bonus)],
+    notes: [complete ? "The set's whole: its bonus is on" : "Wear all three pieces for the set's bonus"],
+  })}><b class="rar rar-mythic">${esc(set.name)}</b> ${count}/${set.pieces.length}${complete ? ` · ${formatBonuses(set.bonus)}` : ""}</span>`).join("");
   return `<div class="ci-grid">${slots}</div>
+    ${sets ? `<div class="ci-sets">${sets}</div>` : ""}
     <div class="ci-foot">
       <span class="ci-totals">${Object.keys(totals).length ? `Gear adds ${Object.entries(totals).map(([k, v]) => `<b>+${v}</b> ${k}`).join(" · ")}` : '<span class="muted">Nothing equipped yet</span>'}</span>
       <span class="ci-power">⚔ Power <b>${fightPower(state, c).power}</b></span>

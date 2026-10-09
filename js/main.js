@@ -7,13 +7,13 @@ import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal,
   renderEncounterModal, renderExpeditionBattle,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
-import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor, assignStudentFocus, gradeCap } from "./characters.js";
+import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor, assignStudentFocus, gradeCap, weaponCategory } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled, setSoundVolume,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, getGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
 import { installFrames, installBackdrop } from "./frames.js";
 import { setMusicMood, unlockMusic, setMusicEnabled, setMusicVolume } from "./music.js";
-import { maxOutSchool, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp, armDefenders, fortifyEntrance } from "./dev.js";
+import { maxOutSchool, stockArmory, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp, armDefenders, fortifyEntrance } from "./dev.js";
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
@@ -197,7 +197,10 @@ document.addEventListener("focusout", (e) => { if (e.target === tipTarget) hideH
 
 // Weapons used to be a single "weapon" slot/type with no category/damage/range/requires — backfill
 // those from the current template (falling back to sane melee defaults if the template's gone).
+// (and items from before rarities: a legendary stays Legendary, the rest were Common — their numbers
+// are the base item's)
 function migrateWeaponItem(item) {
+  if (item && !item.rarity) item.rarity = item.legendary ? "legendary" : "common";
   if (!item || item.slot !== "weapon" || item.category) return item;
   const template = ITEM_TEMPLATES.find((t) => t.id === item.id) || LEGENDARY_ITEM_TEMPLATES.find((t) => t.id === item.id);
   item.category = template?.category || "melee";
@@ -228,10 +231,17 @@ function migrateState(s) {
     if (c.equipment.rangedWeapon === undefined) c.equipment.rangedWeapon = null;
     migrateWeaponItem(c.equipment.meleeWeapon);
     migrateWeaponItem(c.equipment.rangedWeapon);
+    [c.equipment.armor, ...(c.equipment.accessories || [])].forEach(migrateWeaponItem);
     if (!c.skills) c.skills = [];
     // every student has a favourite and a second subject, and grades held to them (older saves:
     // picked from what they're best at, and anything over its cap comes down to it)
     if (c.role === "student" && !c.favorite) assignStudentFocus(c);
+    // each class holds one kind of weapon: one of the other kind goes back to the Armory
+    if (c.role === "student") {
+      const off = weaponCategory(c) === "ranged" ? "meleeWeapon" : "rangedWeapon";
+      if (c.equipment[off]) s.armory.push(c.equipment[off]);
+      c.equipment[off] = null;
+    }
     // the caps follow the grade scale (F to 25, then 15 a letter) — lowered caps bring grades down too
     if (c.role === "student") for (const s of SUBJECTS) c.grades[s] = Math.min(c.grades[s], gradeCap(c, s));
     if (c.stamina === undefined) c.stamina = maxStaminaFor(c);
@@ -985,8 +995,14 @@ function reachSquares(cls, ab2, ab3, row, col, size = state.entranceGrid.size, r
   const add = (r, c, kind) => { if (r >= 0 && r < rows && c >= 0 && c < size && !(r === row && c === col)) out.push({ r, c, kind }); };
   const around = (d, kind) => { for (let dr = -d; dr <= d; dr++) for (let dc = -d; dc <= d; dc++) add(row + dr, col + dc, kind); };
   const lane = (kind) => { for (let r = 0; r < rows; r++) if (!out.some((o) => o.r === r && o.c === col)) add(r, col, kind); };
-  if (cls === "medic") { around(ab2 ? C.ability2.reach : 1, "heal"); if (ab3) lane("heal"); }
-  else if (cls === "rallier") { if (ab2) lane("buff"); }
+  if (cls === "medic") {
+    around(ab2 ? C.ability2.reach : 1, "heal");
+    if (ab3) lane("heal");
+    for (let r = row + 1; r < rows; r++) if (!out.some((o) => o.r === r && o.c === col)) add(r, col, "attack"); // (when nobody needs healing)
+  } else if (cls === "rallier") {
+    add(row + 1, col, "attack");
+    if (ab2) lane("buff");
+  }
   else if (C.range === "front") {
     for (let d = 1; d <= (cls === "brawler" && ab3 ? C.ability3.reach : 1); d++) {
       add(row + d, col, "attack");
@@ -2406,6 +2422,13 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       if (go) runExpeditions();
       else render();
       return `${team.length} to the ${loc.name}, day ${day}: ${team.map((c) => `${c.name} (${G.nightClass(c)})`).join(", ")}`;
+    },
+    // schoolDev.loot(set): one item of every rarity and a whole Mythic set (MYTHIC_SETS[set]) in the Armory.
+    loot(set = 0) {
+      if (!beforeMax) beforeMax = JSON.stringify(state);
+      const summary = stockArmory(state, set);
+      render();
+      return summary;
     },
     // schoolDev.research(n): n research to spend on the tree.
     research(n = 500) {
