@@ -130,126 +130,49 @@ export const TRAITS = [
 ];
 
 // ===== Equipment =====
-// Templates for the shared school armory. Weapon/armor/accessory bonuses add directly to
-// their stat during expeditions and defense (they don't touch academic grades).
-//
-// Weapons carry 3 extra things armor/accessories don't: `category` ("melee" or "ranged"),
-// `damage` and `range` (in grid squares — melee tops out at 2, ranged runs 4-9), and `requires`,
-// a minimum STR (melee) or DEX (ranged) the character's own grade must clear to equip it at all
-// (checked against their raw PE/Gymnastics grade, not equipment-boosted, so gear can't bootstrap
-// itself). Every student can hold one melee weapon and one ranged weapon at once.
-export const ITEM_TEMPLATES = [
-  // Melee weapons (17) — require STR (PE grade) to hold, range 1-2
-  { id: "bat", name: "Baseball Bat", slot: "weapon", category: "melee", icon: "🏏", bonuses: { STR: 6 }, damage: 10, range: 2, requires: { STR: 25 } },
-  { id: "knife", name: "Kitchen Knife", slot: "weapon", category: "melee", icon: "🔪", bonuses: { DEX: 6 }, damage: 9, range: 1, requires: { STR: 20 } },
-  { id: "axe", name: "Fire Axe", slot: "weapon", category: "melee", icon: "🪓", bonuses: { STR: 5, DEX: 3 }, damage: 12, range: 2, requires: { STR: 35 } },
-  { id: "crowbar", name: "Crowbar", slot: "weapon", category: "melee", icon: "🔧", bonuses: { STR: 4, DEX: 2 }, damage: 9, range: 1, requires: { STR: 22 } },
-  { id: "hockey_stick", name: "Hockey Stick", slot: "weapon", category: "melee", icon: "🏒", bonuses: { DEX: 5 }, damage: 8, range: 2, requires: { STR: 20 } },
-  { id: "cleaver", name: "Cafeteria Cleaver", slot: "weapon", category: "melee", icon: "🗡", bonuses: { STR: 5, DEX: 2 }, damage: 11, range: 1, requires: { STR: 30 } },
-  { id: "broom_spear", name: "Broom Handle Spear", slot: "weapon", category: "melee", icon: "🧹", bonuses: { DEX: 4, STR: 2 }, damage: 8, range: 2, requires: { STR: 22 } },
-  { id: "tennis_racket", name: "Tennis Racket", slot: "weapon", category: "melee", icon: "🎾", bonuses: { DEX: 3 }, damage: 6, range: 1, requires: { STR: 15 } },
-  { id: "trophy", name: "Heavy Trophy", slot: "weapon", category: "melee", icon: "🏆", bonuses: { STR: 6 }, damage: 10, range: 1, requires: { STR: 28 } },
-  { id: "wrench", name: "Pipe Wrench", slot: "weapon", category: "melee", icon: "🔩", bonuses: { STR: 5 }, damage: 9, range: 1, requires: { STR: 25 } },
-  { id: "shovel", name: "Shovel", slot: "weapon", category: "melee", icon: "⛏", bonuses: { STR: 6, CON: 2 }, damage: 11, range: 2, requires: { STR: 32 } },
-  { id: "nail_bat", name: "Nail-Studded Bat", slot: "weapon", category: "melee", icon: "🏏", bonuses: { STR: 7, DEX: 1 }, damage: 13, range: 2, requires: { STR: 38 } },
-  { id: "machete", name: "Machete", slot: "weapon", category: "melee", icon: "⚔", bonuses: { DEX: 7 }, damage: 11, range: 1, requires: { STR: 30 } },
-  { id: "sledgehammer", name: "Sledgehammer", slot: "weapon", category: "melee", icon: "🔨", bonuses: { STR: 9 }, damage: 15, range: 2, requires: { STR: 45 } },
-  { id: "field_chainsaw", name: "Rusty Chainsaw", slot: "weapon", category: "melee", icon: "🪚", bonuses: { STR: 7, DEX: 2 }, damage: 14, range: 2, requires: { STR: 42 } },
-  { id: "pool_cue", name: "Pool Cue", slot: "weapon", category: "melee", icon: "🎱", bonuses: { DEX: 4 }, damage: 7, range: 2, requires: { STR: 18 } },
-  { id: "fire_poker", name: "Fire Poker", slot: "weapon", category: "melee", icon: "🔥", bonuses: { STR: 4, DEX: 2 }, damage: 9, range: 2, requires: { STR: 24 } },
-
-  // Ranged weapons (17) — require DEX (Gymnastics grade) to hold, range 4-9
-  { id: "slingshot", name: "Slingshot", slot: "weapon", category: "ranged", icon: "🎯", bonuses: { DEX: 5 }, damage: 7, range: 5, requires: { DEX: 18 } },
-  { id: "recurve_bow", name: "Recurve Bow", slot: "weapon", category: "ranged", icon: "🏹", bonuses: { DEX: 7 }, damage: 10, range: 7, requires: { DEX: 28 } },
-  { id: "compound_bow", name: "Compound Bow", slot: "weapon", category: "ranged", icon: "🏹", bonuses: { DEX: 8 }, damage: 12, range: 8, requires: { DEX: 35 } },
-  { id: "crossbow", name: "Crossbow", slot: "weapon", category: "ranged", icon: "🎯", bonuses: { DEX: 7, STR: 2 }, damage: 13, range: 6, requires: { DEX: 38 } },
-  { id: "nerf_blaster", name: "Nerf Blaster", slot: "weapon", category: "ranged", icon: "🔫", bonuses: { DEX: 4 }, damage: 5, range: 4, requires: { DEX: 12 } },
-  { id: "dart_gun", name: "Tranq Dart Gun", slot: "weapon", category: "ranged", icon: "🔫", bonuses: { DEX: 5 }, damage: 8, range: 5, requires: { DEX: 22 } },
-  { id: "paintball_marker", name: "Paintball Marker", slot: "weapon", category: "ranged", icon: "🔫", bonuses: { DEX: 6 }, damage: 8, range: 6, requires: { DEX: 24 } },
-  { id: "potato_cannon", name: "Potato Cannon", slot: "weapon", category: "ranged", icon: "🥔", bonuses: { DEX: 5, STR: 2 }, damage: 11, range: 7, requires: { DEX: 30 } },
-  { id: "water_balloon_launcher", name: "Water Balloon Launcher", slot: "weapon", category: "ranged", icon: "💧", bonuses: { DEX: 4 }, damage: 4, range: 4, requires: { DEX: 10 } },
-  { id: "throwing_knives", name: "Throwing Knives", slot: "weapon", category: "ranged", icon: "🔪", bonuses: { DEX: 6 }, damage: 9, range: 5, requires: { DEX: 25 } },
-  { id: "javelin", name: "Javelin", slot: "weapon", category: "ranged", icon: "🥍", bonuses: { DEX: 6, STR: 2 }, damage: 12, range: 6, requires: { DEX: 33 } },
-  { id: "discus", name: "Discus", slot: "weapon", category: "ranged", icon: "🥏", bonuses: { DEX: 5, STR: 3 }, damage: 11, range: 5, requires: { DEX: 30 } },
-  { id: "fire_extinguisher", name: "Fire Extinguisher", slot: "weapon", category: "ranged", icon: "🧯", bonuses: { DEX: 3, CON: 2 }, damage: 6, range: 4, requires: { DEX: 16 } },
-  { id: "bottle_rocket", name: "Bottle Rocket", slot: "weapon", category: "ranged", icon: "🎆", bonuses: { DEX: 4 }, damage: 7, range: 6, requires: { DEX: 20 } },
-  { id: "bb_gun", name: "BB Gun", slot: "weapon", category: "ranged", icon: "🔫", bonuses: { DEX: 6 }, damage: 8, range: 6, requires: { DEX: 22 } },
-  { id: "baseball_pitch", name: "Pitching Arm", slot: "weapon", category: "ranged", icon: "⚾", bonuses: { DEX: 6 }, damage: 9, range: 6, requires: { DEX: 26 } },
-  { id: "fishing_rod_hook", name: "Fishing Rod & Hook", slot: "weapon", category: "ranged", icon: "🎣", bonuses: { DEX: 4, WIS: 2 }, damage: 7, range: 9, requires: { DEX: 20 } },
-
-  // Armor (17)
-  { id: "jacket", name: "School Jacket", slot: "armor", icon: "🧥", bonuses: { CON: 4 } },
-  { id: "vest", name: "Riot Vest", slot: "armor", icon: "🦺", bonuses: { CON: 9 } },
-  { id: "pads", name: "Padded Gear", slot: "armor", icon: "🎽", bonuses: { CON: 5, DEX: 2 } },
-  { id: "helmet", name: "Bike Helmet", slot: "armor", icon: "⛑", bonuses: { CON: 3, STR: 2 } },
-  { id: "letterman_jacket", name: "Letterman Jacket", slot: "armor", icon: "🏅", bonuses: { CON: 4, CHA: 2 } },
-  { id: "hoodie", name: "Hoodie", slot: "armor", icon: "🧣", bonuses: { CON: 3 } },
-  { id: "backpack_plate", name: "Backpack Plate", slot: "armor", icon: "🎒", bonuses: { CON: 5 } },
-  { id: "catchers_gear", name: "Catcher's Gear", slot: "armor", icon: "🥎", bonuses: { CON: 7 } },
-  { id: "football_pads", name: "Football Pads", slot: "armor", icon: "🏈", bonuses: { CON: 6, STR: 2 } },
-  { id: "trash_lid", name: "Trash Can Lid", slot: "armor", icon: "🛡", bonuses: { CON: 6 } },
-  { id: "welding_mask", name: "Welding Mask", slot: "armor", icon: "😷", bonuses: { CON: 4, WIS: 2 } },
-  { id: "motorcycle_jacket", name: "Motorcycle Jacket", slot: "armor", icon: "🏍", bonuses: { CON: 6, DEX: 2 } },
-  { id: "kevlar_vest", name: "Improvised Kevlar", slot: "armor", icon: "🦺", bonuses: { CON: 9 } },
-  { id: "lab_coat", name: "Lab Coat", slot: "armor", icon: "🥼", bonuses: { CON: 3, INT: 3 } },
-  { id: "apron", name: "Cafeteria Apron", slot: "armor", icon: "🧑‍🍳", bonuses: { CON: 3 } },
-  { id: "winter_coat", name: "Winter Coat", slot: "armor", icon: "🧥", bonuses: { CON: 5, STR: 1 } },
-  { id: "riot_harness", name: "Riot Shield Harness", slot: "armor", icon: "🛡", bonuses: { CON: 6, STR: 2 } },
-
-  // Accessories (17)
-  { id: "charm", name: "Lucky Charm", slot: "accessory", icon: "🍀", bonuses: { CHA: 5 } },
-  { id: "glasses", name: "Reading Glasses", slot: "accessory", icon: "👓", bonuses: { INT: 5 } },
-  { id: "watch", name: "Pocket Watch", slot: "accessory", icon: "⌚", bonuses: { WIS: 5 } },
-  { id: "energy_drink", name: "Energy Drink", slot: "accessory", icon: "🥤", bonuses: { STR: 2, DEX: 2 } },
-  { id: "photo", name: "Family Photo", slot: "accessory", icon: "📷", bonuses: { CHA: 3, WIS: 2 } },
-  { id: "gloves", name: "Fingerless Gloves", slot: "accessory", icon: "🧤", bonuses: { DEX: 3, STR: 2 } },
-  { id: "bracelet", name: "Friendship Bracelet", slot: "accessory", icon: "📿", bonuses: { CHA: 4 } },
-  { id: "class_ring", name: "Class Ring", slot: "accessory", icon: "💍", bonuses: { CHA: 3, WIS: 2 } },
-  { id: "harmonica", name: "Harmonica", slot: "accessory", icon: "🎵", bonuses: { CHA: 4 } },
-  { id: "walkie_talkie", name: "Walkie-Talkie", slot: "accessory", icon: "📻", bonuses: { WIS: 4 } },
-  { id: "compass", name: "Compass", slot: "accessory", icon: "🧭", bonuses: { WIS: 5 } },
-  { id: "notebook", name: "Notebook", slot: "accessory", icon: "📓", bonuses: { INT: 4 } },
-  { id: "headband", name: "Headband", slot: "accessory", icon: "🎗", bonuses: { DEX: 3 } },
-  { id: "whistle", name: "Whistle", slot: "accessory", icon: "📯", bonuses: { CHA: 3, STR: 1 } },
-  { id: "sunglasses", name: "Sunglasses", slot: "accessory", icon: "🕶", bonuses: { CHA: 4 } },
-  { id: "first_aid", name: "Worn First Aid Kit", slot: "accessory", icon: "🩹", bonuses: { CON: 3, WIS: 2 } },
-  { id: "energy_stash", name: "Energy Bar Stash", slot: "accessory", icon: "🍫", bonuses: { STR: 2, CON: 2 } },
-];
-
-// A handful of starter items to seed the shared armory with on a new game.
-export const STARTER_ARMORY_IDS = ["bat", "jacket", "charm", "knife", "watch", "pads", "glasses", "slingshot"];
-
-// Rare, much stronger items — never in the starter/shared armory pool. Only ever created
-// pre-equipped on a legendary survivor (see makeLegendaryCharacter).
-export const LEGENDARY_ITEM_TEMPLATES = [
-  { id: "legendary_bat", name: "Home Run King", slot: "weapon", category: "melee", icon: "🏏", bonuses: { STR: 16 }, damage: 26, range: 2, requires: { STR: 70 }, legendary: true },
-  { id: "legendary_axe", name: "Widow's Edge", slot: "weapon", category: "melee", icon: "🪓", bonuses: { STR: 12, DEX: 8 }, damage: 32, range: 2, requires: { STR: 78 }, legendary: true },
-  { id: "legendary_chainsaw", name: "Groundskeeper's Fury", slot: "weapon", category: "melee", icon: "🪚", bonuses: { STR: 18, DEX: 4 }, damage: 36, range: 2, requires: { STR: 85 }, legendary: true },
-  { id: "legendary_machete", name: "Principal's Wrath", slot: "weapon", category: "melee", icon: "⚔", bonuses: { DEX: 16, STR: 6 }, damage: 34, range: 1, requires: { STR: 80 }, legendary: true },
-  { id: "legendary_recurve", name: "Robin's Last Arrow", slot: "weapon", category: "ranged", icon: "🏹", bonuses: { DEX: 18 }, damage: 30, range: 9, requires: { DEX: 75 }, legendary: true },
-  { id: "legendary_crossbow", name: "Van Helsing's Crossbow", slot: "weapon", category: "ranged", icon: "🎯", bonuses: { DEX: 14, STR: 6 }, damage: 34, range: 8, requires: { DEX: 80 }, legendary: true },
-  { id: "legendary_cannon", name: "Coach's Cannon", slot: "weapon", category: "ranged", icon: "🥔", bonuses: { DEX: 12, STR: 10 }, damage: 36, range: 7, requires: { DEX: 82 }, legendary: true },
-  { id: "legendary_slingshot", name: "Giant's Fall", slot: "weapon", category: "ranged", icon: "🎯", bonuses: { DEX: 16, WIS: 6 }, damage: 28, range: 9, requires: { DEX: 72 }, legendary: true },
-  { id: "legendary_vest", name: "Warden's Plate", slot: "armor", icon: "🦺", bonuses: { CON: 20 }, legendary: true },
-  { id: "legendary_coat", name: "Survivor's Coat", slot: "armor", icon: "🧥", bonuses: { CON: 12, DEX: 6 }, legendary: true },
-  { id: "legendary_riotgear", name: "Last Guardian's Plate", slot: "armor", icon: "🛡", bonuses: { CON: 22, STR: 4 }, legendary: true },
-  { id: "legendary_labcoat", name: "Alchemist's Ward", slot: "armor", icon: "🥼", bonuses: { INT: 12, CON: 10 }, legendary: true },
-  { id: "legendary_charm", name: "Four-Leaf Talisman", slot: "accessory", icon: "🍀", bonuses: { CHA: 14, WIS: 6 }, legendary: true },
-  { id: "legendary_glasses", name: "Oracle's Lenses", slot: "accessory", icon: "👓", bonuses: { INT: 14, WIS: 6 }, legendary: true },
-  { id: "legendary_compass", name: "Wayfinder's Compass", slot: "accessory", icon: "🧭", bonuses: { WIS: 16, INT: 6 }, legendary: true },
-  { id: "legendary_ring", name: "Captain's Signet", slot: "accessory", icon: "💍", bonuses: { CHA: 16, WIS: 6 }, legendary: true },
-];
+// Accessories: anyone can wear them, three at a time, never two of the same effect. Each does one
+// thing (ACCESSORIES: what for the school, the expeditions or the night), by how much rolled when
+// it's found from its rarity's range (ACCESSORY_RANGES — `full` or, for the strong ones, `half`);
+// the ranges climb without overlapping, so a better rarity is never worse. `less`: it takes away
+// (stamina used, noise, damage taken…); `short`, what it does in a word or two. The weapons are each class's own and the armour each class's
+// type's: WEAPON_TEMPLATES and ARMOR_TEMPLATES, after NIGHT_CLASSES.
+export const ACCESSORY_RANGES = {
+  full: { common: [2, 4], uncommon: [5, 8], rare: [9, 13], epic: [14, 19], legendary: [20, 25], mythic: [30, 30] },
+  half: { common: [1, 2], uncommon: [3, 4], rare: [5, 6], epic: [7, 9], legendary: [10, 12], mythic: [15, 15] },
+};
+export const ACCESSORIES = {
+  // Turn 1: the school
+  study: { name: "Notebook", short: "school XP", look: "notebook", icon: "📓", turn: 1, scale: "full", what: "study and training gains" },
+  rest: { name: "Travel Pillow", short: "rest stamina", look: "travel_pillow", icon: "💤", turn: 1, scale: "full", what: "stamina back from resting" },
+  recover: { name: "Vitamins", short: "HP healed", look: "vitamins", icon: "💊", turn: 1, scale: "full", what: "HP healed at the school" },
+  work: { name: "Gardening Gloves", short: "stamina usage", look: "gardening_gloves", icon: "🧤", turn: 1, scale: "full", less: true, what: "stamina used working the Courtyard" },
+  infection: { name: "Hand Sanitizer", short: "infection chance", look: "hand_sanitizer", icon: "🧴", turn: 1, scale: "full", less: true, what: "chance of infection" },
+  // Turn 2: the expeditions
+  loot: { name: "Duffel Bag", short: "loot", look: "duffel", icon: "🧳", turn: 2, scale: "full", what: "expedition loot" },
+  noise: { name: "Compass", short: "noise", look: "compass", icon: "🧭", turn: 2, scale: "full", less: true, what: "noise made" },
+  sneak: { name: "Lockpick Set", short: "sneak chance", look: "lockpick_set", icon: "🔓", turn: 2, scale: "half", what: "chance to sneak past or pick a door" },
+  ambush: { name: "Binoculars", short: "ambush chance", look: "binoculars", icon: "🔭", turn: 2, scale: "full", less: true, what: "chance of an ambush" },
+  stamina: { name: "Energy Bar Stash", short: "max stamina", look: "energy_stash", icon: "🍫", turn: 2, scale: "full", what: "max stamina" },
+  // Turn 3: the night (and every fight)
+  melee: { name: "Fingerless Gloves", short: "melee damage", look: "gloves", icon: "🧤", turn: 3, scale: "full", what: "melee damage" },
+  ranged: { name: "Aviator Sunglasses", short: "ranged damage", look: "sunglasses", icon: "🕶", turn: 3, scale: "full", what: "ranged damage" },
+  crit: { name: "Reading Glasses", short: "crit chance", look: "glasses", icon: "👓", turn: 3, scale: "half", what: "critical chance" },
+  dodge: { name: "Sweatband", short: "dodge", look: "headband", icon: "🎗", turn: 3, scale: "half", what: "dodge" },
+  health: { name: "Lucky Charm", short: "fight HP", look: "charm", icon: "🍀", turn: 3, scale: "full", what: "health in fights" },
+  guard: { name: "Bike Helmet", short: "damage taken", look: "helmet", icon: "⛑", turn: 3, scale: "half", less: true, what: "damage taken" },
+  mend: { name: "Stethoscope", short: "healing", look: "stethoscope", icon: "🩺", turn: 3, scale: "full", what: "healing done" },
+  morale: { name: "Whistle", short: "morale", look: "whistle", icon: "📯", turn: 3, scale: "full", what: "morale made" },
+};
 
 // ===== Rarity =====
-// Every item has one. Common to Epic are the base items above with their numbers (stat bonuses and
-// damage) × `mult` and their STR/DEX floor + `req`; Legendary are the named items above
-// (LEGENDARY_ITEM_TEMPLATES) as they are; Mythic are the set pieces below (MYTHIC_SETS). `color`
-// is the name's and the icon's outline ("rainbow" for Mythic).
+// Every item has one. Weapons and armour: one of each rarity for each class (WEAPON_TEMPLATES) and
+// each armour type (ARMOR_TEMPLATES); accessories: their effect's range for it (ACCESSORY_RANGES). Mythic are the set pieces below (MYTHIC_SETS). `color` is
+// the name's and the icon's outline ("rainbow" for Mythic).
 export const RARITIES = {
-  common: { name: "Common", color: "#b4b9c0", mult: 1, req: 0 },
-  uncommon: { name: "Uncommon", color: "#5ccf6e", mult: 1.35, req: 5 },
-  rare: { name: "Rare", color: "#4a9eff", mult: 1.75, req: 10 },
-  epic: { name: "Epic", color: "#b56ef5", mult: 2.2, req: 15 },
+  common: { name: "Common", color: "#b4b9c0", mult: 1 },
+  uncommon: { name: "Uncommon", color: "#5ccf6e", mult: 1.35 },
+  rare: { name: "Rare", color: "#4a9eff", mult: 1.75 },
+  epic: { name: "Epic", color: "#b56ef5", mult: 2.2 },
   legendary: { name: "Legendary", color: "#f4c542" },
   mythic: { name: "Mythic", color: "rainbow" },
 };
@@ -265,41 +188,50 @@ export const ITEM_DROP_ODDS = {
   4: { rare: 0.2, epic: 0.6, legendary: 0.2 },
   raid: { epic: 0.3, legendary: 0.6, mythic: 0.1 },
 };
-// Mythic sets, one for each stat: a weapon, an armour and an accessory. Each piece is about as strong
-// as a legendary; wearing all three adds the set's `bonus` on top. A piece's `look` is the base
-// item it's drawn as (in rainbow).
+// Mythic sets, one for each stat: a weapon (for that stat's class), an armour and three accessories —
+// the Mythic of three accessory lines (its class's own, and two more: `extras`, named the `owner`'s),
+// every line's Mythic in one set or another. A full set is the weapon, the armour and any one of its
+// accessories: that adds the set's `bonus`. Each piece is about as strong as a legendary; an accessory
+// has its `effect` at the Mythic value. A piece's `look` is the item it's drawn as (in rainbow).
+export const LEGACY_SET_PIECE_IDS = { set_linebacker_ring: "set_linebacker_gloves", set_track_stopwatch: "set_track_sunglasses", set_janitor_walkie: "set_janitor_hardhat", set_president_shades: "set_president_whistle" };
 export const MYTHIC_SETS = [
-  { id: "linebacker", name: "Varsity Linebacker", stat: "STR", bonus: { STR: 25, CON: 10 }, pieces: [
-    { id: "set_linebacker_sledge", name: "Linebacker's Sledge", slot: "weapon", category: "melee", look: "sledgehammer", icon: "🔨", bonuses: { STR: 16, CON: 4 }, damage: 34, range: 2, requires: { STR: 70 } },
-    { id: "set_linebacker_pads", name: "Linebacker's Pads", slot: "armor", look: "football_pads", icon: "🏈", bonuses: { CON: 14, STR: 8 } },
-    { id: "set_linebacker_ring", name: "Linebacker's Title Ring", slot: "accessory", look: "class_ring", icon: "💍", bonuses: { STR: 12, CHA: 4 } },
+  { id: "linebacker", owner: "Linebacker's", extras: ["infection", "loot"], name: "Varsity Linebacker", stat: "STR", bonus: { STR: 25, CON: 10 }, pieces: [
+    { id: "set_linebacker_sledge", name: "Linebacker's Sledge", slot: "weapon", category: "melee", cls: "brawler", look: "sledgehammer", icon: "🔨", bonuses: { STR: 16, CON: 4 }, damage: 34 },
+    { id: "set_linebacker_pads", armor: "heavy", name: "Linebacker's Pads", slot: "armor", look: "football_pads", icon: "🏈", bonuses: { CON: 14, STR: 8 } },
+    { id: "set_linebacker_gloves", effect: "melee", name: "Linebacker's Gloves", slot: "accessory", look: "gloves", icon: "🧤", bonuses: { STR: 12, CON: 4 } },
   ] },
-  { id: "track_star", name: "Track Star", stat: "DEX", bonus: { DEX: 25, STR: 10 }, pieces: [
-    { id: "set_track_javelin", name: "Track Star's Javelin", slot: "weapon", category: "ranged", look: "javelin", icon: "🥍", bonuses: { DEX: 16, STR: 4 }, damage: 32, range: 8, requires: { DEX: 70 } },
-    { id: "set_track_jacket", name: "Track Star's Jacket", slot: "armor", look: "motorcycle_jacket", icon: "🏍", bonuses: { DEX: 10, CON: 10 } },
-    { id: "set_track_stopwatch", name: "Track Star's Stopwatch", slot: "accessory", look: "watch", icon: "⌚", bonuses: { DEX: 12, WIS: 4 } },
+  { id: "track_star", owner: "Track Star's", extras: ["dodge", "stamina"], name: "Track Star", stat: "DEX", bonus: { DEX: 25, STR: 10 }, pieces: [
+    { id: "set_track_longbow", name: "Track Star's Longbow", slot: "weapon", category: "ranged", cls: "shooter", look: "recurve_bow", icon: "🏹", bonuses: { DEX: 16, STR: 4 }, damage: 34 },
+    { id: "set_track_jacket", armor: "light", name: "Track Star's Jacket", slot: "armor", look: "motorcycle_jacket", icon: "🏍", bonuses: { DEX: 10, CON: 10 } },
+    { id: "set_track_sunglasses", effect: "ranged", name: "Track Star's Sunglasses", slot: "accessory", look: "sunglasses", icon: "🕶", bonuses: { DEX: 12, WIS: 4 } },
   ] },
-  { id: "janitor", name: "Night Janitor", stat: "CON", bonus: { CON: 25, STR: 10 }, pieces: [
-    { id: "set_janitor_broom", name: "Janitor's Push Broom", slot: "weapon", category: "melee", look: "broom_spear", icon: "🧹", bonuses: { CON: 10, STR: 8 }, damage: 30, range: 2, requires: { STR: 60 } },
-    { id: "set_janitor_coveralls", name: "Janitor's Coveralls", slot: "armor", look: "riot_harness", icon: "🛡", bonuses: { CON: 22 } },
-    { id: "set_janitor_walkie", name: "Janitor's Walkie-Talkie", slot: "accessory", look: "walkie_talkie", icon: "📻", bonuses: { CON: 10, WIS: 6 } },
+  { id: "janitor", owner: "Janitor's", extras: ["health", "work"], name: "Night Janitor", stat: "CON", bonus: { CON: 25, STR: 10 }, pieces: [
+    { id: "set_janitor_sign", name: "Janitor's Wet Floor Sign", slot: "weapon", category: "melee", cls: "tank", look: "wet_floor_sign", icon: "🛡", bonuses: { CON: 16, STR: 4 }, damage: 34 },
+    { id: "set_janitor_coveralls", armor: "heavy", name: "Janitor's Coveralls", slot: "armor", look: "riot_harness", icon: "🛡", bonuses: { CON: 22 } },
+    { id: "set_janitor_hardhat", effect: "guard", name: "Janitor's Hard Hat", slot: "accessory", look: "hard_hat", icon: "⛑", bonuses: { CON: 10, STR: 6 } },
   ] },
-  { id: "scientist", name: "Mad Scientist", stat: "INT", bonus: { INT: 25, WIS: 10 }, pieces: [
-    { id: "set_scientist_railgun", name: "Science Fair Railgun", slot: "weapon", category: "ranged", look: "potato_cannon", icon: "🥔", bonuses: { INT: 12, DEX: 6 }, damage: 34, range: 8, requires: { DEX: 65 } },
-    { id: "set_scientist_coat", name: "Hazmat Lab Coat", slot: "armor", look: "lab_coat", icon: "🥼", bonuses: { INT: 12, CON: 12 } },
-    { id: "set_scientist_goggles", name: "Goggles of Insight", slot: "accessory", look: "glasses", icon: "👓", bonuses: { INT: 16 } },
+  { id: "scientist", owner: "Mad Scientist's", extras: ["study", "sneak"], name: "Mad Scientist", stat: "INT", bonus: { INT: 25, WIS: 10 }, pieces: [
+    { id: "set_scientist_net", name: "Mad Scientist's Shock Net", slot: "weapon", category: "ranged", cls: "trapper", look: "net", icon: "🕸", bonuses: { INT: 16, DEX: 4 }, damage: 34 },
+    { id: "set_scientist_coat", armor: "light", name: "Hazmat Lab Coat", slot: "armor", look: "lab_coat", icon: "🥼", bonuses: { INT: 12, CON: 12 } },
+    { id: "set_scientist_goggles", effect: "crit", name: "Goggles of Insight", slot: "accessory", look: "glasses", icon: "👓", bonuses: { INT: 16 } },
   ] },
-  { id: "scout_leader", name: "Scout Leader", stat: "WIS", bonus: { WIS: 25, CON: 10 }, pieces: [
-    { id: "set_scout_longbow", name: "Scout Leader's Longbow", slot: "weapon", category: "ranged", look: "recurve_bow", icon: "🏹", bonuses: { WIS: 10, DEX: 8 }, damage: 30, range: 9, requires: { DEX: 65 } },
-    { id: "set_scout_coat", name: "Scout Leader's Field Coat", slot: "armor", look: "winter_coat", icon: "🧥", bonuses: { CON: 12, WIS: 10 } },
-    { id: "set_scout_compass", name: "Scout Leader's Compass", slot: "accessory", look: "compass", icon: "🧭", bonuses: { WIS: 16, INT: 4 } },
+  { id: "scout_leader", owner: "Scout Leader's", extras: ["ambush", "mend"], name: "Scout Leader", stat: "WIS", bonus: { WIS: 25, CON: 10 }, pieces: [
+    { id: "set_scout_sling", name: "Scout Leader's Sling", slot: "weapon", category: "ranged", cls: "medic", look: "sling", icon: "🎯", bonuses: { WIS: 16, DEX: 4 }, damage: 34 },
+    { id: "set_scout_coat", armor: "medium", name: "Scout Leader's Field Coat", slot: "armor", look: "winter_coat", icon: "🧥", bonuses: { CON: 12, WIS: 10 } },
+    { id: "set_scout_compass", effect: "noise", name: "Scout Leader's Compass", slot: "accessory", look: "compass", icon: "🧭", bonuses: { WIS: 16, INT: 4 } },
   ] },
-  { id: "president", name: "Class President", stat: "CHA", bonus: { CHA: 25, WIS: 10 }, pieces: [
-    { id: "set_president_trophy", name: "President's Trophy", slot: "weapon", category: "melee", look: "trophy", icon: "🏆", bonuses: { CHA: 12, STR: 6 }, damage: 28, range: 1, requires: { STR: 55 } },
-    { id: "set_president_blazer", name: "President's Blazer", slot: "armor", look: "letterman_jacket", icon: "🏅", bonuses: { CHA: 12, CON: 10 } },
-    { id: "set_president_shades", name: "President's Shades", slot: "accessory", look: "sunglasses", icon: "🕶", bonuses: { CHA: 16 } },
+  { id: "president", owner: "President's", extras: ["rest", "recover"], name: "Class President", stat: "CHA", bonus: { CHA: 25, WIS: 10 }, pieces: [
+    { id: "set_president_javelin", name: "President's Ceremonial Javelin", slot: "weapon", category: "melee", cls: "rallier", look: "javelin", icon: "🗡", bonuses: { CHA: 16, STR: 4 }, damage: 34 },
+    { id: "set_president_blazer", armor: "medium", name: "President's Blazer", slot: "armor", look: "letterman_jacket", icon: "🏅", bonuses: { CHA: 12, CON: 10 } },
+    { id: "set_president_whistle", effect: "morale", name: "President's Whistle", slot: "accessory", look: "whistle", icon: "📯", bonuses: { CHA: 16 } },
   ] },
 ];
+for (const set of MYTHIC_SETS) {
+  for (const effect of set.extras) {
+    const A = ACCESSORIES[effect];
+    set.pieces.push({ id: `set_${set.id}_${effect}`, effect, name: `${set.owner} ${A.name}`, slot: "accessory", look: A.look, icon: A.icon, bonuses: { [set.stat]: 12 } });
+  }
+}
 
 export const LEGENDARY_TITLES = ["the Relentless", "the Unbroken", "the Last Stand", "the Ironclad", "the Undying", "the Reaper's Bane"];
 
@@ -382,25 +314,64 @@ export const BATTLE_CRIT = { base: 0.05, perDex: 0.001, mult: 2 };
 // comes with learning the third talent on that subject's path (its B node: NIGHT_ABILITY2_SKILLS), their
 // third (`ability3`) with the fifth (S).
 export const NIGHT_CLASSES = {
-  brawler: { subject: "PE", name: "Brawler", icon: "💪", range: "front", weapon: "melee", desc: "Hits the zombie in front of them with their melee weapon",
+  brawler: { armor: "heavy", subject: "PE", name: "Brawler", icon: "💪", range: "front", reach: 2, weapon: "melee", desc: "Hits the nearest zombie up to 2 squares in front — over a friend's shoulder too",
     ability2: { name: "Cleave", desc: "Also hits the zombies either side of their target" },
-    ability3: { name: "Lunge", reach: 2, desc: "Hits the nearest zombie up to 2 squares in front" } },
-  shooter: { subject: "Gymnastics", name: "Shooter", icon: "🏹", range: "lane", weapon: "ranged", desc: "Fires down the lane at the nearest zombie",
+    ability3: { name: "Lunge", reach: 3, desc: "Reaches 3 squares in front" } },
+  shooter: { armor: "light", subject: "Gymnastics", name: "Shooter", icon: "🏹", range: "lane", weapon: "ranged", desc: "Fires down the lane at the nearest zombie",
     ability2: { name: "Quick Draw", chance: 0.5, desc: "50% chance to fire twice a turn" },
     ability3: { name: "Double Shot", desc: "Always fires twice a turn" } },
-  tank: { subject: "Biology", name: "Tank", icon: "🛡", range: "front", weapon: "melee", hpMult: 1.5, dmgMult: 0.5, desc: "+50% HP to hold the lane, and a weak hit on the square in front",
+  tank: { armor: "heavy", subject: "Biology", name: "Tank", icon: "🛡", range: "front", reach: 1, weapon: "melee", hpMult: 1.5, dmgMult: 0.5, desc: "+50% HP to hold the lane, and a weak hit on the square in front",
     ability2: { name: "Second Wind", revive: 0.5, desc: "Once a night, gets back up at 50% HP" },
     ability3: { name: "Colossus", hpBonus: 0.5, desc: "Another +50% HP: double in all" } },
-  trapper: { subject: "Physics", name: "Trapper", icon: "🕸", range: "lane", weapon: "ranged", dmgMult: 0.5, slowTurns: 3, desc: "Fires down the lane for half a shot's damage and slows its target to half speed",
+  trapper: { armor: "light", subject: "Physics", name: "Trapper", icon: "🕸", range: "lane", weapon: "ranged", dmgMult: 0.5, slowTurns: 3, desc: "Fires down the lane for half a shot's damage and slows its target to half speed",
     ability2: { name: "Repair", repair: 0.1, desc: "Patches the wall in their lane by 10% a turn" },
     ability3: { name: "Wide Net", chance: 0.2, turns: 2, desc: "20% chance a hit nets every zombie in their lane for 2 turns" } },
-  medic: { subject: "History", name: "Medic", icon: "🩹", range: "around", weapon: "ranged", dmgMult: 0.5, heal: 0.05, healPerGrade: 1 / 2000, desc: "Heals the most hurt student next to them every turn — with nobody to heal, fires down the lane for half a shot's damage",
+  medic: { armor: "medium", subject: "History", name: "Medic", icon: "🩹", range: "around", weapon: "ranged", dmgMult: 0.5, heal: 0.05, healPerGrade: 1 / 2000, desc: "Heals the most hurt student next to them every turn — with nobody to heal, fires down the lane for half a shot's damage",
     ability2: { name: "Long Reach", reach: 2, desc: "Heals anyone up to 2 squares away" },
     ability3: { name: "Field Surgeon", desc: "Also heals anyone in their lane" } },
-  rallier: { subject: "SocialStudies", name: "Rallier", icon: "📣", range: "front", weapon: "melee", dmgMult: 0.6, morale: 5, every: 2, desc: "Makes 5 morale every 2 turns, and hits the zombie in front of them for a little over half a Brawler's damage",
+  rallier: { armor: "medium", subject: "SocialStudies", name: "Rallier", icon: "📣", range: "front", reach: 3, weapon: "melee", dmgMult: 0.6, morale: 5, every: 2, desc: "Makes 5 morale every 2 turns, and throws at the nearest zombie up to 3 squares in front for a little over half a Brawler's damage",
     ability2: { name: "Rally Cry", buff: 0.2, hp: 0.2, desc: "Students in their lane deal 20% more damage and have 20% more HP" },
     ability3: { name: "Inspire", moraleMult: 2, desc: "Makes double morale" } },
 };
+// Each class's weapons: one of each rarity, Common to Legendary (the Mythic one is its stat's set
+// piece, MYTHIC_SETS). A weapon gives `damage` and a bonus to its class's `stat`, both by its tier
+// (WEAPON_TIERS); its reach is the class's (`reach` above — the ranged classes, the whole lane).
+// `looks`: the item icons they're drawn as (scenes.js it_<look>).
+export const WEAPON_TIERS = {
+  common: { damage: 10, bonus: 4 },
+  uncommon: { damage: 14, bonus: 6 },
+  rare: { damage: 18, bonus: 9 },
+  epic: { damage: 23, bonus: 12 },
+  legendary: { damage: 30, bonus: 16 },
+};
+const CLASS_WEAPONS = {
+  tank: { stat: "CON", icon: "🛡", names: ["Trash Can Lid", "Stop Sign Shield", "Riot Shield", "Steel Fire Door", "The Last Door"], looks: ["trash_lid", "stop_sign_shield", "riot_shield", "fire_door", "door"] },
+  brawler: { stat: "STR", icon: "🏏", names: ["Baseball Bat", "Nail-Studded Bat", "Fire Axe", "Display Katana", "Widow's Edge"], looks: ["bat", "nail_bat", "axe", "katana", "legendary_axe"] },
+  rallier: { stat: "CHA", icon: "🗡", names: ["Kitchen Knives", "Throwing Knives", "Javelin", "Tomahawk", "Coach's Golden Javelin"], looks: ["knife", "throwing_knives", "javelin", "tomahawk", "javelin"] },
+  medic: { stat: "WIS", icon: "🎯", names: ["Pea Shooter", "Wrist Rocket", "Tranq Dart Gun", "Syringe Launcher", "Giant's Fall"], looks: ["pea_shooter", "slingshot", "dart_gun", "syringe_launcher", "legendary_slingshot"] },
+  trapper: { stat: "INT", icon: "🕸", names: ["Volleyball Net", "Fishing Net", "Bola Launcher", "Net Launcher", "The Spider's Web"], looks: ["volleyball_net", "net", "bola_launcher", "net_launcher", "spider_web"] },
+  shooter: { stat: "DEX", icon: "🏹", names: ["PVC Bow", "Recurve Bow", "Compound Bow", "Crossbow", "Robin's Last Arrow"], looks: ["pvc_bow", "recurve_bow", "compound_bow", "crossbow", "legendary_recurve"] },
+};
+export const WEAPON_TEMPLATES = Object.entries(CLASS_WEAPONS).flatMap(([cls, w]) => Object.keys(WEAPON_TIERS).map((rarity, i) => ({
+  id: `w_${cls}_${rarity}`, name: w.names[i], slot: "weapon", category: NIGHT_CLASSES[cls].weapon, cls, rarity, look: w.looks[i], icon: w.icon,
+  damage: WEAPON_TIERS[rarity].damage, bonuses: { [w.stat]: WEAPON_TIERS[rarity].bonus },
+})));
+// The armour: three types, one of each rarity, Common to Legendary (the Mythic one is a set piece) —
+// a class wears its type only (`armor` above): Heavy the Tank and Brawler, Medium the Medic and
+// Rallier, Light the Trapper and Shooter. Heavy protects most (CON); the lighter the armour, the less
+// CON and the more DEX (dodging). `looks`: the icons they're drawn as.
+export const ARMOR_TYPES = {
+  heavy: { name: "Heavy", icon: "🛡", bonuses: { CON: [6, 9, 13, 17, 24] },
+    names: ["Backpack Plate", "Catcher's Gear", "Football Pads", "Riot Gear", "Last Guardian's Plate"], looks: ["backpack_plate", "catchers_gear", "football_pads", "riot_harness", "legendary_riotgear"] },
+  medium: { name: "Medium", icon: "🧥", bonuses: { CON: [4, 6, 9, 12, 16], DEX: [1, 2, 3, 4, 6] },
+    names: ["Letterman Jacket", "Padded Gear", "Motorcycle Jacket", "Improvised Kevlar", "Survivor's Coat"], looks: ["letterman_jacket", "pads", "motorcycle_jacket", "kevlar_vest", "legendary_coat"] },
+  light: { name: "Light", icon: "🧣", bonuses: { CON: [2, 3, 5, 7, 10], DEX: [3, 5, 7, 9, 12] },
+    names: ["Hoodie", "School Jacket", "Lab Coat", "Stab Vest", "Alchemist's Ward"], looks: ["hoodie", "jacket", "lab_coat", "vest", "legendary_labcoat"] },
+};
+export const ARMOR_TEMPLATES = Object.entries(ARMOR_TYPES).flatMap(([type, A]) => ["common", "uncommon", "rare", "epic", "legendary"].map((rarity, i) => ({
+  id: `a_${type}_${rarity}`, name: A.names[i], slot: "armor", armor: type, rarity, look: A.looks[i], icon: A.icon,
+  bonuses: Object.fromEntries(Object.entries(A.bonuses).map(([stat, v]) => [stat, v[i]])),
+})));
 export const NIGHT_ABILITY2_SKILLS = 3; // talents learned on the class's subject's path (D, C, then B)
 export const NIGHT_ABILITY3_SKILLS = 5; // … and all five (A, then S: only a ★ favourite gets there)
 // Morale, the night's currency: you start with the school's Morale, earn `perKill` for every
@@ -1127,7 +1098,7 @@ export const TECH_TREE = [
   { id: "word_of_mouth", path: "explore", branch: "b", tier: 7, cost: 100, requires: "treasure_hunters", icon: "🗣", name: "Word of Mouth", short: "+50% recruits", perk: { recruitChance: 0.5 }, desc: "Expeditions are 50% more likely to find survivors who want to join." },
   // 🌙 Night Watch — trunk
   { id: "whetstones", path: "night", branch: "trunk", tier: 1, cost: 10, requires: null, icon: "🗡", name: "Whetstones", short: "+15% melee", perk: { meleeDamage: 0.15 }, desc: "+15% melee damage in the night battle." },
-  { id: "archery_club", path: "night", branch: "trunk", tier: 2, cost: 20, requires: "whetstones", icon: "🏹", name: "Archery Club", short: "+1 ranged reach", perk: { rangedRange: 1, rangedDamage: 0.1 }, desc: "Ranged weapons reach 1 square further and deal +10% damage." },
+  { id: "archery_club", path: "night", branch: "trunk", tier: 2, cost: 20, requires: "whetstones", icon: "🏹", name: "Archery Club", short: "+15% ranged damage", perk: { rangedDamage: 0.15 }, desc: "Ranged weapons deal +15% damage." },
   // 🌙 → The Watch
   { id: "field_medics", path: "night", branch: "a", tier: 3, cost: 30, requires: "archery_club", icon: "⛑", name: "Field Medics", short: "Cheaper saves", perk: { stabilizeDiscount: 2, untreatedDeathReduction: 0.5 }, desc: "Saving a downed defender costs 3 medicine instead of 5, and without medicine their death chance is halved." },
   { id: "quick_reflexes", path: "night", branch: "a", tier: 4, cost: 45, requires: "field_medics", icon: "⏱", name: "Quick Reflexes", short: "+25% ability charge", perk: { abilityCharge: 0.25 }, desc: "Abilities charge 25% faster in the night battle." },

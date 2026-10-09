@@ -3,7 +3,7 @@ import {
   CLASSROOM_CAPACITY, LOCATIONS,
   GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, CRAFT_HELP_WIS_PER_POINT, roomUpgradeCost,
   FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
-  ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES, RARITIES, RARITY_ORDER, ITEM_DROP_ODDS, MYTHIC_SETS, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
+  ACCESSORIES, ACCESSORY_RANGES, RARITIES, RARITY_ORDER, ITEM_DROP_ODDS, MYTHIC_SETS, WEAPON_TEMPLATES, ARMOR_TEMPLATES, ARMOR_TYPES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
   NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_CLASSES, NIGHT_MORALE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD,
   DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, GREENHOUSE_JOBS, GREENHOUSE_YIELD_MEDICINE, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
@@ -14,7 +14,7 @@ import {
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus, gradeCap, gradeCapLetter,
-  bestClassroomSubjectFor, stripHonorific, setsWorn, weaponCategory,
+  bestClassroomSubjectFor, stripHonorific, setsWorn, weaponCategory, studentClass, armorType,
 } from "./characters.js";
 import {
   getChar, aliveChars, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
@@ -34,7 +34,7 @@ import { characterSprite } from "./sprite.js";
 import { getBest, isBestRun } from "./score.js";
 import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZE } from "./graphics.js";
 import { areaOfTab } from "./frames.js";
-import { sceneBackground, pixelIcon, moodIcon } from "./scenes.js";
+import { sceneBackground, pixelIcon, moodIcon, hasIcon } from "./scenes.js";
 import { isSoundEnabled, getSoundVolume } from "./sound.js";
 import { isMusicEnabled, getMusicVolume } from "./music.js";
 
@@ -140,18 +140,24 @@ const DROP_ICON = Object.fromEntries(Object.entries(MAP_DROPS).map(([k, d]) => [
 // copy of the old emoji, and several items share one, so the id — not the emoji — picks it.
 // Past Common, the icon's outline is the rarity's colour (scenes.js rarityIcon: "it_bat~rare"); a
 // Mythic set piece is drawn as its base item (`look`), in a rainbow; a Legendary has its own.
-const ITEM_IDS = new Set([...ITEM_TEMPLATES, ...LEGENDARY_ITEM_TEMPLATES].map((t) => t.id));
 const rarityOf = (it) => it?.rarity || (it?.legendary ? "legendary" : "common");
-const itemIcon = (it) => {
+const itemIconName = (it) => {
   const base = it?.look || it?.id;
-  if (!base || !ITEM_IDS.has(base)) return it?.icon || "";
+  if (!base || !hasIcon(`it_${base}`)) return null;
   const r = rarityOf(it);
-  return pxe(r === "common" || r === "legendary" ? `it_${base}` : `it_${base}~${r}`);
+  return r === "common" || base.startsWith("legendary_") ? `it_${base}` : `it_${base}~${r}`;
 };
+const itemIcon = (it) => (itemIconName(it) ? pxe(itemIconName(it)) : it?.icon || "");
+const itemIcon32 = (it) => (itemIconName(it) ? `<span class="ri">${pixelIcon(itemIconName(it), 32)}</span>` : it?.icon || "");
 // An item's name in its rarity's colour (a Mythic one in a rainbow), its rarity after it unless `bare`.
 const itemName = (it, bare = false) => {
   const r = rarityOf(it);
   return `<span class="rar rar-${r}">${esc(it.name)}${bare ? "" : ` <small class="rar-tag">${RARITIES[r].name}</small>`}</span>`;
+};
+// What an accessory does, as it reads: "+16% melee damage" (or "−8% damage taken").
+const itemPerk = (it) => {
+  const A = it?.effect && ACCESSORIES[it.effect];
+  return A ? `${A.less ? "−" : "+"}${it.value}% ${A.what}` : "";
 };
 // The odds of each rarity, as chips: "30% Common · 60% Uncommon · 10% Rare".
 const rarityOdds = (odds) => Object.entries(odds).map(([r, p]) => `<span class="rar rar-${r}">${Math.round(p * 100)}% ${RARITIES[r].name}</span>`).join(" · ");
@@ -4644,30 +4650,18 @@ export function renderResearch(state) {
 const ARMORY_SLOT_LABEL = { melee: "🗡 Melee Weapons", ranged: "🏹 Ranged Weapons", armor: "🛡 Armor", accessory: "💍 Accessories" };
 const armoryGroupKey = (it) => (it.slot === "weapon" ? it.category : it.slot);
 
-// Damage/range (and the STR/DEX floor to wield it) shown on every weapon row, on top of the
-// usual stat bonuses.
-function weaponStatsLabel(it) {
-  if (it.slot !== "weapon") return "";
-  const req = it.requires && Object.keys(it.requires).length
-    ? ` · 🔒 ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}+`).join(" ")}`
-    : "";
-  return `<span class="weapon-stats">⚔ ${it.damage} dmg · 📏 ${it.range} range${req}</span>`;
-}
-
-// An armory row in fixed columns — icon, name, bonus, damage, range, requirement — so every
-// row's numbers sit under each other (armor and accessories leave the weapon columns empty).
+// An armory row in fixed columns — icon, name, bonus, damage, whose weapon — so every row's numbers
+// sit under each other (armour and accessories leave the weapon columns empty).
 function armoryItemRow(it) {
   const weapon = it.slot === "weapon";
-  const req = weapon && it.requires && Object.keys(it.requires).length
-    ? `🔒 ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}+`).join(" ")}`
-    : "";
+  const C = weapon && NIGHT_CLASSES[it.cls];
+  const A = it.slot === "armor" && ARMOR_TYPES[it.armor];
   return `<div class="armory-item armory-${rarityOf(it)}">
     <span class="armory-icon">${itemIcon(it)}</span>
     <span class="armory-name">${itemName(it)}</span>
-    <span class="armory-bonus">${formatBonuses(it.bonuses)}</span>
+    <span class="armory-bonus">${[formatBonuses(it.bonuses), itemPerk(it)].filter(Boolean).join(" · ")}</span>
     <span class="armory-cell">${weapon ? `⚔ ${it.damage} dmg` : ""}</span>
-    <span class="armory-cell">${weapon ? `📏 ${it.range} range` : ""}</span>
-    <span class="armory-cell armory-req">${req}</span>
+    <span class="armory-cell">${C ? `${C.icon} ${C.name}s` : A ? `${A.icon} ${A.name}` : ""}</span>
   </div>`;
 }
 
@@ -4698,43 +4692,104 @@ export function renderArmory(state) {
 // ---------- item list (full equipment catalog) ----------
 
 export function renderItemList() {
-  const all = [...ITEM_TEMPLATES, ...LEGENDARY_ITEM_TEMPLATES];
-  const grouped = { melee: [], ranged: [], armor: [], accessory: [] };
-  for (const it of all) (grouped[armoryGroupKey(it)] || (grouped[armoryGroupKey(it)] = [])).push(it);
-  const rarities = `<div class="subcard">
-      <h3>🌈 Rarity</h3>
-      <div class="il-rarities">${RARITY_ORDER.map((r) => {
-        // where it can be found (ITEM_DROP_ODDS), in its i
-        const where = [["Tier 1 places", 1], ["Tier 2 places", 2], ["Tier 3 places", 3], ["Tier 4 places", 4], ["Raids", "raid"]]
-          .filter(([, k]) => ITEM_DROP_ODDS[k][r]).map(([label, k]) => [label, `${Math.round(ITEM_DROP_ODDS[k][r] * 100)}%`]);
-        const also = { common: "Scouting, wrecks and the yards too", uncommon: "Scouting, wrecks, the yards and nests too", rare: "Scouting, wrecks, the yards, nests and boss nights too", epic: "Nests and boss nights too", legendary: "Boss nights, mapping the town and legendary survivors too" }[r];
-        return `<span class="il-rarity"><b class="rar rar-${r}">${RARITIES[r].name}</b>${infoDot({ title: `<span class="rar rar-${r}">${RARITIES[r].name}</span> — where to find it`, rows: where, notes: also ? [also] : [] })}</span>`;
-      }).join("")}</div>
-    </div>`;
-  const sets = `<div class="subcard">
-      <h3>🌈 Mythic sets <span class="muted">(${MYTHIC_SETS.length})</span></h3>
-      <div class="il-sets">${MYTHIC_SETS.map((set) => `<div class="il-set">
-        <div class="il-set-head"><b class="rar rar-mythic">${esc(set.name)}</b><span class="muted">${set.stat} set · all three: ${formatBonuses(set.bonus)}</span></div>
-        <div class="armory-list">${set.pieces.map((p) => armoryItemRow({ ...p, rarity: "mythic" })).join("")}</div>
-      </div>`).join("")}</div>
-    </div>`;
-
-  const section = (key) => {
-    const items = grouped[key] || [];
-    return `<div class="subcard">
-      <h3>${ARMORY_SLOT_LABEL[key]} <span class="muted">(${items.length})</span></h3>
-      <div class="armory-list">${items.map(armoryItemRow).join("")}</div>
-    </div>`;
+  const tiers = ["common", "uncommon", "rare", "epic", "legendary", "mythic"];
+  // a rarity's column head: its name, and where it turns up in its i
+  const rarityHead = (r) => {
+    const where = [["Tier 1 places", 1], ["Tier 2 places", 2], ["Tier 3 places", 3], ["Tier 4 places", 4], ["Raids", "raid"]]
+      .filter(([, k]) => ITEM_DROP_ODDS[k][r]).map(([label, k]) => [label, `${Math.round(ITEM_DROP_ODDS[k][r] * 100)}%`]);
+    const also = { common: "Scouting, wrecks and the yards too", uncommon: "Scouting, wrecks, the yards and nests too", rare: "Scouting, wrecks, the yards, nests and boss nights too", epic: "Nests and boss nights too", legendary: "Boss nights, mapping the town and legendary survivors too" }[r];
+    return `<span class="il-wh"><span class="rar rar-${r}">${RARITIES[r].name}</span> ${infoDot({ title: `<span class="rar rar-${r}">${RARITIES[r].name}</span> — where to find it`, rows: where, notes: also ? [also] : [] })}</span>`;
   };
+  const wearers = (type) => Object.values(NIGHT_CLASSES).filter((C) => C.armor === type).map((C) => `${C.name}s`).join(" and ");
+  // (`label`: a shorter name for the cell — the tooltip keeps the full one)
+  const weaponCell = (it, label = null) => {
+    if (!it) return "<span></span>";
+    const who = it.slot === "weapon" ? `${NIGHT_CLASSES[it.cls].icon} ${NIGHT_CLASSES[it.cls].name}s only` : it.slot === "armor" ? `${ARMOR_TYPES[it.armor].name} armour — ${wearers(it.armor)}` : "Anyone";
+    return `<span class="il-weapon" ${tipAttr({ title: `${itemIcon(it)} ${itemName(it)}`, rows: [...(it.damage ? [["Damage", `${it.damage}`]] : []), ...Object.entries(it.bonuses).map(([k, v]) => [k, `+${v}`]), ...(it.effect ? [["Effect", itemPerk(it)]] : [])], notes: [who, ...(it.set ? [`Part of the ${esc(MYTHIC_SETS.find((x) => x.id === it.set).name)} set`] : [])] })}>${itemIcon(it)}${label ? `<span class="rar rar-${rarityOf(it)}">${esc(label)}</span>` : itemName(it, true)}</span>`;
+  };
+  const setWeapon = (cls) => {
+    for (const set of MYTHIC_SETS) {
+      const p = set.pieces.find((x) => x.slot === "weapon" && x.cls === cls);
+      if (p) return { ...p, rarity: "mythic", set: set.id };
+    }
+    return null;
+  };
+  const weapons = `<div class="subcard">
+      <div class="il-wtable">
+        <span class="il-wh il-corner">⚔ Weapons ${infoDot({ title: "⚔ Weapons", notes: ["Each class has its own: one of every rarity", "Damage and the class's stat go up with the rarity", "How far they reach is the class's — the weapon doesn't change it"] })}</span>${tiers.map(rarityHead).join("")}
+        ${Object.keys(NIGHT_CLASSES).map((cls) => {
+          const C = NIGHT_CLASSES[cls];
+          const reach = C.weapon === "ranged" ? "the lane" : `${C.reach} square${C.reach === 1 ? "" : "s"}`;
+          return `<span class="il-wclass" ${tipAttr({ title: `${C.icon} ${C.name}`, rows: [["Fights", C.weapon], ["Reaches", reach]], notes: [esc(C.desc)] })}><b>${C.icon} ${C.name}</b><small>${C.weapon} · ${reach}</small></span>`
+            + tiers.map((r) => weaponCell(r === "mythic" ? setWeapon(cls) : WEAPON_TEMPLATES.find((t) => t.cls === cls && t.rarity === r))).join("");
+        }).join("")}
+      </div>
+    </div>`;
+  // (the Mythic column: the sets' armour of that type — two of each)
+  const setArmor = (type) => MYTHIC_SETS.flatMap((set) => set.pieces.filter((p) => p.slot === "armor" && p.armor === type).map((p) => ({ ...p, rarity: "mythic", set: set.id })));
+  const armour = `<div class="subcard">
+      <div class="il-wtable">
+        <span class="il-wh il-corner">🛡 Armour ${infoDot({ title: "🛡 Armour", notes: ["Three types, one of every rarity — each class wears its type only", "Heavy protects most (CON); the lighter, the more DEX for dodging"] })}</span>${tiers.map(rarityHead).join("")}
+        ${Object.keys(ARMOR_TYPES).map((type) => {
+          const A = ARMOR_TYPES[type];
+          return `<span class="il-wclass" ${tipAttr({ title: `${A.icon} ${A.name} armour`, rows: Object.keys(A.bonuses).map((k) => [k, `+${A.bonuses[k][0]} to +${A.bonuses[k][4]}`]), notes: [`Worn by ${wearers(type)}`] })}><b>${A.icon} ${A.name}</b><small>${wearers(type)}</small></span>`
+            + tiers.map((r) => (r === "mythic" ? `<span class="il-cellstack">${setArmor(type).map(weaponCell).join("")}</span>` : weaponCell(ARMOR_TEMPLATES.find((t) => t.armor === type && t.rarity === r)))).join("");
+        }).join("")}
+      </div>
+    </div>`;
+  // the accessories: by turn, each with its effect and the range each rarity rolls (Mythic: its set's)
+  const setAccessory = (effect) => {
+    for (const set of MYTHIC_SETS) for (const p of set.pieces) if (p.effect === effect) return { ...p, rarity: "mythic", set: set.id };
+    return null;
+  };
+  const accessories = `<div class="subcard">
+      <div class="il-wtable">
+        <span class="il-wh il-corner">💍 Accessories ${infoDot({ title: "💍 Accessories", notes: ["Anyone can wear them — three at a time, never two of the same", "How much each does is rolled when it's found, from its rarity's range", "A better rarity is never worse: the ranges don't overlap"] })}</span>${tiers.map(rarityHead).join("")}
+        ${[1, 2, 3].map((turn) => `<span class="il-turn">${["", "☀ Turn 1 · the school", "🧭 Turn 2 · the expeditions", "🌙 Turn 3 · the night"][turn]}</span>` + Object.entries(ACCESSORIES).filter(([, A]) => A.turn === turn).map(([effect, A]) => {
+          const sign = A.less ? "−" : "+";
+          const set = setAccessory(effect);
+          return `<span class="il-wclass il-acc" ${tipAttr({ title: `${pxe(`it_${A.look}`)} ${esc(A.name)}`, notes: [`${sign} ${A.what}`] })}><b>${pxe(`it_${A.look}`)} ${esc(A.name)}</b><small>${sign} ${A.short}</small></span>`
+            + tiers.map((r) => {
+              const [lo, hi] = ACCESSORY_RANGES[A.scale][r];
+              if (r === "mythic") return set ? weaponCell({ ...set, value: lo }) : `<span class="il-weapon il-none">—</span>`;
+              return `<span class="il-weapon il-range rar rar-${r}">${sign}${lo}–${hi}%</span>`;
+            }).join("");
+        }).join("")).join("")}
+      </div>
+    </div>`;
+  // the sets: a line each — the set (hover it for everything the full set gives), its three pieces
+  // (hover one for its numbers), the full set's bonus
+  const sets = `<div class="subcard">
+      <div class="il-wtable il-settable">
+        <span class="il-wh il-corner">🌈 Mythic sets <span class="muted">(${MYTHIC_SETS.length})</span> ${infoDot({ title: "🌈 Mythic sets", notes: ["One for each stat: a weapon, an armour and three accessories", "Raids can drop them (10% of their finds)", "Full set: the weapon, the armour and any one of its accessories"] })}</span><span class="il-wh">Weapon</span><span class="il-wh">Armour</span><span class="il-wh il-span3">Accessory · any one</span><span class="il-wh">Full set</span>
+        ${MYTHIC_SETS.map((set) => {
+          // the full set, added up: the weapon's damage, every stat (the pieces' and the bonus), the effect
+          const totals = {};
+          // (the weapon, the armour, one accessory's +12 and the bonus)
+          for (const b of [...set.pieces.filter((p) => p.slot !== "accessory").map((p) => p.bonuses), { [set.stat]: 12 }, set.bonus]) for (const [k, v] of Object.entries(b)) totals[k] = (totals[k] || 0) + v;
+          const weapon = set.pieces.find((p) => p.slot === "weapon");
+          const accs = set.pieces.filter((p) => p.effect);
+          const tip = tipAttr({
+            title: `🌈 ${esc(set.name)} — the full set`,
+            rows: [["Damage", `${weapon.damage}`], ...Object.entries(totals).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, `+${v}`])],
+            notes: [`With the full-set bonus (${formatBonuses(set.bonus)}) and one accessory (+12 ${set.stat})`, `The accessory, one of: ${accs.map((a) => itemPerk({ ...a, value: ACCESSORY_RANGES[ACCESSORIES[a.effect].scale].mythic[0] })).join(" · ")}`, `The weapon is for ${NIGHT_CLASSES[weapon.cls].name}s, the armour ${ARMOR_TYPES[set.pieces.find((p) => p.slot === "armor").armor].name}`],
+          });
+          return `<span class="il-wclass il-acc" ${tip}><b class="rar rar-mythic">${esc(set.name)}</b><small>${set.stat} set</small></span>`
+          // its weapon, armour and three accessories, a column each (named without the set's owner — the row says whose)
+          + set.pieces.map((p) => {
+            const value = p.effect ? ACCESSORY_RANGES[ACCESSORIES[p.effect].scale].mythic[0] : undefined;
+            return weaponCell({ ...p, rarity: "mythic", set: set.id, ...(value ? { value } : {}) }, p.name.startsWith(`${set.owner} `) ? p.name.slice(set.owner.length + 1) : null);
+          }).join("")
+          + `<span class="il-weapon il-setbonus"><b>${formatBonuses(set.bonus)}</b></span>`;
+        }).join("")}
+      </div>
+    </div>`;
 
   return `<div class="card">
-    <h2>📖 Item List ${infoDot({ notes: ["Every student starts with a Common weapon, armour and accessory", "Further out, better finds — the raids drop the best, Mythic set pieces too", "Below: every base item as a Common, then the Legendaries and the sets"] })}</h2>
-    <p class="room-tagline">Everything that can turn up · one melee (needs STR) and one ranged weapon (needs DEX) per student</p>
-    ${rarities}
-    ${section("melee")}
-    ${section("ranged")}
-    ${section("armor")}
-    ${section("accessory")}
+    <h2>📖 Item List ${infoDot({ notes: ["Every student starts with a Common weapon, armour and accessory", "Further out, better finds — the raids drop the best, Mythic set pieces too", "Below: the weapons, the armour and the accessories at every rarity, then the sets"] })}</h2>
+    ${weapons}
+    ${armour}
+    ${accessories}
     ${sets}
   </div>`;
 }
@@ -5020,62 +5075,94 @@ function renderStatsTab(state, c) {
   return `<div class="cs-grid">${cards}</div>`;
 }
 
-// ----- Inventory: the six slots, what's in each (or a choice of what fits), the totals, Auto-equip -----
+// ----- Inventory: their five slots (weapon, armour, three accessories) as cards — click one to pick
+// for it from the Armory below: what fits, best first, each with what it does and what it'd change
+// their fight power by; click one to put it on. Then the sets they're wearing, the totals, Auto-equip.
+let invPick = { id: null, slot: null };
+export function setInvSlot(id, slot) {
+  invPick = { id, slot };
+}
 function renderInventoryTab(state, c) {
   const eq = c.equipment || { meleeWeapon: null, rangedWeapon: null, armor: null, accessories: [null, null, null] };
-  const slot = (label, icon, slotKey, item, type, category) => {
-    const options = state.armory.filter((it) => it.slot === type && (!category || it.category === category));
-    if (item) {
-      const stats = item.slot === "weapon" ? `<span class="ci-weapon">⚔ ${item.damage} · ${pxe("ruler")} ${item.range}</span>` : "";
-      return `<div class="ci-slot ci-full ci-${rarityOf(item)}" ${tipAttr({ title: `${itemIcon(item)} ${itemName(item)}`, rows: [...Object.entries(item.bonuses).map(([k, v]) => [k, `+${v}`]), ...(item.slot === "weapon" ? [["Damage", `${item.damage}`], ["Range", `${item.range}`]] : [])], notes: [`${label} · ✕ to put it back in the Armory`] })}>
-        <span class="ci-label">${icon} ${label}</span>
-        <span class="ci-icon">${itemIcon(item)}</span>
-        <span class="ci-name">${itemName(item, true)}</span>
-        <span class="ci-bonus">${Object.entries(item.bonuses).map(([k, v]) => `<b>+${v}</b> ${k}`).join(" ")}</span>
-        ${stats}
-        <button class="ci-remove" data-action="unequip-item" data-id="${c.id}" data-slot="${slotKey}" title="Take it off">✕</button>
-      </div>`;
-    }
-    const usable = options.filter((it) => meetsItemRequirement(c, it));
-    return `<div class="ci-slot ci-empty">
-      <span class="ci-label">${icon} ${label}</span>
-      <span class="ci-icon ci-icon-empty">＋</span>
-      <select class="ci-select" data-action="equip-item" data-id="${c.id}" data-slot="${slotKey}" ${options.length ? "" : "disabled"}>
-        <option value="">${usable.length ? `Choose · ${usable.length} fit` : options.length ? "None they can hold" : "Nothing in the Armory"}</option>
-        ${options.map((it) => {
-          const ok = meetsItemRequirement(c, it);
-          const req = it.requires && Object.keys(it.requires).length ? ` · needs ${Object.entries(it.requires).map(([k, v]) => `${k} ${v}`).join(" ")}` : "";
-          const r = rarityOf(it);
-          return `<option value="${it.uid}" ${ok ? "" : "disabled"} style="color:${r === "mythic" ? "#ff8ad8" : RARITIES[r].color}">${ok ? "" : "🔒 "}${esc(it.name)} · ${RARITIES[r].name} (${formatBonuses(it.bonuses)})${ok ? "" : req}</option>`;
-        }).join("")}
-      </select>
-    </div>`;
+  const cls = studentClass(c);
+  const C = NIGHT_CLASSES[cls];
+  const type = armorType(c);
+  // a slot ("weapon", "armor", "accessory0"…) and what it's called in the equipment
+  const keyOf = (slot) => (slot === "weapon" ? (weaponCategory(c) === "ranged" ? "rangedWeapon" : "meleeWeapon") : slot);
+  const get = (slot) => (slot.startsWith("accessory") ? eq.accessories[Number(slot.slice(9))] : eq[keyOf(slot)]);
+  const put = (slot, it) => (slot.startsWith("accessory") ? (eq.accessories[Number(slot.slice(9))] = it) : (eq[keyOf(slot)] = it));
+  // their fight power with `it` in `slot` (tried on and taken off again)
+  const powerWith = (slot, it) => {
+    const old = get(slot);
+    put(slot, it);
+    const p = fightPower(state, c).power;
+    put(slot, old);
+    return p;
   };
-  // one weapon: the kind their class fights with
-  const C = NIGHT_CLASSES[nightClass(c)];
-  const slots = [
-    weaponCategory(c) === "ranged"
-      ? slot(`Ranged · ${C.name}`, "🏹", "rangedWeapon", eq.rangedWeapon, "weapon", "ranged")
-      : slot(`Melee · ${C.name}`, "🗡", "meleeWeapon", eq.meleeWeapon, "weapon", "melee"),
-    slot("Armour", "🛡", "armor", eq.armor, "armor"),
-    ...[0, 1, 2].map((i) => slot(`Accessory ${i + 1}`, "💍", `accessory${i}`, eq.accessories[i], "accessory")),
-  ].join("");
+  const SLOTS = [
+    ["weapon", `${C.icon} ${C.name}'s weapon`, `it_${WEAPON_TEMPLATES.find((t) => t.cls === cls && t.rarity === "common").look}`],
+    ["armor", `🛡 ${ARMOR_TYPES[type].name} armour`, `it_${ARMOR_TEMPLATES.find((t) => t.armor === type && t.rarity === "common").look}`],
+    ...[0, 1, 2].map((i) => [`accessory${i}`, `💍 Accessory ${i + 1}`, "it_charm"]),
+  ];
+  const selected = invPick.id === c.id && SLOTS.some(([slot]) => slot === invPick.slot) ? invPick.slot : (SLOTS.find(([slot]) => !get(slot)) || SLOTS[0])[0];
+  const statLine = (it) => [it.damage ? `⚔ <b>${it.damage}</b>` : "", Object.entries(it.bonuses).map(([k, v]) => `<b>+${v}</b> ${k}`).join(" "), it.effect ? `<b>${itemPerk(it)}</b>` : ""].filter(Boolean).join(" · ");
+  const itemTip = (it, notes) => tipAttr({ title: `${itemIcon(it)} ${itemName(it)}`, rows: [...(it.damage ? [["Damage", `${it.damage}`]] : []), ...Object.entries(it.bonuses).map(([k, v]) => [k, `+${v}`]), ...(it.effect ? [["Effect", itemPerk(it)]] : [])], notes });
+
+  const slots = SLOTS.map(([slot, label, ghost]) => {
+    const it = get(slot);
+    return `<div class="inv-slot ${it ? `inv-r-${rarityOf(it)}` : "inv-empty"} ${slot === selected ? "inv-on" : ""}" data-action="inv-slot" data-id="${c.id}" data-slot="${slot}" ${it ? itemTip(it, ["Click to swap it for something from the Armory", "✕ takes it off"]) : ""}>
+      <span class="inv-label">${label}</span>
+      <span class="inv-icon">${it ? itemIcon32(it) : `<span class="inv-ghost">${pixelIcon(ghost, 32)}</span>`}</span>
+      <span class="inv-name">${it ? itemName(it, true) : '<span class="muted">Empty</span>'}</span>
+      <span class="inv-stats">${it ? statLine(it) : "Pick one below"}</span>
+      ${it ? `<button class="ci-remove" data-action="unequip-item" data-id="${c.id}" data-slot="${keyOf(slot)}" title="Take it off">✕</button>` : ""}
+    </div>`;
+  }).join("");
+
+  // the picker: what in the Armory fits the selected slot, best first
+  const kind = selected.startsWith("accessory") ? "accessory" : selected;
+  const fits = state.armory.filter((it) => it.slot === kind && (kind !== "weapon" || it.cls === cls) && (kind !== "armor" || it.armor === type));
+  const current = get(selected);
+  const now = fightPower(state, c).power;
+  // (an accessory whose effect they're wearing in another slot can't go on — two of one never do)
+  const clash = (it) => it.effect && eq.accessories.some((x, j) => x?.effect === it.effect && `accessory${j}` !== selected);
+  const picks = fits.map((it) => ({ it, power: powerWith(selected, it), clash: clash(it) }))
+    .sort((x, y) => x.clash - y.clash || y.power - x.power || RARITY_ORDER.indexOf(rarityOf(y.it)) - RARITY_ORDER.indexOf(rarityOf(x.it)) || (y.it.value || 0) - (x.it.value || 0));
+  const label = SLOTS.find(([slot]) => slot === selected)[1];
+  const pickTiles = picks.map(({ it, power, clash: no }) => {
+    const d = power - now;
+    return `<button class="inv-pick inv-r-${rarityOf(it)}" data-action="inv-equip" data-id="${c.id}" data-slot="${keyOf(selected)}" data-uid="${it.uid}" ${no ? "disabled" : ""} ${itemTip(it, [no ? `They're already wearing something that does this (${esc(ACCESSORIES[it.effect].what)})` : current ? `Click to swap it in for ${esc(current.name)}` : "Click to put it on"])}>
+      <span class="inv-icon">${itemIcon32(it)}</span>
+      <span class="inv-pick-name">${itemName(it, true)}</span>
+      <span class="inv-pick-power ${d > 0 ? "inv-up" : d < 0 ? "inv-down" : ""}">${no ? "worn" : `⚔ ${d > 0 ? "+" : d < 0 ? "−" : "±"}${Math.abs(d)}`}</span>
+      <span class="inv-stats">${statLine(it)}</span>
+    </button>`;
+  }).join("");
+  const picker = `<div class="inv-picker">
+      <div class="inv-picker-head"><b>🎒 From the Armory · ${label}</b><span class="muted">${fits.length ? `${fits.length} fit · ⚔ how much it'd change their fight power` : ""}</span></div>
+      ${pickTiles ? `<div class="inv-picks">${pickTiles}</div>` : `<p class="muted inv-none">Nothing in the Armory fits this slot — expeditions and raids find more.</p>`}
+    </div>`;
+
   const items = [eq.meleeWeapon, eq.rangedWeapon, eq.armor, ...eq.accessories].filter(Boolean);
   const totals = {};
   for (const it of items) for (const [k, v] of Object.entries(it.bonuses)) totals[k] = (totals[k] || 0) + v;
   const spare = state.armory.length;
   const sets = setsWorn(c).map(({ set, count, complete }) => `<span class="ci-set ${complete ? "ci-set-on" : ""}" ${tipAttr({
-    title: `🌈 ${esc(set.name)} · ${count}/${set.pieces.length}`,
-    rows: set.pieces.map((p) => [esc(p.name), [eq.meleeWeapon, eq.rangedWeapon, eq.armor, ...eq.accessories].some((it) => it?.id === p.id) ? "✓ worn" : "—"]),
-    total: ["All three", formatBonuses(set.bonus)],
-    notes: [complete ? "The set's whole: its bonus is on" : "Wear all three pieces for the set's bonus"],
-  })}><b class="rar rar-mythic">${esc(set.name)}</b> ${count}/${set.pieces.length}${complete ? ` · ${formatBonuses(set.bonus)}` : ""}</span>`).join("");
-  return `<div class="ci-grid">${slots}</div>
+    title: `🌈 ${esc(set.name)} · ${count}/3`,
+    rows: [["Weapon", "weapon"], ["Armour", "armor"], ["Accessory", "accessory"]].map(([lab, slot]) => {
+      const on = set.pieces.find((p) => p.slot === slot && items.some((it) => it.id === p.id));
+      return [lab, on ? `✓ ${esc(on.name)}` : "—"];
+    }),
+    total: ["Full set", formatBonuses(set.bonus)],
+    notes: [complete ? "The set's full: its bonus is on" : "Its weapon, its armour and any one of its accessories"],
+  })}><b class="rar rar-mythic">${esc(set.name)}</b> ${count}/3${complete ? ` · ${formatBonuses(set.bonus)}` : ""}</span>`).join("");
+  return `<div class="inv-slots">${slots}</div>
+    ${picker}
     ${sets ? `<div class="ci-sets">${sets}</div>` : ""}
     <div class="ci-foot">
       <span class="ci-totals">${Object.keys(totals).length ? `Gear adds ${Object.entries(totals).map(([k, v]) => `<b>+${v}</b> ${k}`).join(" · ")}` : '<span class="muted">Nothing equipped yet</span>'}</span>
-      <span class="ci-power">⚔ Power <b>${fightPower(state, c).power}</b></span>
-      <button class="btn btn-primary ci-auto" data-action="auto-equip" data-id="${c.id}" ${spare ? "" : "disabled"} ${tipAttr({ title: "⚡ Auto-equip", notes: ["Puts the best gear from the Armory in every slot — the weapons and armour that raise their fight power most, the accessories with the biggest bonuses", "Only swaps when it's better; what comes off goes back in the Armory", `${spare} item${spare === 1 ? "" : "s"} in the Armory`] })}>⚡ Auto-equip</button>
+      <span class="ci-power">⚔ Power <b>${now}</b></span>
+      <button class="btn btn-primary ci-auto" data-action="auto-equip" data-id="${c.id}" ${spare ? "" : "disabled"} ${tipAttr({ title: "⚡ Auto-equip", notes: ["Puts the best gear from the Armory in every slot — the weapon and armour that raise their fight power most, the three strongest accessories", "Only swaps when it's better; what comes off goes back in the Armory", `${spare} item${spare === 1 ? "" : "s"} in the Armory`] })}>⚡ Auto-equip</button>
     </div>`;
 }
 

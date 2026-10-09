@@ -28,14 +28,14 @@ import {
   EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
   STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
   OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
-  MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES,
+  MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES, ACCESSORIES,
   LEGENDARY_TITLES, MAP_MILESTONES,
 } from "./data.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, capTeacherGrades, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, fitName, teachingBonus,
-  bestClassroomSubjectFor, emptyEquipment, makeLegendaryItem, rollItem, weaponCategory, maxStaminaFor, skillCount, gradeCap,
+  bestClassroomSubjectFor, emptyEquipment, gearEffect, rollItem, weaponCategory, studentClass, armorType, maxStaminaFor, skillCount, gradeCap,
 } from "./characters.js";
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -88,6 +88,7 @@ export const infectionDaysLeft = (state, c) => c.infection.dueDay - state.day;
 export function infect(state, c, how) {
   if (!c || !c.alive || c.infection) return false;
   if (Math.random() < techPerk(state, "infectionResist")) return false; // Hygiene: shrugged it off
+  if (Math.random() < gearEffect(c, "infection")) return false; // (and a Hand Sanitizer)
   if (c.role === "teacher" && c.post) setTeacherPost(state, c.id, null);
   c.infection = { dueDay: state.day + INFECTION_DAYS };
   Object.assign(c, { gymToday: false, radioToday: false, researchToday: false, craftingToday: false, infirmaryToday: false, restToday: false, farmToday: false, barnToday: false, scrapyardToday: false, greenhouseToday: false, exploreTeam: null, defending: false });
@@ -671,7 +672,7 @@ export function setRadioToday(state, studentId, value) {
 // HP a patient gets back tonight: a treatment when there's medicine for them, bed rest otherwise.
 export function healAmount(state, c, treated) {
   const hp = treated ? infirmaryHeal(state) + infirmaryNurseBonus(state) : INFIRMARY_BED_REST;
-  return Math.min(c.maxHp - c.hp, hp);
+  return Math.min(c.maxHp - c.hp, Math.round(hp * (1 + gearEffect(c, "recover"))));
 }
 
 // The healing patients tonight's medicine covers, in the order the turn treats them.
@@ -1144,8 +1145,10 @@ export function syncYard(state) {
 
 // An item as a log or a find names it: its icon, its name and (past Common) its rarity.
 export const itemLabel = (it) => `${it.icon} ${it.name}${it.rarity && it.rarity !== "common" ? ` (${RARITIES[it.rarity].name})` : ""}`;
-// Something the yards turn up, of a slot type if given ("weapon", "armor") — as a tier 1 place's finds.
-const yardItem = (slot) => rollItem(ITEM_DROP_ODDS[1], slot);
+// Something found (rollItem: `odds` from ITEM_DROP_ODDS, of `slot` if given) — a weapon most likely
+// for one of the school's own classes.
+export const findItem = (state, odds, slot = null) =>
+  rollItem(odds, slot, state.characters.filter((c) => c.role === "student" && c.alive).map(studentClass));
 
 // The Scrapyard's day: the crew strips what's ready, then every pile builds up a day.
 function resolveYard(state) {
@@ -1163,7 +1166,7 @@ function resolveYard(state) {
         state.resources.research += n;
         out.research += n;
       }
-      if (job.gearChance && Math.random() < job.gearChance) out.items.push(yardItem(null));
+      if (job.gearChance && Math.random() < job.gearChance) out.items.push(findItem(state, ITEM_DROP_ODDS[1])); // (as a tier 1 place's finds)
       if (job.ingredient && Math.random() < job.ingredientChance) {
         state.pantry[job.ingredient] = (state.pantry[job.ingredient] || 0) + 1;
         out.pantry[job.ingredient] = (out.pantry[job.ingredient] || 0) + 1;
@@ -1185,7 +1188,7 @@ function resolveCourtyard(state) {
   const pantryText = (got) => Object.entries(got).map(([id, n]) => `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`);
   const crew = (flag) => state.characters.filter((c) => c[flag] && c.alive);
   const own = (site, list) => list.reduce((sum, c) => sum + workerYield(site, c), 0);
-  const tire = (list, cost) => list.forEach((c) => (c.stamina = Math.max(0, c.stamina - cost)));
+  const tire = (list, cost) => list.forEach((c) => (c.stamina = Math.max(0, c.stamina - Math.round(cost * (1 - gearEffect(c, "work")))))); // (Gardening Gloves: less)
   const fieldHands = crew("farmToday");
   const barnHands = crew("barnToday");
   const yardHands = crew("scrapyardToday");
@@ -1495,6 +1498,12 @@ function lessonFrom(subject, teachers, level, boost, capBonus = 0) {
     teachers,
   };
 }
+// A day's grade gain with a Notebook on top (its share of it; the fraction left over, a chance of
+// one more) — never past `room`, what's left to the lesson's ceiling and their cap.
+function studyGain(c, add, room) {
+  const g = add * (1 + gearEffect(c, "study"));
+  return Math.max(0, Math.min(Math.floor(g) + (Math.random() < g % 1 ? 1 : 0), room));
+}
 // What one seated student learns today (0 once they've reached the lesson's ceiling).
 export function classGain(state, c) {
   if (!c || !c.seat || !c.alive || c.infection) return 0;
@@ -1516,7 +1525,7 @@ export function resolveTraining(state) {
     for (const sid of state.rooms.classrooms[roomId].seats.filter(Boolean)) {
       const c = getChar(state, sid);
       if (c && !c.infection) gainExp(state, c, LEVEL_XP.class);
-      const add = classGain(state, c);
+      const add = c ? studyGain(c, classGain(state, c), Math.min(lesson.ceiling, gradeCap(c, lesson.subject)) - c.grades[lesson.subject]) : 0;
       if (!add) continue;
       c.grades[lesson.subject] += add;
       refreshMaxStats(c);
@@ -1537,7 +1546,7 @@ export function resolveTraining(state) {
     const lesson = gymLesson(state, side);
     for (const c of students) {
       gainExp(state, c, LEVEL_XP.training);
-      const add = trainingGain(state, c, side);
+      const add = studyGain(c, trainingGain(state, c, side), Math.min(lesson.ceiling, gradeCap(c, side)) - c.grades[side]);
       record.trained++;
       record.learned += add;
       if (add) {
@@ -1562,7 +1571,7 @@ export function resolveTraining(state) {
   // and with no medicine to spare they only get bed rest) or rests (stamina, free).
   const resting = state.characters.filter((c) => c.restToday && c.alive);
   const rest = cafeteriaRest(state);
-  for (const c of resting) c.stamina = Math.min(c.maxStamina, c.stamina + rest);
+  for (const c of resting) c.stamina = Math.min(c.maxStamina, c.stamina + Math.round(rest * (1 + gearEffect(c, "rest"))));
   if (resting.length) addLog(state, `${resting.length} student(s) rested in the Cafeteria (+${rest} stamina).`);
   record.rested = resting.length;
   record.healed = state.characters.filter((c) => c.infirmaryToday && c.alive).length;
@@ -1624,7 +1633,7 @@ export function resolveTraining(state) {
 function rollExpeditionItem(state, location, success, bonus = 0) {
   const chance = (success ? expeditionGearChance(location) + (location.gearBonus || 0) : EXPEDITION_ITEM_CHANCE_FAILED) + techPerk(state, "itemChance") + bonus;
   if (Math.random() >= chance) return null;
-  const item = rollItem(ITEM_DROP_ODDS[poiTier(location)], location.lootBias && Math.random() < 0.5 ? location.lootBias : null);
+  const item = findItem(state, ITEM_DROP_ODDS[poiTier(location)], location.lootBias && Math.random() < 0.5 ? location.lootBias : null);
   state.armory.push(item);
   return item;
 }
@@ -1878,15 +1887,16 @@ export function firstFreeEntranceCell(state) {
 function battleStats(state, c) {
   const eq = c.equipment || {};
   const chili = dishMultiplier(state, "battleDamage");
-  const ranged = eq.rangedWeapon ? { ...eq.rangedWeapon, range: eq.rangedWeapon.range + techPerk(state, "rangedRange") } : null;
+  const ranged = eq.rangedWeapon || null;
   return {
     melee: eq.meleeWeapon || FIST_WEAPON,
     ranged,
-    meleeMult: (0.5 + effectiveGrade(state, c, "PE") / 100) * chili * (1 + techPerk(state, "meleeDamage")) * (1 + skillBonus(c, "PE")),
-    rangedMult: (0.5 + effectiveGrade(state, c, "Gymnastics") / 100) * chili * (1 + techPerk(state, "rangedDamage")),
+    meleeMult: (0.5 + effectiveGrade(state, c, "PE") / 100) * chili * (1 + techPerk(state, "meleeDamage")) * (1 + skillBonus(c, "PE")) * (1 + gearEffect(c, "melee")),
+    rangedMult: (0.5 + effectiveGrade(state, c, "Gymnastics") / 100) * chili * (1 + techPerk(state, "rangedDamage")) * (1 + gearEffect(c, "ranged")),
     hitChance: Math.min(0.95, 0.7 + effectiveGrade(state, c, "Gymnastics") / 500),
-    armorMult: Math.max(0.3, (1 - effectiveGrade(state, c, "Biology") / 250) * (1 - skillBonus(c, "Biology"))),
-    dodge: Math.min(0.5, effectiveGrade(state, c, "Gymnastics") * TUNE.dodgePerDex + skillBonus(c, "Gymnastics")),
+    // (a Class Ring: less taken; a Sweatband: more dodged — still up to half at most)
+    armorMult: Math.max(0.3, (1 - effectiveGrade(state, c, "Biology") / 250) * (1 - skillBonus(c, "Biology"))) * (1 - gearEffect(c, "guard")),
+    dodge: Math.min(0.5, effectiveGrade(state, c, "Gymnastics") * TUNE.dodgePerDex + skillBonus(c, "Gymnastics") + gearEffect(c, "dodge")),
   };
 }
 
@@ -1995,27 +2005,30 @@ function nightFighter(state, c, row, col, cost, condition, chili) {
   const eq = c.equipment || {};
   // (Medics and Ralliers carry no weapon: they only shove a zombie in front of them, with their fists)
   const weapon = C.weapon === "ranged" ? eq.rangedWeapon || THROWN_ROCKS : C.weapon === "melee" ? eq.meleeWeapon || FIST_WEAPON : FIST_WEAPON;
-  const kindMult = C.weapon === "melee" ? (1 + techPerk(state, "meleeDamage")) * (1 + skillBonus(c, "PE")) : C.weapon === "ranged" ? 1 + techPerk(state, "rangedDamage") : 1;
+  const kindMult = C.weapon === "melee" ? (1 + techPerk(state, "meleeDamage")) * (1 + skillBonus(c, "PE")) * (1 + gearEffect(c, "melee"))
+    : C.weapon === "ranged" ? (1 + techPerk(state, "rangedDamage")) * (1 + gearEffect(c, "ranged")) : 1;
   const s = {
     id: c.id, cls, row, col, hp: c.hp, maxHp: c.maxHp, bonusHp: 0, downed: false, kills: 0, usedMelee: false, usedRanged: false,
     // what they did tonight, for the meters after the fight
     stats: { dmg: 0, taken: 0, healed: 0, morale: 0, buffed: 0, slowed: 0, repaired: 0 },
     hitChance: Math.min(0.95, base.hitChance + techPerk(state, "watchHit")), armorMult: base.armorMult, dodge: base.dodge,
     // a critical hit (double damage): 5%, plus 1% for every 10 DEX
-    critChance: BATTLE_CRIT.base + effectiveGrade(state, c, "Gymnastics") * BATTLE_CRIT.perDex,
+    critChance: BATTLE_CRIT.base + effectiveGrade(state, c, "Gymnastics") * BATTLE_CRIT.perDex + gearEffect(c, "crit"),
     // their class's stat makes them better at their job: ×(1 + stat/100)
-    weapon, grade, dmgMult: (1 + grade / 100) * (C.dmgMult || 1) * chili * kindMult, mendMult: 1, timer: 0, cost,
+    weapon, grade, dmgMult: (1 + grade / 100) * (C.dmgMult || 1) * chili * kindMult, mendMult: 1 + gearEffect(c, "mend"), moraleMult: 1 + gearEffect(c, "morale"), timer: 0, cost,
     ability2: nightAbility2(c), ability3: nightAbility3(c), cheered: 0,
   };
   s.secondWind = cls === "tank" && s.ability2; // Second Wind, once a night
-  if (nightHpMult(c) > 1) { // a Tank's extra HP, lost first
-    s.bonusHp = Math.round(c.maxHp * (nightHpMult(c) - 1));
+  // a Tank's extra HP, and a Lucky Charm's — lost first
+  const extra = nightHpMult(c) - 1 + gearEffect(c, "health");
+  if (extra > 0) {
+    s.bonusHp = Math.round(c.maxHp * extra);
     s.hp += s.bonusHp;
     s.maxHp += s.bonusHp;
   }
   if (condition.role === cls) { // tonight's weather holds one class back
     s.dmgMult *= condition.dmg ?? 1;
-    s.mendMult = condition.mend ?? 1;
+    s.mendMult *= condition.mend ?? 1;
   }
   return s;
 }
@@ -2224,10 +2237,11 @@ export function battleTick(state, b) {
       killZombie(b, z, events);
     }
   };
-  // a Rallier hits the zombie right in front of them (with their melee weapon, or fists); a Medic with
+  // a Rallier throws at the nearest zombie within their reach (their weapon, or fists); a Medic with
   // nobody to heal fires at the nearest one down their lane (their ranged weapon, or rocks)
   const swing = (s) => {
-    const z = zombieAt(b, s.row + 1, s.col);
+    let z = null;
+    for (let d = 1; d <= (NIGHT_CLASSES[s.cls].reach || 1) && !z; d++) z = zombieAt(b, s.row + d, s.col);
     if (z) strike(s, z);
   };
   const shoot = (s) => {
@@ -2240,7 +2254,7 @@ export function battleTick(state, b) {
     if (s.cls === "rallier") {
       // morale every few turns, more the higher their CHA
       if (++s.timer % C.every === 0 && !b.room) {
-        const gain = C.morale * (s.ability3 ? C.ability3.moraleMult : 1); // Inspire: double
+        const gain = Math.round(C.morale * (s.ability3 ? C.ability3.moraleMult : 1) * s.moraleMult); // Inspire: double; a Whistle: more
         b.morale += gain;
         s.stats.morale += gain;
         events.push({ type: "morale", at: [s.row, s.col], amount: gain });
@@ -2279,8 +2293,8 @@ export function battleTick(state, b) {
     for (let shot = 0; shot < shots; shot++) {
       let target;
       if (C.range === "front") {
-        // the nearest zombie within reach in front (Lunge: 2 squares)
-        const reach = s.cls === "brawler" && s.ability3 ? C.ability3.reach : 1;
+        // the nearest zombie within the class's reach in front (Lunge: further) — over a friend too
+        const reach = s.cls === "brawler" && s.ability3 ? C.ability3.reach : C.reach || 1;
         for (let d = 1; d <= reach && !target; d++) target = zombieAt(b, s.row + d, s.col);
       } else {
         const inLane = b.zombies.filter((z) => z.alive && z.col === s.col && z.row > s.row);
@@ -2686,6 +2700,7 @@ export function battleNoise(b) {
 // comes to a block next to the place.
 function addNoise(state, run, n) {
   const N = EXPEDITION_NOISE;
+  if (n > 0) n *= 1 - Math.max(0, ...standing(state, run).map((c) => gearEffect(c, "noise"))); // (the team's best Walkie-Talkie)
   run.noise = Math.max(0, Math.min(N.max, run.noise + n));
   if (run.noise < N.horde || run.horde) return;
   run.horde = true;
@@ -2702,7 +2717,7 @@ export function expeditionSneakOdds(state, run, kind) {
   const K = EXPEDITION_NOISE[kind];
   const who = teamMembers(state, run.teamIndex).filter((c) => !run.out.includes(c.id))
     .sort((a, c) => effectiveGrade(state, c, K.stat) - effectiveGrade(state, a, K.stat))[0] || null;
-  return { who, chance: who ? Math.min(K.max, K.base + effectiveGrade(state, who, K.stat) * K.perGrade) : 0 };
+  return { who, chance: who ? Math.min(0.95, Math.min(K.max, K.base + effectiveGrade(state, who, K.stat) * K.perGrade) + gearEffect(who, "sneak")) : 0 }; // (+ a Lockpick Set)
 }
 // …and they try: sneaking by counts the room as cleared, a side door means fewer zombies in it — or
 // they're spotted (an ambush) or the lock snaps. Either way the noise moves. Returns what happened.
@@ -2728,7 +2743,8 @@ export function expeditionSneak(state, run, kind) {
 export function expeditionHaul(state, members, location, share) {
   const avg = (statKey) => members.reduce((sum, c) => sum + effectiveGrade(state, c, statKey), 0) / Math.max(1, members.length);
   const avgSkill = (subject) => members.reduce((sum, c) => sum + skillBonus(c, subject), 0) / Math.max(1, members.length);
-  const mult = (0.5 + avg("History") / 100) * share * (1 + techPerk(state, "expeditionLoot")) * (1 + avgSkill("History")) * expeditionLootScale(location);
+  const compass = Math.max(0, ...members.map((c) => gearEffect(c, "loot"))); // (the team's best Compass)
+  const mult = (0.5 + avg("History") / 100) * share * (1 + techPerk(state, "expeditionLoot")) * (1 + avgSkill("History")) * (1 + compass) * expeditionLootScale(location);
   const carry = (key) => (key === "food" || key === "materials" ? 0.8 + avg("PE") * TUNE.carryPerStr : 1);
   const stew = (key) => (key === "materials" ? dishMultiplier(state, "expeditionMaterials") : 1);
   return Object.fromEntries(Object.keys(location.rewards).map((key) => [key, location.rewards[key] * mult * stew(key) * carry(key)]));
@@ -2760,7 +2776,8 @@ export function startExpeditionBattle(state, run) {
   const boss = location.raid && last ? raidBoss(state, location) : null; // (a raid's boss, in the last room)
   const queue = shuffled([...kinds, ...Array(count - kinds.length).fill("walker")]).slice(boss ? R.raidBossRoomFewer : 0);
   if (boss) queue.push("boss");
-  const ambush = !!run.next?.ambush || (run.room > 0 && Math.random() < R.ambush * run.room + (run.horde ? N.hordeAmbush : 0));
+  const binoculars = Math.max(0, ...members.map((c) => gearEffect(c, "ambush")));
+  const ambush = !!run.next?.ambush || (run.room > 0 && Math.random() < (R.ambush * run.room + (run.horde ? N.hordeAmbush : 0)) * (1 - binoculars));
   const notice = run.notice;
   run.next = null;
   run.notice = null;
@@ -2882,7 +2899,7 @@ export function finishNightBattle(state, b) {
     state.bossesSlain.push(bossName);
     state.resources.materials += 25;
     state.resources.food += 15;
-    const item = rollItem(ITEM_DROP_ODDS[3]);
+    const item = findItem(state, ITEM_DROP_ODDS[3]);
     state.armory.push(item);
     adjustHappiness(state, HAPPINESS_GAIN_WIN);
     addLog(state, `${bossName} is down! Its hoard: +25 scrap, +15 food and ${itemLabel(item)}.`);
@@ -3182,9 +3199,9 @@ function resolveDailyFoodUpkeep(state) {
 // A fed school sleeps it off: some HP (more with a high CON) and a little stamina back for everyone.
 function resolveOvernightRecovery(state) {
   for (const c of aliveChars(state)) {
-    c.hp = Math.min(c.maxHp, c.hp + Math.round(c.maxHp * (TUNE.recoveryBase + c.grades.Biology * TUNE.recoveryPerCon)));
+    c.hp = Math.min(c.maxHp, c.hp + Math.round(c.maxHp * (TUNE.recoveryBase + c.grades.Biology * TUNE.recoveryPerCon) * (1 + gearEffect(c, "recover"))));
     c.injured = c.hp < c.maxHp * 0.5;
-    c.stamina = Math.min(c.maxStamina, c.stamina + TUNE.staminaRecoveryFlat + Math.round(c.maxStamina * TUNE.staminaRecoveryShare));
+    c.stamina = Math.min(c.maxStamina, c.stamina + Math.round((TUNE.staminaRecoveryFlat + c.maxStamina * TUNE.staminaRecoveryShare) * (1 + gearEffect(c, "rest"))));
   }
 }
 
@@ -3515,17 +3532,22 @@ export function autoEquip(state, charId) {
     let best = null;
     let bestScore = current ? score(current) : -Infinity;
     for (const it of state.armory) {
-      if (it.slot !== type || (category && it.category !== category) || !meetsItemRequirement(c, it)) continue;
+      if (it.slot !== type || (category && it.cls !== studentClass(c)) || (type === "armor" && it.armor !== armorType(c)) || !meetsItemRequirement(c, it)) continue;
       const s = score(it);
       if (s > bestScore) [best, bestScore] = [it, s];
     }
     if (best && equipItem(state, c.id, slot, best.uid)) changes++;
   }
+  // accessories: the three strongest effects (a half-scale one counting double, one that's their
+  // class's — its damage, a Medic's healing, a Rallier's morale — or keeps them alive, double again)
+  const mine = [weaponCategory(c), "health", "guard", "dodge", "crit", ...({ medic: ["mend"], rallier: ["morale"] }[studentClass(c)] || [])];
+  const accScore = (it) => (it ? (it.value || 0) * (ACCESSORIES[it.effect]?.scale === "half" ? 2 : 1) * (mine.includes(it.effect) ? 2 : 1) : -1);
   for (let i = 0; i < 3; i++) {
-    const worst = [0, 1, 2].sort((a, b) => bonusSum(c.equipment.accessories[a]) - bonusSum(c.equipment.accessories[b]))[0];
-    const current = c.equipment.accessories[worst];
-    const best = state.armory.filter((it) => it.slot === "accessory" && meetsItemRequirement(c, it)).sort((a, b) => bonusSum(b) - bonusSum(a))[0];
-    if (!best || bonusSum(best) <= bonusSum(current)) break;
+    const acc = c.equipment.accessories;
+    const worst = [0, 1, 2].sort((a, b) => accScore(acc[a]) - accScore(acc[b]))[0];
+    const others = acc.filter((x, j) => x && j !== worst).map((x) => x.effect);
+    const best = state.armory.filter((it) => it.slot === "accessory" && !others.includes(it.effect)).sort((a, b) => accScore(b) - accScore(a))[0];
+    if (!best || accScore(best) <= accScore(acc[worst])) break;
     if (equipItem(state, c.id, `accessory${worst}`, best.uid)) changes++;
     else break;
   }
@@ -3546,8 +3568,11 @@ export function equipItem(state, charId, slot, itemUid) {
   if (item.slot !== requiredSlotType(slot)) return false;
   if (slot === "meleeWeapon" && item.category !== "melee") return false;
   if (slot === "rangedWeapon" && item.category !== "ranged") return false;
-  if (item.slot === "weapon" && item.category !== weaponCategory(c)) return false; // (their class's kind only)
+  if (item.slot === "weapon" && item.cls !== studentClass(c)) return false; // (their class's weapons only)
+  if (item.slot === "armor" && item.armor !== armorType(c)) return false; // (and their class's type of armour)
   if (!meetsItemRequirement(c, item)) return false;
+  // (never two accessories with the same effect)
+  if (item.effect && slot.startsWith("accessory") && c.equipment.accessories.some((x, j) => x?.effect === item.effect && `accessory${j}` !== slot)) return false;
 
   state.armory.splice(idx, 1);
   let old;
@@ -3560,7 +3585,13 @@ export function equipItem(state, charId, slot, itemUid) {
     c.equipment.accessories[accIdx] = item;
   }
   if (old) state.armory.push(old);
+  gearChanged(c);
   return true;
+}
+// (an Energy Bar Stash on or off moves their max stamina)
+function gearChanged(c) {
+  refreshMaxStats(c);
+  c.stamina = Math.min(c.stamina, c.maxStamina);
 }
 
 export function unequipItem(state, charId, slot) {
@@ -3577,6 +3608,7 @@ export function unequipItem(state, charId, slot) {
   }
   if (!old) return false;
   state.armory.push(old);
+  gearChanged(c);
   return true;
 }
 
@@ -3693,7 +3725,7 @@ export function scoutEncounterChance(state, q, r, scout = null) {
 // A student's odds heading out to a block: running into a zombie (DEX sneaks past), beating it
 // (STR + DEX), and so getting ambushed — sent home with SCOUT_ENCOUNTER_HP_LOSS less HP.
 export function scoutOdds(state, c, q, r) {
-  const encounter = scoutEncounterChance(state, q, r, c);
+  const encounter = scoutEncounterChance(state, q, r, c) * (1 - gearEffect(c, "ambush")); // (Binoculars)
   const win = clamp01(0.5 + ((effectiveGrade(state, c, "PE") + effectiveGrade(state, c, "Gymnastics")) / 2 - 40) / 100);
   return { encounter, win, ambush: encounter * (1 - win) };
 }
@@ -3768,7 +3800,7 @@ function rollHexFind(state, scout, q, r) {
     state.resources[key] += amt;
     text = `a stash of supplies: +${amt} ${RESOURCE_NAME[key]}`;
   } else if (type === "gear") {
-    const item = rollItem(ITEM_DROP_ODDS[1]);
+    const item = findItem(state, ITEM_DROP_ODDS[1]);
     state.armory.push(item);
     text = `${itemLabel(item)} — it's in the armory`;
   } else if (type === "ingredient") {
@@ -3876,7 +3908,7 @@ export function collectDrop(state, studentId, q, r) {
   } else if (drop.kind === "wreck") {
     const amt = randInt(12, 22);
     state.resources.materials += amt;
-    const item = Math.random() < 0.3 ? rollItem(ITEM_DROP_ODDS[1]) : null;
+    const item = Math.random() < 0.3 ? findItem(state, ITEM_DROP_ODDS[1]) : null;
     if (item) state.armory.push(item);
     text = `+${amt} scrap${item ? ` and ${itemLabel(item)}` : ""}`;
   } else {
@@ -3910,7 +3942,7 @@ export function clearNest(state, q, r, ids) {
     state.nests = state.nests.filter((k) => k !== hexKey(q, r));
     const amt = randInt(8, 16);
     state.resources.materials += amt;
-    const item = Math.random() < 0.4 ? rollItem(ITEM_DROP_ODDS[2]) : null;
+    const item = Math.random() < 0.4 ? findItem(state, ITEM_DROP_ODDS[2]) : null;
     if (item) state.armory.push(item);
     for (const c of squad) {
       grantXp(state, c.id, "PE", 3 + randInt(0, 2));
@@ -3961,7 +3993,7 @@ export function checkMapMilestones(state) {
   for (const m of MAP_MILESTONES) {
     if (pct < m || state.mapMilestones.includes(m)) continue;
     state.mapMilestones.push(m);
-    const item = makeLegendaryItem();
+    const item = findItem(state, { legendary: 1 });
     state.armory.push(item);
     reached.push({ pct: m, item });
     addLog(state, `🗺 ${m}% of the town mapped — the scouts turned up ${itemLabel(item)} on the way. It's in the armory.`);
@@ -4094,7 +4126,7 @@ function resolveRaid(state, run) {
       report.loot[key] = amt;
     }
     for (let i = 0; i < landmark.drops; i++) {
-      const item = rollItem(ITEM_DROP_ODDS.raid, landmark.dropSlots.length ? pick(landmark.dropSlots) : null);
+      const item = findItem(state, ITEM_DROP_ODDS.raid, landmark.dropSlots.length ? pick(landmark.dropSlots) : null);
       state.armory.push(item);
       report.items.push(item);
     }

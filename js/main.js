@@ -3,11 +3,11 @@ import { WORLD_W, WORLD_H } from "./citymap.js";
 import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict } from "./ui.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal, renderPlotModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
+  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionBattle,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
-import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor, assignStudentFocus, gradeCap, weaponCategory } from "./characters.js";
+import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor, assignStudentFocus, gradeCap, weaponCategory, studentClass, armorType, makeWeapon, makeArmor, makeAccessory, randomEffect, makeSetItem, SET_PIECES } from "./characters.js";
 import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled, setSoundVolume,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, getGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
@@ -17,7 +17,7 @@ import { maxOutSchool, stockArmory, infectStudents, buildRadio, addRecruits, exp
 import {
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
-  HAPPINESS_START, ENTRANCE_GRID_SIZE, ENTRANCE_ROWS, NIGHT_CLASSES, DEFENSE_STRUCTURES, ITEM_TEMPLATES, LEGENDARY_ITEM_TEMPLATES,
+  HAPPINESS_START, ENTRANCE_GRID_SIZE, ENTRANCE_ROWS, NIGHT_CLASSES, DEFENSE_STRUCTURES, ACCESSORIES, LEGACY_SET_PIECE_IDS,
   EXPEDITION_NOISE, ROOM_EVENTS, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, NIGHT_MORALE, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES, LEGACY_DEFENSE_IDS,
 } from "./data.js";
 
@@ -195,19 +195,45 @@ document.addEventListener("focusin", (e) => {
 });
 document.addEventListener("focusout", (e) => { if (e.target === tipTarget) hideHoverTip(); });
 
-// Weapons used to be a single "weapon" slot/type with no category/damage/range/requires — backfill
-// those from the current template (falling back to sane melee defaults if the template's gone).
-// (and items from before rarities: a legendary stays Legendary, the rest were Common — their numbers
-// are the base item's)
+// Items from before rarities: a legendary stays Legendary, the rest were Common (their numbers are
+// the base item's).
 function migrateWeaponItem(item) {
   if (item && !item.rarity) item.rarity = item.legendary ? "legendary" : "common";
-  if (!item || item.slot !== "weapon" || item.category) return item;
-  const template = ITEM_TEMPLATES.find((t) => t.id === item.id) || LEGENDARY_ITEM_TEMPLATES.find((t) => t.id === item.id);
-  item.category = template?.category || "melee";
-  item.damage = template?.damage ?? 8;
-  item.range = template?.range ?? 1;
-  item.requires = template?.requires || {};
   return item;
+}
+// Accessories from before the effects (data ACCESSORIES): each becomes the nearest one, of the same
+// rarity, freshly rolled; a Mythic set piece gets its effect.
+function toEffectAccessory(item) {
+  if (!item || item.slot !== "accessory") return item;
+  // a set accessory as the set has it now (renamed, its effect changed); one of a line, its line's name
+  const setId = LEGACY_SET_PIECE_IDS[item.id] || item.id;
+  if (item.rarity === "mythic" && SET_PIECES.some((p) => p.id === setId)) return makeSetItem(setId);
+  if (item.effect && ACCESSORIES[item.effect]) return Object.assign(item, { name: ACCESSORIES[item.effect].name, look: ACCESSORIES[item.effect].look, icon: ACCESSORIES[item.effect].icon });
+  const nearest = {
+    glasses: "crit", legendary_glasses: "crit", compass: "loot", legendary_compass: "loot", walkie_talkie: "noise", notebook: "study",
+    gloves: "melee", headband: "dodge", charm: "health", legendary_charm: "health", bracelet: "health", class_ring: "guard", legendary_ring: "guard",
+    whistle: "morale", harmonica: "morale", sunglasses: "ranged", energy_stash: "stamina", energy_drink: "stamina", watch: "rest", photo: "rest", first_aid: "recover",
+  }[item.id];
+  return makeAccessory(nearest || randomEffect(), ["uncommon", "rare", "epic", "legendary"].includes(item.rarity) ? item.rarity : "common");
+}
+// Armour from before the three types (data ARMOR_TEMPLATES): it becomes `type`'s armour of the same
+// rarity (a random type's if none's given); a Mythic piece keeps its set and gets its type.
+function toClassArmor(item, type = ["heavy", "medium", "light"][Math.floor(Math.random() * 3)]) {
+  if (!item || item.slot !== "armor" || item.armor) return item;
+  const piece = item.rarity === "mythic" && SET_PIECES.find((p) => p.id === item.id);
+  if (piece) return makeSetItem(piece.id);
+  return makeArmor(type, ["uncommon", "rare", "epic", "legendary"].includes(item.rarity) ? item.rarity : "common");
+}
+// Weapons from before each class had its own (data WEAPON_TEMPLATES): one becomes `cls`'s weapon of
+// the same rarity (a random class's if none's given); a Mythic one, its set's weapon.
+// (a function declaration, not consts: the save is loaded before the module's consts are set)
+function toClassWeapon(item, cls = Object.keys(NIGHT_CLASSES)[Math.floor(Math.random() * 6)]) {
+  if (!item || item.slot !== "weapon" || item.cls) return item;
+  if (item.rarity === "mythic") {
+    const piece = SET_PIECES.find((p) => p.slot === "weapon" && p.set === item.set);
+    if (piece) return makeSetItem(piece.id);
+  }
+  return makeWeapon(cls, ["uncommon", "rare", "epic", "legendary"].includes(item.rarity) ? item.rarity : "common");
 }
 
 // Fills in fields added by later versions of the game so saves from before traits/equipment
@@ -215,6 +241,7 @@ function migrateWeaponItem(item) {
 function migrateState(s) {
   if (!s.armory) s.armory = starterArmory();
   s.armory.forEach(migrateWeaponItem);
+  s.armory = s.armory.map((it) => toEffectAccessory(toClassArmor(toClassWeapon(it))));
   const fixup = (c) => {
     if (!c.traits) c.traits = [];
     if (!c.equipment) c.equipment = emptyEquipment();
@@ -236,12 +263,36 @@ function migrateState(s) {
     // every student has a favourite and a second subject, and grades held to them (older saves:
     // picked from what they're best at, and anything over its cap comes down to it)
     if (c.role === "student" && !c.favorite) assignStudentFocus(c);
-    // each class holds one kind of weapon: one of the other kind goes back to the Armory
+    // each class holds its own weapons: an older one they carry becomes theirs (at its rarity), a
+    // second one goes back to the Armory, and so does one that isn't their class's
     if (c.role === "student") {
-      const off = weaponCategory(c) === "ranged" ? "meleeWeapon" : "rangedWeapon";
-      if (c.equipment[off]) s.armory.push(c.equipment[off]);
+      const cls = studentClass(c);
+      const [mine, off] = weaponCategory(c) === "ranged" ? ["rangedWeapon", "meleeWeapon"] : ["meleeWeapon", "rangedWeapon"];
+      const held = c.equipment[mine] || c.equipment[off];
+      if (c.equipment[mine] && c.equipment[off]) s.armory.push(toClassWeapon(c.equipment[off]));
+      let weapon = toClassWeapon(held, cls);
+      if (weapon && weapon.cls !== cls) {
+        s.armory.push(weapon);
+        weapon = null;
+      }
+      c.equipment[mine] = weapon || null;
       c.equipment[off] = null;
+      // their armour: their class's type (an older one becomes it; another type goes to the Armory)
+      let armor = toClassArmor(c.equipment.armor, armorType(c));
+      if (armor && armor.armor !== armorType(c)) {
+        s.armory.push(armor);
+        armor = null;
+      }
+      c.equipment.armor = armor || null;
     }
+    // their accessories: the effect kind (one of each effect — a second goes back to the Armory)
+    c.equipment.accessories = (c.equipment.accessories || [null, null, null]).map(toEffectAccessory);
+    c.equipment.accessories.forEach((it, i) => {
+      if (it && c.equipment.accessories.findIndex((x) => x?.effect === it.effect) !== i) {
+        s.armory.push(it);
+        c.equipment.accessories[i] = null;
+      }
+    });
     // the caps follow the grade scale (F to 25, then 15 a letter) — lowered caps bring grades down too
     if (c.role === "student") for (const s of SUBJECTS) c.grades[s] = Math.min(c.grades[s], gradeCap(c, s));
     if (c.stamina === undefined) c.stamina = maxStaminaFor(c);
@@ -1000,11 +1051,11 @@ function reachSquares(cls, ab2, ab3, row, col, size = state.entranceGrid.size, r
     if (ab3) lane("heal");
     for (let r = row + 1; r < rows; r++) if (!out.some((o) => o.r === r && o.c === col)) add(r, col, "attack"); // (when nobody needs healing)
   } else if (cls === "rallier") {
-    add(row + 1, col, "attack");
+    for (let d = 1; d <= C.reach; d++) add(row + d, col, "attack");
     if (ab2) lane("buff");
   }
   else if (C.range === "front") {
-    for (let d = 1; d <= (cls === "brawler" && ab3 ? C.ability3.reach : 1); d++) {
+    for (let d = 1; d <= (cls === "brawler" && ab3 ? C.ability3.reach : C.reach); d++) {
       add(row + d, col, "attack");
       if (cls === "brawler" && ab2) { add(row + d, col - 1, "attack"); add(row + d, col + 1, "attack"); }
     }
@@ -2160,6 +2211,14 @@ root.addEventListener("click", (e) => {
       cardTab = el.dataset.tab;
       render();
       break;
+    case "inv-slot": // the inventory: the slot to pick for
+      setInvSlot(el.dataset.id, el.dataset.slot);
+      render();
+      break;
+    case "inv-equip":
+      if (!G.equipItem(state, el.dataset.id, el.dataset.slot, el.dataset.uid)) flash("They can't wear that.");
+      render();
+      break;
     case "unequip-item":
       G.unequipItem(state, el.dataset.id, el.dataset.slot);
       render();
@@ -2300,13 +2359,6 @@ root.addEventListener("change", (e) => {
     }
     case "toggle-music": {
       setMusicEnabled(el.checked);
-      render();
-      break;
-    }
-    case "equip-item": {
-      if (el.value && !G.equipItem(state, el.dataset.id, el.dataset.slot, el.value)) {
-        flash("Not strong/dextrous enough to wield that yet.");
-      }
       render();
       break;
     }

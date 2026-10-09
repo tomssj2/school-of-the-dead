@@ -1,8 +1,8 @@
 import {
   SUBJECTS, MALE_NAMES, FEMALE_NAMES, LAST_NAMES, GRADE_TIERS, GRADE_RANGES, SKILL_TREE,
   STUDENT_TIER_WEIGHTS, TEACHER_SECONDARY_TIERS, TEACHER_SECONDARY_WEIGHTS, TRAITS,
-  STAT_OF_SUBJECT, TEACH_BONUS_BY_TIER, ITEM_TEMPLATES, STARTER_ARMORY_IDS, CLASSROOM_SUBJECTS,
-  LEGENDARY_ITEM_TEMPLATES, LEGENDARY_TITLES, STAT_TUNING, NAME_PART_MAX, RARITIES, MYTHIC_SETS, NIGHT_CLASSES,
+  STAT_OF_SUBJECT, TEACH_BONUS_BY_TIER, CLASSROOM_SUBJECTS, ACCESSORIES, ACCESSORY_RANGES,
+  LEGENDARY_TITLES, STAT_TUNING, NAME_PART_MAX, MYTHIC_SETS, NIGHT_CLASSES, WEAPON_TEMPLATES, ARMOR_TEMPLATES,
 } from "./data.js";
 
 let _idCounter = 1;
@@ -50,54 +50,73 @@ export function repairIds(state) {
   return repaired;
 }
 
-// Creates a fresh item instance (with its own uid) from a base template id, of a rarity from Common to
-// Epic (RARITIES): its bonuses and damage × the rarity's mult, its STR/DEX floor + its req.
-export function makeItem(templateId, rarity = "common") {
-  const template = ITEM_TEMPLATES.find((t) => t.id === templateId);
-  if (!template) return null;
-  const R = RARITIES[rarity] || RARITIES.common;
-  const scale = (v) => Math.round(v * R.mult);
-  const item = { ...template, rarity, bonuses: Object.fromEntries(Object.entries(template.bonuses).map(([k, v]) => [k, scale(v)])), uid: nextItemUid() };
-  if (template.damage) item.damage = scale(template.damage);
-  if (template.requires) item.requires = Object.fromEntries(Object.entries(template.requires).map(([k, v]) => [k, v + R.req]));
-  return item;
+// A fresh accessory for an effect (data ACCESSORIES), of a rarity: how much it does (`value`, a %)
+// rolled from the rarity's range.
+export function makeAccessory(effect, rarity = "common") {
+  const A = ACCESSORIES[effect];
+  if (!A) return null;
+  const [lo, hi] = ACCESSORY_RANGES[A.scale][rarity] || ACCESSORY_RANGES[A.scale].common;
+  return { id: `x_${effect}`, name: A.name, slot: "accessory", effect, rarity, value: randInt(lo, hi), look: A.look, icon: A.icon, bonuses: {}, uid: nextItemUid() };
+}
+export const randomEffect = () => pick(Object.keys(ACCESSORIES));
+// An armour type's armour of a rarity, Common to Legendary (data ARMOR_TEMPLATES).
+export function makeArmor(type, rarity = "common") {
+  const template = ARMOR_TEMPLATES.find((t) => t.armor === type && t.rarity === rarity);
+  return template && { ...template, bonuses: { ...template.bonuses }, uid: nextItemUid() };
+}
+// A class's weapon of a rarity, Common to Legendary (data WEAPON_TEMPLATES).
+export function makeWeapon(cls, rarity = "common") {
+  const template = WEAPON_TEMPLATES.find((t) => t.cls === cls && t.rarity === rarity);
+  return template && { ...template, bonuses: { ...template.bonuses }, uid: nextItemUid() };
 }
 // A Mythic set's piece (MYTHIC_SETS), by its id.
 export const SET_PIECES = MYTHIC_SETS.flatMap((set) => set.pieces.map((p) => ({ ...p, set: set.id })));
 export function makeSetItem(pieceId) {
   const piece = SET_PIECES.find((p) => p.id === pieceId);
-  return piece && { ...piece, rarity: "mythic", bonuses: { ...piece.bonuses }, uid: nextItemUid() };
+  if (!piece) return null;
+  const value = piece.effect ? ACCESSORY_RANGES[ACCESSORIES[piece.effect].scale].mythic[0] : undefined; // (an accessory: its effect at its best)
+  return { ...piece, rarity: "mythic", bonuses: { ...piece.bonuses }, ...(value ? { value } : {}), uid: nextItemUid() };
 }
 // Something found: its rarity rolled from `odds` (data ITEM_DROP_ODDS — { rarity: chance }), then a
-// random item of it, of `slot` ("weapon", "armor", "accessory") if given.
-export function rollItem(odds, slot = null) {
+// random item of it — of `slot` ("weapon", "armor", "accessory") if given, else a weapon half the
+// time. A weapon or an armour is for one of `classes` (the school's students' classes, as many times
+// as there are of each) three times in four, any class otherwise.
+export function rollItem(odds, slot = null, classes = []) {
   let roll = Math.random() * Object.values(odds).reduce((a, b) => a + b, 0);
   const rarity = Object.keys(odds).find((k) => (roll -= odds[k]) < 0) || Object.keys(odds)[0];
-  const of = (list) => list.filter((t) => !slot || t.slot === slot);
-  if (rarity === "mythic") return makeSetItem(pick(of(SET_PIECES)).id);
-  if (rarity === "legendary") return makeLegendaryItem(pick(of(LEGENDARY_ITEM_TEMPLATES)));
-  return makeItem(pick(of(ITEM_TEMPLATES)).id, rarity);
+  const kind = slot || pick(["weapon", "weapon", "armor", "accessory"]);
+  if (rarity === "mythic") return makeSetItem(pick(SET_PIECES.filter((p) => p.slot === kind)).id);
+  const cls = classes.length && Math.random() < 0.75 ? pick(classes) : pick(Object.keys(NIGHT_CLASSES));
+  if (kind === "weapon") return makeWeapon(cls, rarity);
+  if (kind === "armor") return makeArmor(NIGHT_CLASSES[cls].armor, rarity);
+  return makeAccessory(randomEffect(), rarity);
 }
 
-export function starterArmory() {
-  return STARTER_ARMORY_IDS.map((id) => makeItem(id)).filter(Boolean);
-}
+// A new game's Armory: a few Common accessories.
+export const starterArmory = () => Array.from({ length: 3 }, () => makeAccessory(randomEffect()));
 
 export function emptyEquipment() {
   return { meleeWeapon: null, rangedWeapon: null, armor: null, accessories: [null, null, null] };
 }
 
+// How much a character's accessories do for `effect` (data ACCESSORIES), as a share (0.12 = 12%) —
+// they can't wear two of the same, so it's the one they have, if any.
+export function gearEffect(c, effect) {
+  return worn(c).reduce((best, it) => (it.effect === effect ? Math.max(best, it.value || 0) : best), 0) / 100;
+}
 // Everything a character has equipped.
-const worn = (c) => {
+function worn(c) {
   const eq = c.equipment || {};
   return [eq.meleeWeapon, eq.rangedWeapon, eq.armor, ...(eq.accessories || [])].filter(Boolean);
-};
-// The Mythic sets they're wearing pieces of: each set, how many of its pieces, and whether it's whole.
+}
+// The Mythic sets they're wearing pieces of: each set, how much of it (its weapon, its armour, any of
+// its accessories — out of 3), and whether it's full.
 export function setsWorn(c) {
   const items = worn(c);
-  return MYTHIC_SETS.map((set) => ({ set, count: set.pieces.filter((p) => items.some((it) => it.id === p.id)).length }))
+  const has = (set, slot) => set.pieces.some((p) => p.slot === slot && items.some((it) => it.id === p.id));
+  return MYTHIC_SETS.map((set) => ({ set, count: ["weapon", "armor", "accessory"].filter((slot) => has(set, slot)).length }))
     .filter((x) => x.count)
-    .map((x) => ({ ...x, complete: x.count === x.set.pieces.length }));
+    .map((x) => ({ ...x, complete: x.count === 3 }));
 }
 // Sum of a stat's bonuses across everything a character has equipped — and any whole set's bonus.
 export function equipmentBonus(c, stat) {
@@ -106,26 +125,18 @@ export function equipmentBonus(c, stat) {
   if (!items.some((it) => it.rarity === "mythic")) return gear;
   return gear + setsWorn(c).filter((x) => x.complete).reduce((sum, x) => sum + (x.set.bonus[stat] || 0), 0);
 }
-// The kind of weapon a student's class fights with (NIGHT_CLASSES, by their favourite subject) —
-// the only kind they can equip: melee for the Brawler (STR), Tank (CON) and Rallier (CHA), ranged
-// for the Shooter (DEX), Trapper (INT) and Medic (WIS).
-export function weaponCategory(c) {
-  const cls = Object.values(NIGHT_CLASSES).find((C) => C.subject === c.favorite);
-  return cls?.weapon || "melee";
-}
-// A new student's gear: a Common weapon of their class's kind (the lightest of it if they're not
-// strong enough for any yet), an armour and an accessory (one for their favourite stat if there is one).
+// A student's class (NIGHT_CLASSES), by their favourite subject — and its weapons are the only ones
+// they can equip (melee: the Brawler, Tank and Rallier; ranged: the Shooter, Trapper and Medic).
+export const studentClass = (c) => Object.keys(NIGHT_CLASSES).find((k) => NIGHT_CLASSES[k].subject === c.favorite) || "brawler";
+export const weaponCategory = (c) => NIGHT_CLASSES[studentClass(c)].weapon;
+// …and the type of armour it wears — the only type they can.
+export const armorType = (c) => NIGHT_CLASSES[studentClass(c)].armor;
+// A new student's gear: their class's Common weapon and armour, and a Common accessory.
 function starterGear(c) {
-  const fav = STAT_OF_SUBJECT[c.favorite];
-  const category = weaponCategory(c);
-  const holds = (t) => Object.entries(t.requires || {}).every(([stat, min]) => (c.grades[SUBJECTS.find((x) => STAT_OF_SUBJECT[x] === stat)] || 0) >= min);
-  const weapons = ITEM_TEMPLATES.filter((t) => t.slot === "weapon" && t.category === category);
-  const weapon = pick(weapons.filter(holds)) || [...weapons].sort((a, b) => Object.values(a.requires)[0] - Object.values(b.requires)[0])[0];
   c.equipment.meleeWeapon = c.equipment.rangedWeapon = null;
-  c.equipment[category === "ranged" ? "rangedWeapon" : "meleeWeapon"] = makeItem(weapon.id);
-  c.equipment.armor = makeItem(pick(ITEM_TEMPLATES.filter((t) => t.slot === "armor")).id);
-  const accessories = ITEM_TEMPLATES.filter((t) => t.slot === "accessory");
-  c.equipment.accessories[0] = makeItem((pick(accessories.filter((t) => t.bonuses[fav])) || pick(accessories)).id);
+  c.equipment[weaponCategory(c) === "ranged" ? "rangedWeapon" : "meleeWeapon"] = makeWeapon(studentClass(c));
+  c.equipment.armor = makeArmor(armorType(c));
+  c.equipment.accessories[0] = makeAccessory(randomEffect());
 }
 
 // Which of the 4 classroom-eligible subjects a teacher is best qualified to teach — used to
@@ -323,9 +334,10 @@ export function conOf(grades) {
 
 // Max stamina is built like max HP: mostly DEX, partly WIS (Gymnastics + History), plus Gym
 // training — about 65 for a new student.
+// (and an Energy Bar Stash on top)
 export function maxStaminaFor(c) {
   const fromStats = Math.round(c.grades.Gymnastics * STAT_TUNING.staminaPerDex + c.grades.History * STAT_TUNING.staminaPerWis);
-  return Math.max(STAT_TUNING.staminaMin, fromStats) + (c.trainedStamina || 0);
+  return Math.round((Math.max(STAT_TUNING.staminaMin, fromStats) + (c.trainedStamina || 0)) * (1 + gearEffect(c, "stamina")));
 }
 
 // Max HP is mostly CON, partly STR (before any Gym training).
@@ -396,9 +408,6 @@ export function makeCharacter(role, gender) {
 
 // A named, rare survivor found by winning a Turn 3 Assault boss fight — every grade is a tier
 // stronger than a normal roll, and they arrive already carrying one legendary item.
-export function makeLegendaryItem(template = pick(LEGENDARY_ITEM_TEMPLATES)) {
-  return { ...template, rarity: "legendary", bonuses: { ...template.bonuses }, uid: nextItemUid() };
-}
 
 export function makeLegendaryCharacter(role, gender) {
   const c = makeCharacter(role, gender);
@@ -417,7 +426,9 @@ export function makeLegendaryCharacter(role, gender) {
   c.name = role === "teacher" ? withTeacherHonorific(`${baseName} ${title}`, gender) : `${baseName} ${title}`;
 
   if (role === "student") starterGear(c); // (their favourite — so their class — may have changed)
-  const item = makeLegendaryItem(pick(LEGENDARY_ITEM_TEMPLATES.filter((t) => t.slot !== "weapon" || role !== "student" || t.category === weaponCategory(c))));
+  // (a student's may be their class's Legendary weapon or armour)
+  const roll = role === "student" ? Math.random() : 1;
+  const item = roll < 1 / 3 ? makeWeapon(studentClass(c), "legendary") : roll < 2 / 3 ? makeArmor(armorType(c), "legendary") : makeAccessory(randomEffect(), "legendary");
   if (item.slot === "weapon") c.equipment[item.category === "ranged" ? "rangedWeapon" : "meleeWeapon"] = item;
   else if (item.slot === "armor") c.equipment.armor = item;
   else c.equipment.accessories[0] = item;

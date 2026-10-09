@@ -1,9 +1,9 @@
 // Test shortcuts for developing the game (main.js exposes them as window.schoolDev on localhost;
 // the /max and /min project commands run them). Nothing here saves — the player's Save does.
 import * as G from "./game.js";
-import { makeCharacter, makeLegendaryCharacter, makeItem, makeLegendaryItem, makeSetItem, weaponCategory } from "./characters.js";
+import { makeCharacter, makeLegendaryCharacter, makeAccessory, makeSetItem, makeWeapon, makeArmor, weaponCategory, studentClass } from "./characters.js";
 import { MAP_RADIUS } from "./map.js";
-import { MYTHIC_SETS, ITEM_TEMPLATES, CLASSROOM_IDS, PRODUCERS, YARD_JOBS, GREENHOUSE_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_ROW0, STREET_ROW0, ENTRANCE_ZONES } from "./data.js";
+import { MYTHIC_SETS, ACCESSORIES, CLASSROOM_IDS, PRODUCERS, YARD_JOBS, GREENHOUSE_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_ROW0, STREET_ROW0, ENTRANCE_ZONES } from "./data.js";
 
 // Every room and facility to the top level, and every slot filled: teachers in every post,
 // every classroom seat, training, resting, beds, outside workers, plots and pens. Hires whoever is
@@ -191,9 +191,8 @@ export function armDefenders(state) {
   const defenders = state.characters.filter((c) => c.defending && c.alive);
   for (const c of defenders) {
     c.equipment = c.equipment || { meleeWeapon: null, rangedWeapon: null, armor: null, accessories: [null, null, null] };
-    // (their class's kind of weapon)
-    if (weaponCategory(c) === "ranged") c.equipment.rangedWeapon = makeItem("recurve_bow");
-    else c.equipment.meleeWeapon = makeItem("axe");
+    // (their class's Rare weapon)
+    c.equipment[weaponCategory(c) === "ranged" ? "rangedWeapon" : "meleeWeapon"] = makeWeapon(studentClass(c), "rare");
   }
   return `${defenders.length} defender${defenders.length === 1 ? "" : "s"} armed with 🪓 and 🏹`;
 }
@@ -225,14 +224,15 @@ export function buildRadio(state, stage = 5) {
   return `Radio Station at ${G.radioStage(state)}/5${state.rescue ? ` · helicopter lands on day ${state.rescue.day}` : ""}`;
 }
 
-// One item of every rarity for each kind of slot, and a whole Mythic set, into the Armory.
+// Every accessory (of a random rarity), every class's weapons and every type of armour, and a whole Mythic set, into the Armory.
 export function stockArmory(state, setIndex = 0) {
   const items = [];
-  for (const r of ["common", "uncommon", "rare", "epic"]) for (const slot of ["weapon", "armor", "accessory"]) {
-    const pool = ITEM_TEMPLATES.filter((t) => t.slot === slot);
-    items.push(makeItem(pool[Math.floor(Math.random() * pool.length)].id, r));
-  }
-  items.push(makeLegendaryItem(), makeLegendaryItem());
+  // every accessory, of a random rarity
+  for (const effect of Object.keys(ACCESSORIES)) items.push(makeAccessory(effect, ["common", "uncommon", "rare", "epic", "legendary"][Math.floor(Math.random() * 5)]));
+  // every armour type, Common to Legendary
+  for (const type of ["heavy", "medium", "light"]) for (const r of ["common", "uncommon", "rare", "epic", "legendary"]) items.push(makeArmor(type, r));
+  // every class's weapons, Common to Legendary
+  for (const cls of ["tank", "brawler", "rallier", "medic", "trapper", "shooter"]) for (const r of ["common", "uncommon", "rare", "epic", "legendary"]) items.push(makeWeapon(cls, r));
   items.push(...MYTHIC_SETS[setIndex].pieces.map((p) => makeSetItem(p.id)));
   state.armory.push(...items);
   return `${items.length} items in the Armory: ${items.map((it) => `${it.name} (${it.rarity})`).join(", ")}`;

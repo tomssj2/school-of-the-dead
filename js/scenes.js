@@ -2618,7 +2618,10 @@ function rarityIcon(name) {
   const [base, rarity] = name.split("~");
   if (!ICONS[base]) return null;
   return () => {
-    const g = ICONS[base]().map((row) => [...row]);
+    if (rarity === "legendary") return legendary(base);
+    const src = ICONS[base]();
+    const g = src.map((row) => [...row]);
+    g.holes = src.holes;
     if (rarity === "mythic") {
       for (const [x, y] of [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]]) if (!g[y][x]) g[y][x] = "#ffffff";
       g.outline = (x, y) => RAINBOW[Math.floor((x + y) / 2) % RAINBOW.length];
@@ -2628,7 +2631,9 @@ function rarityIcon(name) {
 }
 // A legendary item: its base icon with a gold outline and a sparkle in the corner.
 function legendary(base) {
-  const g = ICONS[base]().map((row) => [...row]);
+  const src = ICONS[base]();
+  const g = src.map((row) => [...row]);
+  g.holes = src.holes;
   for (const [x, y] of [[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]]) if (!g[y][x]) g[y][x] = "#fff6c0";
   g.outline = "#e8b830";
   return g;
@@ -4360,43 +4365,6 @@ const ICONS = {
     rod(g, 10.6, 4.4, 8.2, 2.0, 0.75, "#d64545");
     return g;
   },
-  it_crowbar: () => {
-    const g = blank(16);
-    rod(g, 3.4, 12.6, 12.2, 3.8, 0.85, sh("#ff8a7a", "#c0392b", "#8a2a20"));
-    rod(g, 12.2, 3.8, 11.2, 1.8, 0.75, "#c0392b");
-    rod(g, 3.4, 12.6, 1.8, 12.8, 0.75, "#c0392b");
-    return g;
-  },
-  it_hockey_stick: () => {
-    const g = blank(16);
-    rod(g, 12.6, 1.6, 5.4, 11.4, 0.75, WOOD);
-    rod(g, 4.4, 12.4, 10.6, 12.8, 1.15, "#2c2c34");
-    rod(g, 11.6, 1.2, 13.2, 2.4, 0.9, "#2c2c34");
-    return g;
-  },
-  it_cleaver: () => {
-    const g = blank(16);
-    rod(g, 2.4, 13.6, 5.4, 10.6, 0.95, "#5a3b24");
-    rod(g, 7.4, 8.6, 11, 5, 2.9, STEEL);
-    g[5][9] = "#3a3f48";
-    return g;
-  },
-  it_broom_spear: () => {
-    const g = blank(16);
-    rod(g, 2.2, 13.8, 10.6, 5.4, 0.6, "#c99a5e");
-    rod(g, 10.4, 5.6, 13.8, 2.2, 1.15, STEEL);
-    rod(g, 9.6, 6.4, 10.8, 5.2, 0.95, "#d64545");
-    return g;
-  },
-  it_tennis_racket: () => {
-    const g = blank(16);
-    rod(g, 7, 9, 2.6, 13.4, 0.9, "#3a3f48");
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const r = Math.hypot(x + 0.5 - 10, y + 0.5 - 6);
-      if (r <= 4.4) g[y][x] = r > 3.3 ? "#3fbf6a" : (x + y) % 2 ? "#e6e9ef" : null;
-    }
-    return g;
-  },
   it_trophy: () => ascii([
     "................",
     "................",
@@ -4415,21 +4383,6 @@ const ICONS = {
     "................",
     "................",
   ], { y: "#f2c14e", Y: "#fff0a8", z: "#b8862a", k: "#5a3b24", K: "#8a5a3a" }),
-  it_wrench: () => {
-    const g = blank(16);
-    rod(g, 2.8, 13.2, 9.4, 6.6, 1.0, sh("#ff8a7a", "#c0392b", "#8a2a20"));
-    rod(g, 8.6, 7.4, 11.6, 4.4, 1.5, IRON);
-    rod(g, 11.2, 2.6, 13.6, 5.0, 1.0, IRON);
-    rod(g, 11.2, 5.6, 12.6, 7.0, 0.7, IRON);
-    return g;
-  },
-  it_shovel: () => {
-    const g = blank(16);
-    rod(g, 5, 11, 12.2, 3.8, 0.6, WOOD);
-    rod(g, 11.4, 2.0, 14.0, 4.6, 0.65, "#3a3f48");
-    rod(g, 2.8, 13.2, 5.0, 11.0, 2.0, STEEL);
-    return g;
-  },
   it_nail_bat: () => {
     const g = blank(16);
     rod(g, 2.6, 13.4, 5.6, 10.4, 0.75, "#3a3f48");
@@ -4438,47 +4391,10 @@ const ICONS = {
     disk(g, 2.3, 13.7, 1.0, "#3a3f48");
     return g;
   },
-  it_machete: () => {
-    const g = blank(16);
-    rod(g, 2.4, 13.6, 5.2, 10.8, 0.9, "#4f7a3a");
-    rod(g, 5.4, 10.6, 12.8, 3.2, 1.35, STEEL);
-    rod(g, 12.2, 3.8, 13.6, 2.4, 1.6, STEEL);
-    return g;
-  },
   it_sledgehammer: () => {
     const g = blank(16);
     rod(g, 2.6, 13.4, 10, 6, 0.75, WOOD);
     rod(g, 8.2, 3.6, 12.8, 8.2, 2.1, IRON);
-    return g;
-  },
-  it_field_chainsaw: () => ascii([
-    "................",
-    "................",
-    "................",
-    "..........ttttt.",
-    "....kk...tsssst.",
-    "...k..k.tsssst..",
-    "..ooooootsssst..",
-    "..oOoooosssst...",
-    "..ooooooosst....",
-    "..oooooooot.....",
-    "..kkkkkkkk......",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-  ], { o: "#f08a24", O: "#ffc07a", k: "#2c2c34", s: "#c9ced4", t: "#5b616d" }),
-  it_pool_cue: () => rod(blank(16), 1.8, 14.2, 13.8, 2.2, 0.6, (t) => (t < 0.3 ? "#3a2418" : t > 0.95 ? "#5f8fe0" : t > 0.88 ? "#f4f1e6" : "#d9b07a")),
-  it_fire_poker: () => {
-    const g = blank(16);
-    rod(g, 3.6, 12.4, 12.6, 3.4, 0.6, "#4a4f5a");
-    rod(g, 12.6, 3.4, 13.8, 5.2, 0.6, "#4a4f5a");
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const r = Math.hypot(x + 0.5 - 2.6, y + 0.5 - 13.4);
-      if (r <= 1.9 && r >= 0.8) g[y][x] = "#b8862a";
-    }
-    g[2][13] = "#ff8a3a";
     return g;
   },
   // Ranged weapons.
@@ -4531,24 +4447,6 @@ const ICONS = {
     "................",
     "................",
   ], { b: "#3a3f48", w: "#c99a5e", s: "#c9ced4", k: "#8a5a3a", K: "#c99a5e" }),
-  it_nerf_blaster: () => ascii([
-    "................",
-    "................",
-    "................",
-    "................",
-    "..oooooooooooo..",
-    "..oOooooooooobb.",
-    "..ooooooooooo...",
-    "..bbbbobbb......",
-    ".....ooo........",
-    "....ooo.........",
-    "....ooo.........",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-  ], { o: "#f08a24", O: "#ffc07a", b: "#3f7fd6" }),
   it_dart_gun: () => ascii([
     "................",
     "................",
@@ -4567,44 +4465,6 @@ const ICONS = {
     "................",
     "................",
   ], { k: "#2c2c34", K: "#6b7380", r: "#e04848" }),
-  it_paintball_marker: () => ascii([
-    "................",
-    "................",
-    ".....ppp........",
-    "....pPppp.......",
-    "....ppppp.......",
-    ".....ppp........",
-    "..kkkkkkkkkkkk..",
-    "..kKkkkkkkkkkk..",
-    "..kkkkkkk.......",
-    "....kkk.........",
-    "...kkk..........",
-    "...kkk..........",
-    "................",
-    "................",
-    "................",
-    "................",
-  ], { p: "#c04aa0", P: "#f0a0e0", k: "#3a3f48", K: "#7c8590" }),
-  it_potato_cannon: () => {
-    const g = blank(16);
-    rod(g, 5.6, 10.4, 13.2, 2.8, 1.0, sh("#ffffff", "#e9edf0", "#b9c3cc"));
-    rod(g, 2.6, 13.4, 6, 10, 2.0, sh("#ffffff", "#e9edf0", "#b9c3cc"));
-    disk(g, 13.6, 2.4, 1.0, "#c9935a");
-    g[13][4] = "#d64545";
-    return g;
-  },
-  it_water_balloon_launcher: () => {
-    const g = blank(16);
-    rod(g, 2, 3, 8, 11, 0.45, "#3fbf6a");
-    rod(g, 14, 3, 8, 11, 0.45, "#3fbf6a");
-    disk(g, 2, 3, 1.0, "#e8c14a");
-    disk(g, 14, 3, 1.0, "#e8c14a");
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const dx = x + 0.5 - 8, dy = (y + 0.5 - 11) / 1.15, r = Math.hypot(dx, dy);
-      if (r <= 3.3) g[y][x] = dx + dy < -1.6 ? "#bfe3f5" : "#3f8fd0";
-    }
-    return g;
-  },
   it_throwing_knives: () => {
     const g = blank(16);
     for (const [x0, y0, x1, y1] of [[4, 14, 4, 4], [8, 14, 8, 3], [12, 14, 12, 4]]) {
@@ -4620,65 +4480,6 @@ const ICONS = {
     rod(g, 11.2, 4.8, 14.2, 1.8, 0.95, STEEL);
     return g;
   },
-  it_discus: () => {
-    const g = blank(16);
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const dx = x + 0.5 - 8, dy = (y + 0.5 - 8) * 1.5, r = Math.hypot(dx, dy);
-      if (r <= 6.6) g[y][x] = r <= 2.2 ? "#e8c14a" : r <= 3 ? "#b8862a" : dx + dy < -2 ? "#e6eaee" : "#9aa3ad";
-    }
-    return g;
-  },
-  it_fire_extinguisher: () => ascii([
-    "................",
-    "......kkkk......",
-    ".....kk..kkk....",
-    "......ss....k...",
-    ".....rrrr...k...",
-    "....rRrrrr..k...",
-    "....rRrrrr..k...",
-    "....rRwwrr..k...",
-    "....rRwwrr..kk..",
-    "....rRrrrr......",
-    "....rRrrrr......",
-    "....rrrrrr......",
-    "....rrrrrr......",
-    ".....dddd.......",
-    "................",
-    "................",
-  ], { k: "#2c2c34", s: "#c9ced4", r: "#d64545", R: "#f08a7a", w: "#f4f4f4", d: "#8a2a2a" }),
-  it_bottle_rocket: () => {
-    const g = blank(16);
-    rod(g, 2, 14, 8, 8, 0.4, "#c99a5e");
-    rod(g, 7, 9, 12.4, 3.6, 1.3, sh("#ff8a7a", "#d64545", "#9e2e2e"));
-    rod(g, 12, 4, 13.8, 2.2, 0.7, "#f4f4f4");
-    for (const [x, y, c] of [[5, 10, "#ffd06a"], [4, 12, "#f08a24"], [6, 12, "#ffd06a"], [3, 11, "#f08a24"]]) g[y][x] = c;
-    return g;
-  },
-  it_bb_gun: () => {
-    const g = blank(16);
-    rod(g, 1.8, 12.4, 6, 9.6, 1.5, WOOD);
-    rod(g, 5.6, 9.6, 14.2, 4.4, 0.6, "#3a3f48");
-    rod(g, 6, 9.6, 9.6, 7.6, 1.0, "#5b616d");
-    g[10][7] = "#3a3f48";
-    return g;
-  },
-  it_baseball_pitch: () => {
-    const g = blank(16);
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const dx = x + 0.5 - 8, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
-      if (r <= 6) g[y][x] = dx + dy < -3 ? "#ffffff" : dx + dy > 4 ? "#d9d4c8" : "#f4f1e6";
-    }
-    for (const [x, y] of [[4, 4], [5, 5], [4, 6], [5, 7], [4, 8], [5, 9], [4, 10], [11, 4], [10, 5], [11, 6], [10, 7], [11, 8], [10, 9], [11, 10]]) g[y][x] = "#d64545";
-    return g;
-  },
-  it_fishing_rod_hook: () => {
-    const g = blank(16);
-    rod(g, 2, 14, 12.8, 2.2, 0.5, (t) => (t < 0.3 ? "#3a2418" : "#c99a5e"));
-    disk(g, 4.6, 12.4, 1.3, "#9aa3ad");
-    rod(g, 13, 2, 13, 11, 0.3, "#e6e9ef");
-    for (const [x, y] of [[13, 11], [13, 12], [12, 12], [11, 11]]) g[y][x] = "#c9ced4";
-    return g;
-  },
   // Armour.
   it_jacket: () => garment({ b: "#3f6fb5", L: "#7fa8e8", d: "#2a4a80", s: "#3f6fb5", k: "#f2c14e", c: "#f2c14e", z: "#2a4a80", t: "#f2c14e" }),
   it_vest: () => vest({ b: "#3a4658", L: "#5a6a80", d: "#232b38", t: "#232b38" }, [[5, 7, "#f2c14e"], [6, 7, "#f2c14e"], [9, 7, "#f2c14e"], [10, 7, "#f2c14e"], [5, 9, "#4a5466"], [10, 9, "#4a5466"]]),
@@ -4692,24 +4493,6 @@ const ICONS = {
     }
     return g;
   },
-  it_helmet: () => ascii([
-    "................",
-    "................",
-    "................",
-    "................",
-    ".....rrrrrr.....",
-    "....rRkrrkrr....",
-    "...rRrrrrrrrr...",
-    "..rRrkrrkrrkrr..",
-    "..rrrrrrrrrrrr..",
-    "..dddddddddddd..",
-    "...k........k...",
-    "....k......k....",
-    "................",
-    "................",
-    "................",
-    "................",
-  ], { r: "#e04848", R: "#ff9a8a", d: "#3a3f48", k: "#2c2c34" }),
   it_letterman_jacket: () => garment({ b: "#b8302a", L: "#e0605a", d: "#7a1a18", s: "#f4f1e6", k: "#b8302a", c: "#f4f1e6", z: "#7a1a18", t: "#f4f1e6" },
     [[5, 6, "#f2c14e"], [6, 6, "#f2c14e"], [5, 7, "#f2c14e"], [6, 8, "#f2c14e"]]),
   it_hoodie: () => garment({ b: "#8a93a0", L: "#b6bcc4", d: "#5b616d", s: "#8a93a0", k: "#5b616d", c: "#5b616d", z: "#8a93a0", t: "#5b616d", h: "#8a93a0" },
@@ -4772,30 +4555,11 @@ const ICONS = {
     g[8][9] = "#3a3f48";
     return g;
   },
-  it_welding_mask: () => ascii([
-    "................",
-    "................",
-    "....kkkkkkkk....",
-    "...kKkkkkkkkk...",
-    "..kKkkkkkkkkkk..",
-    "..kKkggggggkkk..",
-    "..kKkgGggggkkk..",
-    "..kkkggggggkkk..",
-    "..kkkkkkkkkkkk..",
-    "..kkkkkkkkkkkk..",
-    "...kkkkkkkkkk...",
-    "....kkkkkkkk....",
-    ".....kkkkkk.....",
-    "................",
-    "................",
-    "................",
-  ], { k: "#3a3f48", K: "#6b7380", g: "#2f8a5a", G: "#7fe0a8" }),
   it_motorcycle_jacket: () => garment({ b: "#2c2c34", L: "#5a5a66", d: "#14141a", s: "#2c2c34", k: "#5a5a66", c: "#5a5a66", z: "#c9ced4", t: "#14141a" },
     [[6, 4, "#c9ced4"], [9, 6, "#c9ced4"]]),
   it_kevlar_vest: () => vest({ b: "#6f7f4a", L: "#93a86a", d: "#4a5632", t: "#4a5632" }, [[5, 8, "#4a5632"], [6, 8, "#4a5632"], [9, 8, "#4a5632"], [10, 8, "#4a5632"], [5, 10, "#4a5632"], [10, 10, "#4a5632"]]),
   it_lab_coat: () => garment({ b: "#f4f6f8", L: "#ffffff", d: "#c9d2dc", s: "#f4f6f8", k: "#c9d2dc", c: "#c9d2dc", z: "#9aa3ad", t: "#c9d2dc" },
     [[5, 8, "#5f8fe0"], [10, 6, "#9aa3ad"]]),
-  it_apron: () => vest({ b: "#f4f6f8", L: "#ffffff", d: "#c9d2dc", t: "#3f6fb5" }, [[3, 8, "#3f6fb5"], [4, 8, "#3f6fb5"], [11, 8, "#3f6fb5"], [12, 8, "#3f6fb5"], [7, 9, "#c9d2dc"], [8, 9, "#c9d2dc"], [7, 10, "#c9d2dc"], [8, 10, "#c9d2dc"]]),
   it_winter_coat: () => garment({ b: "#f08a24", L: "#ffc07a", d: "#b8601a", s: "#f08a24", k: "#b8601a", c: "#f4f1e6", z: "#b8601a", t: "#b8601a" },
     [[5, 7, "#b8601a"], [6, 7, "#b8601a"], [9, 7, "#b8601a"], [10, 7, "#b8601a"], [5, 9, "#b8601a"], [6, 9, "#b8601a"], [9, 9, "#b8601a"], [10, 9, "#b8601a"]]),
   it_riot_harness: () => ascii([
@@ -4835,53 +4599,6 @@ const ICONS = {
     g[7][14] = "#8a5a3a";
     return g;
   },
-  it_watch: () => {
-    const g = blank(16);
-    rod(g, 8, 1.4, 8, 3.6, 0.6, "#c9a24a");
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-      const dx = x + 0.5 - 8, dy = y + 0.5 - 9.4, r = Math.hypot(dx, dy);
-      if (r <= 5.4) g[y][x] = r > 4.4 ? (dx + dy < -2 ? "#fff0a8" : "#c9a24a") : "#f4f1e6";
-    }
-    rod(g, 8, 9.4, 8, 6.4, 0.35, "#3a2a1a");
-    rod(g, 8, 9.4, 10.2, 9.4, 0.35, "#3a2a1a");
-    return g;
-  },
-  it_energy_drink: () => ascii([
-    "................",
-    "................",
-    ".....ssssss.....",
-    ".....kkkkkk.....",
-    ".....kKkkkk.....",
-    ".....kKkkgk.....",
-    ".....kKkggk.....",
-    ".....kKggkk.....",
-    ".....kKkggk.....",
-    ".....kKkgkk.....",
-    ".....kKgkkk.....",
-    ".....kKkkkk.....",
-    ".....kkkkkk.....",
-    ".....ssssss.....",
-    "................",
-    "................",
-  ], { s: "#b6bcc4", k: "#2c2c34", K: "#5a5a66", g: "#8ad13a" }),
-  it_photo: () => ascii([
-    "................",
-    "................",
-    "..ffffffffffff..",
-    "..fbbbbbbbbbbf..",
-    "..fbbbbbbbbbbf..",
-    "..fbbsbbbbsbbf..",
-    "..fbsssbbsssbf..",
-    "..fbbsbbbbsbbf..",
-    "..fbrrrbbcccbf..",
-    "..fbrrrbbcccbf..",
-    "..fggggggggggf..",
-    "..ffffffffffff..",
-    "................",
-    "................",
-    "................",
-    "................",
-  ], { f: "#a8753f", b: "#bfe3f5", s: "#f2c9a0", r: "#d64545", c: "#3f7fd6", g: "#6aa84f" }),
   it_gloves: () => ascii([
     "................",
     "................",
@@ -4900,15 +4617,6 @@ const ICONS = {
     "................",
     "................",
   ], { s: "#f2c9a0", k: "#3a3f48", K: "#6b7380", d: "#2c2c34" }),
-  it_bracelet: () => {
-    const g = blank(16);
-    const beads = ["#d64545", "#f2c14e", "#4caf50", "#3f7fd6", "#c04aa0", "#f08a24"];
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      disk(g, 8 + Math.cos(a) * 4.8, 8 + Math.sin(a) * 4.2, 1.15, beads[i % beads.length]);
-    }
-    return g;
-  },
   it_class_ring: () => {
     const g = blank(16);
     for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
@@ -4920,42 +4628,6 @@ const ICONS = {
     g[4][7] = "#ff9a8a";
     return g;
   },
-  it_harmonica: () => ascii([
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    ".ssssssssssssss.",
-    ".sSSSSSSSSSSSSs.",
-    ".rkrkrkrkrkrkrr.",
-    ".rkrkrkrkrkrkrr.",
-    ".sssssssssssssd.",
-    ".dddddddddddddd.",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-  ], { s: "#c9ced4", S: "#ffffff", d: "#8a93a0", r: "#3f6fb5", k: "#14141a" }),
-  it_walkie_talkie: () => ascii([
-    "................",
-    "....k...........",
-    "....k...........",
-    "....k...........",
-    "....kkkkkkk.....",
-    "....kKkkkkk.....",
-    "....kggggkk.....",
-    "....kgGggkk.....",
-    "....kkkkkkk.....",
-    "....kdkdkdk.....",
-    "....kkkkkkk.....",
-    "....kdkdkdk.....",
-    "....kkkkkkk.....",
-    "....kkkkkkk.....",
-    "................",
-    "................",
-  ], { k: "#2c2c34", K: "#5a5a66", g: "#7fe0a8", G: "#cfffe0", d: "#5a5a66" }),
   it_compass: () => ascii([
     "................",
     "................",
@@ -5051,23 +4723,388 @@ const ICONS = {
     rod(g, 3, 11, 13, 5, 2.4, (t, side) => (t < 0.12 || t > 0.88 ? "#c9ced4" : side < -1 ? "#ffd06a" : t > 0.45 && t < 0.62 ? "#5a3b24" : "#e08a24"));
     return g;
   },
+  // ---- the classes' weapons (data WEAPON_TEMPLATES) that had no icon yet ----
+  it_door: () => ICONS.door(),
+  it_net: () => ICONS.net(),
+  // a stop sign, pulled off its pole: red octagon, white rim and band
+  it_stop_sign_shield: () => ascii([
+    "................",
+    ".....wwwwww.....",
+    "....wrrrrrrw....",
+    "...wrRrrrrrrw...",
+    "..wrRrrrrrrrrw..",
+    ".wrRrrrrrrrrrdw.",
+    ".wrrWWWWWWWWrdw.",
+    ".wrrWrWrWWrWrdw.",
+    ".wrrWWWWWWWWrdw.",
+    ".wrrrrrrrrrrrdw.",
+    "..wrrrrrrrrrdw..",
+    "...wrrrrrrrdw...",
+    "....wrrrrrrw....",
+    ".....wwwwww.....",
+    ".......gg.......",
+    ".......gg.......",
+  ], { w: "#f4f4f4", r: "#d64545", R: "#f07070", d: "#a83030", W: "#ffffff", g: "#8a929c" }),
+  // a police riot shield: clear, a dark band across it
+  it_riot_shield: () => ascii([
+    "................",
+    "...kkkkkkkkkk...",
+    "...kLLlllllmk...",
+    "...kLlllllllk...",
+    "...kLlllllllk...",
+    "...kddddddddk...",
+    "...kdwdwwdwdk...",
+    "...kddddddddk...",
+    "...kLlllllllk...",
+    "...kLlllllllk...",
+    "...kLlllllllk...",
+    "...kLlllllllk...",
+    "...kllllllllk...",
+    "...kkkkkkkkkk...",
+    "................",
+    "................",
+  ], { k: "#3a4a5e", L: "#d8ecf8", l: "#a8cce4", m: "#ffffff", d: "#2a3448", w: "#e8eef4" }),
+  // a steel fire door, its push bar and a red EXIT sign
+  it_fire_door: () => ascii([
+    "................",
+    "....kkkkkkkk....",
+    "....kGGGGGGk....",
+    "....kGrrrrGk....",
+    "....kGGGGGGk....",
+    "....kGggggGk....",
+    "....kGggggGk....",
+    "....kGGGGGGk....",
+    "....kbbbbbbk....",
+    "....kGGGGGGk....",
+    "....kGggggGk....",
+    "....kGggggGk....",
+    "....kGGGGGGk....",
+    "....kGGGGGGk....",
+    "....kkkkkkkk....",
+    "................",
+  ], { k: "#4a5260", G: "#b8c0c8", g: "#98a0aa", r: "#e05a4a", b: "#e8ecf0" }),
+  // a katana off the history room's wall: a long pale blade, a gold guard, a wrapped grip
+  it_katana: () => {
+    const g = blank(16);
+    rod(g, 6.2, 9.8, 14.4, 1.4, 0.75, sh("#ffffff", "#dfe5ec", "#9aa3ad"));
+    rod(g, 4.4, 8.4, 7.8, 11.8, 0.6, "#d4a73a");
+    rod(g, 5.4, 10.6, 1.8, 14.2, 0.85, (t) => (Math.floor(t * 6) % 2 ? "#2a2a32" : "#8a2a2a"));
+    return g;
+  },
+  // a tomahawk: a short handle, a small head, a feather off it
+  it_tomahawk: () => {
+    const g = blank(16);
+    rod(g, 3, 14.6, 11.4, 3.4, 0.75, WOOD);
+    rod(g, 10.2, 3.4, 14.2, 6.8, 1.5, STEEL);
+    rod(g, 11.4, 2.6, 9.6, 1.2, 0.6, "#5b616d");
+    for (const [x, y, c] of [[6, 9, "#d64545"], [5, 10, "#f4f4f4"], [5, 11, "#d64545"], [4, 11, "#f4f4f4"]]) g[y][x] = c;
+    return g;
+  },
+  // a pea shooter: a green tube, a pea at its end
+  it_pea_shooter: () => {
+    const g = blank(16);
+    rod(g, 2.2, 13.4, 12, 4, 1.15, sh("#9be07a", "#5ab04a", "#3a7a2a"));
+    disk(g, 13.4, 2.6, 1.5, "#7fd36a");
+    g[2][13] = "#c8f4a8";
+    return g;
+  },
+  // a syringe launcher: a big syringe, green in the barrel, the plunger behind
+  it_syringe_launcher: () => {
+    const g = blank(16);
+    rod(g, 3.6, 12.4, 11, 5, 1.8, sh("#ffffff", "#d8ecf4", "#a8c8d4"));
+    rod(g, 5.2, 10.8, 10, 6, 0.9, "#7fe05a");
+    rod(g, 1.2, 14.8, 3.4, 12.6, 0.55, "#8a929c");
+    rod(g, 0.6, 13.6, 2.4, 15.4, 0.55, "#5a626c");
+    rod(g, 11, 5, 14.8, 1.2, 0.3, "#d8dee6");
+    return g;
+  },
+  // a volleyball net between its two posts
+  it_volleyball_net: () => {
+    const g = ascii([
+      "................",
+      "................",
+      ".pwwwwwwwwwwwwp.",
+      ".pwwwwwwwwwwwwp.",
+      ".pn.n.n.n.n.n.p.",
+      ".p.n.n.n.n.n.np.",
+      ".pn.n.n.n.n.n.p.",
+      ".p.n.n.n.n.n.np.",
+      ".pn.n.n.n.n.n.p.",
+      ".p.n.n.n.n.n.np.",
+      ".pnnnnnnnnnnnnp.",
+      ".p............p.",
+      ".p............p.",
+      ".p............p.",
+      "ppp..........ppp",
+      "................",
+    ], { p: "#8a929c", w: "#f4f4f4", n: "#d8d0bc" });
+    g.holes = true;
+    return g;
+  },
+  // bolas: three weights on cords, tied in the middle
+  it_bola_launcher: () => {
+    const g = blank(16);
+    for (const [x, y] of [[3, 13], [13, 12], [8, 2.4]]) rod(g, 8, 8.6, x, y, 0.35, "#c8a878");
+    for (const [x, y, c] of [[3, 13, "#5b616d"], [13, 12, "#5b616d"], [8, 2.4, "#5b616d"]]) disk(g, x, y, 1.9, c);
+    for (const [x, y] of [[2, 12], [12, 11], [7, 1]]) g[y][x] = "#9aa3ad";
+    disk(g, 8, 8.6, 1, "#8a5a3a");
+    return g;
+  },
+  // a net launcher: a fat tube, the net bursting out of it
+  it_net_launcher: () => {
+    const g = blank(16);
+    rod(g, 2, 13.6, 8.6, 7, 1.7, IRON);
+    rod(g, 4, 13, 3, 15, 0.7, "#3a3f48");
+    for (let y = 0; y < 9; y++) for (let x = 8; x < 16; x++) {
+      if (Math.hypot(x + 0.5 - 12, y + 0.5 - 4) > 4.2) continue;
+      const a = (x + y) % 3 === 0, b = (x - y + 18) % 3 === 0;
+      if (a || b) g[y][x] = a && b ? "#a89c84" : "#e8e0cc";
+    }
+    g.holes = true;
+    return g;
+  },
+  // a spider's web: spokes and two rings
+  it_spider_web: () => {
+    const g = blank(16);
+    const line = (x0, y0, x1, y1, c) => {
+      const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+      for (let i = 0; i <= n; i++) g[Math.round(y0 + ((y1 - y0) * i) / n)][Math.round(x0 + ((x1 - x0) * i) / n)] = c;
+    };
+    const at = (r, k) => [Math.round(7.5 + r * Math.cos((k * Math.PI) / 4)), Math.round(7.5 + r * Math.sin((k * Math.PI) / 4))];
+    for (let k = 0; k < 8; k++) line(...at(0, k), ...at(7.4, k), "#c8d0d8");
+    for (const r of [3.3, 6.8]) for (let k = 0; k < 8; k++) line(...at(r, k), ...at(r, k + 1), "#f4f7fa");
+    g.holes = true;
+    return g;
+  },
+  // a PVC bow: plumbing pipe bent into a bow, a nylon string
+  it_pvc_bow: () => {
+    const g = blank(16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x + 0.5 - 13, dy = y + 0.5 - 8, r = Math.hypot(dx, dy);
+      if (r >= 7 && r <= 8.1 && dx < -4.5) g[y][x] = dy < 0 ? "#f4f6f8" : "#c8ced4";
+    }
+    for (const [x, y] of [[7, 1], [8, 0], [7, 14], [8, 15]]) g[y][x] = "#8a929c";
+    rod(g, 7.4, 1.4, 7.4, 14.6, 0.35, "#5ab0e8");
+    return g;
+  },
+  // a wet floor sign: the yellow A-frame, the slipping figure, the black band
+  it_wet_floor_sign: () => ascii([
+    "................",
+    "......yyyy......",
+    ".....yyyyyy.....",
+    ".....yykyyy.....",
+    "....yyyyyyyy....",
+    "....yykkkyyy....",
+    "...yyyykyyyyy...",
+    "...yyyykkyyyy...",
+    "..yyyykyykyyyy..",
+    "..yyyyyyyyyyyy..",
+    ".YyyyyyyyyyyyyY.",
+    ".kkkkkkkkkkkkkk.",
+    ".YyyyyyyyyyyyyY.",
+    ".y............y.",
+    "y..............y",
+    "................",
+  ], { y: "#f4d35e", Y: "#d9b030", k: "#2a2a2a" }),
+  // a sling: two cords down to a leather pouch, a stone in it
+  it_sling: () => ascii([
+    "................",
+    "..o.............",
+    "..c.............",
+    "...c...........o",
+    "...c..........c.",
+    "....c.........c.",
+    "....c........c..",
+    ".....c......c...",
+    ".....c.....c....",
+    "......c...c.....",
+    "......bbbbb.....",
+    ".....bbsssbb....",
+    ".....bbsSsbb....",
+    "......bbbbb.....",
+    "................",
+    "................",
+  ], { c: "#c8a878", o: "#f0c08a", b: "#8a5a3a", s: "#9aa3ad", S: "#d0d6dc" }),
+  // ---- the accessories (data ACCESSORIES) that had no icon yet ----
+  it_duffel: () => ICONS.duffel(),
+  // a bike helmet: red, its vents, the strap
+  it_helmet: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    ".....rrrrrr.....",
+    "....rRkrrkrr....",
+    "...rRrrrrrrrr...",
+    "..rRrkrrkrrkrr..",
+    "..rrrrrrrrrrrr..",
+    "..dddddddddddd..",
+    "...k........k...",
+    "....k......k....",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { r: "#e04848", R: "#ff9a8a", d: "#3a3f48", k: "#2c2c34" }),
+  // a hard hat: yellow, a ridge down the middle, the brim all round
+  it_hard_hat: () => ascii([
+    "................",
+    "................",
+    "................",
+    "................",
+    "......yyyy......",
+    "....yYyYYyyy....",
+    "...yYyyYYyyyy...",
+    "...yYyyYYyyyy...",
+    "...yyyyYYyyyy...",
+    ".dddddddddddddd.",
+    "..DDDDDDDDDDDD..",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { y: "#f4c542", Y: "#fbe08a", d: "#c8961a", D: "#9a6e10" }),
+  // a travel pillow: the blue U round the neck
+  it_travel_pillow: () => ascii([
+    "................",
+    "................",
+    "....pppppppp....",
+    "...pPPPPPPPPp...",
+    "..pPPppppppPPp..",
+    "..pPp......pPp..",
+    "..pPp......pPp..",
+    "..pPp......pPp..",
+    "..pPp......pPp..",
+    "..pPpp....ppPp..",
+    "...pPPp..pPPp...",
+    "....ppp..ppp....",
+    "................",
+    "................",
+    "................",
+    "................",
+  ], { p: "#4a8ac8", P: "#8ac0f0" }),
+  // vitamins: an amber pill bottle, two capsules beside it
+  it_vitamins: () => ascii([
+    "................",
+    ".....wwwwww.....",
+    ".....WWWWWW.....",
+    "....oooooooo....",
+    "....oOOOOOOo....",
+    "....oOwwwwOo....",
+    "....oOwrrwOo....",
+    "....oOwwwwOo....",
+    "....oOOOOOOo....",
+    "....oOOOOOOo..yy",
+    "....oooooooo.yYy",
+    "..............y.",
+    "..........rr....",
+    ".........rRr....",
+    "..........r.....",
+    "................",
+  ], { w: "#f4f4f4", W: "#d0d0d0", o: "#c8781a", O: "#f0a040", r: "#d64545", R: "#f07070", y: "#e8c14a", Y: "#fbe08a" }),
+  // gardening gloves: green, a canvas cuff
+  it_gardening_gloves: () => ascii([
+    "................",
+    "......g.g.g.....",
+    ".....gGgGgGg....",
+    ".....gGgGgGg....",
+    "..g..gGgGgGg....",
+    ".gGg.gGGGGGg....",
+    ".gGGgGGGGGGg....",
+    "..gGGGGGGGGg....",
+    "...gGGGGGGGg....",
+    "....gGGGGGg.....",
+    ".....bbbbbb.....",
+    ".....BBBBBB.....",
+    ".....bbbbbb.....",
+    "................",
+    "................",
+    "................",
+  ], { g: "#3a8a3a", G: "#5ab84a", b: "#c8a878", B: "#e8d0a0" }),
+  // hand sanitizer: a pump bottle of blue gel
+  it_hand_sanitizer: () => ascii([
+    "................",
+    "......kkkk......",
+    "......k..kkk....",
+    ".......kk.......",
+    ".......kk.......",
+    ".....kkkkkk.....",
+    "....cLLLLLLc....",
+    "....cLlllllc....",
+    "....cLwwwwlc....",
+    "....cLwbbwlc....",
+    "....cLwwwwlc....",
+    "....cLlllllc....",
+    "....cLlllllc....",
+    "....cccccccc....",
+    "................",
+    "................",
+  ], { k: "#3a3f48", c: "#7ab8d8", L: "#d8f0fa", l: "#a8d8ec", w: "#ffffff", b: "#4a8ac8" }),
+  // a lockpick set: a padlock, a pick in its keyhole
+  it_lockpick_set: () => ascii([
+    "................",
+    ".....kkkkkk.....",
+    "....kk....kk....",
+    "....k......k....",
+    "....k......k....",
+    "...yyyyyyyyyy...",
+    "...yYYYYYYYYy...",
+    "...yYYkkYYYYy...",
+    "...yYYkkYYYYy...",
+    "...yYYYkYYYYy...",
+    "...yYYYkSSSSSSS.",
+    "...yYYYYYYYYy.S.",
+    "...yyyyyyyyyy...",
+    "................",
+    "................",
+    "................",
+  ], { k: "#5b616d", y: "#b8901e", Y: "#e8c14a", S: "#d0d6dc" }),
+  // binoculars: two barrels, blue lenses
+  it_binoculars: () => ascii([
+    "................",
+    "................",
+    "..kkkk....kkkk..",
+    "..kDDk....kDDk..",
+    "..kDDkkkkkkDDk..",
+    "..kDDkDDDDkDDk..",
+    "..kDDkDDDDkDDk..",
+    ".kkDDkkkkkkDDkk.",
+    ".kDDDDk..kDDDDk.",
+    ".kDDDDk..kDDDDk.",
+    ".kBBBBk..kBBBBk.",
+    ".kBbbBk..kBbbBk.",
+    ".kBBBBk..kBBBBk.",
+    ".kkkkkk..kkkkkk.",
+    "................",
+    "................",
+  ], { k: "#2a2a32", D: "#4a5260", B: "#5a8ac8", b: "#a8d0f0" }),
+  // a stethoscope: the earpieces, the tube, the chest piece
+  it_stethoscope: () => ascii([
+    "................",
+    "..g........g....",
+    "..d........d....",
+    "..d........d....",
+    "...d......d.....",
+    "...d......d.....",
+    "....d....d......",
+    ".....dddd.......",
+    ".......d........",
+    ".......d........",
+    ".......d...ssss.",
+    "........d.sSSSSs",
+    ".........dsSWSSs",
+    "..........sSSSSs",
+    "...........ssss.",
+    "................",
+  ], { g: "#d0d6dc", d: "#3a3f48", s: "#8a929c", S: "#c9ced4", W: "#ffffff" }),
   // Legendaries: the base item in gold.
-  it_legendary_bat: () => legendary("it_bat"),
   it_legendary_axe: () => legendary("it_axe"),
-  it_legendary_chainsaw: () => legendary("it_field_chainsaw"),
-  it_legendary_machete: () => legendary("it_machete"),
   it_legendary_recurve: () => legendary("it_recurve_bow"),
-  it_legendary_crossbow: () => legendary("it_crossbow"),
-  it_legendary_cannon: () => legendary("it_potato_cannon"),
   it_legendary_slingshot: () => legendary("it_slingshot"),
-  it_legendary_vest: () => legendary("it_vest"),
   it_legendary_coat: () => legendary("it_winter_coat"),
   it_legendary_riotgear: () => legendary("it_riot_harness"),
   it_legendary_labcoat: () => legendary("it_lab_coat"),
-  it_legendary_charm: () => legendary("it_charm"),
-  it_legendary_glasses: () => legendary("it_glasses"),
-  it_legendary_compass: () => legendary("it_compass"),
-  it_legendary_ring: () => legendary("it_class_ring"),
   // ---- UI symbols (16x16): the emoji left in text, tooltips and labels (ui.js SYMBOL_ICON) ----
   heart: () => ascii([
     "................",
@@ -6840,6 +6877,8 @@ const POI_ICONS = {
 for (const [id, draw] of Object.entries(POI_ICONS)) ICONS[`poi_${id}`] = draw;
 
 const iconCache = new Map();
+// Whether there's an icon by that name (an item's "it_<id>", say).
+export const hasIcon = (name) => !!ICONS[name];
 
 export function pixelIcon(name, size = 16) {
   if (!iconCache.has(name)) {
