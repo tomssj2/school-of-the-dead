@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NPC Room Mockup</title>
+<style>
+  :root { --bg: #14161d; --panel: #1f232d; --border: #343a48; --text: #e6e9ef; --muted: #9aa3b5; --accent: #f4c542; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  h2 { margin: 22px 0 6px; font-size: 16px; }
+  p { margin: 0 0 10px; color: var(--muted); }
+  .banner { position: relative; height: 270px; border: 1px solid var(--border); background-repeat: repeat-x; background-size: auto 100%; background-position: center bottom; image-rendering: pixelated; overflow: hidden; }
+  .npc { position: absolute; left: 30px; bottom: -15px; filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.35)); }
+  .students { position: absolute; right: 30px; bottom: 8px; display: flex; align-items: flex-end; gap: 10px; }
+  .students svg, .npc svg { display: block; }
+  .bubble { position: absolute; left: 230px; top: 26px; max-width: 260px; padding: 8px 12px; background: #fff; color: #1a1a22; font-weight: 600; font-size: 13px; border: 2px solid #1a1a22; }
+  .bubble::before { content: ""; position: absolute; left: -10px; top: 18px; border: 8px solid transparent; border-right-color: #1a1a22; }
+  .plaque { position: absolute; left: 10px; top: 8px; padding: 2px 8px; background: rgba(14, 16, 22, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); font-weight: 700; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>Classroom mockup</h1>
+<p>The Biology classroom with its NPC on the left and students on the right. Reload for different students; <code>?npc=quarkwell&room=classroom_Physics</code> to try others.</p>
+<div id="out"></div>
+<script type="module">
+  import { NPCS, npcSprite } from "./js/npcs.js";
+  import { characterSprite } from "./js/sprite.js";
+  import { makeCharacter } from "./js/characters.js";
+  import { sceneBackground } from "./js/scenes.js";
+  const q = new URLSearchParams(location.search);
+  const id = q.get("npc") || "frankenstitch";
+  const room = q.get("room") || "classroom_Biology";
+  const n = NPCS[id];
+  const kids = Array.from({ length: 5 }, (_, i) => Object.assign(makeCharacter("student", i % 2 ? "F" : "M"), { alive: true, hp: 1, maxHp: 1 }));
+  const banner = (title, desc, npcScale, kidPx) => `
+    <h2>${title}</h2><p>${desc}</p>
+    <div class="banner" style="background-image:${sceneBackground(`${room}@4`)}">
+      <div class="plaque">${room.replace("classroom_", "")} classroom</div>
+      <div class="npc">${npcSprite(id, npcScale)}</div>
+      <div class="bubble">“${n.lines[0]}”</div>
+      <div class="students">${kids.map((c) => characterSprite(c, kidPx)).join("")}</div>
+    </div>`;
+  document.getElementById("out").innerHTML = banner("Same pixel size", `${n.name} and the students at 3 screen pixels per art pixel.`, 3, 96);
+</script>
+</body>
+</html>

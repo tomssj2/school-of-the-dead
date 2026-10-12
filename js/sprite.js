@@ -76,15 +76,23 @@ function grayOf(c) {
 
 // ---------- grid ----------
 
-class Grid {
-  constructor() {
-    this.cells = Array.from({ length: H }, () => Array(W).fill(null));
+// A figure is drawn in its own 32x40 coordinates; a bigger grid (`w` x `h`) holds it at (ox, oy),
+// with room around it for props (the NPCs: npcs.js). at() reads the grid itself.
+export class Grid {
+  constructor(w = W, h = H, ox = 0, oy = 0) {
+    Object.assign(this, { w, h, ox, oy });
+    this.cells = Array.from({ length: h }, () => Array(w).fill(null));
+  }
+  at(x, y) {
+    return x >= 0 && x < this.w && y >= 0 && y < this.h ? this.cells[y][x] : null;
   }
   get(x, y) {
-    return x >= 0 && x < W && y >= 0 && y < H ? this.cells[y][x] : null;
+    return this.at(x + this.ox, y + this.oy);
   }
   set(x, y, k) {
-    if (x >= 0 && x < W && y >= 0 && y < H) this.cells[y][x] = k;
+    x += this.ox;
+    y += this.oy;
+    if (x >= 0 && x < this.w && y >= 0 && y < this.h) this.cells[y][x] = k;
   }
   rect(x0, y0, x1, y1, k) {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) this.set(x, y, k);
@@ -763,50 +771,57 @@ function build(c, injury, pose = null) {
     o: "#b8865a", O: "#7a5230", n: "#9aa6b6", N: "#5a6272", K: "#24272e", G: "#7fe0a8",
   };
 
-  // Rim shading: light from the top-left. Skin right under the fringe gets the hair's shadow; hair
-  // and clothes turn into shadow over two pixels on the right, so they look round, and the hair has
-  // a soft sheen across the crown.
-  const groupAt = (x, y) => GROUP[g.get(x, y)] || null;
-  const color = Array.from({ length: H }, () => Array(W).fill(null));
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const k = g.get(x, y);
+  return renderGrid(g, base, { outline: c.legendary && !dead ? "#c9971c" : null, gray: dead });
+}
+
+// A drawn grid as SVG rects: rim shading (light from the top-left: skin right under the fringe gets
+// the hair's shadow; hair and clothes turn into shadow over two pixels on the right, so they look
+// round, and the hair has a soft sheen across the crown), an outline round everything (tinted by what
+// it's outlining, or `outline`), each row run-length encoded. `groups` / `rim`: more keys (an
+// NPC's own colours) — which group each belongs to, and which get the rim shading. The sheen is
+// placed in the figure's own coordinates (g.ox, g.oy).
+export function renderGrid(g, base, { outline = null, gray = false, groups = {}, rim = [] } = {}) {
+  const GR = { ...GROUP, ...groups };
+  const RIM = new Set([...RIM_SHADED, ...rim]);
+  const groupAt = (x, y) => GR[g.at(x, y)] || null;
+  const color = Array.from({ length: g.h }, () => Array(g.w).fill(null));
+  for (let y = 0; y < g.h; y++) {
+    for (let x = 0; x < g.w; x++) {
+      const k = g.at(x, y);
       if (!k) continue;
       let col = base[k];
-      if (RIM_SHADED.has(k)) {
-        const grp = GROUP[k];
+      if (RIM.has(k)) {
+        const grp = GR[k];
+        const fx = x - g.ox;
+        const fy = y - g.oy;
         if (k === "s" && groupAt(x, y - 1) === "hair") col = shadowOf(col);
         else if (groupAt(x + 1, y) !== grp || groupAt(x, y + 1) !== grp) col = shadowOf(col);
         else if (groupAt(x - 1, y) !== grp || groupAt(x, y - 1) !== grp) col = lightOf(col);
         else if (k !== "s" && groupAt(x + 2, y) !== grp) col = mix(col, shadowOf(col), 0.5);
-        else if (k === "h" && y >= 2 && y <= 5 && x >= 12 && x <= 19 && Math.abs(x - 15.5 - (y - 3.5) * 1.5) < 2.2) col = mix(col, lightOf(col), 0.6);
+        else if (k === "h" && fy >= 2 && fy <= 5 && fx >= 12 && fx <= 19 && Math.abs(fx - 15.5 - (fy - 3.5) * 1.5) < 2.2) col = mix(col, lightOf(col), 0.6);
       }
       color[y][x] = col;
     }
   }
-
-  // Outline every empty pixel touching the figure, tinted by what it's outlining.
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      if (g.get(x, y)) continue;
-      const touching = [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([dx, dy]) => g.get(x + dx, y + dy) && color[y + dy][x + dx]).find(Boolean);
-      if (touching) color[y][x] = c.legendary && !dead ? "#c9971c" : outlineOf(touching);
+  for (let y = 0; y < g.h; y++) {
+    for (let x = 0; x < g.w; x++) {
+      if (g.at(x, y)) continue;
+      const touching = [[0, -1], [0, 1], [-1, 0], [1, 0]].map(([dx, dy]) => g.at(x + dx, y + dy) && color[y + dy][x + dx]).find(Boolean);
+      if (touching) color[y][x] = outline || outlineOf(touching);
     }
   }
-
-  // Run-length encode each row into as few rects as possible.
   let rects = "";
-  for (let y = 0; y < H; y++) {
+  for (let y = 0; y < g.h; y++) {
     let x = 0;
-    while (x < W) {
+    while (x < g.w) {
       let col = color[y][x];
       if (!col) {
         x++;
         continue;
       }
       let run = 1;
-      while (x + run < W && color[y][x + run] === col) run++;
-      if (dead) col = grayOf(col);
+      while (x + run < g.w && color[y][x + run] === col) run++;
+      if (gray) col = grayOf(col);
       rects += `<rect x="${x}" y="${y}" width="${run}" height="1" fill="${col}"/>`;
       x += run;
     }
@@ -834,3 +849,6 @@ export function characterSprite(c, sizePx = 112, pose = null) {
   const h = Math.round(sizePx * (H / W));
   return `<svg viewBox="0 0 ${W} ${H}" width="${sizePx}" height="${h}" xmlns="http://www.w3.org/2000/svg"><image href="${uri}" width="${W}" height="${H}" style="image-rendering:pixelated"/></svg>`;
 }
+
+// The parts, for the NPCs (npcs.js): they're drawn with the same faces, clothes and shading.
+export { W as FIGURE_W, H as FIGURE_H, drawHead, drawEyes, BROWS, MOUTHS, drawMouth, drawFacialHair, hairDome, hairSides, HAIR_FRONT, HAIR_BACK, drawTorso, shirtV, OUTFITS, drawLower, drawGlasses, HATS_DRAW, noArm, raisedArm, armTo, stick, WHITE };

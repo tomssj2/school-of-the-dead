@@ -116,7 +116,6 @@ export const TEACHER_SECONDARY_WEIGHTS = [50, 33, 17];
 export const TEACH_BONUS_BY_TIER = { S: 10, A: 7, B: 5, C: 3, D: 1, F: 0 }; // grade points a day, per teacher
 
 // Teachers stay at the school full-time (no exploring/defending) and are capped and rarer.
-export const TEACHER_RECRUIT_CHANCE = 0.12; // share of recruited survivors who turn out to be teachers
 
 // Traits: each character spawns with 1-3 of these. A trait speeds up grade growth in its
 // subject during training, and bumps that subject's starting letter grade up one tier.
@@ -604,6 +603,19 @@ export const SKILL_TREE = {
 // on a subject — one of these four "sit-down" subjects; PE/Gymnastics only happen in the Gymnasium and Acrobatics —
 // the moment its one teacher is assigned. It reverts to unassigned once that teacher leaves.
 export const CLASSROOM_SUBJECTS = ["Biology", "Physics", "History", "SocialStudies"];
+// ===== The staff (drawn in npcs.js) =====
+// No more teachers: every room has its own NPC doing the job — teaching its subject, coaching,
+// cooking, nursing, researching, crafting, broadcasting. How well is the room's level: the NPC's
+// grade in the job (NPC_GRADE_BY_LEVEL), so upgrading a room is how its teaching gets better.
+// Each classroom teaches one subject, its NPC's.
+export const ROOM_NPC = {
+  "classroom:1": "frankenstitch", "classroom:2": "quarkwell", "classroom:3": "bickus", "classroom:4": "seen",
+  "gym:PE": "mopovich", "gym:Gymnastics": "quinzwheel", cafeteria: "grillsay", infirmary: "brockbride",
+  research: "whiteboard", crafting: "gyber", radio: "bulldog", headmaster: "doubledoor",
+  farm: "plowson", barn: "cowper", scrapyard: "scrapperson",
+};
+export const CLASSROOM_SUBJECT = { 1: "Biology", 2: "Physics", 3: "History", 4: "SocialStudies" };
+export const NPC_GRADE_BY_LEVEL = [40, 55, 70, 85, 100];
 export const CLASSROOM_IDS = ["1", "2", "3", "4"];
 
 // A new game opens with part of the school still overrun: these rooms (keyed like teacher posts)
@@ -628,7 +640,7 @@ export const ROOM_FIGHT_MAX_ROUNDS = 10;
 // finishing it pays its reward and moves on. Their checks live in OBJECTIVE_CHECKS in game.js.
 export const OBJECTIVES = [
   { id: "clear_research", title: "Take back the Research Room", hint: "Gather 25 scrap — work the Scrapyard in the afternoon or bring some home from an expedition — then clear the zombies out of the Research Room on Floor 3.", reward: { research: 10 } },
-  { id: "staff_research", title: "Put a scientist to work", hint: "Post a teacher in the Research Room. Their INT turns into research every day — you'll need it for the rescue antenna.", reward: { materials: 10 } },
+  { id: "staff_research", title: "Put a scientist to work", hint: "Send a student to help Mr. Whiteboard in the Research Room. Their INT turns into research every day — you'll need it for the rescue antenna.", reward: { materials: 10 } },
   { id: "first_expedition", title: "Head out into the city", hint: "In the afternoon, scout the fog around the school and send a team to a location you find.", reward: { food: 15 } },
   { id: "first_tech", title: "Put the research to use", hint: "Buy your first project in the Research tab.", reward: { medicine: 10 } },
   { id: "second_classroom", title: "Make room for more students", hint: "Clear out a second classroom on Floor 2.", reward: { materials: 15 } },
@@ -1018,7 +1030,6 @@ export const FACILITY_RAID_CHANCE = 0.1;
 export const ASSAULT_CHANCE = 0.2;
 export const RAIDABLE_FACILITIES = ["farm", "barn", "scrapyard"];
 export const LEGENDARY_CHANCE = 0.15; // chance a won Assault turns up a legendary survivor
-export const LEGENDARY_TEACHER_CHANCE = 0.1; // chance a legendary survivor is a teacher (if there's room for one)
 
 // ===== Random events =====
 // Rolled once per day (at the Turn 3 -> Turn 1 rollover). `effect` is interpreted generically

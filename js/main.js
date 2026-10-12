@@ -18,7 +18,7 @@ import { classReach, wideTank,
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ENTRANCE_ROWS, NIGHT_CLASSES, DEFENSE_STRUCTURES, ACCESSORIES, LEGACY_SET_PIECE_IDS,
-  EXPEDITION_NOISE, ROOM_EVENTS, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, NIGHT_MORALE, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES, LEGACY_DEFENSE_IDS,
+  EXPEDITION_NOISE, ROOM_EVENTS, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, STARTING_PANTRY, INGREDIENTS, LEGACY_DISH_IDS, STARTING_STOCK, FACILITY_PLOTS, PRODUCERS, WORK_SITES, NIGHT_ACTIONS, NIGHT_MORALE, OBJECTIVES, ROOM_FIGHT_SQUAD, NEST_CLEAR_MAX, ROOM_MAX_LEVEL, LOCATIONS, LANDMARKS, LEGACY_POI_HEXES, LEGACY_LOCATION_IDS, LEGACY_RAID_IDS, MAP_MILESTONES, LEGACY_DEFENSE_IDS, CLASSROOM_SUBJECT,
 } from "./data.js";
 
 const SAVE_KEY = "school-apocalypse-save-v1";
@@ -524,6 +524,11 @@ function migrateState(s) {
   delete s.rooms.farm.pens;
   delete s.yard;
   delete s.greenhouseSlots;
+  // Teachers are gone — every room has its NPC now: they leave the school (and the waiting list),
+  // and each classroom teaches its NPC's subject.
+  s.characters = s.characters.filter((c) => c.role !== "teacher");
+  s.recruitPool = (s.recruitPool || []).filter((c) => c.role !== "teacher");
+  for (const id of CLASSROOM_IDS) if (s.rooms.classrooms[id]) s.rooms.classrooms[id].subject = CLASSROOM_SUBJECT[id];
   if (!s.defenseKits) s.defenseKits = {};
   // barricades and spike traps are gone: they became sandbag walls and razor wire
   if (s.entranceGrid) for (const [key, id] of Object.entries(s.entranceGrid.defenses || {})) if (LEGACY_DEFENSE_IDS[id]) s.entranceGrid.defenses[key] = LEGACY_DEFENSE_IDS[id];

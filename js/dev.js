@@ -27,16 +27,6 @@ export function maxOutSchool(state) {
   };
   const alive = (role) => state.characters.filter((c) => c.alive && c.role === role && !c.infection);
 
-  // teachers: every post up to its slots
-  const posts = [...CLASSROOM_IDS.map((id) => `classroom:${id}`), "gym:PE", "gym:Gymnastics", "cafeteria", "infirmary", "research", "crafting", "radio"];
-  for (const post of posts) {
-    const slots = G.roomState(state, G.postRoomKey(post)).teacherCapacity;
-    while (alive("teacher").filter((t) => t.post === post).length < slots) {
-      const t = alive("teacher").find((x) => !x.post) || hire("teacher");
-      if (!G.setTeacherPost(state, t.id, post)) break;
-    }
-  }
-
   // students: enough to fill every classroom seat and every daily job (one Turn 1 job each)
   const seats = CLASSROOM_IDS.reduce((sum, id) => sum + state.rooms.classrooms[id].seats.length, 0);
   const jobSlots = ["gym", "acrobatics", "radio", "research", "crafting", "cafeteria", "infirmary", "farm", "barn", "scrapyard"].reduce((sum, k) => sum + (state.rooms[k]?.studentCapacity || 0), 0);
@@ -107,11 +97,11 @@ export function infectStudents(state, n = 3) {
   return `${picked.length} student${picked.length === 1 ? "" : "s"} quarantined · ${G.infectedChars(state).length} in quarantine`;
 }
 
-// Adds `n` survivors to the Headmaster's Office waiting list (every 4th a teacher, the 3rd legendary).
+// Adds `n` survivors to the Headmaster's Office waiting list (the 3rd legendary).
 export function addRecruits(state, n = 4) {
   let added = 0;
   for (let i = 0; i < n; i++) {
-    const role = i % 4 === 3 ? "teacher" : "student";
+    const role = "student";
     const gender = Math.random() < 0.5 ? "M" : "F";
     if (G.addRecruit(state, i === 2 ? makeLegendaryCharacter(role, gender) : makeCharacter(role, gender))) added++;
   }
