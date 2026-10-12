@@ -1,7 +1,7 @@
 import * as G from "./game.js";
 import { WORLD_W, WORLD_H } from "./citymap.js";
 import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict } from "./ui.js";
-import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal, renderPlotModal,
+import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
   renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionBattle,
@@ -14,7 +14,7 @@ import { applyGraphics, getGraphics, setGraphics, applyUiScale, setUiSize } from
 import { installFrames, installBackdrop } from "./frames.js";
 import { setMusicMood, unlockMusic, setMusicEnabled, setMusicVolume } from "./music.js";
 import { maxOutSchool, stockArmory, infectStudents, buildRadio, addRecruits, exploreMap, mapEvents, setNight, forceFollowUp, armDefenders, fortifyEntrance } from "./dev.js";
-import {
+import { classReach, wideTank,
   SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, GYM_CAPACITY, GYM_MAX_TEACHERS,
   CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, FARM_CAPACITY, SCRAPYARD_CAPACITY,
   HAPPINESS_START, ENTRANCE_GRID_SIZE, ENTRANCE_ROWS, NIGHT_CLASSES, DEFENSE_STRUCTURES, ACCESSORIES, LEGACY_SET_PIECE_IDS,
@@ -64,7 +64,6 @@ let openQuarantine = false; // the Nurse's Office quarantine pop-up
 let openEnemyGuide = false; // the Night Watch's "Know your enemy" pop-up
 let openDefenseGuide = false; // its "🛡 Defenses" pop-up: what can be built
 let assaultPick = null; // Set of ids picked to chase the retreating horde (all of tonight's defenders at first)
-let openPlot = null; // { kind: a crop or animal (PRODUCERS id), index } of the Farm slot being looked at
 let openDefenseBuild = null; // cell key ("row,col") of an empty middle-zone entrance cell, or null
 let pickerSortKey = "level";
 let pickerSortDir = "desc";
@@ -316,7 +315,9 @@ function migrateState(s) {
     if (c.restToday === undefined) c.restToday = false;
     if (c.farmToday === undefined) c.farmToday = false;
     if (c.scrapyardToday === undefined) c.scrapyardToday = false;
-    if (c.greenhouseToday === undefined) c.greenhouseToday = false;
+    // (the Greenhouse is part of the Farm now: its crew works the Farm)
+    if (c.greenhouseToday) c.farmToday = "fields";
+    c.greenhouseToday = false;
     // the Farm's animal crew became the Barn's
     if (c.barnToday === undefined) c.barnToday = c.farmToday === "animals" ? "animals" : false;
     if (c.farmToday === "animals") c.farmToday = false;
@@ -373,7 +374,12 @@ function migrateState(s) {
   if (!s.rooms.research) s.rooms.research = { teacherCapacity: RESEARCH_ROOM_TEACHERS };
   if (!s.rooms.farm) s.rooms.farm = { studentCapacity: FARM_CAPACITY };
   if (!s.rooms.scrapyard) s.rooms.scrapyard = { studentCapacity: SCRAPYARD_CAPACITY };
-  if (!s.rooms.greenhouse) s.rooms.greenhouse = { level: 1 }; // the Greenhouse came later: it starts at level 1
+  // the Greenhouse joined the Farm: the Farm keeps the better of the two levels
+  if (s.rooms.greenhouse) {
+    s.rooms.farm.level = Math.max(s.rooms.farm.level || 1, s.rooms.greenhouse.level || 1);
+    delete s.rooms.greenhouse;
+  }
+  if (s.pendingRaid?.facility === "greenhouse") s.pendingRaid.facility = "farm";
   if (!s.rooms.barn) s.rooms.barn = { level: s.rooms.farm?.level || 1 }; // the Farm's pens became the Barn, at the Farm's level
   delete s.rooms.lab;
   if (s.pendingRaid?.facility === "lab" || s.pendingRaid?.facility === "ranch") s.pendingRaid.facility = "farm";
@@ -509,19 +515,15 @@ function migrateState(s) {
   }
   // The Farm's slots were grouped by crop and animal: whatever was growing or penned moves into its
   // own group while there's a free slot (the rest goes back to the seed shed or the barn).
-  if (Array.isArray(s.plots.farm) || Array.isArray(s.plots.ranch)) {
-    const old = [...(s.plots.farm || []), ...(s.plots.ranch || [])];
-    s.plots = {};
-    G.syncPlots(s);
-    for (const p of old) {
-      if (!p.id || !s.plots[p.id]) continue;
-      const slot = s.plots[p.id].find((x) => !x.id);
-      if (slot) Object.assign(slot, { id: p.id, growth: p.growth });
-      else G.addStock(s, p.id, 1);
-    }
-    delete s.rooms.farm.plots;
-    delete s.rooms.farm.pens;
-  }
+  // …and the Farm's and Barn's slots are gone: what was planted or penned goes back into stock (a
+  // crop's seeds open it at the Farm, an animal joins the herd)
+  const oldPlots = Array.isArray(s.plots.farm) || Array.isArray(s.plots.ranch) ? [...(s.plots.farm || []), ...(s.plots.ranch || [])] : Object.values(s.plots).flat();
+  for (const p of oldPlots) if (p?.id && PRODUCERS[p.id]) G.addStock(s, p.id, 1);
+  s.plots = {};
+  delete s.rooms.farm.plots;
+  delete s.rooms.farm.pens;
+  delete s.yard;
+  delete s.greenhouseSlots;
   if (!s.defenseKits) s.defenseKits = {};
   // barricades and spike traps are gone: they became sandbag walls and razor wire
   if (s.entranceGrid) for (const [key, id] of Object.entries(s.entranceGrid.defenses || {})) if (LEGACY_DEFENSE_IDS[id]) s.entranceGrid.defenses[key] = LEGACY_DEFENSE_IDS[id];
@@ -531,19 +533,11 @@ function migrateState(s) {
     delete s.defenseKits[id];
   }
   for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key); // (also sets up the Scrapyard's and the Greenhouse's slots)
-  // The Farm and the Scrapyard each have two crews: anyone working one from before joins its first
-  // crew (the second once that's full), and whoever doesn't fit goes back to being free.
-  for (const [site, def] of Object.entries(WORK_SITES)) {
-    const crewSlots = G.siteWorkerSlots(s, site);
-    const [first, second] = Object.keys(def.sides);
-    const crews = { [first]: 0, [second]: 0 };
-    for (const c of s.characters) {
-      if (!c[def.flag]) continue;
-      let side = c[def.flag] === true ? (crews[first] < crewSlots ? first : second) : c[def.flag];
-      if (!(side in crews) || crews[side] >= crewSlots) side = false;
-      c[def.flag] = side;
-      if (side) crews[side]++;
-    }
+  // The Courtyard's crews are plain flags now; anyone past a room's workers goes back to being free.
+  for (const def of Object.values(WORK_SITES)) {
+    const site = Object.keys(WORK_SITES).find((k) => WORK_SITES[k] === def);
+    let n = 0;
+    for (const c of s.characters) if (c[def.flag]) c[def.flag] = ++n <= G.siteWorkerSlots(s, site);
   }
   // A room holds only as many teachers as its level allows (1, then 2 at level 3, 3 at level 5):
   // any beyond that — from an older save with bigger rooms — go back to unassigned.
@@ -804,8 +798,6 @@ function render() {
     ? renderDefenseGuideModal(state)
     : openUpgrade
     ? renderRoomUpgradeModal(state, openUpgrade)
-    : openPlot
-    ? renderPlotModal(state, openPlot.kind, openPlot.index)
     : state.pendingAssault
     ? renderAssaultModal(state, assaultPick || (assaultPick = new Set(G.assaultCandidates(state).map((c) => c.id))))
     : "";
@@ -916,7 +908,6 @@ function assignPicked({ kind, roomId, postKey, seatIndex }, id) {
     case "farm": G.setFarmToday(state, id, postKey); break;
     case "barn": G.setBarnToday(state, id, postKey); break;
     case "scrapyard": G.setScrapyardToday(state, id, postKey); break;
-    case "greenhouse": G.setGreenhouseToday(state, id, postKey); break;
     case "entrance-student": G.placeEntranceStudent(state, roomId, id); break;
     case "team-slot": if (!G.assignTeamSlot(state, id, Number(roomId), postKey)) flash("They can't join that team."); break;
     default: break;
@@ -1049,17 +1040,18 @@ function reachSquares(cls, ab2, ab3, row, col, size = state.entranceGrid.size, r
   if (cls === "medic") {
     around(ab2 ? C.ability2.reach : 1, "heal");
     if (ab3) lane("heal");
-    for (let r = row + 1; r < rows; r++) if (!out.some((o) => o.r === r && o.c === col)) add(r, col, "attack"); // (when nobody needs healing)
+    for (let r = row + 1; r <= row + classReach(cls, ab2, ab3); r++) if (!out.some((o) => o.r === r && o.c === col)) add(r, col, "attack"); // (when nobody needs healing)
   } else if (cls === "rallier") {
-    for (let d = 1; d <= C.reach; d++) add(row + d, col, "attack");
+    for (let d = 1; d <= classReach(cls, ab2, ab3); d++) add(row + d, col, "attack");
     if (ab2) lane("buff");
   }
+  else if (wideTank(cls, ab2, ab3)) for (const c of [col - 1, col, col + 1]) add(row + 1, c, "attack");
   else if (C.range === "front") {
-    for (let d = 1; d <= (cls === "brawler" && ab3 ? C.ability3.reach : C.reach); d++) {
+    for (let d = 1; d <= classReach(cls, ab2, ab3); d++) {
       add(row + d, col, "attack");
       if (cls === "brawler" && ab2) { add(row + d, col - 1, "attack"); add(row + d, col + 1, "attack"); }
     }
-  } else if (C.range === "lane") for (let r = row + 1; r < rows; r++) add(r, col, "attack");
+  } else if (C.range === "lane") for (let d = 1; d <= classReach(cls, ab2, ab3); d++) add(row + d, col, "attack");
   return out;
 }
 // (A redraw wipes the overlays, so render() puts them back: reachShown remembers what's shown.)
@@ -1664,35 +1656,10 @@ root.addEventListener("click", (e) => {
       G.setBarnToday(state, el.dataset.id, false);
       render();
       break;
-    case "remove-greenhouse":
-      G.setGreenhouseToday(state, el.dataset.id, false);
+    case "site-focus":
+      G.setSiteFocus(state, el.dataset.site, el.dataset.focus);
       render();
       break;
-    case "open-plot":
-      openPlot = { kind: el.dataset.kind, index: Number(el.dataset.index) };
-      render();
-      break;
-    case "close-plot":
-      openPlot = null;
-      render();
-      break;
-    case "plant-plot": {
-      // an empty slot plants its own crop / pens its own animal straight from stock
-      const kind = el.dataset.kind;
-      if (!G.plantPlot(state, kind, Number(el.dataset.index))) flash(`No ${PRODUCERS[kind].stockPlural.toLowerCase()} left — find more on expeditions.`);
-      render();
-      break;
-    }
-    case "clear-plot": {
-      if (!openPlot) break;
-      const { kind, index } = openPlot;
-      if (PRODUCERS[kind].facility === "ranch" || confirm(`Dig up the ${PRODUCERS[kind].name.toLowerCase()}? The seed will be lost.`)) {
-        G.clearPlot(state, kind, index);
-        openPlot = null;
-      }
-      render();
-      break;
-    }
     case "open-menu":
       openMenu = true;
       render();
@@ -2259,7 +2226,7 @@ document.addEventListener("keydown", (e) => {
     battleAnimation.resume();
     return;
   }
-  if (e.key === "Escape" && (openCardId || openMissionLocationId || openPlot || openUpgrade || openMenu || openQuarantine || openEnemyGuide || openDefenseGuide || openRaid || openNest || scoutReport || clearRoom)) {
+  if (e.key === "Escape" && (openCardId || openMissionLocationId || openUpgrade || openMenu || openQuarantine || openEnemyGuide || openDefenseGuide || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
     openUpgrade = null;
     openMenu = false;
@@ -2267,7 +2234,6 @@ document.addEventListener("keydown", (e) => {
     openEnemyGuide = false;
     openDefenseGuide = false;
     clearRoom = null;
-    openPlot = null;
     openRaid = null;
     openNest = null;
     scoutReport = null;

@@ -1,35 +1,5 @@
 import {
-  SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS,
-  GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS,
-  RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME,
-  FARM_CAPACITY, SCRAPYARD_CAPACITY,
-  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, FORTIFICATION_CAP, FORTIFICATION_PER_POINT,
-  LOCATIONS, STAT_OF_SUBJECT, TRAITS,
-  GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, TEACHER_RECRUIT_CHANCE,
-  ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost,
-  CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL,
-  STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, EXPEDITION_ENCOUNTERS, ENCOUNTER_CHANCE, ENCOUNTER_EFFECT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED,
-  HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT,
-  HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH,
-  FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE,
-  EVENT_CHANCE, EVENTS, TECH_TREE,
-  SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS,
-  ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES,
-  NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD,
-  EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE,
-  zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay,
-  RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, SITE_STAT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS,
-  EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED,
-  INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL,
-  INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, FARM_SLOTS_BY_LEVEL, FARM_WORKERS_BY_LEVEL, FARM_STAMINA_COST, PLOTS_PER_WORKER, STARTING_STOCK,
-  YARD_JOBS, YARD_GROUPS, YARD_SLOTS_BY_LEVEL, YARD_STAMINA_COST, WORK_SITES,
-  GREENHOUSE_JOBS, GREENHOUSE_GROUPS, GREENHOUSE_SLOTS_BY_LEVEL, GREENHOUSE_STAMINA_COST, GREENHOUSE_YIELD_MEDICINE,
-  EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED,
-  EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED,
-  STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS,
-  OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
-  MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES, ACCESSORIES,
-  LEGENDARY_TITLES, MAP_MILESTONES,
+  classReach, wideTank, SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME, FARM_CAPACITY, SCRAPYARD_CAPACITY, FORTIFICATION_CAP, FORTIFICATION_PER_POINT, LOCATIONS, STAT_OF_SUBJECT, TRAITS, GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, TEACHER_RECRUIT_CHANCE, ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost, CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, EXPEDITION_ENCOUNTERS, ENCOUNTER_CHANCE, ENCOUNTER_EFFECT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED, HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT, HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH, FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, LEGENDARY_TEACHER_CHANCE, EVENT_CHANCE, EVENTS, TECH_TREE, SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS, ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD, EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE, zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay, RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS, EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL, INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, STARTING_STOCK, WORK_SITES, EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED, EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED, STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS, OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX, MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES, ACCESSORIES, LEGENDARY_TITLES, MAP_MILESTONES, SITE_FOCUS, SITE_WORKERS_BY_LEVEL, FARM_PASSIVE_FOOD, YARD_PASSIVE_SCRAP, BARN_HERD_BY_LEVEL, RANCH_ANIMALS,
 } from "./data.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
@@ -138,7 +108,7 @@ export function createInitialState() {
     bossesSlain: [], // boss names, for the epilogue
     pantry: { ...STARTING_PANTRY }, // ingredient id -> count
     stock: { ...STARTING_STOCK }, // PRODUCERS id -> seeds / livestock waiting to be planted or penned
-    plots: Object.fromEntries(Object.keys(PRODUCERS).map((kind) => [kind, [emptyPlot()]])), // the Farm's slots for each crop and animal
+    plots: {}, // (older saves' Farm slots — migrateState turns them back into stock)
     dishesToday: [], // DISHES ids served today; their buffs last until the day rolls over
     gymSplit: true, // PE / Gymnastics train separately (see migrateState)
     roomLevels: true, // rooms have levels 1-5 (see migrateState)
@@ -151,9 +121,7 @@ export function createInitialState() {
     nests: [], // "q,r" keys of zombie nests found while scouting
     horde: null, // { q, r } of the wandering horde, from day 2
     mapDrops: [], // { q, r, kind, expires } — crates, wrecks and survivors waiting on scouted blocks
-    yard: Object.fromEntries(Object.keys(YARD_JOBS).map((kind) => [kind, [{ id: kind, growth: 0 }]])), // the Scrapyard's piles and benches
     defenseKits: {}, // DEFENSE_STRUCTURES id -> kits from the Scrapyard's trap bench (a free build each)
-    greenhouseSlots: Object.fromEntries(Object.keys(GREENHOUSE_JOBS).map((kind) => [kind, [{ id: kind, growth: 0 }]])), // the Greenhouse's beds and racks
     raidTarget: null, // LANDMARKS id today's raid squad is going after
     raidCooldowns: {}, // landmark id -> day its boss is back after being killed
     raidKills: {}, // landmark id -> times its boss has been killed (each makes it tougher)
@@ -628,11 +596,11 @@ export function trainingGain(state, c, side) {
   return Math.max(0, Math.min(lesson.gain, lesson.ceiling - c.grades[side], gradeCap(c, side) - c.grades[side]));
 }
 
-// What one outside worker brings in today: the facility's base yield, plus 1 for every
-// TUNE.yieldStatStep of the site's stat (SITE_STAT: STR at the Farm, DEX at the Scrapyard).
-export function workerYield(facility, c) {
-  const base = facility === "farm" || facility === "barn" ? FARM_YIELD_FOOD : facility === "greenhouse" ? GREENHOUSE_YIELD_MEDICINE : SCRAPYARD_YIELD_MATERIALS;
-  return base + Math.floor(c.grades[SITE_STAT[facility]] / TUNE.yieldStatStep);
+// What one Courtyard worker brings in today with the room's focus (SITE_FOCUS): its base, +1 for
+// every `step` of its stat.
+export function workerYield(state, site, c, focus = siteFocus(state, site)) {
+  const F = SITE_FOCUS[site][focus];
+  return F.base + Math.floor(c.grades[F.stat] / F.step);
 }
 
 // Fortification one crafter adds from `scrap` scrap (they use up to 4 a day) and their WIS (the
@@ -747,11 +715,11 @@ const STAY_JOBS = {
   researchToday: { room: () => "research", set: (...a) => setResearchToday(...a) }, // (declared further down)
   craftingToday: { room: () => "crafting", set: (...a) => setCraftingToday(...a) },
   radioToday: { room: () => "radio", set: setRadioToday },
-  // the Courtyard's rooms: back at dawn while there's something ready for them and the stamina for it
-  // (checked at dawn only — a night's sleep gives some stamina back)
+  // the Courtyard's rooms: back at dawn while they've the stamina for it (checked at dawn only — a
+  // night's sleep gives some stamina back)
   ...Object.fromEntries(Object.entries(WORK_SITES).map(([site, def]) => [def.flag, {
-    room: () => site, set: (state, id, side) => setSiteToday(state, site, id, side), atDawn: true,
-    done: (state, c, side) => (c.stamina < def.stamina ? "too tired" : siteCrew(state, side).length >= workersNeeded(state, side) ? "nothing more ready" : null),
+    room: () => site, set: (state, id) => setSiteToday(state, site, id, true), atDawn: true,
+    done: (state, c) => (c.stamina < def.stamina ? "too tired" : null),
   }])),
 };
 // Called as Turn 1 ends (after the day's lessons, rest and healing).
@@ -819,22 +787,12 @@ export function cafeteriaRest(state) {
   return CAFETERIA_REST_BY_LEVEL[roomLevel(state, "cafeteria") - 1] + techPerk(state, "restRecovery");
 }
 
-// ---------- work sites: the Courtyard's Farm, Barn, Scrapyard and Greenhouse ----------
-// Worked in Turn 1, as a student's one job of the day (see WORK_SITES in data.js). Each site's crew
-// works its one side: a student's c.farmToday / c.barnToday / ... holds that side's name, or false.
-// Side names are unique across sites, so a side is enough to find its site.
+// ---------- work sites: the Courtyard's Farm, Barn and Scrapyard ----------
+// Worked in Turn 1, as a student's one job of the day (WORK_SITES): c.farmToday / c.barnToday /
+// c.scrapyardToday. A room takes as many workers as its level gives (less any a raid broke).
 
-const SIDE_SITE = Object.fromEntries(Object.entries(WORK_SITES).flatMap(([site, s]) => Object.keys(s.sides).map((side) => [side, site])));
-export const siteOfSide = (side) => SIDE_SITE[side];
-// What's in a slot: a crop or animal (PRODUCERS), a Scrapyard pile or bench (YARD_JOBS) or a
-// Greenhouse bed or rack (GREENHOUSE_JOBS).
-export const slotDef = (kind) => PRODUCERS[kind] || YARD_JOBS[kind] || GREENHOUSE_JOBS[kind];
-export const siteSlots = (state, site) => (site === "farm" || site === "barn" ? state.plots : site === "greenhouse" ? state.greenhouseSlots : state.yard);
-export const siteWorkerSlots = (state, site) => WORK_SITES[site].workersByLevel[roomLevel(state, site) - 1];
-export const siteCrew = (state, side) => {
-  const flag = WORK_SITES[SIDE_SITE[side]].flag;
-  return state.characters.filter((c) => c[flag] === side && c.alive);
-};
+export const siteWorkerSlots = (state, site) => state.rooms[site].studentCapacity;
+export const siteCrew = (state, site) => state.characters.filter((c) => c[WORK_SITES[site].flag] && c.alive);
 
 // Able to do a day at a site: a student out of quarantine with the stamina the work takes. (Any
 // other Turn 1 job they have is left when they're put on the crew.)
@@ -843,50 +801,37 @@ export function canWorkSite(c, site) {
   return c.stamina >= WORK_SITES[site].stamina;
 }
 
-// Puts a student on a side's crew (false takes them off the site). A crew only takes as many as
-// its ready slots need.
-export function setSiteToday(state, site, studentId, side) {
+// Puts a student to work at a site (false takes them off).
+export function setSiteToday(state, site, studentId, on) {
   const c = getChar(state, studentId);
   const flag = WORK_SITES[site].flag;
   if (!c || c.role !== "student") return false;
-  if (side) {
-    if (SIDE_SITE[side] !== site || !canWorkSite(c, site)) return false;
-    const crew = siteCrew(state, side).filter((x) => x !== c).length;
-    if (crew >= Math.min(siteWorkerSlots(state, site), workersNeeded(state, side))) return false;
-    if (state.characters.filter((x) => x[flag] && x !== c).length >= state.rooms[site].studentCapacity) return false;
+  if (on) {
+    if (!canWorkSite(c, site)) return false;
+    if (siteCrew(state, site).filter((x) => x !== c).length >= siteWorkerSlots(state, site)) return false;
     leaveTurnOneJobs(state, c, flag);
   }
-  c[flag] = side || false;
+  c[flag] = !!on;
   return true;
 }
 
-// Fills the crew up to what its ready slots need, lowest-level free students first (only students
-// with no Turn 1 job yet).
+// Fills the crew, the best at today's focus first (only students with no Turn 1 job yet).
 // Returns how many were assigned.
 export function autoAssignSite(state, site) {
-  const flag = WORK_SITES[site].flag;
+  const free = state.characters
+    .filter((c) => !hasTurnOneJob(c) && canWorkSite(c, site))
+    .sort((a, b) => workerYield(state, site, b) - workerYield(state, site, a) || b.stamina - a.stamina);
   let assigned = 0;
-  for (const side of Object.keys(WORK_SITES[site].sides)) {
-    const free = state.characters
-      .filter((c) => !hasTurnOneJob(c) && canWorkSite(c, site))
-      .sort((a, b) => overallLevel(a) - overallLevel(b) || b.stamina - a.stamina);
-    for (const c of free) {
-      if (!setSiteToday(state, site, c.id, side)) break;
-      assigned++;
-    }
+  for (const c of free) {
+    if (!setSiteToday(state, site, c.id, true)) break;
+    assigned++;
   }
   return assigned;
 }
 
-// The Farm's own names for these.
-export const setFarmToday = (state, studentId, side) => setSiteToday(state, "farm", studentId, side);
-export const setBarnToday = (state, studentId, side) => setSiteToday(state, "barn", studentId, side);
-export const setScrapyardToday = (state, studentId, side) => setSiteToday(state, "scrapyard", studentId, side);
-export const setGreenhouseToday = (state, studentId, side) => setSiteToday(state, "greenhouse", studentId, side);
-export const canWorkFarm = (c) => canWorkSite(c, "farm");
-export const autoAssignFarm = (state) => autoAssignSite(state, "farm");
-export const farmWorkerSlots = (state) => siteWorkerSlots(state, "farm");
-export const farmCrew = siteCrew;
+export const setFarmToday = (state, studentId, on) => setSiteToday(state, "farm", studentId, on);
+export const setBarnToday = (state, studentId, on) => setSiteToday(state, "barn", studentId, on);
+export const setScrapyardToday = (state, studentId, on) => setSiteToday(state, "scrapyard", studentId, on);
 // ---------- room levels ----------
 // Every room and facility has a level from 1 to ROOM_MAX_LEVEL (see ROOM_LEVELS). Its slots are
 // worked out from the level and stored on the room (studentCapacity / teacherCapacity / plots, a
@@ -894,7 +839,7 @@ export const farmCrew = siteCrew;
 
 export const ROOM_KEYS = [
   ...CLASSROOM_IDS.map((id) => `classroom:${id}`),
-  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "radio", "farm", "barn", "scrapyard", "greenhouse",
+  "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "radio", "farm", "barn", "scrapyard",
 ];
 // The Headmaster's Office's two sides.
 export const promotionSlots = () => OFFICE_PROMOTION_SLOTS;
@@ -972,10 +917,7 @@ export function applyRoomLevel(state, key) {
   if (stats.students !== undefined) room.studentCapacity = Math.max(1, stats.students - (room.damage || 0));
   if (WORK_SITES[key]) {
     // the crew's slots, less any a raid broke
-    room.studentCapacity = Math.max(1, Object.keys(WORK_SITES[key].sides).length * siteWorkerSlots(state, key) - (room.damage || 0));
-    if (key === "farm" || key === "barn") syncPlots(state);
-    else if (key === "greenhouse") syncGreenhouse(state);
-    else syncYard(state);
+    room.studentCapacity = Math.max(1, SITE_WORKERS_BY_LEVEL[Math.min(room.level, SITE_WORKERS_BY_LEVEL.length) - 1] - (room.damage || 0));
   }
 }
 
@@ -1028,26 +970,10 @@ function traitGrowthMultiplier(c, subject) {
   return has ? TRAIT_GROWTH_BONUS : 1;
 }
 
-// ---------- the Farm's fields & pens ----------
-// See PRODUCERS and FARM_GROUPS in data.js. state.plots has a list of slots for each crop and
-// animal (state.plots.wheat, state.plots.chicken...), each slot { id, growth } — id is that crop or
-// animal while something's in it, null when empty. state.stock holds the seeds and livestock not
-// yet placed. The Farm's level sets how many slots every group has (FARM_SLOTS_BY_LEVEL).
-
-export function emptyPlot() {
-  return { id: null, growth: 0 };
-}
-
-// The Farm's level sets how many slots each crop has, the Barn's each animal.
-export const farmSlots = (state, site = "farm") => FARM_SLOTS_BY_LEVEL[roomLevel(state, site) - 1];
-const plotSite = (kind) => (FARM_GROUPS.animals.includes(kind) ? "barn" : "farm");
-
-export function syncPlots(state) {
-  for (const kind of Object.keys(PRODUCERS)) {
-    const list = (state.plots[kind] = state.plots[kind] || []);
-    while (list.length < farmSlots(state, plotSite(kind))) list.push(emptyPlot());
-  }
-}
+// ---------- the Courtyard's day ----------
+// Each room makes a little on its own (its level: SITE_FOCUS's data in data.js) and its workers more
+// of its focus. The Farm's crops are whichever you have seeds for; the Barn's herd is its animals (up
+// to BARN_HERD_BY_LEVEL of a kind give their goods).
 
 export function addStock(state, id, qty) {
   state.stock[id] = (state.stock[id] || 0) + qty;
@@ -1058,91 +984,6 @@ export function stockLabel(id, qty) {
   return `${p.stockIcon} ${qty === 1 ? p.stockName : p.stockPlural} ×${qty}`;
 }
 
-// Plants a seed / pens an animal in an empty slot of its group — only with one in stock.
-export function plantPlot(state, kind, index) {
-  const plot = state.plots[kind]?.[index];
-  if (!plot || plot.id || !PRODUCERS[kind] || !(state.stock[kind] > 0)) return false;
-  state.stock[kind] -= 1;
-  plot.id = kind;
-  plot.growth = 0;
-  return true;
-}
-
-// Empties a slot. A growing crop is lost along with its seed; an animal goes back into stock.
-export function clearPlot(state, kind, index) {
-  const plot = state.plots[kind]?.[index];
-  if (!plot || !plot.id) return false;
-  if (PRODUCERS[kind].facility === "ranch") state.stock[kind] += 1;
-  Object.assign(plot, emptyPlot());
-  return true;
-}
-
-export function facilityWorkers(state, facility) {
-  return state.characters.filter((c) => c[`${facility}Today`] && c.alive).length;
-}
-
-// A slot whose crop, animal, pile or bench has had its days and is waiting for a worker.
-export const isReady = (plot) => !!plot?.id && plot.growth >= slotDef(plot.id).growDays;
-
-// A side's ready slots as [kind, index], top group first (at the Farm or the Scrapyard).
-export function readySlots(state, side) {
-  const site = SIDE_SITE[side];
-  const slots = siteSlots(state, site);
-  return WORK_SITES[site].sides[side].flatMap((kind) => slots[kind].map((plot, i) => (isReady(plot) ? [kind, i] : null)).filter(Boolean));
-}
-
-// The ready slots that side's crew collects today — PLOTS_PER_WORKER each, top group first.
-export function harvestPlan(state, side, crew = siteCrew(state, side).length) {
-  return readySlots(state, side).slice(0, crew * PLOTS_PER_WORKER);
-}
-
-// Workers a side needs to collect everything that's ready.
-export const workersNeeded = (state, side) => Math.ceil(readySlots(state, side).length / PLOTS_PER_WORKER);
-
-// Collects a ready slot into the pantry: a crop is harvested (and replanted while there's seed),
-// a sheep butchered (maybe leaving a lamb), a hen's eggs or a cow's milk taken.
-function harvestSlot(state, kind, i, out) {
-  const plot = state.plots[kind][i];
-  const p = PRODUCERS[kind];
-  const boosted = p.yield * (1 + techPerk(state, "farmYield")); // a fraction left over is a chance at one more
-  const amount = Math.floor(boosted) + (Math.random() < boosted % 1 ? 1 : 0);
-  out.produced[p.product] = (out.produced[p.product] || 0) + amount;
-  state.pantry[p.product] = (state.pantry[p.product] || 0) + amount;
-  plot.growth = 0;
-  if (p.perennial) return;
-  plot.id = null;
-  if (Math.random() < p.keepChance) {
-    addStock(state, kind, 1);
-    out.kept.push(p.keepNote);
-  }
-  plantPlot(state, kind, i); // replant the same thing while stock lasts
-}
-
-// The Farm's and the Barn's day: each crew collects what's ready (up to 2 slots a worker), then
-// every crop and animal grows a day — a ready one that wasn't collected just waits.
-function resolveFarm(state) {
-  const out = { produced: {}, kept: [] };
-  for (const side of Object.keys(FARM_GROUPS)) for (const [kind, i] of harvestPlan(state, side)) harvestSlot(state, kind, i, out);
-  for (const kind of Object.keys(PRODUCERS)) {
-    for (const plot of state.plots[kind]) if (plot.id) plot.growth = Math.min(PRODUCERS[kind].growDays, plot.growth + 1);
-  }
-  return out;
-}
-
-// ---------- the Scrapyard's piles & benches ----------
-// state.yard has a slot list per salvage pile (YARD_JOBS), each slot { id, growth } — always in use:
-// a pile builds back up as soon as it's stripped. Vending machines may still hold canned food.
-
-export const yardSlots = (state) => YARD_SLOTS_BY_LEVEL[roomLevel(state, "scrapyard") - 1];
-
-export function syncYard(state) {
-  state.yard = state.yard || {};
-  for (const kind of Object.keys(YARD_JOBS)) {
-    const list = (state.yard[kind] = state.yard[kind] || []);
-    while (list.length < yardSlots(state)) list.push({ id: kind, growth: 0 });
-  }
-}
-
 // An item as a log or a find names it: its icon, its name and (past Common) its rarity.
 export const itemLabel = (it) => `${it.icon} ${it.name}${it.rarity && it.rarity !== "common" ? ` (${RARITIES[it.rarity].name})` : ""}`;
 // Something found (rollItem: `odds` from ITEM_DROP_ODDS, of `slot` if given) — a weapon most likely
@@ -1150,114 +991,90 @@ export const itemLabel = (it) => `${it.icon} ${it.name}${it.rarity && it.rarity 
 export const findItem = (state, odds, slot = null) =>
   rollItem(odds, slot, state.characters.filter((c) => c.role === "student" && c.alive).map(studentClass));
 
-// The Scrapyard's day: the crew strips what's ready, then every pile builds up a day.
-function resolveYard(state) {
-  const out = { scrap: 0, research: 0, items: [], pantry: {} };
-  for (const side of Object.keys(YARD_GROUPS)) {
-    for (const [kind, i] of harvestPlan(state, side)) {
-      const job = YARD_JOBS[kind];
-      if (job.scrap) {
-        const scrap = Math.round(job.scrap * (1 + techPerk(state, "salvageYield")));
-        state.resources.materials += scrap;
-        out.scrap += scrap;
-      }
-      if (job.research && Math.random() < job.researchChance) {
-        const n = randInt(job.research[0], job.research[1]);
-        state.resources.research += n;
-        out.research += n;
-      }
-      if (job.gearChance && Math.random() < job.gearChance) out.items.push(findItem(state, ITEM_DROP_ODDS[1])); // (as a tier 1 place's finds)
-      if (job.ingredient && Math.random() < job.ingredientChance) {
-        state.pantry[job.ingredient] = (state.pantry[job.ingredient] || 0) + 1;
-        out.pantry[job.ingredient] = (out.pantry[job.ingredient] || 0) + 1;
-      }
-      state.yard[kind][i].growth = 0;
-    }
-  }
-  for (const item of out.items) state.armory.push(item);
-  for (const kind of Object.keys(YARD_JOBS)) {
-    for (const slot of state.yard[kind]) slot.growth = Math.min(YARD_JOBS[kind].growDays, slot.growth + 1);
-  }
-  return out;
+// The crops the Farm can grow: those it has seeds for.
+export const unlockedCrops = (state) => FARM_CROPS.filter((kind) => (state.stock[kind] || 0) > 0);
+// A seed find: a crop the Farm can't grow yet if there is one.
+export const seedFind = (state) => pick(FARM_CROPS.filter((kind) => !(state.stock[kind] > 0)).length ? FARM_CROPS.filter((kind) => !(state.stock[kind] > 0)) : FARM_CROPS);
+// The animals of a kind giving their goods: the herd, up to what the Barn's level keeps.
+export const herdSize = (state, kind) => Math.min(state.stock[kind] || 0, BARN_HERD_BY_LEVEL[roomLevel(state, "barn") - 1]);
+export const herdKinds = (state) => RANCH_ANIMALS.filter((kind) => herdSize(state, kind) > 0);
+
+// What a room's workers make today (its first focus until one's picked).
+export const siteFocus = (state, site) => (SITE_FOCUS[site][state.rooms[site]?.focus] ? state.rooms[site].focus : Object.keys(SITE_FOCUS[site])[0]);
+export function setSiteFocus(state, site, focus) {
+  if (!SITE_FOCUS[site]?.[focus]) return false;
+  state.rooms[site].focus = focus;
+  return true;
 }
 
-// ---------- a day in the Courtyard ----------
-// At the end of Turn 1: each worker's own yield (the site's base, +1 per 25 of its stat), then the
-// crew collects what's ready, and every crop, animal, pile and bed comes along a day.
+// A room's day, row by row: what it makes on its own (`who` null), then each worker's share —
+// { who, res, amount, kind } (`res` a resource or a pantry ingredient; a Barn animal's share can be a
+// fraction a day). A worker with nothing to make (no seeds, no animals) has `res` null.
+export function siteDay(state, site, crew = siteCrew(state, site)) {
+  const level = roomLevel(state, site);
+  const boost = (res) => 1 + (res === "food" ? techPerk(state, "farmYield") : res === "materials" ? techPerk(state, "salvageYield") : 0);
+  const rows = [];
+  if (site === "farm") rows.push({ who: null, res: "food", amount: FARM_PASSIVE_FOOD[level - 1] });
+  if (site === "scrapyard") rows.push({ who: null, res: "materials", amount: YARD_PASSIVE_SCRAP[level - 1] });
+  if (site === "barn") for (const kind of herdKinds(state)) {
+    const p = PRODUCERS[kind];
+    rows.push({ who: null, res: p.product, amount: (herdSize(state, kind) * p.yield) / p.growDays, kind });
+  }
+  const focus = siteFocus(state, site);
+  const F = SITE_FOCUS[site][focus];
+  const pool = F.res === "crops" ? unlockedCrops(state) : F.res === "goods" ? herdKinds(state) : null;
+  crew.forEach((c, i) => {
+    const amount = workerYield(state, site, c, focus);
+    if (!pool) rows.push({ who: c, res: F.res, amount });
+    else if (pool.length) rows.push({ who: c, res: PRODUCERS[pool[i % pool.length]].product, amount, kind: pool[i % pool.length] });
+    else rows.push({ who: c, res: null, amount: 0 });
+  });
+  for (const r of rows) if (r.who || r.res === "food" || r.res === "materials") r.amount = Math.round(r.amount * boost(r.res));
+  return rows;
+}
+
+// Something made: a resource (food, scrap…) or an ingredient for the pantry.
+const isResource = (state, res) => res in state.resources;
+export function courtyardGoodsText(got) {
+  return Object.entries(got).map(([res, n]) => (INGREDIENTS[res] ? `${INGREDIENTS[res].emoji ?? INGREDIENTS[res].icon} ${INGREDIENTS[res].name} ×${n}` : `${n} ${RESOURCE_NAME[res] || res}`)).join(", ");
+}
+
+// At the end of Turn 1: every room's day — its own output, its workers' (who pay the stamina and get
+// the XP), the rolls (coffee in the herb beds, gear in the Scrapyard).
 function resolveCourtyard(state) {
-  const pantryText = (got) => Object.entries(got).map(([id, n]) => `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`);
-  const crew = (flag) => state.characters.filter((c) => c[flag] && c.alive);
-  const own = (site, list) => list.reduce((sum, c) => sum + workerYield(site, c), 0);
-  const tire = (list, cost) => list.forEach((c) => (c.stamina = Math.max(0, c.stamina - Math.round(cost * (1 - gearEffect(c, "work")))))); // (Gardening Gloves: less)
-  const fieldHands = crew("farmToday");
-  const barnHands = crew("barnToday");
-  const yardHands = crew("scrapyardToday");
-  const herbHands = crew("greenhouseToday");
-  gainExpAll(state, [...fieldHands, ...barnHands, ...yardHands, ...herbHands], LEVEL_XP.work);
-  const food = { farm: own("farm", fieldHands), barn: own("barn", barnHands) };
-  state.resources.food += food.farm + food.barn;
-  tire([...fieldHands, ...barnHands], FARM_STAMINA_COST);
-  const { produced, kept } = resolveFarm(state);
-  const goods = (kinds) => Object.entries(produced).filter(([id]) => kinds.some((k) => PRODUCERS[k].product === id))
-    .map(([id, n]) => `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n}`).join(", ");
-  for (const [site, hands, kinds] of [["farm", fieldHands, FARM_GROUPS.fields], ["barn", barnHands, FARM_GROUPS.animals]]) {
-    if (!hands.length) continue;
-    const got = goods(kinds);
-    addLog(state, `The ${WORK_SITES[site].name} brings in ${food[site]} food${got ? ` and ${got}` : ""} from ${hands.length} student(s).`);
-  }
-  if (kept.length) addLog(state, `At the Farm: ${kept.join(", ")}.`);
-  const haul = own("scrapyard", yardHands);
-  state.resources.materials += haul;
-  tire(yardHands, YARD_STAMINA_COST);
-  const yard = resolveYard(state);
-  if (yardHands.length) {
-    const made = [`${haul + yard.scrap} scrap`, ...(yard.research ? [`${yard.research} research`] : []), ...yard.items.map(itemLabel), ...pantryText(yard.pantry)];
-    addLog(state, `The Scrapyard brings in ${made.join(", ")} from ${yardHands.length} student(s).`);
-  }
-  const herbs = own("greenhouse", herbHands);
-  state.resources.medicine += herbs;
-  tire(herbHands, GREENHOUSE_STAMINA_COST);
-  const green = resolveGreenhouse(state);
-  if (herbHands.length) addLog(state, `The Greenhouse brings in ${[`${herbs + green.medicine} medicine`, ...pantryText(green.pantry)].join(", ")} from ${herbHands.length} student(s).`);
-  if (state.today) state.today.courtyard = { food: food.farm + food.barn, scrap: haul + yard.scrap, medicine: herbs + green.medicine };
-}
-
-// ---------- the Greenhouse's beds ----------
-// state.greenhouseSlots has a slot list per herb bed (GREENHOUSE_JOBS), each { id, growth } — always
-// in use, like the Scrapyard's piles: a bed grows back once it's picked.
-
-export const greenhouseSlots = (state) => GREENHOUSE_SLOTS_BY_LEVEL[roomLevel(state, "greenhouse") - 1];
-
-export function syncGreenhouse(state) {
-  state.greenhouseSlots = state.greenhouseSlots || {};
-  for (const kind of Object.keys(GREENHOUSE_JOBS)) {
-    const list = (state.greenhouseSlots[kind] = state.greenhouseSlots[kind] || []);
-    while (list.length < greenhouseSlots(state)) list.push({ id: kind, growth: 0 });
-  }
-}
-
-// The Greenhouse's day: the crew picks what's ready (medicine, or coffee for the pantry), then every
-// bed grows a day.
-function resolveGreenhouse(state) {
-  const out = { medicine: 0, pantry: {} };
-  for (const side of Object.keys(GREENHOUSE_GROUPS)) {
-    for (const [kind, i] of harvestPlan(state, side)) {
-      const job = GREENHOUSE_JOBS[kind];
-      if (job.medicine) {
-        state.resources.medicine += job.medicine;
-        out.medicine += job.medicine;
-      }
-      if (job.ingredient) {
-        state.pantry[job.ingredient] = (state.pantry[job.ingredient] || 0) + 1;
-        out.pantry[job.ingredient] = (out.pantry[job.ingredient] || 0) + 1;
-      }
-      state.greenhouseSlots[kind][i].growth = 0;
+  const totals = { food: 0, materials: 0, medicine: 0 };
+  for (const [site, def] of Object.entries(WORK_SITES)) {
+    const crew = siteCrew(state, site);
+    gainExpAll(state, crew, LEVEL_XP.turnOne);
+    for (const c of crew) c.stamina = Math.max(0, c.stamina - Math.round(def.stamina * (1 - gearEffect(c, "work")))); // (Gardening Gloves: less)
+    const got = {};
+    const add = (res, n) => { if (n > 0) got[res] = (got[res] || 0) + n; };
+    const carry = (state.rooms[site].carry = state.rooms[site].carry || {});
+    for (const r of siteDay(state, site, crew)) {
+      if (!r.res) continue;
+      if (r.who) { add(r.res, r.amount); continue; }
+      // (a share that's a fraction a day builds up until it's a whole one)
+      carry[r.res] = (carry[r.res] || 0) + r.amount;
+      const whole = Math.floor(carry[r.res] + 1e-9);
+      carry[r.res] -= whole;
+      add(r.res, whole);
     }
+    const F = SITE_FOCUS[site][siteFocus(state, site)];
+    const items = [];
+    for (const c of crew) {
+      if (F.coffee && Math.random() < F.coffee) add("coffee", 1);
+      if (F.gear && Math.random() < F.gear) items.push(findItem(state, ITEM_DROP_ODDS[1])); // (as a tier 1 place's finds)
+    }
+    for (const [res, n] of Object.entries(got)) {
+      if (isResource(state, res)) state.resources[res] += n;
+      else state.pantry[res] = (state.pantry[res] || 0) + n;
+      if (res in totals) totals[res] += n;
+    }
+    for (const item of items) state.armory.push(item);
+    const made = [courtyardGoodsText(got), ...items.map(itemLabel)].filter(Boolean).join(", ");
+    if (made) addLog(state, `The ${def.name} brings in ${made}${crew.length ? ` (${crew.length} at work)` : " on its own"}.`);
   }
-  for (const kind of Object.keys(GREENHOUSE_JOBS)) {
-    for (const slot of state.greenhouseSlots[kind]) slot.growth = Math.min(GREENHOUSE_JOBS[kind].growDays, slot.growth + 1);
-  }
-  return out;
+  if (state.today) state.today.courtyard = { food: totals.food, scrap: totals.materials, medicine: totals.medicine };
 }
 
 // ---------- cooking ----------
@@ -1524,7 +1341,7 @@ export function resolveTraining(state) {
     let taught = 0;
     for (const sid of state.rooms.classrooms[roomId].seats.filter(Boolean)) {
       const c = getChar(state, sid);
-      if (c && !c.infection) gainExp(state, c, LEVEL_XP.class);
+      if (c && !c.infection) gainExp(state, c, LEVEL_XP.turnOne);
       const add = c ? studyGain(c, classGain(state, c), Math.min(lesson.ceiling, gradeCap(c, lesson.subject)) - c.grades[lesson.subject]) : 0;
       if (!add) continue;
       c.grades[lesson.subject] += add;
@@ -1545,7 +1362,7 @@ export function resolveTraining(state) {
     if (!students.length) continue;
     const lesson = gymLesson(state, side);
     for (const c of students) {
-      gainExp(state, c, LEVEL_XP.training);
+      gainExp(state, c, LEVEL_XP.turnOne);
       const add = studyGain(c, trainingGain(state, c, side), Math.min(lesson.ceiling, gradeCap(c, side)) - c.grades[side]);
       record.trained++;
       record.learned += add;
@@ -1592,7 +1409,7 @@ export function resolveTraining(state) {
     state.resources.research += researchGain;
     addLog(state, `The Research Room produces ${researchGain} research.`);
   }
-  gainExpAll(state, state.characters.filter((c) => c.researchToday && c.alive), LEVEL_XP.work);
+  gainExpAll(state, state.characters.filter((c) => c.researchToday && c.alive), LEVEL_XP.turnOne);
 
   // crafting
   for (const crafter of state.characters.filter((c) => c.role === "teacher" && c.post === "crafting" && c.alive)) {
@@ -1611,7 +1428,7 @@ export function resolveTraining(state) {
     state.fortification = Math.min(FORTIFICATION_CAP, state.fortification + helped);
     addLog(state, `${helpers.length} student${helpers.length === 1 ? "" : "s"} helped in the Crafting Room (+${helped} fortification).`);
   }
-  gainExpAll(state, helpers, LEVEL_XP.work);
+  gainExpAll(state, helpers, LEVEL_XP.turnOne);
 
   // the Radio Station: a survivor may hear the school's broadcast
   if (!isBoarded(state, "radio") && Math.random() < radioRecruitChance(state)) {
@@ -1619,7 +1436,7 @@ export function resolveTraining(state) {
     if (addRecruit(state, recruit)) addLog(state, `📻 ${recruit.name} heard the school's broadcast and wants to join.`);
   }
 
-  gainExpAll(state, state.characters.filter((c) => c.radioToday && c.alive), LEVEL_XP.work);
+  gainExpAll(state, state.characters.filter((c) => c.radioToday && c.alive), LEVEL_XP.turnOne);
 
   if (state.today) state.today.classes = record;
   resolveCourtyard(state);
@@ -1655,7 +1472,7 @@ function rollExpeditionStock(state, location, success) {
   if (Math.random() >= chance) return null;
   const found = location.animals && Math.random() < location.animalChance
     ? { id: pick(location.animals), qty: 1 }
-    : { id: pick(FARM_CROPS), qty: randInt(1, 2) };
+    : { id: seedFind(state), qty: 1 };
   addStock(state, found.id, found.qty);
   return found;
 }
@@ -2241,11 +2058,13 @@ export function battleTick(state, b) {
   // nobody to heal fires at the nearest one down their lane (their ranged weapon, or rocks)
   const swing = (s) => {
     let z = null;
-    for (let d = 1; d <= (NIGHT_CLASSES[s.cls].reach || 1) && !z; d++) z = zombieAt(b, s.row + d, s.col);
+    for (let d = 1; d <= classReach(s.cls, s.ability2, s.ability3) && !z; d++) z = zombieAt(b, s.row + d, s.col);
     if (z) strike(s, z);
   };
+  // (the nearest zombie down their lane, within their class's reach)
+  const inReach = (s) => b.zombies.filter((x) => x.alive && x.col === s.col && x.row > s.row && x.row - s.row <= classReach(s.cls, s.ability2, s.ability3)).sort((a, c) => a.row - c.row);
   const shoot = (s) => {
-    const z = b.zombies.filter((x) => x.alive && x.col === s.col && x.row > s.row).sort((a, c) => a.row - c.row)[0];
+    const z = inReach(s)[0];
     if (z) strike(s, z);
   };
   for (const s of b.students) {
@@ -2292,13 +2111,18 @@ export function battleTick(state, b) {
     const shots = s.cls === "shooter" && (s.ability3 || (s.ability2 && Math.random() < C.ability2.chance)) ? 2 : 1;
     for (let shot = 0; shot < shots; shot++) {
       let target;
+      if (wideTank(s.cls, s.ability2, s.ability3)) {
+        // a Tank with Colossus hits every zombie on the 3 squares in front: 3 lanes at once
+        const hit = [s.col - 1, s.col, s.col + 1].map((col) => zombieAt(b, s.row + 1, col)).filter(Boolean);
+        hit.forEach((z) => strike(s, z));
+        break;
+      }
       if (C.range === "front") {
-        // the nearest zombie within the class's reach in front (Lunge: further) — over a friend too
-        const reach = s.cls === "brawler" && s.ability3 ? C.ability3.reach : C.reach || 1;
+        // the nearest zombie within the class's reach in front (+1 with the B talent, Lunge further) — over a friend too
+        const reach = classReach(s.cls, s.ability2, s.ability3);
         for (let d = 1; d <= reach && !target; d++) target = zombieAt(b, s.row + d, s.col);
       } else {
-        const inLane = b.zombies.filter((z) => z.alive && z.col === s.col && z.row > s.row);
-        target = inLane.sort((a, c) => a.row - c.row)[0];
+        target = inReach(s)[0];
       }
       if (!target) break;
       const row = target.row;
@@ -3047,9 +2871,10 @@ export function resolveFacilityRaid(state) {
       applyRoomLevel(state, raid.facility);
     }
     addLog(state, `The raid on the ${raid.facility} got through — a worker slot is broken until it's repaired (see its Upgrade button).`);
-    if (raid.facility === "farm" || raid.facility === "barn") {
-      for (const kind of FARM_GROUPS[raid.facility === "farm" ? "fields" : "animals"]) for (const plot of state.plots[kind]) plot.growth = 0;
-      addLog(state, raid.facility === "farm" ? "The horde trampled the crops — every field starts over." : "The horde scattered the animals — every pen starts over.");
+    if (raid.facility === "barn" && herdKinds(state).length) {
+      const kind = pick(herdKinds(state));
+      state.stock[kind] -= 1;
+      addLog(state, `The horde got into the Barn — a ${PRODUCERS[kind].stockName.toLowerCase()} is gone.`);
     }
     for (const c of defenders) {
       if (Math.random() < 0.3) {
@@ -3342,7 +3167,7 @@ function applyEffect(state, e) {
   if (e.seeds) {
     const got = {};
     for (let i = 0; i < e.seeds; i++) {
-      const id = pick(FARM_CROPS);
+      const id = seedFind(state);
       got[id] = (got[id] || 0) + 1;
     }
     for (const [id, n] of Object.entries(got)) addStock(state, id, n);
@@ -3350,13 +3175,14 @@ function applyEffect(state, e) {
   }
   if (e.stock) for (const [id, n] of Object.entries(e.stock)) addStock(state, id, n);
   if (e.blight) {
-    const growing = FARM_GROUPS.fields.flatMap((crop) => state.plots[crop]).filter((p) => p.id);
-    if (growing.length) {
-      const plot = pick(growing);
-      addLog(state, `A plot of ${PRODUCERS[plot.id].name.toLowerCase()} is lost to the blight.`);
-      Object.assign(plot, emptyPlot());
+    // a crop's seeds are lost: the Farm can't grow it until more are found
+    const crops = unlockedCrops(state);
+    if (crops.length > 1) {
+      const kind = pick(crops);
+      state.stock[kind] = 0;
+      addLog(state, `The blight takes the ${PRODUCERS[kind].name.toLowerCase()} — find more seeds to grow them again.`);
     } else {
-      addLog(state, "Luckily nothing was growing in the farm's plots.");
+      addLog(state, "The blight passes over the Farm's last crop.");
     }
   }
 
@@ -3809,8 +3635,8 @@ function rollHexFind(state, scout, q, r) {
     state.pantry[id] = (state.pantry[id] || 0) + n;
     text = `${INGREDIENTS[id].emoji ?? INGREDIENTS[id].icon} ${INGREDIENTS[id].name} ×${n} for the pantry`;
   } else if (type === "seeds") {
-    const id = pick(FARM_CROPS);
-    const n = randInt(1, 2);
+    const id = seedFind(state);
+    const n = 1;
     addStock(state, id, n);
     text = `${stockLabel(id, n)} for the farm`;
   } else if (type === "animal") {

@@ -60,7 +60,7 @@ export const STAT_TUNING = {
   staminaPerWis: 0.8, // student, 200 with both maxed
   staminaMin: 10,
   carryPerStr: 1 / 250, // expedition food & scrap × (0.8 + avg STR / 250): ×1.0 at 50, ×1.2 at 100
-  yieldStatStep: 25, // +1 Farm food / Scrapyard scrap / Greenhouse medicine per worker for every 25 STR / DEX / CON (SITE_STAT)
+  yieldStatStep: 25, // (the Courtyard's workers: see SITE_FOCUS's `step`)
   dodgePerDex: 1 / 500, // chance to dodge a hit: up to 20% at 100 DEX
   stealthPerDex: 1 / 250, // scouting encounter chance × (1 − DEX / 250): −40% at 100
   expeditionStealthPerDex: 1 / 400, // expedition casualties × (1 − avg DEX / 400): −25% at 100
@@ -309,33 +309,41 @@ export const MOLOTOV_DAMAGE = 0.8; // of a walker's HP tonight
 export const BATTLE_CRIT = { base: 0.05, perDex: 0.001, mult: 2 };
 // ===== The Night Watch's classes =====
 // A defender's class is their ★ favourite subject. Each has one job, and its numbers grow with that stat
-// (0–100): `range` is "front" (the square in front, towards the street), "lane" (anything further
-// down their lane) or none, listed in the stats' order (STR … CHA). Their second ability (`ability2`)
+// (0–100): `range` is "front" (the square in front, towards the street), "lane" (further down their
+// lane) or none, and `reach` how many squares towards the street they hit, listed in the stats' order (STR … CHA). Their second ability (`ability2`)
 // comes with learning the third talent on that subject's path (its B node: NIGHT_ABILITY2_SKILLS), their
 // third (`ability3`) with the fifth (S).
 export const NIGHT_CLASSES = {
-  brawler: { armor: "heavy", subject: "PE", name: "Brawler", icon: "💪", range: "front", reach: 2, weapon: "melee", desc: "Hits the nearest zombie up to 2 squares in front — over a friend's shoulder too",
+  brawler: { weaponType: "melee", armor: "heavy", subject: "PE", name: "Brawler", icon: "💪", range: "front", reach: 1, weapon: "melee", desc: "Hits the zombie on the square in front",
     ability2: { name: "Cleave", desc: "Also hits the zombies either side of their target" },
-    ability3: { name: "Lunge", reach: 3, desc: "Reaches 3 squares in front" } },
-  shooter: { armor: "light", subject: "Gymnastics", name: "Shooter", icon: "🏹", range: "lane", weapon: "ranged", desc: "Fires down the lane at the nearest zombie",
+    ability3: { name: "Lunge", desc: "Reaches 2 squares in front — over a friend's shoulder too" } },
+  shooter: { weaponType: "long", armor: "light", subject: "Gymnastics", name: "Shooter", icon: "🏹", range: "lane", reach: 6, weapon: "ranged", desc: "Fires at the nearest zombie up to 6 squares down the lane",
     ability2: { name: "Quick Draw", chance: 0.5, desc: "50% chance to fire twice a turn" },
-    ability3: { name: "Double Shot", desc: "Always fires twice a turn" } },
-  tank: { armor: "heavy", subject: "Biology", name: "Tank", icon: "🛡", range: "front", reach: 1, weapon: "melee", hpMult: 1.5, dmgMult: 0.5, desc: "+50% HP to hold the lane, and a weak hit on the square in front",
+    ability3: { name: "Double Shot", desc: "Reaches 7 squares, and always fires twice a turn" } },
+  tank: { weaponType: "melee", armor: "heavy", subject: "Biology", name: "Tank", icon: "🛡", range: "front", reach: 1, weapon: "melee", hpMult: 1.5, dmgMult: 0.5, desc: "+50% HP to hold the lane, and a weak hit on the square in front",
     ability2: { name: "Second Wind", revive: 0.5, desc: "Once a night, gets back up at 50% HP" },
-    ability3: { name: "Colossus", hpBonus: 0.5, desc: "Another +50% HP: double in all" } },
-  trapper: { armor: "light", subject: "Physics", name: "Trapper", icon: "🕸", range: "lane", weapon: "ranged", dmgMult: 0.5, slowTurns: 3, desc: "Fires down the lane for half a shot's damage and slows its target to half speed",
+    ability3: { name: "Colossus", hpBonus: 0.5, desc: "Hits the 3 squares in front — 3 lanes at once — and another +50% HP: double in all" } },
+  trapper: { weaponType: "long", armor: "light", subject: "Physics", name: "Trapper", icon: "🕸", range: "lane", reach: 5, weapon: "ranged", dmgMult: 0.5, slowTurns: 3, desc: "Fires up to 5 squares down the lane for half a shot's damage and slows its target to half speed",
     ability2: { name: "Repair", repair: 0.1, desc: "Patches the wall in their lane by 10% a turn" },
-    ability3: { name: "Wide Net", chance: 0.2, turns: 2, desc: "20% chance a hit nets every zombie in their lane for 2 turns" } },
-  medic: { armor: "medium", subject: "History", name: "Medic", icon: "🩹", range: "around", weapon: "ranged", dmgMult: 0.5, heal: 0.05, healPerGrade: 1 / 2000, desc: "Heals the most hurt student next to them every turn — with nobody to heal, fires down the lane for half a shot's damage",
+    ability3: { name: "Wide Net", chance: 0.2, turns: 2, desc: "Reaches 6 squares, and a 20% chance a hit nets every zombie in their lane for 2 turns" } },
+  medic: { weaponType: "medium", armor: "medium", subject: "History", name: "Medic", icon: "🩹", range: "around", reach: 4, weapon: "ranged", dmgMult: 0.5, heal: 0.05, healPerGrade: 1 / 2000, desc: "Heals the most hurt student next to them every turn — with nobody to heal, fires up to 4 squares down the lane for half a shot's damage",
     ability2: { name: "Long Reach", reach: 2, desc: "Heals anyone up to 2 squares away" },
-    ability3: { name: "Field Surgeon", desc: "Also heals anyone in their lane" } },
-  rallier: { armor: "medium", subject: "SocialStudies", name: "Rallier", icon: "📣", range: "front", reach: 3, weapon: "melee", dmgMult: 0.6, morale: 5, every: 2, desc: "Makes 5 morale every 2 turns, and throws at the nearest zombie up to 3 squares in front for a little over half a Brawler's damage",
+    ability3: { name: "Field Surgeon", desc: "Shoots 5 squares, and also heals anyone in their lane" } },
+  rallier: { weaponType: "medium", armor: "medium", subject: "SocialStudies", name: "Rallier", icon: "📣", range: "front", reach: 3, weapon: "melee", dmgMult: 0.6, morale: 5, every: 2, desc: "Makes 5 morale every 2 turns, and throws at the nearest zombie up to 3 squares in front for a little over half a Brawler's damage",
     ability2: { name: "Rally Cry", buff: 0.2, hp: 0.2, desc: "Students in their lane deal 20% more damage and have 20% more HP" },
-    ability3: { name: "Inspire", moraleMult: 2, desc: "Makes double morale" } },
+    ability3: { name: "Inspire", moraleMult: 2, desc: "Reaches 4 squares, and makes double morale" } },
 };
+// How many squares down their lane a class hits: its `reach`, +1 with its S talent (`ability3`, the
+// last on its path) — the one range upgrade — but a Tank's S talent widens its hit to the 3 squares in
+// front instead (wideTank).
+export const REACH_TALENT = 1;
+export function classReach(cls, ab2, ab3) {
+  return NIGHT_CLASSES[cls].reach + (ab3 && cls !== "tank" ? REACH_TALENT : 0);
+}
+export const wideTank = (cls, ab2, ab3) => cls === "tank" && ab3;
 // Each class's weapons: one of each rarity, Common to Legendary (the Mythic one is its stat's set
 // piece, MYTHIC_SETS). A weapon gives `damage` and a bonus to its class's `stat`, both by its tier
-// (WEAPON_TIERS); its reach is the class's (`reach` above — the ranged classes, the whole lane).
+// (WEAPON_TIERS); its reach is the class's (`reach` above).
 // `looks`: the item icons they're drawn as (scenes.js it_<look>).
 export const WEAPON_TIERS = {
   common: { damage: 10, bonus: 4 },
@@ -372,6 +380,14 @@ export const ARMOR_TEMPLATES = Object.entries(ARMOR_TYPES).flatMap(([type, A]) =
   id: `a_${type}_${rarity}`, name: A.names[i], slot: "armor", armor: type, rarity, look: A.looks[i], icon: A.icon,
   bonuses: Object.fromEntries(Object.entries(A.bonuses).map(([stat, v]) => [stat, v[i]])),
 })));
+// The weapons by range, mirroring the armour types (`weaponType` above): Melee the Tank's and Brawler's,
+// Medium Range the Rallier's and Medic's, Long Range the Trapper's and Shooter's. Only how they're
+// grouped — how far each class reaches is its own (`range`, `reach`).
+export const WEAPON_TYPES = {
+  melee: { name: "Melee", icon: "🗡" },
+  medium: { name: "Medium Range", icon: "🎯" },
+  long: { name: "Long Range", icon: "🏹" },
+};
 export const NIGHT_ABILITY2_SKILLS = 3; // talents learned on the class's subject's path (D, C, then B)
 export const NIGHT_ABILITY3_SKILLS = 5; // … and all five (A, then S: only a ★ favourite gets there)
 // Morale, the night's currency: you start with the school's Morale, earn `perKill` for every
@@ -514,9 +530,7 @@ export const RADIO_CHA_PER_PERCENT = 20; // CHA 100 on the air adds +5% a day
 export const STUDENT_MAX_LEVEL = 10;
 export const xpToNextLevel = (level) => 20 + 20 * level;
 export const LEVEL_XP = {
-  class: 10, // studying in a classroom that's teaching
-  training: 10, // a Gymnasium / Acrobatics session
-  work: 8, // the Farm, Scrapyard, Radio Station, Research Room or Crafting Room
+  turnOne: 10, // a Turn 1 job: a class, training, a work site or a room's job (not resting or the Nurse's Office)
   scout: 10, // scouting a hex
   expedition: 15, // going on an expedition
   expeditionWin: 10, // … and coming back successful
@@ -531,7 +545,6 @@ export const LEVEL_XP = {
 export const CRAFT_HELP_WIS_PER_POINT = 25;
 // The stat a work site's workers bring in more with: the Farm is heavy labour (STR), the
 // Scrapyard's salvage and benches are handwork (DEX), the Greenhouse's herbs need a biologist (CON).
-export const SITE_STAT = { farm: "PE", barn: "PE", scrapyard: "Gymnastics", greenhouse: "Biology" };
 export const RESCUE_ARRIVAL_DAYS = 3;
 export const RESCUE_DELAY_DAYS = 5;
 
@@ -548,42 +561,42 @@ export const SKILL_TREE = {
     { tier: "C", name: "Iron Grip", desc: "Holds the line better on defense." },
     { tier: "B", name: "Juggernaut", desc: "Shrugs off hits others wouldn't. Night Watch: Brawlers cleave." },
     { tier: "A", name: "Warlord", desc: "Leads the charge on dangerous runs." },
-    { tier: "S", name: "Titan", desc: "A one-person wrecking crew. Night Watch: Brawlers hit 2 squares deep." },
+    { tier: "S", name: "Titan", desc: "A one-person wrecking crew. Night Watch: Brawlers reach 2 squares." },
   ],
   Gymnastics: [
     { tier: "D", name: "Quick Step", desc: "Dodges the first swing." },
     { tier: "C", name: "Light Foot", desc: "Moves through danger almost unseen." },
     { tier: "B", name: "Acrobat", desc: "Turns tight spots into escape routes. Night Watch: Shooters may fire twice." },
     { tier: "A", name: "Ghost", desc: "Rarely where the horde expects." },
-    { tier: "S", name: "Untouchable", desc: "The horde can't lay a hand on them. Night Watch: Shooters always fire twice." },
+    { tier: "S", name: "Untouchable", desc: "The horde can't lay a hand on them. Night Watch: Shooters reach 7 and always fire twice." },
   ],
   Biology: [
     { tier: "D", name: "Tough Skin", desc: "Shrugs off minor scrapes." },
     { tier: "C", name: "Iron Stomach", desc: "Recovers faster from rough days." },
     { tier: "B", name: "Survivor", desc: "Walks away from what should've hurt. Night Watch: Tanks get a second wind." },
     { tier: "A", name: "Unbreakable", desc: "Bites and scratches barely slow them down." },
-    { tier: "S", name: "Immune", desc: "The horde's bite is the least of their worries. Night Watch: Tanks get another +50% HP." },
+    { tier: "S", name: "Immune", desc: "The horde's bite is the least of their worries. Night Watch: Tanks hit 3 lanes and get another +50% HP." },
   ],
   Physics: [
     { tier: "D", name: "Quick Thinker", desc: "Spots the danger a beat sooner." },
     { tier: "C", name: "Tactician", desc: "Plans a safer route through trouble." },
     { tier: "B", name: "Analyst", desc: "Reads a room before it turns deadly. Night Watch: Trappers repair walls." },
     { tier: "A", name: "Strategist", desc: "Keeps the whole team a step ahead." },
-    { tier: "S", name: "Mastermind", desc: "Turns any expedition into a calculated win. Night Watch: Trappers may net the whole lane." },
+    { tier: "S", name: "Mastermind", desc: "Turns any expedition into a calculated win. Night Watch: Trappers reach 6 and may net the whole lane." },
   ],
   History: [
     { tier: "D", name: "Keen Eye", desc: "Spots loot others would walk past." },
     { tier: "C", name: "Scavenger", desc: "Knows where the good stuff hides." },
     { tier: "B", name: "Appraiser", desc: "Never leaves the valuable stuff behind. Night Watch: Medics heal 2 squares away." },
     { tier: "A", name: "Treasure Hunter", desc: "Finds more than anyone expects." },
-    { tier: "S", name: "Archivist", desc: "Nothing worth taking gets missed. Night Watch: Medics heal their whole lane." },
+    { tier: "S", name: "Archivist", desc: "Nothing worth taking gets missed. Night Watch: Medics shoot 5 and heal their whole lane." },
   ],
   SocialStudies: [
     { tier: "D", name: "Friendly Face", desc: "Puts strangers at ease." },
     { tier: "C", name: "People Person", desc: "Talks their way past trouble." },
     { tier: "B", name: "Persuader", desc: "Convinces survivors the school is safe. Night Watch: Ralliers rally their lane." },
     { tier: "A", name: "Natural Leader", desc: "Others want to follow them home." },
-    { tier: "S", name: "Icon", desc: "Word of them spreads through the whole city. Night Watch: Ralliers make double morale." },
+    { tier: "S", name: "Icon", desc: "Word of them spreads through the whole city. Night Watch: Ralliers reach 4 and make double morale." },
   ],
 };
 
@@ -683,14 +696,12 @@ export const STARTING_PANTRY = {
 };
 
 // ===== Farm fields & pens =====
-// The Farm has a field for each crop and a pen for each animal (the Ranch was folded into it —
-// `facility: "ranch"` means the pens), each with a few slots. Each slot holds one crop or animal
-// from the stock of seeds and livestock, and grows a day at a time on its own. After `growDays`
-// days it's ready, and waits for a Farm worker to collect `yield` of its `product` into the
-// pantry. Crops and sheep are used up by that (a crop is
-// harvested, a sheep butchered) with a `keepChance` of getting one back — a saved seed, a lamb —
-// and the plot replants itself while stock lasts. Chickens and cows are `perennial`: they keep
-// producing for as long as you keep them.
+// ===== The Courtyard: the Farm, the Barn and the Scrapyard =====
+// Each makes a little on its own every day, by its level, and more for every student put to work
+// there (a Turn 1 job). The room's focus (SITE_FOCUS) is the one thing its workers make today.
+// The crops and animals (PRODUCERS): a crop's seeds, found on expeditions, open it at the Farm for
+// good (state.stock[crop] > 0); animals join the Barn's herd (state.stock[animal] is how many), and
+// up to BARN_HERD_BY_LEVEL of each kind give `yield` of their `product` every `growDays` days.
 export const PRODUCERS = {
   potatoes: {
     facility: "farm", name: "Potatoes", icon: "🥔", product: "potatoes", growDays: 3, yield: 4,
@@ -727,55 +738,39 @@ export const PRODUCERS = {
 };
 export const FARM_CROPS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "farm");
 export const RANCH_ANIMALS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "ranch");
-// The Farm's six groups, top to bottom on each side of its page: a field for each crop on the
-// left, a pen for each animal on the right. Every group has the same number of slots, by level.
-export const FARM_GROUPS = { fields: ["wheat", "potatoes", "tomatoes", "peppers"], animals: ["chicken", "sheep", "cow", "goat"] };
-export const FARM_SLOTS_BY_LEVEL = [1, 2, 3, 4]; // the Farm has 4 levels: each opens a slot in every group
-export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // fields and pens at level 1 in older saves
-export const PLOTS_PER_WORKER = 2; // ready slots one Farm worker harvests a day
-// Crops grow and animals come round by themselves, a day at a time; once a slot is ready it waits
-// for a worker. The Farm (fields) and the Barn (animals) each have their own crew, big enough to
-// cover all their slots: 2, 4, 6, 8 workers by level.
-export const FARM_WORKERS_BY_LEVEL = FARM_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 4) / PLOTS_PER_WORKER));
-export const FARM_STAMINA_COST = 50; // a day's work at the Farm or the Barn (paid at the end of Turn 1) — to be balanced
-
-// The Scrapyard works like the Farm, but nothing needs planting: its salvage piles refill themselves
-// a day at a time, and a full one waits for a worker (2 each) to strip it.
-export const YARD_JOBS = {
-  cars: { name: "Car Wrecks", icon: "🚗", growDays: 3, scrap: 8, what: "8 🔩 scrap" },
-  appliances: { name: "Appliances", icon: "🔌", growDays: 2, scrap: 4, research: [1, 2], researchChance: 0.5, what: "4 🔩 scrap, maybe 🧠 research" },
-  machinery: { name: "Machinery", icon: "⚙️", growDays: 4, scrap: 10, gearChance: 0.2, what: "10 🔩 scrap, maybe gear" },
-  vending: { name: "Vending Machines", icon: "🥫", growDays: 2, scrap: 3, ingredient: "canned_meat", ingredientChance: 0.5, what: "3 🔩 scrap, maybe 🥫 canned meat" },
+export const FARM_GROUPS = { fields: FARM_CROPS, animals: RANCH_ANIMALS };
+export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // (older saves' Farm sizes, for migrateState)
+export const COURTYARD_LEVELS = 4;
+export const SITE_WORKERS_BY_LEVEL = [2, 3, 4, 6];
+export const SITE_STAMINA_COST = 50; // a day's work at any of the three (paid at the end of Turn 1) — to be balanced
+export const FARM_PASSIVE_FOOD = [3, 5, 8, 12]; // food the Farm grows on its own a day, by level
+export const YARD_PASSIVE_SCRAP = [3, 5, 8, 12]; // scrap the Scrapyard turns up on its own a day, by level
+export const BARN_HERD_BY_LEVEL = [2, 3, 4, 6]; // animals of a kind the Barn keeps giving their goods, by level
+// What a room's workers make, one thing each focus: `res` (a resource, an ingredient, or "crops" /
+// "goods": the Farm's crops or the herd's goods, a worker each in turn), `base` each, +1 for every
+// `step` of their `stat`. Extras: `coffee` / `gear` — a chance per worker.
+export const SITE_FOCUS = {
+  farm: {
+    food: { name: "Food", icon: "🍞", res: "food", base: 3, stat: "PE", step: 25, desc: "Work the fields for food" },
+    crops: { name: "Ingredients", icon: "🌾", res: "crops", base: 2, stat: "PE", step: 50, desc: "Harvest the crops you have seeds for, for the Cafeteria's dishes" },
+    medicine: { name: "Medicine", icon: "💊", res: "medicine", base: 2, stat: "Biology", step: 25, coffee: 0.25, desc: "Tend the herb beds — aloe, echinacea, willow bark — and now and then coffee" },
+  },
+  barn: {
+    food: { name: "Food", icon: "🍞", res: "food", base: 3, stat: "PE", step: 25, desc: "Muck out, mend fences and bring in food" },
+    goods: { name: "Animal goods", icon: "🥚", res: "goods", base: 1, stat: "PE", step: 50, desc: "Extra eggs, milk and mutton from the herd" },
+  },
+  scrapyard: {
+    materials: { name: "Scrap", icon: "🔩", res: "materials", base: 3, stat: "Gymnastics", step: 25, desc: "Strip the wrecks for scrap" },
+    research: { name: "Research", icon: "🧠", res: "research", base: 1, stat: "Physics", step: 50, desc: "Pull electronics apart for parts the Research Room can use" },
+    supplies: { name: "Supplies", icon: "🥫", res: "canned_meat", base: 1, stat: "Gymnastics", step: 50, gear: 0.15, desc: "Dig through vending machines and trucks for canned food — and sometimes gear" },
+  },
 };
-export const YARD_GROUPS = { salvage: ["cars", "appliances", "machinery", "vending"] };
-export const YARD_SLOTS_BY_LEVEL = [1, 2, 3, 4];
-export const YARD_WORKERS_BY_LEVEL = YARD_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 4) / PLOTS_PER_WORKER));
-export const YARD_STAMINA_COST = 50; // to be balanced
-
-// The Greenhouse works like the Scrapyard: its herb beds grow back by themselves a day at a time and
-// give medicine. Biology students (CON) work it best.
-export const GREENHOUSE_JOBS = {
-  aloe: { name: "Aloe Vera", icon: "🌵", growDays: 2, medicine: 1, what: "1 💊 medicine" },
-  echinacea: { name: "Echinacea", icon: "🌸", growDays: 3, medicine: 2, what: "2 💊 medicine" },
-  willow: { name: "Willow Bark", icon: "🌳", growDays: 4, medicine: 4, what: "4 💊 medicine" },
-  coffee: { name: "Coffee Plant", icon: "☕", growDays: 3, ingredient: "coffee", what: "1 ☕ coffee" },
-};
-export const GREENHOUSE_GROUPS = { herbs: ["aloe", "echinacea", "willow", "coffee"] };
-export const GREENHOUSE_SLOTS_BY_LEVEL = [1, 2, 3, 4];
-export const GREENHOUSE_WORKERS_BY_LEVEL = GREENHOUSE_SLOTS_BY_LEVEL.map((n) => Math.ceil((n * 4) / PLOTS_PER_WORKER));
-export const GREENHOUSE_STAMINA_COST = 50; // to be balanced
-export const GREENHOUSE_YIELD_MEDICINE = 1; // medicine per worker a day, +1 per 25 CON
-
-// The work sites built this way: each side (fields/animals, salvage/benches, herbs/still room) has
-// its own crew, whose flag (c.farmToday / c.scrapyardToday / c.greenhouseToday) holds the side's name.
 export const WORK_SITES = {
-  // the old Farm is two rooms of the Courtyard now: the Farm's fields and the Barn's animals
-  farm: { name: "Farm", flag: "farmToday", sides: { fields: FARM_GROUPS.fields }, slotsByLevel: FARM_SLOTS_BY_LEVEL, workersByLevel: FARM_WORKERS_BY_LEVEL, stamina: FARM_STAMINA_COST },
-  barn: { name: "Barn", flag: "barnToday", sides: { animals: FARM_GROUPS.animals }, slotsByLevel: FARM_SLOTS_BY_LEVEL, workersByLevel: FARM_WORKERS_BY_LEVEL, stamina: FARM_STAMINA_COST },
-  scrapyard: { name: "Scrapyard", flag: "scrapyardToday", sides: YARD_GROUPS, slotsByLevel: YARD_SLOTS_BY_LEVEL, workersByLevel: YARD_WORKERS_BY_LEVEL, stamina: YARD_STAMINA_COST },
-  greenhouse: { name: "Greenhouse", flag: "greenhouseToday", sides: GREENHOUSE_GROUPS, slotsByLevel: GREENHOUSE_SLOTS_BY_LEVEL, workersByLevel: GREENHOUSE_WORKERS_BY_LEVEL, stamina: GREENHOUSE_STAMINA_COST },
+  farm: { name: "Farm", flag: "farmToday", stamina: SITE_STAMINA_COST },
+  barn: { name: "Barn", flag: "barnToday", stamina: SITE_STAMINA_COST },
+  scrapyard: { name: "Scrapyard", flag: "scrapyardToday", stamina: SITE_STAMINA_COST },
 };
-export const STARTING_STOCK = { potatoes: 2, tomatoes: 2, wheat: 2, peppers: 1, chicken: 1, cow: 0, sheep: 1, goat: 0 };
+export const STARTING_STOCK = { potatoes: 1, tomatoes: 0, wheat: 1, peppers: 0, chicken: 1, cow: 0, sheep: 1, goat: 0 }; // (wheat and potatoes to start; the rest are found)
 // Expedition finds for the Farm (seeds, animals): a base chance on a success (lower on a failure) + a
 // location's seedBonus. Locations with `animals` turn up one of them instead `animalChance` of
 // the time.
@@ -815,8 +810,6 @@ export const EXPEDITION_INGREDIENT_CHANCE_FAILED = 0.15;
 // per-student daily yield, split out so each facility can scale/upgrade independently.
 export const FARM_CAPACITY = 4; // workers at level 1 (+3 a level: 16 at the top)
 export const SCRAPYARD_CAPACITY = 3;
-export const FARM_YIELD_FOOD = 3; // food per assigned student/day
-export const SCRAPYARD_YIELD_MATERIALS = 3; // scrap per assigned student/day
 
 // The scrap resource is stored under the `materials` key (older saves use it); this is the name
 // players see.
@@ -916,31 +909,24 @@ export const ROOM_LEVELS = {
     perks: [{ label: "Bonus fortification", by: CRAFTING_BONUS_BY_LEVEL, fmt: (v) => `+${v} per crafter` }],
   },
   farm: {
-    name: "Farm", maxLevel: FARM_SLOTS_BY_LEVEL.length,
+    name: "Farm", maxLevel: COURTYARD_LEVELS,
     perks: [
-      { label: "Workers", by: FARM_WORKERS_BY_LEVEL, fmt: (v) => `${v}` },
-      { label: "Slots per crop", by: FARM_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
+      { label: "Food on its own", by: FARM_PASSIVE_FOOD, fmt: (v) => `${v} a day` },
+      { label: "Workers", by: SITE_WORKERS_BY_LEVEL, fmt: (v) => `${v}` },
     ],
   },
   barn: {
-    name: "Barn", maxLevel: FARM_SLOTS_BY_LEVEL.length,
+    name: "Barn", maxLevel: COURTYARD_LEVELS,
     perks: [
-      { label: "Workers", by: FARM_WORKERS_BY_LEVEL, fmt: (v) => `${v}` },
-      { label: "Slots per animal", by: FARM_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
+      { label: "Animals of a kind", by: BARN_HERD_BY_LEVEL, fmt: (v) => `up to ${v}` },
+      { label: "Workers", by: SITE_WORKERS_BY_LEVEL, fmt: (v) => `${v}` },
     ],
   },
   scrapyard: {
-    name: "Scrapyard", maxLevel: YARD_SLOTS_BY_LEVEL.length,
+    name: "Scrapyard", maxLevel: COURTYARD_LEVELS,
     perks: [
-      { label: "Workers", by: YARD_WORKERS_BY_LEVEL, fmt: (v) => `${v} salvage + ${v} benches` },
-      { label: "Slots per pile & bench", by: YARD_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
-    ],
-  },
-  greenhouse: {
-    name: "Greenhouse", maxLevel: GREENHOUSE_SLOTS_BY_LEVEL.length,
-    perks: [
-      { label: "Workers", by: GREENHOUSE_WORKERS_BY_LEVEL, fmt: (v) => `${v} herbs + ${v} still room` },
-      { label: "Slots per bed & rack", by: GREENHOUSE_SLOTS_BY_LEVEL, fmt: (v) => `${v} each` },
+      { label: "Scrap on its own", by: YARD_PASSIVE_SCRAP, fmt: (v) => `${v} a day` },
+      { label: "Workers", by: SITE_WORKERS_BY_LEVEL, fmt: (v) => `${v}` },
     ],
   },
 };
@@ -1030,7 +1016,7 @@ export const HAPPINESS_LOSS_DEATH = 8; // a character died
 // at most one of the two can happen on a given night.
 export const FACILITY_RAID_CHANCE = 0.1;
 export const ASSAULT_CHANCE = 0.2;
-export const RAIDABLE_FACILITIES = ["farm", "barn", "scrapyard", "greenhouse"];
+export const RAIDABLE_FACILITIES = ["farm", "barn", "scrapyard"];
 export const LEGENDARY_CHANCE = 0.15; // chance a won Assault turns up a legendary survivor
 export const LEGENDARY_TEACHER_CHANCE = 0.1; // chance a legendary survivor is a teacher (if there's room for one)
 

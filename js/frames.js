@@ -134,7 +134,7 @@ export function installFrames(root = document.documentElement) {
 }
 
 // Which theme a tab's page wears.
-const TAB_AREA = { floor1: "lobby", floor2: "classrooms", floor3: "facilities", courtyard: "courtyard", citymap: "city", defense: "night", assault: "night", event: "night" };
+const TAB_AREA = { floor1: "lobby", floor2: "classrooms", floor3: "facilities", farm: "courtyard", barn: "courtyard", scrapyard: "courtyard", citymap: "city", defense: "night", assault: "night", event: "night" };
 export const areaOfTab = (tab) => TAB_AREA[tab] || "school";
 
 // ---------- the page behind it all: the view at the turn's time of day ----------

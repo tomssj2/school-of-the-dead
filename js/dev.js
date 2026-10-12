@@ -3,7 +3,7 @@
 import * as G from "./game.js";
 import { makeCharacter, makeLegendaryCharacter, makeAccessory, makeSetItem, makeWeapon, makeArmor, weaponCategory, studentClass } from "./characters.js";
 import { MAP_RADIUS } from "./map.js";
-import { MYTHIC_SETS, ACCESSORIES, CLASSROOM_IDS, PRODUCERS, YARD_JOBS, GREENHOUSE_JOBS, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_ROW0, STREET_ROW0, ENTRANCE_ZONES } from "./data.js";
+import { MYTHIC_SETS, ACCESSORIES, CLASSROOM_IDS, PRODUCERS, FARM_CROPS, RANCH_ANIMALS, BARN_HERD_BY_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_ROW0, STREET_ROW0, ENTRANCE_ZONES } from "./data.js";
 
 // Every room and facility to the top level, and every slot filled: teachers in every post,
 // every classroom seat, training, resting, beds, outside workers, plots and pens. Hires whoever is
@@ -39,7 +39,7 @@ export function maxOutSchool(state) {
 
   // students: enough to fill every classroom seat and every daily job (one Turn 1 job each)
   const seats = CLASSROOM_IDS.reduce((sum, id) => sum + state.rooms.classrooms[id].seats.length, 0);
-  const jobSlots = ["gym", "acrobatics", "radio", "research", "crafting", "cafeteria", "infirmary", "farm", "barn", "scrapyard", "greenhouse"].reduce((sum, k) => sum + (state.rooms[k]?.studentCapacity || 0), 0);
+  const jobSlots = ["gym", "acrobatics", "radio", "research", "crafting", "cafeteria", "infirmary", "farm", "barn", "scrapyard"].reduce((sum, k) => sum + (state.rooms[k]?.studentCapacity || 0), 0);
   while (alive("student").length < seats + jobSlots) hire("student");
   let toSeat = seats - alive("student").filter((x) => x.seat).length;
   for (const c of alive("student").filter((x) => !x.seat && !G.TURN_ONE_FLAGS.some((f) => x[f]))) {
@@ -80,25 +80,12 @@ export function maxOutSchool(state) {
     c.exp = c.level >= STUDENT_MAX_LEVEL ? 0 : Math.floor(Math.random() * xpToNextLevel(c.level));
   });
 
-  // the Farm's fields and pens: something in every slot, every other one ready to collect and the
-  // rest part-grown (but one of each of the last two groups left empty, to see how that looks),
-  // and a few seeds and animals in stock
-  for (const kind of Object.keys(PRODUCERS)) {
-    const days = PRODUCERS[kind].growDays;
-    state.plots[kind].forEach((plot, i) => {
-      if (plot.id || ((kind === "tomatoes" || kind === "cow") && i === state.plots[kind].length - 1)) return;
-      Object.assign(plot, { id: kind, growth: i % 2 === 0 ? days : i % days });
-    });
-    state.stock[kind] = Math.max(state.stock[kind] || 0, 2);
-  }
-  // the Scrapyard's piles and benches: every other one ready
-  for (const kind of Object.keys(YARD_JOBS)) state.yard[kind].forEach((slot, i) => { slot.growth = i % 2 === 0 ? YARD_JOBS[kind].growDays : i % YARD_JOBS[kind].growDays; });
-  // ...and the Greenhouse's beds and racks the same way
-  for (const kind of Object.keys(GREENHOUSE_JOBS)) state.greenhouseSlots[kind].forEach((slot, i) => { slot.growth = i % 2 === 0 ? GREENHOUSE_JOBS[kind].growDays : i % GREENHOUSE_JOBS[kind].growDays; });
-  G.autoAssignFarm(state); // as many workers as the ready slots need
+  // every crop open at the Farm and a full herd in the Barn, then the crews
+  for (const kind of FARM_CROPS) state.stock[kind] = Math.max(state.stock[kind] || 0, 1);
+  for (const kind of RANCH_ANIMALS) state.stock[kind] = Math.max(state.stock[kind] || 0, BARN_HERD_BY_LEVEL[BARN_HERD_BY_LEVEL.length - 1]);
+  G.autoAssignSite(state, "farm");
   G.autoAssignSite(state, "barn");
   G.autoAssignSite(state, "scrapyard");
-  G.autoAssignSite(state, "greenhouse");
 
   return {
     levels: "all rooms at level 5",

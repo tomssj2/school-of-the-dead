@@ -1,16 +1,16 @@
 import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, STAT_GUIDE, STAT_TUNING, TRAITS,
   CLASSROOM_CAPACITY, LOCATIONS,
-  GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, CRAFT_HELP_WIS_PER_POINT, roomUpgradeCost,
-  FARM_YIELD_FOOD, SCRAPYARD_YIELD_MATERIALS, TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
-  ACCESSORIES, ACCESSORY_RANGES, RARITIES, RARITY_ORDER, ITEM_DROP_ODDS, MYTHIC_SETS, WEAPON_TEMPLATES, ARMOR_TEMPLATES, ARMOR_TYPES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
+  GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, roomUpgradeCost,
+  TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
+  ACCESSORIES, ACCESSORY_RANGES, RARITIES, RARITY_ORDER, ITEM_DROP_ODDS, MYTHIC_SETS, WEAPON_TEMPLATES, ARMOR_TEMPLATES, ARMOR_TYPES, WEAPON_TYPES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
   NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_CLASSES, NIGHT_MORALE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD,
-  DISHES, INGREDIENTS, PRODUCERS, YARD_JOBS, GREENHOUSE_JOBS, GREENHOUSE_YIELD_MEDICINE, WORK_SITES, PLOTS_PER_WORKER, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
+  DISHES, INGREDIENTS, PRODUCERS, WORK_SITES, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, RESEARCH_BONUS_BY_LEVEL, HELPER_SLOTS_BY_LEVEL, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, ROOM_FIGHT_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
-  RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, expeditionShare, EXPEDITION_NOISE, EXPEDITION_ROOM, ROOM_EVENTS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE,
+  RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, expeditionShare, EXPEDITION_NOISE, EXPEDITION_ROOM, ROOM_EVENTS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, SITE_FOCUS, BARN_HERD_BY_LEVEL, FARM_PASSIVE_FOOD, YARD_PASSIVE_SCRAP, SITE_WORKERS_BY_LEVEL, FARM_CROPS, RANCH_ANIMALS,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus, gradeCap, gradeCapLetter,
@@ -19,9 +19,8 @@ import {
 import {
   getChar, aliveChars, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionHaul, expeditionPlace, expeditionForecast, expeditionRooms, expeditionRoomZombies, battleNoise, expeditionSneakOdds, runShare, roomEventOdds, expeditionGearChance, poiTier, scoutOdds, isReady, readySlots, harvestPlan, workersNeeded, siteOfSide, slotDef, siteSlots, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, facilityWorkers,
-  fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
-  gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, clearOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM,
+  techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionHaul, expeditionPlace, expeditionForecast, expeditionRooms, expeditionRoomZombies, battleNoise, expeditionSneakOdds, runShare, roomEventOdds, expeditionGearChance, poiTier, scoutOdds, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
+  gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, clearOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM, siteDay, siteFocus, unlockedCrops, herdSize, herdKinds,
 } from "./game.js";
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, MAP_RADIUS, isSchoolHex,
@@ -71,8 +70,6 @@ const ICON_SWAPS = [
   [PRODUCERS, "icon", { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "wheat", peppers: "spices", chicken: "chicken", cow: "cow", sheep: "sheep", goat: "goat" }],
   [DISHES, "icon", { shepherds_stew: "shepherds_stew", fresh_bread: "fresh_bread", firehouse_chili: "firehouse_chili", scholars_breakfast: "scholars_breakfast" }],
   [TECH_TREE, "icon", Object.fromEntries(TECH_TREE.map((t) => [t.id, t.id]))],
-  [YARD_JOBS, "icon", { cars: "yard_cars", appliances: "yard_appliances", machinery: "yard_machinery", weapons: "yard_weapons", armor: "yard_armor", traps: "yard_traps", vending: "vending" }],
-  [GREENHOUSE_JOBS, "icon", { aloe: "gh_aloe", echinacea: "gh_echinacea", willow: "gh_willow", peppers: "spices", coffee: "coffee", serum: "serum" }],
   [MAP_DROPS, "icon", { crate: "crate", wreck: "wreck", survivor: "survivor" }],
 ];
 const EMOJI_PIXEL = new Map(); // emoji → pixel icon, for text that was saved with the emoji
@@ -148,6 +145,8 @@ const itemIconName = (it) => {
   return r === "common" || base.startsWith("legendary_") ? `it_${base}` : `it_${base}~${r}`;
 };
 const itemIcon = (it) => (itemIconName(it) ? pxe(itemIconName(it)) : it?.icon || "");
+// An item's tooltip: damage, stat bonuses and effect, then `notes`.
+const itemTip = (it, notes) => tipAttr({ title: `${itemIcon(it)} ${itemName(it)}`, rows: [...(it.damage ? [["Damage", `${it.damage}`]] : []), ...Object.entries(it.bonuses).map(([k, v]) => [k, `+${v}`]), ...(it.effect ? [["Effect", itemPerk(it)]] : [])], notes });
 const itemIcon32 = (it) => (itemIconName(it) ? `<span class="ri">${pixelIcon(itemIconName(it), 32)}</span>` : it?.icon || "");
 // An item's name in its rarity's colour (a Mythic one in a rainbow), its rarity after it unless `bare`.
 const itemName = (it, bare = false) => {
@@ -330,7 +329,7 @@ function levelTip(c) {
   return {
     title: `⭐ Level ${lv}`,
     rows: [["Experience", `${c.exp || 0}/${xpToNextLevel(lv)}`]],
-    notes: ["Earned in classes, training and work (+8–10 a day)", "Scouting, expeditions, defending and raids give more", `Level ${STUDENT_MAX_LEVEL} unlocks promotion to teacher`],
+    notes: [`+${LEVEL_XP.turnOne} for any Turn 1 job: class, training or work`, "Scouting, expeditions, defending and raids give more", `Level ${STUDENT_MAX_LEVEL} unlocks promotion to teacher`],
   };
 }
 
@@ -799,15 +798,20 @@ function hudTips(state) {
   const teachers = teacherCount(state);
   return {
     population: { title: `${ri("population")} Population`, rows: [["Students", `${pop - teachers}`], ["Teachers", `${teachers}`]], total: ["Everyone alive", `${pop}`],
-      notes: ["Found on expeditions or through the Radio Station", `Students who reach level ${PROMOTE_LEVEL_THRESHOLD} can be promoted to teachers`] },
+      notes: ["Found on expeditions or through the Radio Station", `Students who reach level ${PROMOTE_LEVEL_THRESHOLD} can be promoted to teachers`, "Click to open the Roster"] },
     happiness: { title: `<span class="ri">${moodIcon(state.happiness, 16)}</span> Morale`, rows: [["Now", `${state.happiness}`]], notes: ["Rises with won battles and new recruits", "Falls with failed missions and deaths", "Tilts random events toward good or bad"] },
     food: { title: `${ri("food")} Food`, rows: [["On hand", `${r.food}`], ["Eaten tonight", `−${pop}`]], total: ["Left after tonight", `${r.food - pop}`], notes: ["Grown at the Farm, found on expeditions"] },
     materials: { title: `${ri("materials")} Scrap`, rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
     medicine: { title: `${ri("medicine")} Medicine`, rows: [["On hand", `${r.medicine}`]], notes: [`Treating a patient costs ${INFIRMARY_MEDICINE_PER_PATIENT}`, "Saving a defender who goes down costs 5 (automatic)", "Grown in the Greenhouse, found on expeditions"] },
-    research: { title: `${ri("research")} Research`, rows: [["On hand", `${r.research}`], ["Made a day", `+${researchRoomYield(state)}`]], notes: ["Made by teachers in the Research Room", "Spent on the tech tree and the Radio Station"] },
+    research: { title: `${ri("research")} Research`, rows: [["On hand", `${r.research}`], ["Made a day", `+${researchRoomYield(state)}`]], notes: ["Made by teachers in the Research Room", "Spent on the tech tree and the Radio Station", ...(techReady(state) ? ["Gold: enough for a new tech"] : []), "Click to open the Research tree"] },
     serum: { title: `${ri("serum")} Antiviral Serum`, rows: [["On hand", `${r.serum}`]], notes: ["The only cure for an infection — one per person", "Pharmacy, Urgent Care and Fire Station now and then", "The General Hospital and Research Institute raids pay out the most"] },
     infected: { title: "🦠 Infected", rows: [["In quarantine", `${infectedChars(state).length}`]], notes: ["Each needs a serum by the end of their fifth day, or they die", "Cure them from the Nurse's Office"] },
   };
+}
+
+// Is there a tech they can buy right now (its parent owned, enough research)?
+function techReady(state) {
+  return TECH_TREE.some((t) => !state.techUnlocked.includes(t.id) && (!t.requires || state.techUnlocked.includes(t.requires)) && state.resources.research >= t.cost);
 }
 
 const DAY_STEPS = [["sun", "Classes"], ["dusk", "Explore"], ["moon", "Night"]];
@@ -820,8 +824,8 @@ const HUD_TILE = {
 
 // One HUD counter: an icon tile, the number, and a small label (hidden on narrow screens).
 // `extra` goes after the number (today's meal buffs ride on the Food counter).
-function hudStat(floaties, key, iconHtml, tile, value, label, tipSpec, { sub = "", cls = "", extra = "" } = {}) {
-  return `<span class="${key ? tbItemClass(floaties, key) : "tb-item"} hud-stat ${cls}" ${tipAttr(tipSpec)}>
+function hudStat(floaties, key, iconHtml, tile, value, label, tipSpec, { sub = "", cls = "", extra = "", tab = "" } = {}) {
+  return `<span class="${key ? tbItemClass(floaties, key) : "tb-item"} hud-stat ${tab ? "hud-link" : ""} ${cls}" ${tab ? `data-action="set-tab" data-tab="${tab}"` : ""} ${tipAttr(tipSpec)}>
     <span class="hud-icon" style="--tile:${tile}">${iconHtml}</span>
     <span class="hud-val"><span class="hud-num"><b>${value}</b>${sub}</span><small>${label}</small></span>
     ${extra}
@@ -867,6 +871,9 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
         <summary class="hud-menu" title="Menu">${pixelIcon("menu", 24)}</summary>
         <div class="options-menu">
           <button class="options-item ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
+          <button class="options-item ${activeTab === "roster" ? "active" : ""}" data-action="set-tab" data-tab="roster">👥 Roster</button>
+          <button class="options-item ${activeTab === "research" ? "active" : ""}" data-action="set-tab" data-tab="research">🧠 Research</button>
+          <button class="options-item ${activeTab === "armory" ? "active" : ""}" data-action="set-tab" data-tab="armory">🗡 Armory</button>
           <button class="options-item ${activeTab === "itemlist" ? "active" : ""}" data-action="set-tab" data-tab="itemlist">📖 Item List</button>
           <button class="options-item" data-action="save-game">💾 Save</button>
           <button class="options-item" data-action="reset-game">🔄 New Game</button>
@@ -885,7 +892,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
         </div>
       </details>
       <div class="hud-group">
-        ${hudStat(floaties, "population", pixelIcon("population", 32), HUD_TILE.population, pop, "Population", tips.population)}
+        ${hudStat(floaties, "population", pixelIcon("population", 32), HUD_TILE.population, pop, "Population", tips.population, { tab: "roster" })}
         ${hudStat(floaties, "happiness", moodIcon(state.happiness, 32), HUD_TILE.mood, state.happiness, "Morale", tips.happiness)}
       </div>
     </div>
@@ -896,7 +903,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
           { sub: `<span class="tb-sub">−${pop}</span>`, cls: r.food < pop ? "tb-warn" : "", extra: meals })}
         ${hudStat(floaties, "materials", pixelIcon("scrap", 32), HUD_TILE.scrap, r.materials, "Scrap", tips.materials)}
         ${hudStat(floaties, "medicine", pixelIcon("medicine", 32), HUD_TILE.medicine, r.medicine, "Meds", tips.medicine)}
-        ${hudStat(floaties, "research", pixelIcon("research", 32), HUD_TILE.research, r.research, "Research", tips.research)}
+        ${hudStat(floaties, "research", pixelIcon("research", 32), HUD_TILE.research, r.research, "Research", tips.research, { tab: "research", cls: techReady(state) ? "hud-ready" : "" })}
         ${infected ? hudStat(floaties, null, pixelIcon("virus", 32), HUD_TILE.virus, infected, "Infected", tips.infected, { cls: "tb-infected hud-compact" }) : ""}
         ${r.serum ? hudStat(floaties, "serum", pixelIcon("serum", 32), HUD_TILE.serum, r.serum, "Serum", tips.serum, { cls: "hud-compact" }) : ""}
       </div>
@@ -908,11 +915,12 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
 // facilities on Turn 2 (while teams are out exploring), and night-related screens on Turn 3.
 // Each tab is [id, label, pixel icon].
 const LEFT_TABS_BY_TURN = {
-  1: [["floor1", "Lobby", "lobby"], ["floor2", "Classrooms", "classrooms"], ["floor3", "Facilities", "facilities"], ["courtyard", "Courtyard", "tractor"]],
+  1: [["floor1", "Lobby", "lobby"], ["floor2", "Classrooms", "classrooms"], ["floor3", "Facilities", "facilities"]],
   2: [["citymap", "City Map", "map"]],
   3: [["defense", "Night Watch", "lantern"], ["assault", "Assault", "assault"], ["event", "Event", "dice"]],
 };
-const RIGHT_TABS = [["roster", "Roster", "roster"], ["armory", "Armory", "armory"], ["research", "Research", "tech"]];
+// … and the right ones: the Courtyard's three screens on Turn 1.
+const RIGHT_TABS_BY_TURN = { 1: [["farm", "Farm", "wheat"], ["barn", "Barn", "cow"], ["scrapyard", "Scrapyard", "scrapyard"]] };
 // The center button always returns to the current turn's action screen (assigning classes,
 // missions, or defenders + the button that actually advances the turn) — labeled per-turn so
 // it doesn't read as a generic "advance turn" action.
@@ -945,7 +953,7 @@ export function renderTabs(state, activeTab) {
   return `<nav class="nav">
     <div class="nav-left">${(LEFT_TABS_BY_TURN[state.turn] || LEFT_TABS_BY_TURN[1]).map((t) => navBtn(activeTab, t)).join("")}</div>
     <div class="nav-center">${renderTurnButton(state, activeTab)}</div>
-    <div class="nav-right">${RIGHT_TABS.map((t) => navBtn(activeTab, t)).join("")}</div>
+    <div class="nav-right">${(RIGHT_TABS_BY_TURN[state.turn] || []).map((t) => navBtn(activeTab, t)).join("")}</div>
   </nav>`;
 }
 
@@ -1305,22 +1313,18 @@ function renderTurn1Overview(state) {
     big: `+${craftingToday(state)}`, unit: "fortification a day", used: posted("crafting"), cap: state.rooms.crafting.teacherCapacity, meta: plural(posted("crafting"), "teacher"),
     notes: [posted("crafting") ? null : bad("noTeacher", "No teacher"), teacherNote("crafting"), upgradeNote("crafting")] });
 
-  // the Courtyard: what's ready, the workers that takes, seeds and animals waiting to go in
+  // the Courtyard: today's biggest haul, the crew and what they're on
   const site = (key) => {
     const def = WORK_SITES[key];
-    const side = Object.keys(def.sides)[0];
-    const slots = siteWorkerSlots(state, key);
-    const ready = readySlots(state, side).length;
-    const needed = Math.min(slots, workersNeeded(state, side));
-    const crew = siteCrew(state, side).length;
-    const missing = Math.max(0, needed - crew);
-    const plantable = key === "farm" || key === "barn"
-      ? def.sides[side].reduce((n, kind) => n + Math.min((state.plots[kind] || []).filter((p) => !p.id).length, state.stock[kind] || 0), 0) : 0;
+    const crew = siteCrew(state, key).length;
+    const cap = siteWorkerSlots(state, key);
+    const F = SITE_FOCUS[key][siteFocus(state, key)];
+    const main = Object.entries(siteTotals(state, key)).sort((a, b) => b[1] - a[1])[0];
     return overviewCard({
-      tab: "courtyard", scene: `${key === "barn" ? "farm" : key}@${sceneLevel(state, key)}`, name: def.name, level: levelBadge(state, key),
-      big: `${ready}`, unit: "ready to collect", used: crew, cap: Math.max(needed, crew) || slots,
-      meta: `${crew}/${needed} workers · −${def.stamina} stamina each`,
-      notes: [missing ? bad("siteWorkers", `${plural(missing, "worker")} missing`) : null, plantable ? tip("plant", `🌱 ${plantable} to plant or add`) : null, upgradeNote(key)],
+      tab: courtyardTabOf(key), scene: siteScene(state, key), name: def.name, level: levelBadge(state, key),
+      big: main ? `+${fmtAmount(main[1])}` : "+0", unit: main ? `${goodName(main[0]).toLowerCase()} today` : "nothing today",
+      used: crew, cap, meta: `${crew}/${cap} at work · making ${F.name.toLowerCase()}`,
+      notes: [upgradeNote(key)],
     });
   };
 
@@ -1349,7 +1353,7 @@ function renderTurn1Overview(state) {
     <div class="mini-label ov-section">Facilities</div>
     <div class="ov-grid">${office}${radio}${research}${crafting}</div>
     <div class="mini-label ov-section">Courtyard</div>
-    <div class="ov-grid">${site("farm")}${site("barn")}${site("scrapyard")}${site("greenhouse")}</div>
+    <div class="ov-grid">${site("farm")}${site("barn")}${site("scrapyard")}</div>
     <button class="btn btn-primary btn-big" data-action="resolve-turn">📚 Hold Classes &amp; Advance to Afternoon</button>
   </div>`;
 }
@@ -2903,12 +2907,11 @@ function renderTurn3Summary(state) {
   const start = today?.start.resources;
   const delta = (key) => (start ? (state.resources[key] || 0) - (start[key] || 0) : null);
   const foodDays = pop ? Math.floor(state.resources.food / pop) : 99;
-  const upgradeKeys = [...CLASSROOM_IDS.map((id) => `classroom:${id}`), "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "farm", "barn", "scrapyard", "greenhouse"];
+  const upgradeKeys = [...CLASSROOM_IDS.map((id) => `classroom:${id}`), "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "farm", "barn", "scrapyard"];
   const upgrades = upgradeKeys.filter((key) => !isBoarded(state, key)).filter((key) => {
     const cost = roomUpgradeCostFor(state, key);
     return cost !== null && state.resources.materials >= cost;
   }).length;
-  const techReady = TECH_TREE.some((t) => !state.techUnlocked.includes(t.id) && (!t.requires || state.techUnlocked.includes(t.requires)) && state.resources.research >= t.cost);
   const supplies = overviewCard({
     tab: "floor1", name: "Supplies", style: "--team:#8a6a3f",
     art: `<span class="ov-team-art ov-action-art">${["food", "materials", "medicine", "research"].map((k) => `<span class="ov-action">${ri(k, 16)}<b>${start ? signed(delta(k)) : state.resources[k]}</b></span>`).join("")}</span>`,
@@ -2917,7 +2920,7 @@ function renderTurn3Summary(state) {
     notes: [
       foodDays < 3 ? bad("foodLow", foodDays ? `Food for ${plural(foodDays, "more day")} — farm or scavenge` : "Not enough food for tomorrow — farm or scavenge") : null,
       upgrades ? tip("upgrade", `⬆ ${plural(upgrades, "upgrade")} affordable`) : null,
-      techReady ? tip("tech", `${ri("research")} Enough research for a new tech`) : null,
+      techReady(state) ? tip("tech", `${ri("research")} Enough research for a new tech`) : null,
     ],
   });
 
@@ -3522,14 +3525,15 @@ function pickerCandidates(state, picker) {
     }
     case "farm":
     case "barn":
-    case "scrapyard":
-    case "greenhouse": {
+    case "scrapyard": {
       const { flag, stamina } = WORK_SITES[kind];
+      const F = SITE_FOCUS[kind][siteFocus(state, kind)];
+      const stat = STAT_OF_SUBJECT[F.stat];
       return {
-        role: "student", title: SIDE_WORDS[postKey]?.title || `Assign to the ${WORK_SITES[kind].name}`,
-        focus: FACILITY_YIELD[kind].stat, recToggle: false, recLabel: `the most ${FACILITY_YIELD[kind].unit} a day (${FACILITY_YIELD[kind].stat})`,
+        role: "student", title: `Work at the ${WORK_SITES[kind].name} · ${F.name}`,
+        focus: stat, recToggle: false, recLabel: `the most ${F.name.toLowerCase()} a day (${stat})`,
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c[flag])
-          .map((c) => ({ c, value: -workerYield(kind, c), reason: laterBusyLabel(c) || (c.stamina < stamina ? `Too tired (needs ${stamina} stamina)` : null), hint: `<span class="pk-gain" title="What they'd bring in a day">+<b>${workerYield(kind, c)}</b> ${FACILITY_YIELD[kind].icon}</span>` })),
+          .map((c) => ({ c, value: -workerYield(state, kind, c), reason: laterBusyLabel(c) || (c.stamina < stamina ? `Too tired (needs ${stamina} stamina)` : null), hint: `<span class="pk-gain" title="What they'd bring in a day">+<b>${workerYield(state, kind, c)}</b> ${focusIcon(F)}</span>` })),
       };
     }
     default:
@@ -4290,63 +4294,138 @@ export function renderFloor3(state) {
 }
 
 // ---------- the Courtyard (Turn 1) ----------
+// The Farm, the Barn and the Scrapyard, a screen each (WORK_SITES): today's output (what the room
+// makes on its own, then each worker's share of its focus), the focus to pick, what's in store and
+// the next level, the crew, then the room's own cards — the Farm's crops, the Barn's herd, the
+// Scrapyard's yard.
 
-// Each room's yield line: today's total from its workers, with a per-worker breakdown.
-const FACILITY_YIELD = {
-  farm: { icon: ri("food"), unit: "food", base: FARM_YIELD_FOOD, stat: "STR" },
-  barn: { icon: ri("food"), unit: "food", base: FARM_YIELD_FOOD, stat: "STR" },
-  scrapyard: { icon: ri("materials"), unit: "scrap", base: SCRAPYARD_YIELD_MATERIALS, stat: "DEX" },
-  greenhouse: { icon: ri("medicine"), unit: "medicine", base: GREENHOUSE_YIELD_MEDICINE, stat: "CON" },
+const SITE_ICON = { farm: "🌾", barn: "🐄", scrapyard: "🔩" };
+const siteScene = (state, site) => `${site === "barn" ? "farm" : site}@${sceneLevel(state, site)}`;
+const SITE_INTRO = {
+  farm: ["Grows <b>food</b> on its own every day — more with every level", "Workers make more of its focus: food, ingredients or medicine"],
+  barn: ["The herd gives <b>eggs, milk and mutton</b> on its own", "Animals come from expeditions and events; its level sets how many of a kind it keeps"],
+  scrapyard: ["Turns up <b>scrap</b> on its own every day — more with every level", "Workers dig for scrap, research parts or supplies"],
 };
-
-// The Courtyard's rooms (WORK_SITES), each with one crew: the Farm's fields, the Barn's animals, the
-// Scrapyard's salvage and the Greenhouse's herb beds.
-const SIDE_WORDS = {
-  fields: { side: "🌱 Fields", icon: "🌾", verb: "Plant", none: "No seeds", store: "in the seed shed", ready: "ready to harvest", collect: "Harvest", title: "Work the Fields" },
-  animals: { side: "🐄 Animals", icon: "🥚", verb: "Add", none: "None in the barn", store: "in the barn", ready: "ready to tend", collect: "Tend", title: "Tend the Animals" },
-  salvage: { side: "🔩 Salvage", icon: "🔩", ready: "ready to strip", collect: "Strip", title: "Strip the Salvage" },
-  herbs: { side: "🌿 Herb Beds", icon: "🌱", ready: "ready to pick", collect: "Pick", title: "Tend the Herb Beds" },
-};
-const sideOfKind = (kind) => Object.entries(SIDE_WORDS).find(([side]) => WORK_SITES[siteOfSide(side)].sides[side].includes(kind))[0];
-
-// What a crop/animal makes, e.g. "4 🥔 after 3 days" or "1 🥚 every day".
-function producerYieldText(p) {
-  const product = INGREDIENTS[p.product];
-  const days = p.growDays === 1 ? "day" : `${p.growDays} days`;
-  return p.perennial ? `${p.yield} ${product.icon} ${product.name.toLowerCase()} every ${days}` : `${p.yield} ${product.icon} ${product.name.toLowerCase()} after ${days}`;
+// A resource or pantry ingredient: its icon and its name.
+const goodIcon = (res) => (INGREDIENTS[res] ? INGREDIENTS[res].icon : RESOURCE_ICON[res] || "");
+const goodName = (res) => (INGREDIENTS[res] ? INGREDIENTS[res].name : RESOURCE_NAME[res] || res);
+const fmtAmount = (n) => (Number.isInteger(n) ? `${n}` : n.toFixed(1));
+// A focus's icon: its resource's, or (crops, the herd's goods) its own.
+const focusIcon = (F) => goodIcon(F.res) || F.icon;
+// Today's output by resource or ingredient.
+function siteTotals(state, site) {
+  const got = {};
+  for (const r of siteDay(state, site)) if (r.res) got[r.res] = (got[r.res] || 0) + r.amount;
+  return got;
 }
-// What a group gives: a crop or animal's produce, or a pile or bench's haul.
-const slotYieldText = (kind) => (PRODUCERS[kind] ? producerYieldText(PRODUCERS[kind]) : `${slotDef(kind).what} every ${slotDef(kind).growDays} days`);
+const goodsLine = (got) => Object.entries(got).map(([res, n]) => `<span class="site-good">+${fmtAmount(n)} ${goodIcon(res)}</span>`).join("") || '<span class="muted">nothing</span>';
 
-// The level a site's slot `index` opens at.
-const slotLevel = (site, index) => WORK_SITES[site].slotsByLevel.findIndex((n) => n > index) + 1;
+// Today: the room's own output, each worker's share, the total.
+function siteTodayPanel(state, site) {
+  const rows = siteDay(state, site);
+  const lv = roomLevel(state, site);
+  const line = (label, value, cls = "") => `<span class="site-row-label ${cls}">${label}</span><span class="site-row-value ${cls}">${value}</span>`;
+  const own = rows.filter((r) => !r.who);
+  const work = rows.filter((r) => r.who);
+  const ownLines = site === "barn"
+    ? own.map((r) => line(`${PRODUCERS[r.kind].icon} ${herdSize(state, r.kind)} ${herdSize(state, r.kind) === 1 ? PRODUCERS[r.kind].stockName : PRODUCERS[r.kind].stockPlural}`, `+${fmtAmount(r.amount)} ${goodIcon(r.res)}`)).join("") || line("No animals yet", "—", "muted")
+    : own.map((r) => line(`On its own · Lv ${lv}`, `+${r.amount} ${goodIcon(r.res)}`)).join("");
+  const F = SITE_FOCUS[site][siteFocus(state, site)];
+  const stat = STAT_OF_SUBJECT[F.stat];
+  const workLines = work.map((r) => line(`${esc(shortName(r.who))} <small>${stat} ${r.who.grades[F.stat]}</small>`, r.res ? `+${r.amount} ${goodIcon(r.res)}` : `<span class="muted">${F.res === "crops" ? "no seeds" : "no animals"}</span>`)).join("")
+    || line("Nobody at work", "+0", "muted");
+  const extras = [F.coffee ? `☕ ${Math.round(F.coffee * 100)}% coffee a worker` : null, F.gear ? `⚔ ${Math.round(F.gear * 100)}% gear a worker` : null].filter(Boolean);
+  return `<section class="site-panel site-today">
+    <h4>Today</h4>
+    <div class="site-ledger">
+      ${ownLines}
+      <span class="site-ledger-gap"></span>
+      ${workLines}
+      ${line("Total", goodsLine(siteTotals(state, site)), "site-total")}
+    </div>
+    ${extras.length ? `<div class="site-note">${extras.join(" · ")}</div>` : ""}
+  </section>`;
+}
 
-// One slot of a group: filling (its bar fills a day at a time), ready (full — collected at the end
-// of the turn if a worker covers it), empty (a Farm slot: click to plant or add one from stock) or
-// still locked (opens at a higher level). Click a Farm crop or animal for details.
-function renderSiteSlot(state, site, kind, plot, index, covered) {
-  const def = slotDef(kind);
-  const words = SIDE_WORDS[sideOfKind(kind)];
-  if (!plot) return `<div class="fslot fslot-locked" title="Opens at ${WORK_SITES[site].name} level ${slotLevel(site, index)}">🔒<span>Lv ${slotLevel(site, index)}</span></div>`;
-  if (!plot.id) {
-    const have = state.stock[kind] || 0;
-    return `<button class="fslot fslot-empty ${have ? "" : "fslot-none"}" data-action="plant-plot" data-kind="${kind}" data-index="${index}" title="${have ? `${words.verb}: ${have} ${words.store}` : `${words.none} — find more on expeditions`}">
-      <b>+</b><span>${have ? words.verb : words.none}</span>
+// The focus: what the room's workers make today — click one to switch.
+function siteFocusPanel(state, site) {
+  const on = siteFocus(state, site);
+  const opts = Object.entries(SITE_FOCUS[site]).map(([id, F]) => {
+    const stat = STAT_OF_SUBJECT[F.stat];
+    const what = F.res === "crops" ? `${unlockedCrops(state).length} crop${unlockedCrops(state).length === 1 ? "" : "s"} to harvest` : F.res === "goods" ? `${herdKinds(state).length} kind${herdKinds(state).length === 1 ? "" : "s"} of animal` : "";
+    return `<button class="site-focus-opt ${id === on ? "on" : ""}" data-action="site-focus" data-site="${site}" data-focus="${id}" ${tipAttr({ title: `${F.icon} ${F.name}`, rows: [["Each worker", `${F.base}, +1 per ${F.step} ${stat}`]], notes: [F.desc, ...(F.coffee ? [`${Math.round(F.coffee * 100)}% chance each worker also finds coffee`] : []), ...(F.gear ? [`${Math.round(F.gear * 100)}% chance each worker also finds gear`] : [])] })}>
+      <span class="site-focus-icon">${focusIcon(F)}</span>
+      <span class="site-focus-name">${F.name}${id === on ? ' <i class="site-focus-tag">today</i>' : ""}</span>
+      <span class="site-focus-how">+${F.base} each · ${stat}${what ? ` · ${what}` : ""}</span>
     </button>`;
-  }
-  const ready = isReady(plot);
-  const pct = Math.round((plot.growth / def.growDays) * 100);
-  const status = ready ? "Done" : `day ${plot.growth}/${def.growDays}`;
-  const tip = ready
-    ? covered ? `${def.name} — ready, a worker collects it this turn` : `${def.name} — ready: assign a worker to collect it`
-    : `${def.name} — ready in ${def.growDays - plot.growth} day${def.growDays - plot.growth === 1 ? "" : "s"}`;
-  const tag = site === "farm" || site === "barn" ? "button" : "div"; // only crops and animals open a pop-up
-  return `<${tag} class="fslot ${ready ? `fslot-ready ${covered ? "fslot-covered" : ""}` : ""} ${tag === "div" ? "fslot-static" : ""}" ${tag === "button" ? `data-action="open-plot" data-kind="${kind}" data-index="${index}"` : ""} title="${tip}">
-    <span class="fslot-icon">${def.icon}</span>
-    <span class="plot-bar"><i style="width:${pct}%"></i></span>
-    <span class="fslot-status">${status}</span>
-  </${tag}>`;
+  }).join("");
+  return `<section class="site-panel site-focus">
+    <h4>Workers make</h4>
+    <div class="site-focus-opts">${opts}</div>
+  </section>`;
 }
+
+// In store: the room's goods on hand (food: how many nights it lasts), and what the next level brings.
+const SITE_STORE = { farm: ["food", "medicine", "wheat", "potatoes", "tomatoes", "spices", "coffee"], barn: ["food", "eggs", "milk", "mutton"], scrapyard: ["materials", "research", "canned_meat"] };
+function siteStorePanel(state, site) {
+  const pop = aliveChars(state).length;
+  const have = (res) => (INGREDIENTS[res] ? state.pantry[res] || 0 : state.resources[res] || 0);
+  const lines = SITE_STORE[site].map((res) => `<span class="site-row-label">${goodIcon(res)} ${goodName(res)}</span><span class="site-row-value">${have(res)}${res === "food" && pop ? ` <small>· ${Math.floor(have(res) / pop)} night${Math.floor(have(res) / pop) === 1 ? "" : "s"}</small>` : ""}</span>`).join("");
+  const lv = roomLevel(state, site);
+  const max = roomMaxLevel(site);
+  const next = lv >= max ? null : site === "farm" ? `${FARM_PASSIVE_FOOD[lv]} food a day` : site === "scrapyard" ? `${YARD_PASSIVE_SCRAP[lv]} scrap a day` : `up to ${BARN_HERD_BY_LEVEL[lv]} of a kind`;
+  return `<section class="site-panel site-store">
+    <h4>In store</h4>
+    <div class="site-ledger">${lines}</div>
+    <div class="site-next">${next ? `<b>Lv ${lv + 1}</b> · ${next} · ${SITE_WORKERS_BY_LEVEL[lv]} workers` : "<b>Max level</b>"}</div>
+  </section>`;
+}
+
+// The room's own cards: the Farm's crops (open with seeds), the Barn's herd, the Scrapyard's yard.
+function siteCards(state, site) {
+  const focus = siteFocus(state, site);
+  if (site === "farm") {
+    const crops = FARM_CROPS.map((kind) => {
+      const p = PRODUCERS[kind];
+      const open = (state.stock[kind] || 0) > 0;
+      return `<div class="site-card ${open ? "" : "site-card-locked"} ${open && focus === "crops" ? "site-card-on" : ""}" title="${open ? `${p.name}: Ingredients workers harvest ${INGREDIENTS[p.product].name.toLowerCase()}` : `No ${p.stockPlural.toLowerCase()} yet — found on expeditions`}">
+        <span class="site-card-icon">${pixelIcon(PRODUCER_PIXEL[kind], 32)}</span>
+        <b>${p.name}</b>
+        <span class="site-card-sub">${open ? `${INGREDIENTS[p.product].icon} ${INGREDIENTS[p.product].name}` : "🔒 find seeds"}</span>
+      </div>`;
+    }).join("");
+    const herbs = `<div class="site-card ${focus === "medicine" ? "site-card-on" : ""}" title="Herb beds: Medicine workers pick them">
+        <span class="site-card-icon">${pixelIcon("gh_aloe", 32)}</span>
+        <b>Herb Beds</b>
+        <span class="site-card-sub">${RESOURCE_ICON.medicine} Medicine · ☕</span>
+      </div>`;
+    return `<section class="site-panel site-cards-panel"><h4>Fields <span class="muted">· seeds found on expeditions open a crop for good</span></h4><div class="site-cards">${crops}${herbs}</div></section>`;
+  }
+  if (site === "barn") {
+    const cap = BARN_HERD_BY_LEVEL[roomLevel(state, "barn") - 1];
+    const herd = RANCH_ANIMALS.map((kind) => {
+      const p = PRODUCERS[kind];
+      const have = state.stock[kind] || 0;
+      const kept = herdSize(state, kind);
+      const rate = (kept * p.yield) / p.growDays;
+      return `<div class="site-card ${have ? "" : "site-card-locked"}" title="${p.stockPlural}: ${p.yield} ${INGREDIENTS[p.product].name.toLowerCase()} every ${p.growDays === 1 ? "day" : `${p.growDays} days`} each">
+        <span class="site-card-icon">${pixelIcon(PRODUCER_PIXEL[kind], 32)}</span>
+        <b>${p.stockPlural}</b>
+        <span class="site-card-count">${kept}<small>/${cap}</small>${have > kept ? ` <small class="site-card-wait">+${have - kept} waiting</small>` : ""}</span>
+        <span class="site-card-sub">${have ? `+${fmtAmount(rate)} ${INGREDIENTS[p.product].icon} a day` : "🔒 none yet"}</span>
+      </div>`;
+    }).join("");
+    return `<section class="site-panel site-cards-panel"><h4>Herd <span class="muted">· up to ${cap} of a kind give their goods (more with each level) · animals come from expeditions</span></h4><div class="site-cards">${herd}</div></section>`;
+  }
+  const yard = [["materials", "yard_cars", "Car Wrecks", "Scrap"], ["research", "yard_appliances", "Electronics", "Research parts"], ["supplies", "vending", "Vending Machines", "Canned meat"], ["supplies", "yard_machinery", "Trucks & Machinery", "Gear, now and then"]]
+    .map(([f, icon, name, sub]) => `<div class="site-card ${focus === f ? "site-card-on" : ""}">
+        <span class="site-card-icon">${pixelIcon(icon, 32)}</span>
+        <b>${name}</b>
+        <span class="site-card-sub">${sub}</span>
+      </div>`).join("");
+  return `<section class="site-panel site-cards-panel"><h4>The yard <span class="muted">· lit up: what today's workers go through</span></h4><div class="site-cards">${yard}</div></section>`;
+}
+const PRODUCER_PIXEL = { potatoes: "potatoes", tomatoes: "tomatoes", wheat: "wheat", peppers: "spices", chicken: "chicken", cow: "cow", sheep: "sheep", goat: "goat" };
 
 // Under a worker: their stamina bar, with the part today's work will use up striped, and
 // "120 → 70".
@@ -4359,108 +4438,46 @@ function workerStaminaLine(c, cost) {
   </span>`;
 }
 
-// A group's right-hand pill: seeds or animals in stock at the Farm, a bench's scrap per piece.
-function groupPill(state, kind) {
-  if (PRODUCERS[kind]) {
-    const p = PRODUCERS[kind];
-    const have = state.stock[kind] || 0;
-    return `<span class="farm-group-stock ${have ? "" : "pantry-empty"}" title="${have === 1 ? p.stockName : p.stockPlural} ${SIDE_WORDS[sideOfKind(kind)].store}">${p.stockIcon} ${have}</span>`;
-  }
-  const job = slotDef(kind);
-  const res = job.costRes || "materials";
-  return job.cost ? `<span class="farm-group-stock farm-group-cost" title="Each one uses up ${job.cost} ${RESOURCE_NAME[res]}">−${job.cost} ${ri(res)}</span>` : "";
-}
-
-// One Courtyard room: its banner (the site's wide landscape — the Farm's left end for the Farm, its
-// right end for the Barn), what the crew brings in today with auto-assign, the crew, then the groups
-// top to bottom, each a row of slots.
-const SITE_INTRO = {
-  farm: ["Fields grow wheat, potatoes and tomatoes — <b>food and ingredients</b>", "Plant seeds from the seed shed; a harvest replants itself while seeds last"],
-  barn: ["Chickens lay eggs, cows give milk, sheep give mutton — <b>food and ingredients</b>", "Animals come from expeditions and events"],
-  scrapyard: ["Salvage piles refill on their own and give <b>scrap</b>", "Appliances may hold research, machinery may hide gear"],
-  greenhouse: ["Herb beds grow aloe, echinacea and willow — all of it becomes <b>medicine</b>"],
-};
-const SITE_ICON = { farm: "🌾", barn: "🐄", scrapyard: "🔩", greenhouse: "🌱" };
+// One Courtyard room, the full screen: its banner, then Today | Workers make | In store, the crew,
+// and its cards.
 function renderSiteRoom(state, site) {
   const def = WORK_SITES[site];
-  const side = Object.keys(def.sides)[0];
-  const words = SIDE_WORDS[side];
-  const y = FACILITY_YIELD[site];
-  const crew = siteCrew(state, side);
+  const crew = siteCrew(state, site);
   const slots = siteWorkerSlots(state, site);
-  const ready = readySlots(state, side).length;
-  const needed = workersNeeded(state, side);
-  // only as many open slots as the ready ones still need; the rest are greyed out
-  const open = Math.max(0, Math.min(slots, needed) - crew.length);
-  const covered = new Set(harvestPlan(state, side).map(([kind, i]) => `${kind}:${i}`));
-  const lists = siteSlots(state, site);
-  const total = crew.reduce((sum, c) => sum + workerYield(site, c), 0);
+  const F = SITE_FOCUS[site][siteFocus(state, site)];
+  const stat = STAT_OF_SUBJECT[F.stat];
   const free = state.characters.filter((c) => !hasTurnOneJob(c) && canWorkSite(c, site)).length;
-  const how = {
-    title: `${y.icon} +${total} ${y.unit} today`,
-    rows: crew.length ? crew.map((c) => [esc(shortName(c)), `+${workerYield(site, c)}`]) : [tipNone("Nobody working today", "+0")],
-    total: ["Total", `+${total}`],
-    notes: [`Each worker brings in ${y.base} ${y.unit}, +1 per ${STAT_TUNING.yieldStatStep} ${y.stat}`, `…and collects ${PLOTS_PER_WORKER} ready slots below`, `A day here is their Turn 1 job and costs ${def.stamina} stamina`],
-  };
-  const auto = `<button class="btn btn-sm farm-auto-btn" data-action="site-auto" data-site="${site}" ${open && free ? "" : "disabled"} ${tipAttr({
-    title: "⚡ Auto-assign", rows: [["Ready", `${ready}`], ["Each student works", `${PLOTS_PER_WORKER}`]], total: ["Students needed", `${Math.min(slots, needed)}`],
-    notes: [`Free students only (no Turn 1 job yet) with at least ${def.stamina} stamina, lowest level first`, `${free} free`],
+  const auto = `<button class="btn btn-sm farm-auto-btn" data-action="site-auto" data-site="${site}" ${crew.length < slots && free ? "" : "disabled"} ${tipAttr({
+    title: "⚡ Auto-assign", rows: [["Free to work", `${free}`], ["Slots left", `${Math.max(0, slots - crew.length)}`]],
+    notes: [`Free students only (no Turn 1 job yet) with at least ${def.stamina} stamina, the best at ${F.name.toLowerCase()} (${stat}) first`],
   })}>⚡ Auto</button>`;
-  const groups = def.sides[side].map((kind) => {
-    const item = slotDef(kind);
-    const row = Array.from({ length: def.slotsByLevel[def.slotsByLevel.length - 1] }, (_, i) => renderSiteSlot(state, site, kind, lists[kind][i], i, covered.has(`${kind}:${i}`))).join("");
-    return `<div class="farm-group">
-      <div class="farm-group-head">
-        <span class="farm-group-icon">${item.icon}</span><b>${item.name}</b>
-        <span class="muted">${slotYieldText(kind)}</span>
-        ${groupPill(state, kind)}
-      </div>
-      <div class="farm-slots">${row}</div>
-    </div>`;
-  }).join("");
-  const tiles = crew.map((s) => personTile(s, { remove: `remove-${site}`, cls: "pt-farm", extra: workerStaminaLine(s, def.stamina) })).join("")
-    + `<button class="person-tile pt-farm pt-empty" data-action="open-picker" data-kind="${site}" data-post="${side}" title="Assign someone">${emptySlot(`data-kind="${site}"`)}</button>`.repeat(open)
-    + `<div class="person-tile pt-farm pt-empty pt-off" title="Not needed — nothing more ${words.ready}">${emptySlot(`data-kind="${site}"`)}</div>`.repeat(Math.max(0, slots - crew.length - open));
+  const tiles = crew.map((c) => personTile(c, { remove: `remove-${site}`, cls: "pt-farm", extra: workerStaminaLine(c, def.stamina) })).join("")
+    + `<button class="person-tile pt-farm pt-empty" data-action="open-picker" data-kind="${site}" data-post="${site}" title="Put someone to work">${emptySlot(`data-kind="${site}"`)}</button>`.repeat(Math.max(0, slots - crew.length));
   return `<div class="room room-site room-${site}">
-    ${roomScene(`${site === "barn" ? "farm" : site}@${sceneLevel(state, site)}`, crew, `${def.name}${levelBadge(state, site)}`,
-      roomInfo(`${SITE_ICON[site]} ${def.name}`, SITE_INTRO[site], { works: { stat: y.stat, rows: [[`${y.unit[0].toUpperCase()}${y.unit.slice(1)} each worker brings in`, `${y.base}, +1 per ${STAT_TUNING.yieldStatStep} ${y.stat}`]] } }),
+    ${roomScene(siteScene(state, site), crew, `${def.name}${levelBadge(state, site)}`,
+      roomInfo(`${SITE_ICON[site]} ${def.name}`, SITE_INTRO[site], { works: { stat, rows: Object.values(SITE_FOCUS[site]).map((x) => [`${x.name} — each worker`, `${x.base}, +1 per ${x.step} ${STAT_OF_SUBJECT[x.stat]}`]) } }),
       roomUpgradeButton(state, site))}
-    <div class="stat-row site-row"><span class="stat-pill">${y.icon} <b>+${total}</b> ${y.unit} ${infoDot(how)}</span><span class="site-row-end">${auto}<span class="farm-cost"><b>−${def.stamina}</b> stamina</span></span>${stayToggle(state, site, "nothing's ready for them or they're too tired")}</div>
-    <div class="farm-crew"><div class="person-tiles">${tiles}</div></div>
-    <div class="site-groups">${groups}</div>
-  </div>`;
-}
-
-// The Courtyard (Turn 1): four rooms like a floor's — the Farm, the Barn, the Scrapyard and the
-// Greenhouse.
-export function renderCourtyard(state) {
-  return `<div class="card">
-    ${floorHead(state, "Courtyard")}
-    <div class="floor-grid floor1-grid">${["farm", "barn", "scrapyard", "greenhouse"].map((site) => renderSiteRoom(state, site)).join("")}</div>
-  </div>`;
-}
-
-// Clicking a planted crop or a penned animal: how it's doing, and the option to dig it up / move
-// the animal back to the barn.
-export function renderPlotModal(state, kind, index) {
-  const p = PRODUCERS[kind];
-  const plot = state.plots[kind]?.[index];
-  if (!plot?.id) return "";
-  const side = sideOfKind(kind);
-  const ready = isReady(plot);
-  const covered = harvestPlan(state, side).some(([k, i]) => k === kind && i === index);
-  const left = p.growDays - plot.growth;
-  const status = ready
-    ? covered ? `Ready — a worker ${side === "fields" ? "harvests" : "tends"} it at the end of the turn.` : `Ready — assign a ${side} worker to collect it (each covers ${PLOTS_PER_WORKER}).`
-    : `Ready in ${left} day${left === 1 ? "" : "s"}.`;
-  return `<div class="modal-overlay" data-action="close-plot">
-    <div class="char-card mission-card plot-modal" data-action="noop">
-      <button class="cc-close" data-action="close-plot" title="Close">✕</button>
-      <h3>${p.icon} ${p.name}</h3>
-      <p>${producerYieldText(p)}.</p>
-      <p class="${ready && !covered ? "plot-warn" : "muted"}">${status}</p>
-      <button class="btn btn-sm btn-danger" data-action="clear-plot">${side === "fields" ? "Dig up (the seed is lost)" : "Move back to the barn"}</button>
+    <div class="site-body">
+      ${siteTodayPanel(state, site)}
+      ${siteFocusPanel(state, site)}
+      ${siteStorePanel(state, site)}
     </div>
+    <section class="site-panel site-crew">
+      <h4>Crew <b>${crew.length}/${slots}</b><span class="site-row-end">${auto}<span class="farm-cost"><b>−${def.stamina}</b> stamina each</span>${stayToggle(state, site, "they're too tired")}</span></h4>
+      <div class="farm-crew"><div class="person-tiles">${tiles}</div></div>
+    </section>
+    ${siteCards(state, site)}
+  </div>`;
+}
+
+// The Courtyard (Turn 1), a screen each: the Farm, the Barn and the Scrapyard.
+export const COURTYARD_TABS = { farm: ["farm"], barn: ["barn"], scrapyard: ["scrapyard"] };
+const COURTYARD_TITLE = { farm: "Farm", barn: "Barn", scrapyard: "Scrapyard" };
+export const courtyardTabOf = (site) => Object.keys(COURTYARD_TABS).find((tab) => COURTYARD_TABS[tab].includes(site));
+export function renderCourtyard(state, tab) {
+  return `<div class="card">
+    ${floorHead(state, COURTYARD_TITLE[tab])}
+    <div class="floor-grid floor-solo">${COURTYARD_TABS[tab].map((site) => renderSiteRoom(state, site)).join("")}</div>
   </div>`;
 }
 
@@ -4647,26 +4664,24 @@ export function renderResearch(state) {
 
 // ---------- armory ----------
 
-const ARMORY_SLOT_LABEL = { melee: "🗡 Melee Weapons", ranged: "🏹 Ranged Weapons", armor: "🛡 Armor", accessory: "💍 Accessories" };
-const armoryGroupKey = (it) => (it.slot === "weapon" ? it.category : it.slot);
+const ARMORY_SLOT_LABEL = {
+  accessory: "💍 Accessories",
+  ...Object.fromEntries(Object.entries(WEAPON_TYPES).map(([type, W]) => [`weapon:${type}`, `${W.icon} ${W.name} Weapons`])),
+  ...Object.fromEntries(Object.entries(ARMOR_TYPES).map(([type, A]) => [`armor:${type}`, `${A.icon} ${A.name} Armour`])),
+};
+const armoryGroupKey = (it) => (it.slot === "weapon" ? `weapon:${NIGHT_CLASSES[it.cls]?.weaponType || "melee"}` : it.slot === "armor" ? `armor:${it.armor}` : it.slot);
 
-// An armory row in fixed columns — icon, name, bonus, damage, whose weapon — so every row's numbers
-// sit under each other (armour and accessories leave the weapon columns empty).
-function armoryItemRow(it) {
-  const weapon = it.slot === "weapon";
-  const C = weapon && NIGHT_CLASSES[it.cls];
+// An armory tile: the item's icon in its rarity's frame; the tooltip has the rest.
+function armoryTile(it) {
+  const C = it.slot === "weapon" && NIGHT_CLASSES[it.cls];
   const A = it.slot === "armor" && ARMOR_TYPES[it.armor];
-  return `<div class="armory-item armory-${rarityOf(it)}">
-    <span class="armory-icon">${itemIcon(it)}</span>
-    <span class="armory-name">${itemName(it)}</span>
-    <span class="armory-bonus">${[formatBonuses(it.bonuses), itemPerk(it)].filter(Boolean).join(" · ")}</span>
-    <span class="armory-cell">${weapon ? `⚔ ${it.damage} dmg` : ""}</span>
-    <span class="armory-cell">${C ? `${C.icon} ${C.name}s` : A ? `${A.icon} ${A.name}` : ""}</span>
-  </div>`;
+  const set = it.set && MYTHIC_SETS.find((x) => x.id === it.set);
+  const notes = [C ? `${C.icon} ${C.name}s only` : A ? `${A.icon} ${A.name} armour` : "Anyone", ...(set ? [`Part of the ${esc(set.name)} set`] : [])];
+  return `<span class="armory-tile inv-r-${rarityOf(it)}" ${itemTip(it, notes)}>${itemIcon32(it)}</span>`;
 }
 
 export function renderArmory(state) {
-  const grouped = { melee: [], ranged: [], armor: [], accessory: [] };
+  const grouped = {};
   // (the best first: by rarity, then by damage and bonuses)
   const strength = (it) => RARITY_ORDER.indexOf(rarityOf(it)) * 1000 + (it.damage || 0) * 10 + Object.values(it.bonuses).reduce((a, b) => a + b, 0);
   for (const it of [...state.armory].sort((a, b) => strength(b) - strength(a))) (grouped[armoryGroupKey(it)] || (grouped[armoryGroupKey(it)] = [])).push(it);
@@ -4675,16 +4690,18 @@ export function renderArmory(state) {
     const items = grouped[key] || [];
     return `<div class="subcard">
       <h3>${ARMORY_SLOT_LABEL[key]} <span class="muted">(${items.length})</span></h3>
-      <div class="armory-list">${items.map(armoryItemRow).join("") || '<p class="muted">Nothing in storage right now.</p>'}</div>
+      ${RARITY_ORDER.map((r) => {
+        const tier = items.filter((it) => rarityOf(it) === r);
+        return `<div class="armory-tier"><span class="armory-tier-label rar rar-${r}">${RARITIES[r].name}</span><div class="armory-grid">${tier.map(armoryTile).join("")}</div></div>`;
+      }).join("")}
     </div>`;
   };
 
   return `<div class="card">
     <h2>🗡 Armory</h2>
     <p class="muted">Unequipped gear sitting in the shared armory — equip it on a student from their card's Inventory tab.</p>
-    ${section("melee")}
-    ${section("ranged")}
-    ${section("armor")}
+    <div class="armory-row">${Object.keys(WEAPON_TYPES).map((type) => section(`weapon:${type}`)).join("")}</div>
+    <div class="armory-row">${Object.keys(ARMOR_TYPES).map((type) => section(`armor:${type}`)).join("")}</div>
     ${section("accessory")}
   </div>`;
 }
@@ -4716,11 +4733,13 @@ export function renderItemList() {
   };
   const weapons = `<div class="subcard">
       <div class="il-wtable">
-        <span class="il-wh il-corner">⚔ Weapons ${infoDot({ title: "⚔ Weapons", notes: ["Each class has its own: one of every rarity", "Damage and the class's stat go up with the rarity", "How far they reach is the class's — the weapon doesn't change it"] })}</span>${tiers.map(rarityHead).join("")}
-        ${Object.keys(NIGHT_CLASSES).map((cls) => {
+        <span class="il-wh il-corner">⚔ Weapons ${infoDot({ title: "⚔ Weapons", notes: ["Each class has its own: one of every rarity", "Melee, Medium Range and Long Range, like the armour's Heavy, Medium and Light", "Damage and the class's stat go up with the rarity", "How far they reach is the class's — the weapon doesn't change it"] })}</span>${tiers.map(rarityHead).join("")}
+        ${Object.keys(WEAPON_TYPES).flatMap((type) => Object.keys(NIGHT_CLASSES).filter((cls) => NIGHT_CLASSES[cls].weaponType === type)).map((cls) => {
           const C = NIGHT_CLASSES[cls];
-          const reach = C.weapon === "ranged" ? "the lane" : `${C.reach} square${C.reach === 1 ? "" : "s"}`;
-          return `<span class="il-wclass" ${tipAttr({ title: `${C.icon} ${C.name}`, rows: [["Fights", C.weapon], ["Reaches", reach]], notes: [esc(C.desc)] })}><b>${C.icon} ${C.name}</b><small>${C.weapon} · ${reach}</small></span>`
+          const reach = `${C.reach} square${C.reach === 1 ? "" : "s"}`;
+          const W = WEAPON_TYPES[C.weaponType];
+          const talent = cls === "tank" ? "3 lanes wide" : `${C.reach + 1}`;
+          return `<span class="il-wclass" ${tipAttr({ title: `${C.icon} ${C.name}`, rows: [["Weapon", W.name], ["Reaches", reach], ["With its S talent", talent]], notes: [esc(C.desc)] })}><b>${C.icon} ${C.name}</b><small>${W.name} · ${reach}</small></span>`
             + tiers.map((r) => weaponCell(r === "mythic" ? setWeapon(cls) : WEAPON_TEMPLATES.find((t) => t.cls === cls && t.rarity === r))).join("");
         }).join("")}
       </div>
@@ -4733,7 +4752,7 @@ export function renderItemList() {
         ${Object.keys(ARMOR_TYPES).map((type) => {
           const A = ARMOR_TYPES[type];
           return `<span class="il-wclass" ${tipAttr({ title: `${A.icon} ${A.name} armour`, rows: Object.keys(A.bonuses).map((k) => [k, `+${A.bonuses[k][0]} to +${A.bonuses[k][4]}`]), notes: [`Worn by ${wearers(type)}`] })}><b>${A.icon} ${A.name}</b><small>${wearers(type)}</small></span>`
-            + tiers.map((r) => (r === "mythic" ? `<span class="il-cellstack">${setArmor(type).map(weaponCell).join("")}</span>` : weaponCell(ARMOR_TEMPLATES.find((t) => t.armor === type && t.rarity === r)))).join("");
+            + tiers.map((r) => (r === "mythic" ? `<span class="il-cellstack">${setArmor(type).map((p) => weaponCell(p)).join("")}</span>` : weaponCell(ARMOR_TEMPLATES.find((t) => t.armor === type && t.rarity === r)))).join("");
         }).join("")}
       </div>
     </div>`;
@@ -4819,7 +4838,7 @@ const gearCount = (c) => GEAR_SLOTS(c).filter(Boolean).length;
 function gearPill(c) {
   const slots = GEAR_SLOTS(c);
   const n = slots.filter(Boolean).length;
-  const names = [weaponCategory(c) === "ranged" ? "Ranged" : "Melee", "Armour", "Accessory", "Accessory", "Accessory"];
+  const names = [WEAPON_TYPES[NIGHT_CLASSES[studentClass(c)].weaponType].name, "Armour", "Accessory", "Accessory", "Accessory"];
   const [cls, label] = n === 0 ? ["gear-none", "No"] : n >= slots.length ? ["gear-full", "Full"] : ["gear-some", `Yes · ${n}/${slots.length}`];
   return `<button class="gear-pill ${cls}" data-action="open-card" data-id="${c.id}" data-card-tab="inventory" ${tipAttr({ title: `🎒 ${n}/${slots.length} slots filled`, rows: slots.map((it, i) => [names[i], it ? `${it.icon} ${esc(it.name)}` : "—"]), notes: ["Click to open their inventory and equip them"] })}>${label}</button>`;
 }
@@ -5106,7 +5125,6 @@ function renderInventoryTab(state, c) {
   ];
   const selected = invPick.id === c.id && SLOTS.some(([slot]) => slot === invPick.slot) ? invPick.slot : (SLOTS.find(([slot]) => !get(slot)) || SLOTS[0])[0];
   const statLine = (it) => [it.damage ? `⚔ <b>${it.damage}</b>` : "", Object.entries(it.bonuses).map(([k, v]) => `<b>+${v}</b> ${k}`).join(" "), it.effect ? `<b>${itemPerk(it)}</b>` : ""].filter(Boolean).join(" · ");
-  const itemTip = (it, notes) => tipAttr({ title: `${itemIcon(it)} ${itemName(it)}`, rows: [...(it.damage ? [["Damage", `${it.damage}`]] : []), ...Object.entries(it.bonuses).map(([k, v]) => [k, `+${v}`]), ...(it.effect ? [["Effect", itemPerk(it)]] : [])], notes });
 
   const slots = SLOTS.map(([slot, label, ghost]) => {
     const it = get(slot);
@@ -5199,9 +5217,7 @@ function renderSkillsTab(c) {
     const nodes = path.map((node, i) => {
       const status = skillNodeStatus(c, s, node.tier, path);
       const lit = status === "owned";
-      const why = status === "capped" ? `${SUBJECT_LABEL[s]} stops at ${capLetter} for them — ${node.tier === "S" ? "only their favourite subject reaches S" : "only their favourite and second subject go past B"}`
-        : status === "locked-grade" ? `Needs ${node.tier} in ${SUBJECT_LABEL[s]}` : status === "locked-order" ? `After ${path[i - 1].name}` : status === "locked-points" ? "Needs a skill point" : status === "buyable" ? "Click to learn · 1 point" : "Learned";
-      const tip = tipAttr({ title: `${node.name} · ${node.tier}`, rows: [["Effect", `+${Math.round(effect.per * 100)}% ${effect.what}`]], notes: [esc(node.desc), why] });
+      const tip = tipAttr({ title: `${node.name} · ${node.tier}`, rows: [["Effect", `+${Math.round(effect.per * 100)}% ${effect.what}`]], notes: [esc(node.desc)] });
       return `${i ? `<i class="sk-link ${lit ? "lit" : ""}"></i>` : ""}<button type="button" class="sk-node sk-${status}" ${status === "buyable" ? `data-action="buy-skill" data-id="${c.id}" data-subject="${s}" data-tier="${node.tier}"` : "disabled"} ${tip}>
         <span class="sk-tier grade-letter-${node.tier}">${lit ? "✓" : node.tier}</span>
         <span class="sk-name">${esc(node.name)}</span>
@@ -5213,7 +5229,7 @@ function renderSkillsTab(c) {
         <span class="sk-icon">${pixelIcon(STAT_PIXEL[stat], 16)}</span>
         <b class="sk-stat">${stat}${top ? ' <span class="sk-best">★</span>' : second ? ' <span class="sk-best sk-second">☆</span>' : ""}</b>
         <span class="sk-grade grade-letter-${letter}">${letter}</span>
-        <span class="sk-effect">+${Math.round(effect.per * 100)}% ${effect.what}</span>
+        <span class="sk-effect">${SUBJECT_LABEL[s]}</span>
         <span class="sk-bar"><i style="width:${(owned / Math.max(1, reachable)) * 100}%"></i></span>
       </header>
       <div class="sk-path">${nodes}</div>
@@ -5292,22 +5308,29 @@ export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
   return `
   <div class="modal-overlay" data-action="close-card">
     <div class="cc2 ${c.alive ? "" : "cc2-dead"} ${c.legendary ? "cc2-legendary" : ""}" data-action="noop">
-      <div class="cc2-banner" style="background-image:linear-gradient(90deg, rgba(10, 12, 18, 0) 30%, rgba(10, 12, 18, 0.82) 62%), ${sceneBackground(cardScene(state, c))}">
-        <div class="cc2-figure">
-          <span class="cc2-shadow"></span>
-          ${characterSprite(c, 120)}
-          <button class="cc2-mini cc2-reroll" data-action="reroll-portrait" data-id="${c.id}" title="New look">🎲</button>
-          <button class="cc2-mini cc2-rename" data-action="rename-char" data-id="${c.id}" title="Rename">✏️</button>
+      <div class="cc2-banner" style="background-image:linear-gradient(90deg, rgba(10, 12, 18, 0) 22%, rgba(10, 12, 18, 0.6) 38%, rgba(10, 12, 18, 0.85) 70%), ${sceneBackground(cardScene(state, c))}">
+        <div class="cc2-left">
+          <div class="cc2-actions">
+            <button class="cc2-mini" data-action="rename-char" data-id="${c.id}" title="Rename">✏️</button>
+            <button class="cc2-mini" data-action="reroll-portrait" data-id="${c.id}" title="New look">🎲</button>
+          </div>
+          <div class="cc2-figure">
+            <span class="cc2-shadow"></span>
+            ${characterSprite(c, 120)}
+          </div>
         </div>
         <div class="cc2-who">
           <h3 class="cc2-name">${c.legendary ? "✨ " : ""}${esc(c.name)}</h3>
-          <div class="cc2-tags">
-            <span class="cc2-role">${isTeacher ? "🎓 Teacher" : `🎒 Student · Lv ${level}`}</span>
-            ${statusTag(c, state)}
-            ${!isTeacher && c.favorite ? `<span class="cc2-focus" ${tipAttr({ title: "★ Favourite and ☆ second subject", rows: [[`★ ${SUBJECT_LABEL[c.favorite]}`, "up to S"], [`☆ ${SUBJECT_LABEL[c.secondary]}`, "up to A"], ["Everything else", "up to B"]], notes: ["Picked when they arrived — their talents and best grades"] })}>★ ${SUBJECT_LABEL[c.favorite]} <i>☆ ${SUBJECT_LABEL[c.secondary]}</i></span>` : ""}
-            ${!isTeacher && points ? `<button class="cc2-points" data-action="set-card-tab" data-tab="skills">✨ ${points} skill point${points === 1 ? "" : "s"}</button>` : ""}
-          </div>
-          ${traits ? `<div class="cc2-traits">${traits}</div>` : ""}
+          <span class="cc2-role">${isTeacher ? "🎓 Teacher" : `🎒 Student · Lv ${level}`}</span>
+          ${statusTag(c, state)}
+        </div>
+        <div class="cc2-info">
+          ${isTeacher
+            ? `<span class="cc2-info-label">Teaches</span><span class="cc2-info-value">🌟 ${SUBJECT_LABEL[c.teachSubject]} <b class="grade-letter-${gradeLetter(c.grades[c.teachSubject])}">${gradeLetter(c.grades[c.teachSubject])}</b></span>`
+            : c.favorite ? `<span class="cc2-info-label">Favourite</span><span class="cc2-info-value" ${tipAttr({ title: "★ Favourite subject", rows: [[`★ ${SUBJECT_LABEL[c.favorite]}`, "up to S"]], notes: ["Picked when they arrived — their best grades and talents"] })}><b class="cc2-star">★</b> ${SUBJECT_LABEL[c.favorite]}</span>
+          <span class="cc2-info-label">Second</span><span class="cc2-info-value" ${tipAttr({ title: "☆ Second subject", rows: [[`☆ ${SUBJECT_LABEL[c.secondary]}`, "up to A"], ["Everything else", "up to B"]] })}><b class="cc2-star">☆</b> ${SUBJECT_LABEL[c.secondary]}</span>` : ""}
+          ${isTeacher ? "" : `<span class="cc2-info-label">Talents</span><span class="cc2-info-value cc2-traits">${traits || '<span class="muted">none</span>'}</span>
+          <span class="cc2-info-label">Skill points</span><span class="cc2-info-value">${points ? `<button class="cc2-points" data-action="set-card-tab" data-tab="skills">✨ ${points} to spend</button>` : '<span class="muted">0 — one a level</span>'}</span>`}
         </div>
         <button class="cc-close cc2-close" data-action="close-card" title="Close">✕</button>
       </div>
@@ -5328,7 +5351,7 @@ export function renderApp(state, activeTab, rosterFilter = "student", floaties =
   else if (activeTab === "floor2") content = renderFloor2(state);
   else if (activeTab === "floor3") content = renderFloor3(state);
   else if (activeTab === "citymap" && state.turn === 2 && !state.gameOver && !state.victory) content = renderCityMapScreen(state);
-  else if (activeTab === "courtyard") content = renderCourtyard(state);
+  else if (COURTYARD_TABS[activeTab]) content = renderCourtyard(state, activeTab);
   else if (activeTab === "defense") content = renderDefenseTab(state);
   else if (activeTab === "assault") content = renderAssaultTab(state);
   else if (activeTab === "event") content = renderEventTab(state);
@@ -5343,7 +5366,7 @@ export function renderApp(state, activeTab, rosterFilter = "student", floaties =
   // Classrooms, office wood in the Facilities, a fence in the Courtyard, canvas on the map, steel at night
   // Turn 1's floors carry the student roster down the right of their window (renderTurnOnePanel),
   // like the City Map's and the Night Watch's side panels: each floor is one card, split in two
-  if (state.turn === 1 && !state.gameOver && !state.victory && ["floor1", "floor2", "floor3", "courtyard"].includes(activeTab)) {
+  if (state.turn === 1 && !state.gameOver && !state.victory && ["floor1", "floor2", "floor3", "farm", "barn", "scrapyard"].includes(activeTab)) {
     content = content
       .replace(/^\s*<div class="card">/, '<div class="card"><div class="t1-layout"><div class="t1-main">')
       .replace(/<\/div>\s*$/, () => `</div>${renderTurnOnePanel(state)}</div></div>`);
