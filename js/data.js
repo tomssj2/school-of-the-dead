@@ -34,10 +34,10 @@ export const STAT_LABEL = {
 export const STAT_EFFECTS = {
   STR: "Fights: melee damage, and the strength to hold melee weapons. Also: part of max HP, how much food and scrap an expedition can carry home, and more food from the Farm and the Barn. Half of a team's power.",
   DEX: "Fights: ranged damage, hit chance, dodging hits, and the dexterity to hold ranged weapons. Also: most of max stamina, and stealth — fewer zombies while scouting and fewer ambushes on expeditions. More scrap from the Scrapyard. Half of a team's power.",
-  CON: "Fights: less damage taken, and a better chance to survive going down. Also: most of max HP, faster healing overnight, and more medicine from the Greenhouse. A nurse with a high CON heals more in the Nurse's Office.",
-  INT: "Fights: the defenders' smarts make traps hit harder and walls hold longer. Also: faster learning (more XP from everything) and better odds of finding gear on expeditions. For teachers, research.",
+  CON: "Fights: less damage taken, and a better chance to survive going down. Also: most of max HP, faster healing overnight, and more medicine from the Greenhouse. As the Nurse's Office apprentice, better treatments.",
+  INT: "Fights: the defenders' smarts make traps hit harder and walls hold longer. Also: faster learning (more XP from everything) and better odds of finding gear on expeditions. In the Research Room, research.",
   WIS: "Fights: the most aware defender warns everyone, so the whole team takes less damage. Also: part of max stamina, keeps expedition teams safe, finds more loot, and plans better fortifications in the Crafting Room.",
-  CHA: "Fights: the most charismatic defender leads — the whole team hits harder. Also: finding survivors and a daily lift to the school's mood. For teachers, recruiting.",
+  CHA: "Fights: the most charismatic defender leads — the whole team hits harder. Also: finding survivors and a daily lift to the school's mood. On the radio, recruiting.",
 };
 
 // The same, as a breakdown for the rooms' info dots: [what it does, where]. Keep in step with
@@ -45,7 +45,7 @@ export const STAT_EFFECTS = {
 export const STAT_GUIDE = {
   STR: [["Melee damage", "⚔ Fights"], ["Holding melee weapons", "🗡 Gear"], ["Max HP", "+0.4 a point"], ["Team power (with DEX)", "🧭 Expeditions"], ["Food & scrap carried home", "🧭 Expeditions"], ["Farm & Barn output", "+1 🌾 per 25"]],
   DEX: [["Ranged damage & hit chance", "⚔ Fights"], ["Dodging hits", "⚔ Fights"], ["Holding ranged weapons", "🏹 Gear"], ["Max stamina", "+1.2 a point"], ["Stealth — fewer zombies & ambushes", "🧭 Scouting"], ["Team power (with STR)", "🧭 Expeditions"], ["Scrapyard output", "+1 🔩 per 25"]],
-  CON: [["Less damage taken", "⚔ Fights"], ["Surviving going down", "⚔ Fights"], ["Max HP", "+0.8 a point"], ["Healing overnight", "🌙 Every night"], ["Fewer casualties", "🧭 Expeditions"], ["Greenhouse medicine", "+1 💊 per 25"], ["A nurse heals more", "🏥 Teachers"]],
+  CON: [["Less damage taken", "⚔ Fights"], ["Surviving going down", "⚔ Fights"], ["Max HP", "+0.8 a point"], ["Healing overnight", "🌙 Every night"], ["Fewer casualties", "🧭 Expeditions"], ["Greenhouse medicine", "+1 💊 per 25"], ["Treatments (apprentice)", "🏥 Nurse's Office"]],
   INT: [["Traps hit harder, walls hold longer", "⚔ Fights"], ["XP from everything", "+40% at 100"], ["Finding gear", "🧭 Expeditions"], ["Research", "🧠 Research Room"]],
   WIS: [["Whole team takes less damage", "⚔ Best in squad"], ["Max stamina", "+0.8 a point"], ["Keeping the team safe", "🧭 Expeditions"], ["More loot", "🧭 Expeditions"], ["Planning fortifications", "+1 🛡 per 25"]],
   CHA: [["Whole team hits harder", "⚔ Best in squad"], ["Finding survivors", "🧭 Expeditions"], ["Recruit chance", "📻 Radio Station"], ["School mood each morning", "😊 Best student"]],
@@ -514,11 +514,11 @@ export function hordeComposition(day) {
 // hears the broadcast and asks to join: the level's base chance, plus each teacher posted there
 // and each student on the air today adding their CHA / RADIO_CHA_PER_PERCENT percent.
 export const RADIO_UPGRADES = [
-  { id: "power", name: "Power the antenna", icon: "⚡", cost: null, desc: "On the air as soon as the room is cleared.", baseChance: 0.05 },
-  { id: "range1", name: "Increase range I", icon: "📶", cost: { materials: 40 }, desc: "Reach further across the city.", baseChance: 0.07 },
-  { id: "range2", name: "Increase range II", icon: "📶", cost: { materials: 40, research: 15 }, desc: "Reach the suburbs.", baseChance: 0.09 },
-  { id: "range3", name: "Increase range III", icon: "📶", cost: { materials: 50, research: 25 }, desc: "Reach the whole region.", baseChance: 0.11 },
-  { id: "satellite", name: "Satellite communications", icon: "🛰", cost: { materials: 60, research: 40 }, desc: "Reach the military — a helicopter comes to save the school.", baseChance: 0.11 },
+  { id: "power", name: "Power the antenna", icon: "⚡", cost: null, desc: "On the air as soon as the room is cleared.", baseChance: 0.07 },
+  { id: "range1", name: "Increase range I", icon: "📶", cost: { materials: 40 }, desc: "Reach further across the city.", baseChance: 0.1 },
+  { id: "range2", name: "Increase range II", icon: "📶", cost: { materials: 40, research: 15 }, desc: "Reach the suburbs.", baseChance: 0.12 },
+  { id: "range3", name: "Increase range III", icon: "📶", cost: { materials: 50, research: 25 }, desc: "Reach the whole region.", baseChance: 0.15 },
+  { id: "satellite", name: "Satellite communications", icon: "🛰", cost: { materials: 60, research: 40 }, desc: "Reach the military — a helicopter comes to save the school.", baseChance: 0.16 },
 ];
 export const RADIO_CHA_PER_PERCENT = 20; // CHA 100 on the air adds +5% a day
 
@@ -603,11 +603,10 @@ export const SKILL_TREE = {
 // on a subject — one of these four "sit-down" subjects; PE/Gymnastics only happen in the Gymnasium and Acrobatics —
 // the moment its one teacher is assigned. It reverts to unassigned once that teacher leaves.
 export const CLASSROOM_SUBJECTS = ["Biology", "Physics", "History", "SocialStudies"];
-// ===== The staff (drawn in npcs.js) =====
-// No more teachers: every room has its own NPC doing the job — teaching its subject, coaching,
-// cooking, nursing, researching, crafting, broadcasting. How well is the room's level: the NPC's
-// grade in the job (NPC_GRADE_BY_LEVEL), so upgrading a room is how its teaching gets better.
-// Each classroom teaches one subject, its NPC's.
+// ===== The rooms' NPCs (drawn in npcs.js) =====
+// Every room has its own NPC, who gives quests and guidance — nothing more. What a room does
+// (teaching, cooking, nursing, research, crafting, the radio) comes from its level, plus its
+// apprentice (a level 10 student). Each classroom teaches one subject.
 export const ROOM_NPC = {
   "classroom:1": "frankenstitch", "classroom:2": "quarkwell", "classroom:3": "bickus", "classroom:4": "seen",
   "gym:PE": "mopovich", "gym:Gymnastics": "quinzwheel", cafeteria: "grillsay", infirmary: "brockbride",
@@ -615,7 +614,9 @@ export const ROOM_NPC = {
   farm: "plowson", barn: "cowper", scrapyard: "scrapperson",
 };
 export const CLASSROOM_SUBJECT = { 1: "Biology", 2: "Physics", 3: "History", 4: "SocialStudies" };
-export const NPC_GRADE_BY_LEVEL = [40, 55, 70, 85, 100];
+// How far a classroom or gym takes its students' grade, by its level (an apprentice better at the
+// subject raises it to their own grade). The Crafting Room also works with this much WIS.
+export const ROOM_CAP_BY_LEVEL = [50, 55, 70, 85, 100];
 export const CLASSROOM_IDS = ["1", "2", "3", "4"];
 
 // A new game opens with part of the school still overrun: these rooms (keyed like teacher posts)
@@ -654,8 +655,7 @@ export const CLASSROOM_SEATS_PER_LEVEL = 2;
 export const CLASSROOM_MAX_TEACHERS = 1; // at level 1; an assistant joins at room level 5, teaching the same subject
 
 // Two training rooms, taught like the classrooms: the Gymnasium raises STR (PE) and Acrobatics
-// DEX (Gymnastics) by the room's level bonus + each teacher's bonus a session, up to the best
-// teacher's own grade, or NO_TEACHER_CAP with no teacher (see gymLesson). STR and DEX in turn raise max HP and max stamina.
+// DEX (Gymnastics) by the room's level bonus (+ its apprentice's) a session. STR and DEX in turn raise max HP and max stamina.
 // Students train in c.gymToday = "PE" | "Gymnastics"; teachers are posted to "gym:PE" / "gym:Gymnastics".
 export const GYM_CAPACITY = 4; // student slots per room at level 1
 export const GYM_MAX_TEACHERS = 1; // teacher slots at level 1
@@ -682,7 +682,7 @@ export const RESEARCH_ROOM_INT_PER_POINT = 10;
 export const INFIRMARY_CAPACITY = 4;
 export const INFIRMARY_MAX_TEACHERS = 1;
 export const INFIRMARY_MEDICINE_PER_PATIENT = 3;
-export const INFIRMARY_HEAL_BY_LEVEL = [20, 40, 60, 80, 100]; // HP healed, by room level
+export const INFIRMARY_HEAL_BY_LEVEL = [25, 50, 75, 100, 125]; // HP healed, by room level
 export const INFIRMARY_NURSE_HP_PER_RANK = 5; // per nurse: F +0 · D +5 · C +10 · B +15 · A +20 · S +25
 export const INFIRMARY_BED_REST = 10; // HP, when there's no medicine to spare
 
@@ -752,12 +752,12 @@ export const FARM_CROPS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].fa
 export const RANCH_ANIMALS = Object.keys(PRODUCERS).filter((id) => PRODUCERS[id].facility === "ranch");
 export const FARM_GROUPS = { fields: FARM_CROPS, animals: RANCH_ANIMALS };
 export const FACILITY_PLOTS = { farm: 1, ranch: 1 }; // (older saves' Farm sizes, for migrateState)
-export const COURTYARD_LEVELS = 4;
-export const SITE_WORKERS_BY_LEVEL = [2, 3, 4, 6];
+export const COURTYARD_LEVELS = 5;
+export const SITE_WORKERS_BY_LEVEL = [2, 3, 4, 6, 8];
 export const SITE_STAMINA_COST = 50; // a day's work at any of the three (paid at the end of Turn 1) — to be balanced
-export const FARM_PASSIVE_FOOD = [3, 5, 8, 12]; // food the Farm grows on its own a day, by level
-export const YARD_PASSIVE_SCRAP = [3, 5, 8, 12]; // scrap the Scrapyard turns up on its own a day, by level
-export const BARN_HERD_BY_LEVEL = [2, 3, 4, 6]; // animals of a kind the Barn keeps giving their goods, by level
+export const FARM_PASSIVE_FOOD = [3, 5, 8, 12, 16]; // food the Farm grows on its own a day, by level
+export const YARD_PASSIVE_SCRAP = [3, 5, 8, 12, 16]; // scrap the Scrapyard turns up on its own a day, by level
+export const BARN_HERD_BY_LEVEL = [2, 3, 4, 6, 8]; // animals of a kind the Barn keeps giving their goods, by level
 // What a room's workers make, one thing each focus: `res` (a resource, an ingredient, or "crops" /
 // "goods": the Farm's crops or the herd's goods, a worker each in turn), `base` each, +1 for every
 // `step` of their `stat`. Extras: `coffee` / `gear` — a chance per worker.
@@ -862,22 +862,18 @@ export const SCOUT_ENCOUNTER_HP_LOSS = 50; // taken (never lethal) when a scout 
 // assistant at level 5, so 2 at most), and
 // rooms without students grow a perk
 // instead. Rooms are keyed "classroom:<id>", "gym", "acrobatics", "cafeteria", and so on.
-export const ROOM_MAX_LEVEL = 5; // a room's ROOM_LEVELS entry can set a lower `maxLevel` (the Farm has 4)
-// The stat a room itself gives each student, by its level: the base of every Gymnasium /
-// Acrobatics session (teachers' ranks come on top) and a classroom's standing bonus to its subject.
-export const ROOM_STAT_BONUS_BY_LEVEL = [1, 3, 5, 7, 10];
-// With no teacher the Gymnasium and Acrobatics still train their level bonus, up to this grade (a
-// classroom with no teacher teaches nothing). A teacher raises the limit to their own grade — it
-// never drops below this.
-export const NO_TEACHER_CAP = 50;
+export const ROOM_MAX_LEVEL = 5; // a room's ROOM_LEVELS entry can set a lower `maxLevel` (none does now)
+// The stat a room gives each student a day, by its level: a Gymnasium / Acrobatics session or a
+// classroom's lesson (an apprentice's bonus comes on top), up to ROOM_CAP_BY_LEVEL.
+export const ROOM_STAT_BONUS_BY_LEVEL = [2, 6, 10, 14, 20];
 export const ROOM_TEACHER_LEVELS = [5];
 export const roomUpgradeCost = (level) => 20 * level; // from `level` to the next: 20, 40, 60, 80
 export const ROOM_REPAIR_COST = 10; // scrap per worker slot a facility raid broke
 export const CAFETERIA_RATIONS_BY_LEVEL = [6, 8, 10, 12, 14]; // food the cooks stretch the rations by
-export const RESEARCH_BONUS_BY_LEVEL = [3, 4, 5, 6, 8]; // research a day on top of INT, while anyone works there
+export const RESEARCH_BONUS_BY_LEVEL = [7, 9, 12, 14, 18]; // research the room makes a day, on top of its workers' INT
 // The Headmaster's Office (no levels): students it puts forward for promotion, and survivors who
 // can wait there to join (a newcomer is turned away when it's full — legendary ones always fit).
-export const OFFICE_PROMOTION_SLOTS = 8;
+
 export const OFFICE_RECRUIT_SLOTS = 8;
 export const CRAFTING_BONUS_BY_LEVEL = [0, 1, 2, 3, 4]; // extra fortification per crafter
 // Slots: `base` at level 1 and `per` more each level — or, with `by`, exactly by[level - 1].
@@ -885,39 +881,39 @@ const roomSlots = (label, base, per = 0, by = null) => ({ label, base, per, by }
 // The student slots of the Research Room, the Radio Station and the Crafting Room, by level.
 export const HELPER_SLOTS_BY_LEVEL = [1, 2, 4, 6, 8];
 const training = (name, ref) => ({
-  name, ref, students: roomSlots("Student slots", GYM_CAPACITY, 3), teachers: roomSlots("Teacher slots", GYM_MAX_TEACHERS),
-  perks: [{ label: "Room bonus", by: ROOM_STAT_BONUS_BY_LEVEL, fmt: (v) => `+${v} a session` }],
+  name, ref, students: roomSlots("Student slots", GYM_CAPACITY, 3),
+  perks: [{ label: "Room bonus", by: ROOM_STAT_BONUS_BY_LEVEL, fmt: (v) => `+${v} a session` }, { label: "Trains up to", by: ROOM_CAP_BY_LEVEL, fmt: (v) => `${v}` }],
 });
 // `ref` is how a sentence names the room when "the <name>" doesn't read well.
 export const ROOM_LEVELS = {
   classroom: {
-    name: "Classroom", students: roomSlots("Seats", CLASSROOM_CAPACITY, CLASSROOM_SEATS_PER_LEVEL), teachers: roomSlots("Teachers", CLASSROOM_MAX_TEACHERS),
-    perks: [{ label: "Room bonus", by: ROOM_STAT_BONUS_BY_LEVEL, fmt: (v) => `+${v} to the subject` }],
+    name: "Classroom", students: roomSlots("Seats", CLASSROOM_CAPACITY, CLASSROOM_SEATS_PER_LEVEL),
+    perks: [{ label: "Room bonus", by: ROOM_STAT_BONUS_BY_LEVEL, fmt: (v) => `+${v} to the subject` }, { label: "Teaches up to", by: ROOM_CAP_BY_LEVEL, fmt: (v) => `${v}` }],
   },
   gym: training("Gymnasium"),
   acrobatics: training("Acrobatics", "the Acrobatics room"),
   cafeteria: {
-    name: "Cafeteria", students: roomSlots("Resting seats", CAFETERIA_CAPACITY, 3), teachers: roomSlots("Cooks", CAFETERIA_MAX_TEACHERS),
+    name: "Cafeteria", students: roomSlots("Resting seats", CAFETERIA_CAPACITY, 3),
     perks: [
       { label: "Rations", by: CAFETERIA_RATIONS_BY_LEVEL, fmt: (v) => `+${v} food a day` },
       { label: "Rest", by: CAFETERIA_REST_BY_LEVEL, fmt: (v) => `+${v} stamina` },
     ],
   },
   infirmary: {
-    name: "Nurse's Office", students: roomSlots("Beds", INFIRMARY_CAPACITY, 3), teachers: roomSlots("Nurses", INFIRMARY_MAX_TEACHERS),
+    name: "Nurse's Office", students: roomSlots("Beds", INFIRMARY_CAPACITY, 3),
     perks: [
       { label: "Heal", by: INFIRMARY_HEAL_BY_LEVEL, fmt: (v) => `+${v} HP` },
     ],
   },
   research: {
-    name: "Research Room", students: roomSlots("Assistants", 1, 1, HELPER_SLOTS_BY_LEVEL), teachers: roomSlots("Researchers", RESEARCH_ROOM_TEACHERS),
+    name: "Research Room", students: roomSlots("Assistants", 1, 1, HELPER_SLOTS_BY_LEVEL),
     perks: [{ label: "Bonus research", by: RESEARCH_BONUS_BY_LEVEL, fmt: (v) => `+${v} a day` }],
   },
   radio: {
-    name: "Radio Station", students: roomSlots("On-air students", 1, 1, HELPER_SLOTS_BY_LEVEL), teachers: roomSlots("Teachers", 1),
+    name: "Radio Station", students: roomSlots("On-air students", 1, 1, HELPER_SLOTS_BY_LEVEL),
   },
   crafting: {
-    name: "Crafting Room", students: roomSlots("Helpers", 1, 1, HELPER_SLOTS_BY_LEVEL), teachers: roomSlots("Crafters", 1),
+    name: "Crafting Room", students: roomSlots("Helpers", 1, 1, HELPER_SLOTS_BY_LEVEL),
     perks: [{ label: "Bonus fortification", by: CRAFTING_BONUS_BY_LEVEL, fmt: (v) => `+${v} per crafter` }],
   },
   farm: {

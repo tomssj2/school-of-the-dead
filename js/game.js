@@ -1,12 +1,12 @@
 import {
-  classReach, wideTank, SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME, FARM_CAPACITY, SCRAPYARD_CAPACITY, FORTIFICATION_CAP, FORTIFICATION_PER_POINT, LOCATIONS, STAT_OF_SUBJECT, TRAITS, GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_PROMOTION_SLOTS, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, NO_TEACHER_CAP, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost, CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, EXPEDITION_ENCOUNTERS, ENCOUNTER_CHANCE, ENCOUNTER_EFFECT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED, HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT, HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH, FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, EVENT_CHANCE, EVENTS, TECH_TREE, SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS, ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD, EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE, zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay, RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS, EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL, INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, STARTING_STOCK, WORK_SITES, EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED, EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED, STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS, OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX, MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES, ACCESSORIES, LEGENDARY_TITLES, MAP_MILESTONES, SITE_FOCUS, SITE_WORKERS_BY_LEVEL, FARM_PASSIVE_FOOD, YARD_PASSIVE_SCRAP, BARN_HERD_BY_LEVEL, RANCH_ANIMALS, ROOM_NPC, CLASSROOM_SUBJECT, NPC_GRADE_BY_LEVEL,
+  classReach, wideTank, SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME, FARM_CAPACITY, SCRAPYARD_CAPACITY, FORTIFICATION_CAP, FORTIFICATION_PER_POINT, LOCATIONS, STAT_OF_SUBJECT, TRAITS, GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost, CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, EXPEDITION_ENCOUNTERS, ENCOUNTER_CHANCE, ENCOUNTER_EFFECT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED, HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT, HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH, FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, EVENT_CHANCE, EVENTS, TECH_TREE, SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS, ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD, EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE, zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay, RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS, EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL, INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, STARTING_STOCK, WORK_SITES, EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED, EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED, STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS, OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX, MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES, ACCESSORIES, LEGENDARY_TITLES, MAP_MILESTONES, SITE_FOCUS, SITE_WORKERS_BY_LEVEL, FARM_PASSIVE_FOOD, YARD_PASSIVE_SCRAP, BARN_HERD_BY_LEVEL, RANCH_ANIMALS, ROOM_NPC, CLASSROOM_SUBJECT, ROOM_CAP_BY_LEVEL,
 } from "./data.js";
 import { NPCS } from "./npcs.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, capTeacherGrades, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
   gradeLetter, availableSkillPoints, withTeacherHonorific, stripHonorific, fitName, teachingBonus,
-  bestClassroomSubjectFor, emptyEquipment, gearEffect, rollItem, weaponCategory, studentClass, armorType, maxStaminaFor, skillCount, gradeCap,
+  emptyEquipment, gearEffect, rollItem, weaponCategory, studentClass, armorType, maxStaminaFor, skillCount, gradeCap,
 } from "./characters.js";
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -60,7 +60,6 @@ export function infect(state, c, how) {
   if (!c || !c.alive || c.infection) return false;
   if (Math.random() < techPerk(state, "infectionResist")) return false; // Hygiene: shrugged it off
   if (Math.random() < gearEffect(c, "infection")) return false; // (and a Hand Sanitizer)
-  if (c.role === "teacher" && c.post) setTeacherPost(state, c.id, null);
   c.infection = { dueDay: state.day + INFECTION_DAYS };
   Object.assign(c, { gymToday: false, radioToday: false, researchToday: false, craftingToday: false, infirmaryToday: false, restToday: false, farmToday: false, barnToday: false, scrapyardToday: false, greenhouseToday: false, exploreTeam: null, defending: false });
   clearEntranceCellForChar(state, c.id);
@@ -214,21 +213,31 @@ function rollRecruitRole(state) {
 }
 
 // ---------- the staff ----------
-// A room's NPC (ROOM_NPC), standing in for its teachers in every formula: one "teacher" with every
-// grade at the room's level (NPC_GRADE_BY_LEVEL). None while the room is still boarded up.
+// The rooms run themselves, by their level (their NPCs only give quests and guidance). Who works
+// one on top of that: its apprentice, unless the room is boarded up or they're in quarantine.
 export function roomStaff(state, post) {
-  const id = ROOM_NPC[post];
-  const key = postRoomKey(post);
-  if (!id || isBoarded(state, key)) return [];
-  const grade = NPC_GRADE_BY_LEVEL[Math.min(NPC_GRADE_BY_LEVEL.length, roomLevel(state, key)) - 1];
-  return [{
-    id: `npc:${id}`, npc: id, role: "teacher", alive: true, name: NPCS[id].name, post,
-    grades: Object.fromEntries(SUBJECTS.map((s) => [s, grade])),
-    teachSubject: post.startsWith("classroom:") ? CLASSROOM_SUBJECT[post.split(":")[1]] : null,
-  }];
+  const app = apprenticeOf(state, post);
+  return app && !app.infection && !isBoarded(state, postRoomKey(post)) ? [app] : [];
 }
-// The NPC's grade in its job, for a room key.
-export const npcGrade = (state, key) => NPC_GRADE_BY_LEVEL[Math.min(NPC_GRADE_BY_LEVEL.length, roomLevel(state, key)) - 1];
+
+// ---------- apprentices ----------
+// A top-level student can become one room NPC's apprentice (one each, chosen in the Headmaster's
+// Office). They work the room every day as its second member of staff, with their own grades —
+// a second teacher in a class, a second cook, nurse, researcher… — and stay a student: they still
+// take classes, jobs, expeditions and fights. Not while they're in quarantine.
+export const APPRENTICE_POSTS = Object.keys(ROOM_NPC).filter((p) => p !== "headmaster");
+export const canApprentice = (c) => !!c && c.role === "student" && c.alive && overallLevel(c) >= STUDENT_MAX_LEVEL;
+export const apprenticeOf = (state, post) => state.characters.find((c) => c.alive && c.apprentice === post);
+// Makes a student an NPC's apprentice (`post`: one of APPRENTICE_POSTS), or ends it (null).
+export function setApprentice(state, id, post) {
+  const c = getChar(state, id);
+  if (!canApprentice(c)) return false;
+  if (post && (!APPRENTICE_POSTS.includes(post) || apprenticeOf(state, post))) return false;
+  if (post === (c.apprentice || null)) return false;
+  c.apprentice = post || null;
+  addLog(state, post ? `🎓 ${c.name} is now ${NPCS[ROOM_NPC[post]].name}'s apprentice.` : `${c.name} is no longer an apprentice.`);
+  return true;
+}
 
 export function availableChars(state) {
   // alive, not currently on an exploration team or defending
@@ -534,43 +543,6 @@ export function unseat(state, studentId) {
   c.seat = null;
 }
 
-// teacher posts: 'classroom:<roomId>', 'gym:PE', 'gym:Gymnastics', 'cafeteria', 'infirmary', 'research',
-// 'crafting', or null. Each room holds as many teachers as its level allows.
-// A classroom room has no subject ("Classroom N") until its first teacher is assigned, at which
-// point it takes on whichever classroom subject that teacher is best qualified to teach. It
-// reverts to unassigned the moment its last teacher leaves, so rooms can be freely repurposed.
-export function setTeacherPost(state, teacherId, post) {
-  const t = getChar(state, teacherId);
-  if (!t || t.role !== "teacher") return false;
-  if (post && (isBoarded(state, post) || t.infection)) return false;
-  const oldPost = t.post;
-
-  // capacity checks
-  if (post) {
-    const room = roomState(state, postRoomKey(post));
-    if (!room) return false;
-    const count = state.characters.filter((c) => c.role === "teacher" && c.post === post).length;
-    if (count >= room.teacherCapacity) return false;
-  }
-
-  t.post = post;
-
-  // Leaving a classroom: if no teacher is left there, the room goes back to unassigned.
-  if (oldPost && oldPost.startsWith("classroom:") && oldPost !== post) {
-    const oldRoom = state.rooms.classrooms[oldPost.split(":")[1]];
-    const stillStaffed = state.characters.some((c) => c.role === "teacher" && c.alive && c.post === oldPost);
-    if (oldRoom && !stillStaffed) oldRoom.subject = null;
-  }
-
-  // Joining an unassigned classroom: it takes on this teacher's best classroom subject.
-  if (post && post.startsWith("classroom:")) {
-    const room = state.rooms.classrooms[post.split(":")[1]];
-    if (room && !room.subject) room.subject = bestClassroomSubjectFor(t);
-  }
-
-  return true;
-}
-
 // `side` is "PE" (the Gymnasium) or "Gymnastics" (Acrobatics) — one a day — or false to leave.
 export function setGymToday(state, studentId, side) {
   const c = getChar(state, studentId);
@@ -619,12 +591,15 @@ export function workerYield(state, site, c, focus = siteFocus(state, site)) {
 
 // Fortification one crafter adds from `scrap` scrap (they use up to 4 a day) and their WIS (the
 // History teacher knows how castles were held), plus the room's level bonus.
+// The Crafting Room crafts on its own too (WIS at ROOM_CAP_BY_LEVEL), and its apprentice with theirs.
+export const craftingCrew = (state) => isBoarded(state, "crafting") ? []
+  : [{ room: true, name: "The Crafting Room", grades: { History: ROOM_CAP_BY_LEVEL[roomLevel(state, "crafting") - 1] } }, ...roomStaff(state, "crafting")];
 export function crafterGain(state, crafter, scrap) {
   return Math.round((scrap + crafter.grades.History / 20) * 0.8) + CRAFTING_BONUS_BY_LEVEL[roomLevel(state, "crafting") - 1];
 }
 
-// The Radio Station's recruiters: its NPC and the students on the air today.
-export const radioCrew = (state) => [...roomStaff(state, "radio"), ...state.characters.filter((c) => c.alive && !c.infection && c.radioToday)];
+// The Radio Station's recruiters: its apprentice and the students on the air today.
+export const radioCrew = (state) => [...new Set([...roomStaff(state, "radio"), ...state.characters.filter((c) => c.alive && !c.infection && c.radioToday)])];
 // What one recruiter adds to the daily recruit chance, by their CHA.
 export const radioCrewBonus = (c) => c.grades.SocialStudies / RADIO_CHA_PER_PERCENT / 100;
 // The Radio Station's daily chance that a survivor hears the broadcast and asks to join: the
@@ -854,7 +829,6 @@ export const ROOM_KEYS = [
   "gym", "acrobatics", "cafeteria", "infirmary", "research", "crafting", "radio", "farm", "barn", "scrapyard",
 ];
 // The Headmaster's Office's two sides.
-export const promotionSlots = () => OFFICE_PROMOTION_SLOTS;
 export const recruitSlots = () => OFFICE_RECRUIT_SLOTS;
 // A survivor asks to join: they wait in the Headmaster's Office — or, when every recruit slot is
 // taken, they're turned away (a legendary survivor always finds room). Returns whether they stayed.
@@ -1035,6 +1009,8 @@ export function siteDay(state, site, crew = siteCrew(state, site)) {
   const focus = siteFocus(state, site);
   const F = SITE_FOCUS[site][focus];
   const pool = F.res === "crops" ? unlockedCrops(state) : F.res === "goods" ? herdKinds(state) : null;
+  const app = apprenticeOf(state, site);
+  if (app && !app.infection && !crew.includes(app)) crew = [...crew, app];
   crew.forEach((c, i) => {
     const amount = workerYield(state, site, c, focus);
     if (!pool) rows.push({ who: c, res: F.res, amount });
@@ -1099,9 +1075,6 @@ export function dishMultiplier(state, effectKey) {
   }, 1);
 }
 
-export function cooksOnDuty(state) {
-  return roomStaff(state, "cafeteria");
-}
 
 export function canCookDish(state, dish) {
   if (state.dishesToday.includes(dish.id)) return false;
@@ -1122,7 +1095,7 @@ export function cookDish(state, dishId) {
 
 // ---------- student levels ----------
 // Experience from what a student does (LEVEL_XP) raises their level, up to STUDENT_MAX_LEVEL —
-// where they can be promoted to teacher.
+// where they can become a room NPC's apprentice.
 export function gainExp(state, c, amount) {
   if (!c || !c.alive || c.role !== "student" || amount <= 0) return;
   c.level = c.level || 1;
@@ -1164,7 +1137,9 @@ export const fortifyMult = (state) => 1 + state.fortification * FORTIFICATION_PE
 
 
 export function dishCapacity(state) {
-  return cooksOnDuty(state).length * (1 + techPerk(state, "extraDishesPerCook"));
+  // the Cafeteria serves one a day, its apprentice one more
+  if (isBoarded(state, "cafeteria")) return 0;
+  return (1 + roomStaff(state, "cafeteria").length) * (1 + techPerk(state, "extraDishesPerCook"));
 }
 
 export function exploreStaminaCost(state) {
@@ -1274,9 +1249,9 @@ export function assignTeamSlot(state, studentId, teamIndex, role) {
   return setExploreTeam(state, studentId, teamIndex);
 }
 
-// One research point per RESEARCH_ROOM_INT_PER_POINT of the combined INT of the teachers posted there
-// and the students assisting today, plus the room's level bonus while anyone is working there.
-export const researchCrew = (state) => [...roomStaff(state, "research"), ...state.characters.filter((c) => c.alive && !c.infection && c.researchToday)];
+// The room's level bonus, plus one research point per RESEARCH_ROOM_INT_PER_POINT of the combined
+// INT of its apprentice and the students assisting today.
+export const researchCrew = (state) => [...new Set([...roomStaff(state, "research"), ...state.characters.filter((c) => c.alive && !c.infection && c.researchToday)])];
 // Fortification a student helping in the Crafting Room adds today.
 export const craftHelpGain = (c) => Math.floor(c.grades.History / CRAFT_HELP_WIS_PER_POINT);
 
@@ -1296,8 +1271,8 @@ function setRoomJob(state, studentId, flag, roomKey, value) {
 export const setResearchToday = (state, id, value) => setRoomJob(state, id, "researchToday", "research", value);
 export const setCraftingToday = (state, id, value) => setRoomJob(state, id, "craftingToday", "crafting", value);
 export function researchRoomYield(state) {
+  if (isBoarded(state, "research")) return 0;
   const researchers = researchCrew(state);
-  if (!researchers.length) return 0;
   const totalInt = researchers.reduce((sum, c) => sum + c.grades.Physics, 0);
   return Math.floor((Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) + RESEARCH_BONUS_BY_LEVEL[roomLevel(state, "research") - 1]) * (1 + techPerk(state, "researchYield")));
 }
@@ -1309,12 +1284,11 @@ export function classroomLesson(state, roomId) {
   const room = state.rooms.classrooms[roomId];
   const subject = CLASSROOM_SUBJECT[roomId];
   const teachers = roomStaff(state, `classroom:${roomId}`);
-  // Unlike the training rooms, a classroom with no teacher teaches nothing.
-  return lessonFrom(teachers.length ? subject : null, teachers, room?.level || 1, techPerk(state, "classXp"), techPerk(state, "gradeCap"));
+  return lessonFrom(subject, teachers, room?.level || 1, techPerk(state, "classXp"), techPerk(state, "gradeCap"));
 }
 // A day's teaching in `subject` from these teachers in a room of this level: its gain in grade
 // points (the level bonus + each teacher's, times 1 + `boost`) and the ceiling nobody learns past
-// — the best teacher's grade, or NO_TEACHER_CAP without one (and never below it), plus `capBonus`.
+// — the room's ROOM_CAP_BY_LEVEL, or an apprentice's grade if that's higher, plus `capBonus`.
 function lessonFrom(subject, teachers, level, boost, capBonus = 0) {
   if (!subject) return { subject: null, gain: 0, ceiling: 0, levelBonus: 0, teachers };
   const levelBonus = ROOM_STAT_BONUS_BY_LEVEL[level - 1];
@@ -1322,7 +1296,7 @@ function lessonFrom(subject, teachers, level, boost, capBonus = 0) {
   return {
     subject,
     gain: Math.round(base * (1 + boost)),
-    ceiling: Math.min(100, Math.max(NO_TEACHER_CAP, ...teachers.map((t) => t.grades[subject])) + capBonus),
+    ceiling: Math.min(100, Math.max(ROOM_CAP_BY_LEVEL[level - 1], ...teachers.map((t) => t.grades[subject])) + capBonus),
     levelBonus,
     teachers,
   };
@@ -1367,7 +1341,7 @@ export function resolveTraining(state) {
   }
 
   // training — the Gymnasium raises STR and Acrobatics DEX, taught like a class (gymLesson): the
-  // room's level bonus + each teacher's, up to the teacher's own grade (NO_TEACHER_CAP without one).
+  // room's level bonus + each teacher's, up to the teacher's own grade (or the room's limit).
   // A higher STR / DEX raises max HP / max stamina too (refreshMaxStats).
   for (const side of ["PE", "Gymnastics"]) {
     const students = state.characters.filter((c) => c.gymToday === side && c.alive);
@@ -1389,11 +1363,10 @@ export function resolveTraining(state) {
   }
 
   // cafeteria — cooks stretch the rations (their dishes are served on demand, see cookDish).
-  const cooks = cooksOnDuty(state);
-  if (cooks.length) {
+  if (!isBoarded(state, "cafeteria")) {
     const rations = CAFETERIA_RATIONS_BY_LEVEL[roomLevel(state, "cafeteria") - 1];
     state.resources.food += rations;
-    addLog(state, `${cooks.map((c) => c.name).join(" & ")} stretch${cooks.length === 1 ? "es" : ""} the rations (+${rations} food).`);
+    addLog(state, `The Cafeteria stretches the rations (+${rations} food).`);
   }
 
   // nurse's office — each patient is either healed (HP, for medicine; a nurse's Biology adds on top,
@@ -1424,7 +1397,7 @@ export function resolveTraining(state) {
   gainExpAll(state, state.characters.filter((c) => c.researchToday && c.alive), LEVEL_XP.turnOne);
 
   // crafting
-  for (const crafter of roomStaff(state, "crafting")) {
+  for (const crafter of craftingCrew(state)) {
     if (state.resources.materials <= 0) break;
     const use = Math.min(state.resources.materials, 4);
     state.resources.materials -= use;
@@ -3269,20 +3242,6 @@ function checkGameOver(state) {
 
 // ---------- headmaster actions ----------
 
-export const PROMOTE_LEVEL_THRESHOLD = STUDENT_MAX_LEVEL; // only students at the top level can become teachers
-
-// A top-level student the Headmaster's Office puts forward — unless they've been marked to stay a student.
-// (Promotion to teacher is gone: the rooms' NPCs are the staff. Level-10 students will become
-// apprentices instead.)
-export const promotable = () => false;
-// Keep a student a student for good (they leave the promotion list), or put them back on it.
-export function setNeverPromote(state, id, value) {
-  const c = getChar(state, id);
-  if (!c || c.role !== "student") return false;
-  c.neverPromote = !!value;
-  addLog(state, value ? `${c.name} will stay a student — they won't be put forward for promotion.` : `${c.name} can be put forward for promotion again.`);
-  return true;
-}
 
 export function expelCharacter(state, id) {
   const idx = state.characters.findIndex((c) => c.id === id);
@@ -3294,24 +3253,6 @@ export function expelCharacter(state, id) {
   return true;
 }
 
-export function promoteToTeacher(state, id) {
-  const c = getChar(state, id);
-  if (!c || c.role !== "student") return false;
-  if (overallLevel(c) < PROMOTE_LEVEL_THRESHOLD) return false;
-  unseat(state, id);
-  c.role = "teacher";
-  c.post = null;
-  c.exploreTeam = null;
-  c.defending = false;
-  clearEntranceCellForChar(state, id);
-  // Their teaching specialty becomes whatever subject they excelled in as a student.
-  c.teachSubject = SUBJECTS.reduce((best, s) => (c.grades[s] > c.grades[best] ? s : best), SUBJECTS[0]);
-  capTeacherGrades(c);
-  c.traits = [];
-  c.name = withTeacherHonorific(c.name, c.gender);
-  addLog(state, `${c.name} has been promoted to teacher!`);
-  return true;
-}
 
 export function acceptRecruit(state, index) {
   const recruit = state.recruitPool[index];

@@ -207,13 +207,14 @@ function person(g, cfg) {
 }
 
 // ---------- the cast ----------
-// Each: the room it runs, name, nickname, who it's inspired by, bubble lines, its colours (`look`)
+// Each: the room it runs, name, nickname, who it's inspired by, bubble lines, hover-card lore, its colours (`look`)
 // and its own keys (`extra`: [colour, group, rim-shaded]), and its drawing.
 
 export const NPCS = {
   doubledoor: {
     room: "headmaster", name: "Albus Doubledoor", nickname: "The Magician", ref: "Dumbledore, with a stage magician's tricks",
     lines: ["Pick a card. Any card. …Is it the three of zombies?", "It is our choices, not our barricades, that show what we truly are. …Still, build the barricades.", "A magician never reveals his secrets. Or his escape route."],
+    lore: ["The Headmaster. Nobody remembers him being hired — he was just always here.", "Pulls a coin from behind your ear in the middle of a zombie attack.", "Insists it's real magic. It's not real magic."],
     look: { skin: "#f0d0b6", hair: "#e4e5ec", eye: "#5a86c0", main: "#2a2734", sleeve: "#2a2734", shirt: "#efeaf2", accent: "#6b3fa0", pants: "#2e2b38", shoes: "#1a1820", glasses: "#d4a83a" },
     extra: { 1: ["#8a5ac8", "body"], 2: ["#f6f6f8", "prop", true], 3: ["#d23838"] },
     draw(g) {
@@ -273,6 +274,7 @@ export const NPCS = {
   mopovich: {
     room: "gym", name: "Coach Anatolio Mopovich", nickname: "Mister Mop", ref: "Anatoly, the undercover-cleaner powerlifter",
     lines: ["Excuse me… can I clean here?", "This bar is dirty. I will just… move it. 500 kilo. Okay.", "Zombie is very heavy? Hm. Light weight.", "You do bench press? Very nice. I do mop."],
+    lore: ["We thought he was just the janitor, but he's actually the gym teacher.", "We keep hearing him talking to Samantha, but nobody knows who she is…", "Legend says he can lift a truck!"],
     look: { skin: "#eec09a", hair: "#5a4636", eye: "#3d5f7a", main: "#5c7187", sleeve: "#5c7187", shirt: "#e9edf2", pants: "#5c7187", shoes: "#2a2522", glasses: "#15131a", hat: "#47556a", accent: "#c43c3c" },
     extra: { 1: ["#dcdfe5"], 2: ["#9ba1aa"], 3: ["#f2c230", "prop", true], 4: ["#b8891a"], 5: ["#7fb6dc"] },
     draw(g) {
@@ -337,6 +339,7 @@ export const NPCS = {
   quinzwheel: {
     room: "acrobatics", name: "Miss Harleen Quinzwheel", nickname: "Sweet Pudding", ref: "Harley Quinn (Margot Robbie, Suicide Squad)",
     lines: ["Ooh, a zombie! Wanna see a backflip?", "Rule one, kiddos: if it bites, you bounce!", "Dodging's just dancing with extra screaming!"],
+    lore: ["Ran away from the circus to teach gymnastics — or so she says.", "Laughs every time a zombie lunges at her. It's a little worrying.", "Nobody has ever seen her walk. She cartwheels everywhere."],
     look: { skin: "#f9e4da", hair: "#f4dc90", eye: "#3d7ad8", lips: "#c8233a", main: "#c8283c", sleeve: "#c8283c", shirt: "#f6f6f8", accent: "#c8283c", socks: "#2a1e2a", shoes: "#f2f2f4" },
     extra: {
       5: ["#f06292", "hair", true], 6: ["#4f7fe6", "hair", true], 7: ["#2f5fd0", "body", true], 8: ["#1e1a22", "body"],
@@ -402,6 +405,7 @@ export const NPCS = {
   frankenstitch: {
     room: "Biology", name: "Dr. Viktor Frankenstitch", nickname: "It's Alive", ref: "Victor Frankenstein",
     lines: ["Bitten? Marvelous! Hold still, I want notes.", "Steve says hello. Steve is a hand.", "A body is just a machine that hasn't given up yet!"],
+    lore: ["Got into Biology to cure diseases. Stayed for the zombies.", "Keeps a twitching hand in a jar and calls it Steve.", "Swears every stitch on his coat is his own work."],
     look: { skin: "#ecd5c3", hair: "#f2f2f6", eye: "#4a8a4a", main: "#f1f2f0", sleeve: "#f1f2f0", shirt: "#3b4a3e", accent: "#7a1e2a", pants: "#3a3f4b", shoes: "#1d1d22", glasses: "#c9a227" },
     extra: { 1: ["#9fdcef"], 2: ["#d5edf4", "prop", true], 3: ["#7cc35a"], 4: ["#6f8c5c"], 5: ["#2c332c", "sleeve", true], 6: ["#b58d86", "skin"], 7: ["#a3262a", "body"] },
     draw(g) {
@@ -464,8 +468,9 @@ export const NPCS = {
   },
 
   quarkwell: {
-    room: "Physics", name: "Dr. Sheldon Quarkwell", nickname: "Bazinga", ref: "Sheldon Cooper",
-    lines: ["Aim for the knee. 47 degrees. Basic physics.", "That's my spot.", "Critical hit. Bazinga."],
+    room: "Physics", name: "Dr. Sheldon Quarkwell", nickname: "Zombinga", ref: "Sheldon Cooper",
+    lines: ["Aim for the knee. 47 degrees. Basic physics.", "That's my spot.", "Critical hit. Zombinga."],
+    lore: ["Has a three-hour lecture on why zombies break the laws of thermodynamics.", "Worked out the perfect angle to hit a zombie's knee: 47 degrees.", "Nobody sits in his spot. Not even the zombies."],
     look: { skin: "#f4d4b8", hair: "#4a2f1e", eye: "#2e5f92", main: "#c62f2f", sleeve: "#c62f2f", pants: "#a08a5a", shoes: "#e9e9ec" },
     extra: { 1: ["#e9ebef", "sleeve", true], 2: ["#3c4a6e", "sleeve", true], 3: ["#f2c230", "body"], 4: ["#f4f4f6", "prop", true] },
     draw(g) {
@@ -503,6 +508,7 @@ export const NPCS = {
   bickus: {
     room: "History", name: "Diggus Bickus", nickname: "'Tis But A Scratch", ref: "the Romans of Monty Python",
     lines: ["Veni, vidi, barricadi.", "Romanes eunt domus? Write it out a hundred times!", "'Tis but a scratch. I've seen worse at Carthage.", "Is something funny about my name, legionary?"],
+    lore: ["Insists he's a direct descendant of a Roman senator.", "Thinks about the Roman Empire at least once a day. Usually more.", "Giggle at his name and you'll be writing lines until graduation."],
     look: { skin: "#e2b088", hair: "#2e2018", eye: "#4a2e1e", main: "#7a2632", sleeve: "#eceae4", shirt: "#eceae4", accent: "#b8262e", pants: "#a8946a", shoes: "#7a5230", socks: "#f2f2f2" },
     extra: { 6: ["#7f9c3a", "hair", true], 7: ["#e8c14a"], 8: ["#efe3c2", "prop", true], 9: ["#c9b48a"] },
     draw(g) {
@@ -554,6 +560,7 @@ export const NPCS = {
   seen: {
     room: "SocialStudies", name: "Ms. Sydney Seen", nickname: "Good Jeans", ref: "a nod to Sydney Sweeney's glam",
     lines: ["You've got this, sweetheart. I believe in you.", "Nobody gives up on my watch. Nobody.", "A good speech beats a barricade. Well… almost."],
+    lore: ["The kindest teacher in the school — she remembers every student's birthday.", "Can talk anyone into anything. She's still working on the zombies.", "Half the new recruits say she's the reason they stayed."],
     look: { skin: "#f7d9c4", hair: "#efcf7a", eye: "#4a8ad8", lips: "#c42d3c", main: "#5a82ba", sleeve: "#5a82ba", shirt: "#f6f6f8", accent: "#e04a5a", pants: "#3f6aa8", shoes: "#c42d3c" },
     extra: { 1: ["#7aa2d6", "legs"] },
     draw(g) {
@@ -611,6 +618,7 @@ export const NPCS = {
   grillsay: {
     room: "cafeteria", name: "Chef Gordana Grillsay", nickname: "Zombie's Kitchen", ref: "Gordon Ramsay, as a lunch lady",
     lines: ["This mystery meat is RAW! It's still MOVING!", "Eat your vegetables, you donkey… sweetheart. Eat them, please.", "Finally, some good food!"],
+    lore: ["Ran a famous restaurant before she took over the school cafeteria.", "Screams at the food, the zombies, and the food that turns into zombies.", "Secretly slips the hungriest kids an extra portion."],
     look: { skin: "#f3cbae", hair: "#efcb6a", eye: "#3d6fa0", lips: "#cc2f3e", main: "#f6f6f8", sleeve: "#eeeef1", shirt: "#ffffff", accent: "#d23c3c", pants: "#2a2a30", shoes: "#1a1a1e" },
     extra: { 1: ["#ffffff", "body", true], 2: ["#fbfbfd", "hat", true], 3: ["#d9dce3"], 5: ["#c7cbd2", "prop", true], 6: ["#c58aa6", "skin"], 7: ["#d23c3c", "hair"] },
     draw(g) {
@@ -680,6 +688,7 @@ export const NPCS = {
   brockbride: {
     room: "infirmary", name: "Nurse Joy Brockbride", nickname: "The Clone", ref: "Nurse Joy (Pokémon)",
     lines: ["Welcome to the Nurse's Office! Shall I heal your students?", "♪ Ding-ding-di-ding! ♪ Your students are fully healed!", "My sisters? Oh, they're everywhere."],
+    lore: ["Always smiling, always bowing, always fully stocked.", "There's a nurse who looks exactly like her in every hospital in town.", "Nobody has ever seen two of them in the same room."],
     look: { skin: "#fce6da", hair: "#f37fb3", eye: "#4a90d8", lips: "#d0607a", main: "#f6a9c6", sleeve: "#f6a9c6", shirt: "#ffffff", accent: "#d23838", pants: "#f6a9c6", socks: "#ffffff", shoes: "#e86aa0" },
     extra: { 1: ["#ef5f92"], 2: ["#cfeaf3", "prop", true], 3: ["#ffd3e4", "prop", true], 5: ["#bfc7d2", "prop", true], 9: ["#f2dcb5"] },
     draw(g) {
@@ -747,6 +756,7 @@ export const NPCS = {
   whiteboard: {
     room: "research", name: "Mr. Walter Whiteboard", nickname: "The One Who Knows", ref: "Walter White",
     lines: ["Say my name. …No, the research. Say the research.", "I am not in danger. I am the danger.", "99.1% pure research. Science!"],
+    lore: ["Used to be the quiet chemistry teacher nobody noticed.", "Now he runs the Research Room like it's an empire.", "His research is 99.1% pure. Don't ask about the other 0.9%."],
     look: { skin: "#ecc3a2", hair: "#3a2f28", eye: "#59616f", main: "#f1c42a", sleeve: "#f1c42a", pants: "#f1c42a", shoes: "#25252a", glasses: "#1b1a1f" },
     extra: { 1: ["#48d0f5"], 2: ["#d8f6ff", "prop", true], 3: ["#b7f2ff"], 4: ["#2a2a30", "prop", true] },
     draw(g) {
@@ -805,6 +815,7 @@ export const NPCS = {
   gyber: {
     room: "crafting", name: "Mac Gyber", nickname: "The ToolKit", ref: "MacGyver",
     lines: ["Give me a paperclip, some gum and five minutes.", "I don't like guns. Hand me that duct tape.", "It's not a wall, it's a solution."],
+    lore: ["Got out of the first night of the outbreak with a paperclip and a rubber band.", "Has never used a gun. Has never needed one.", "The roll of duct tape on his belt never seems to run out."],
     look: { skin: "#e9b98f", hair: "#6e4424", eye: "#4a2e1e", main: "#7a4628", sleeve: "#7a4628", shirt: "#d9dde3", pants: "#40618c", shoes: "#4a2e1c" },
     extra: { 1: ["#d23030", "prop", true], 2: ["#b9c0ca", "prop", true], 3: ["#e6eaef", "prop", true] },
     draw(g) {
@@ -850,6 +861,7 @@ export const NPCS = {
   bulldog: {
     room: "radio", name: "Dale Bulldog", nickname: "Mr. Townwide", ref: "Pitbull, Mr. Worldwide",
     lines: ["DALE! Mr. Townwide on the air, reaching every corner of the block!", "New survivor joined the party! DALE!", "From the school to the city — and someday? The WORLD."],
+    lore: ["The voice of the school radio — and, if you ask him, of the whole town.", "Never takes off his sunglasses. Not even at night.", "Every broadcast starts with \"DALE!\". Every single one."],
     look: { skin: "#d6a273", hair: "#2a2220", eye: "#3a2618", main: "#eeeef0", sleeve: "#eeeef0", shirt: "#1f1f24", accent: "#c8283c", pants: "#eeeef0", shoes: "#6a4125", glasses: "#121216" },
     extra: { 1: ["#a47a58", "skin"], 2: ["#f2c94c", "prop", true], 3: ["#ffffff"] },
     draw(g) {
@@ -892,6 +904,7 @@ export const NPCS = {
   plowson: {
     room: "farm", name: "Jeremy Plowson", nickname: "Jezza", ref: "Jeremy Clarkson on Clarkson's Farm",
     lines: ["How hard can it be?", "POWERRR! …of the potato.", "The weather's ruined everything. Again."],
+    lore: ["Bought a farm with no idea how to run one. How hard can it be?", "Blames the weather for everything, including the zombies.", "Somehow the crops grow anyway. Nobody knows how."],
     look: { skin: "#ecc29f", hair: "#8c8378", eye: "#59616f", main: "#55623a", sleeve: "#55623a", pants: "#3c5a86", shoes: "#2e5a34", hat: "#7a5a3a" },
     extra: { 3: ["#9aa2ac", "prop", true], 4: ["#8fb0dc", "body"], 5: ["#6b4a2a", "body"] },
     draw(g) {
@@ -945,6 +958,7 @@ export const NPCS = {
   cowper: {
     room: "barn", name: "Kaleb Cowper", nickname: "Told You So", ref: "Kaleb Cooper on Clarkson's Farm",
     lines: ["Jezza's done it wrong again.", "Told you so.", "That's not how you hold a chicken."],
+    lore: ["Has never left town in his life and sees no reason to start now.", "Thinks Jezza is an idiot. Is usually right.", "Knows every animal in the Barn by name."],
     look: { skin: "#f0c9a6", hair: "#6a4a2c", eye: "#3d6f8f", main: "#2d3a54", sleeve: "#2d3a54", pants: "#3a4560", shoes: "#2e6a38", hat: "#2a2d34", accent: "#4caf7d" },
     extra: { 1: ["#d6f03c", "body", true], 2: ["#c8ccd2", "body"], 3: ["#9aa2ac", "prop", true], 4: ["#d9b25a"] },
     draw(g) {
@@ -985,6 +999,7 @@ export const NPCS = {
   scrapperson: {
     room: "scrapyard", name: "Rick Scrapperson", nickname: "Best I Can Do", ref: "Rick Harrison of Pawn Stars",
     lines: ["I'll give you 2 scrap for it. Best I can do.", "Hmm. It's a nice piece… but it's not worth what you think.", "Let me call a buddy of mine who's an expert."],
+    lore: ["Has priced every piece of junk in the school. None of it is worth much.", "Will offer you two scrap for anything. Best he can do.", "Rumour has it he once tried to appraise a zombie."],
     look: { skin: "#e7b991", hair: "#6a5a4e", eye: "#3a5f7a", main: "#1f2126", sleeve: "#1f2126", pants: "#2f3a4a", shoes: "#141416", glasses: "#121216" },
     extra: { 1: ["#f4f1e6", "prop", true], 2: ["#2e8a3e"] },
     draw(g) {

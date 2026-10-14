@@ -42,7 +42,7 @@ migrateState(state);
 repairIds(state);
 let activeTab = "overview";
 let openCardId = null;
-let cardAsk = ""; // the open card is asking to confirm a "promote" or a "recruit"
+let cardAsk = ""; // the open card is asking to pick an "apprentice" post or confirm a "recruit"
 let cardTab = "stats";
 let rosterFilter = "student"; // the Roster shows students or teachers
 let rosterSortKey = "name";
@@ -544,14 +544,6 @@ function migrateState(s) {
     let n = 0;
     for (const c of s.characters) if (c[def.flag]) c[def.flag] = ++n <= G.siteWorkerSlots(s, site);
   }
-  // A room holds only as many teachers as its level allows (1, then 2 at level 3, 3 at level 5):
-  // any beyond that — from an older save with bigger rooms — go back to unassigned.
-  const posted = {};
-  for (const c of s.characters) {
-    if (c.role !== "teacher" || !c.alive || !c.post) continue;
-    posted[c.post] = (posted[c.post] || 0) + 1;
-    if (posted[c.post] > (G.roomState(s, G.postRoomKey(c.post))?.teacherCapacity ?? 0)) G.setTeacherPost(s, c.id, null);
-  }
   // Rooms were shrunk to fit the school (a level-1 classroom went from 24 seats to 12): anyone
   // sitting past a classroom's new last row moves to a free seat, or is left unseated if it's full.
   if (!s.roomSizesV2) {
@@ -898,18 +890,13 @@ const pickerOf = (el) => ({
 });
 function assignPicked({ kind, roomId, postKey, seatIndex }, id) {
   switch (kind) {
-    case "gym-teacher": G.setTeacherPost(state, id, `gym:${postKey}`); break;
     case "gym-student": G.setGymToday(state, id, postKey); break;
-    case "cafeteria-teacher": G.setTeacherPost(state, id, "cafeteria"); break;
-    case "infirmary-teacher": G.setTeacherPost(state, id, "infirmary"); break;
     case "infirmary-student": G.setInfirmaryToday(state, id, "heal"); break;
     case "cafeteria-rest": G.setRestToday(state, id, true); break;
     case "radio-student": G.setRadioToday(state, id, true); break;
     case "research-student": G.setResearchToday(state, id, true); break;
     case "crafting-student": G.setCraftingToday(state, id, true); break;
-    case "classroom-teacher": G.setTeacherPost(state, id, `classroom:${roomId}`); break;
     case "classroom-seat": G.assignSeat(state, id, roomId, seatIndex); break;
-    case "utility": G.setTeacherPost(state, id, postKey); break;
     case "farm": G.setFarmToday(state, id, postKey); break;
     case "barn": G.setBarnToday(state, id, postKey); break;
     case "scrapyard": G.setScrapyardToday(state, id, postKey); break;
@@ -1548,10 +1535,6 @@ root.addEventListener("click", (e) => {
       G.unseat(state, el.dataset.id);
       render();
       break;
-    case "clear-post":
-      G.setTeacherPost(state, el.dataset.id, null);
-      render();
-      break;
     case "locked-slot":
       flash(el.dataset.msg);
       break;
@@ -1713,15 +1696,16 @@ root.addEventListener("click", (e) => {
       if (openUpgrade && !G.repairRoom(state, openUpgrade)) flash("Not enough scrap for the repairs yet.");
       render();
       break;
-    case "promote":
-      G.promoteToTeacher(state, el.dataset.id);
-      render();
-      break;
-    case "ask-promote":
+    case "ask-apprentice":
     case "ask-recruit":
       openCardId = el.dataset.id;
       cardTab = "stats";
-      cardAsk = action === "ask-promote" ? "promote" : "recruit";
+      cardAsk = action === "ask-apprentice" ? "apprentice" : "recruit";
+      render();
+      break;
+    case "set-apprentice":
+      G.setApprentice(state, el.dataset.id, el.dataset.post || null);
+      cardAsk = "";
       render();
       break;
     case "confirm-recruit":
@@ -1733,20 +1717,6 @@ root.addEventListener("click", (e) => {
       render();
       break;
     }
-    case "confirm-promote":
-      G.promoteToTeacher(state, el.dataset.id);
-      openCardId = null;
-      render();
-      break;
-    case "never-promote":
-      G.setNeverPromote(state, el.dataset.id, true);
-      openCardId = null;
-      render();
-      break;
-    case "allow-promote":
-      G.setNeverPromote(state, el.dataset.id, false);
-      render();
-      break;
     case "expel":
       {
         const c = G.getChar(state, el.dataset.id);
@@ -2133,12 +2103,6 @@ root.addEventListener("click", (e) => {
       render();
       break;
     // the Roster's unassigned-teachers warning: the teachers with no post first
-    case "roster-unassigned":
-      rosterFilter = "teacher";
-      rosterSortKey = "posted";
-      rosterSortDir = "asc";
-      render();
-      break;
     // the Roster's spare-gear warning: students, the least equipped first
     case "roster-gear-check":
       rosterFilter = "student";

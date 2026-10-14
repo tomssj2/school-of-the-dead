@@ -2,11 +2,11 @@ import {
   CLASSROOM_IDS, SUBJECTS, SUBJECT_LABEL, STAT_OF_SUBJECT, STAT_LABEL, STAT_GUIDE, STAT_TUNING, TRAITS,
   CLASSROOM_CAPACITY, LOCATIONS,
   GRADE_TIERS, SKILL_TREE, ROOM_MAX_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, roomUpgradeCost,
-  TECH_TREE, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
+  TECH_TREE, CLASSROOM_SUBJECT, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ACCESSORIES, ACCESSORY_RANGES, RARITIES, RARITY_ORDER, ITEM_DROP_ODDS, MYTHIC_SETS, WEAPON_TEMPLATES, ARMOR_TEMPLATES, ARMOR_TYPES, WEAPON_TYPES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
   NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_CLASSES, NIGHT_MORALE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD,
-  DISHES, INGREDIENTS, PRODUCERS, WORK_SITES, GYM_SIDES, NO_TEACHER_CAP, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
+  DISHES, INGREDIENTS, PRODUCERS, WORK_SITES, GYM_SIDES, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, RESEARCH_BONUS_BY_LEVEL, HELPER_SLOTS_BY_LEVEL, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, ROOM_FIGHT_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
@@ -14,14 +14,13 @@ import {
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus, gradeCap, gradeCapLetter,
-  bestClassroomSubjectFor, stripHonorific, setsWorn, weaponCategory, studentClass, armorType,
+  stripHonorific, setsWorn, weaponCategory, studentClass, armorType,
 } from "./characters.js";
 import {
-  getChar, aliveChars, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, PROMOTE_LEVEL_THRESHOLD, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, promotable, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
-  isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, cooksOnDuty, researchRoomYield,
-  techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, missionStatus, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionHaul, expeditionPlace, expeditionForecast, expeditionRooms, expeditionRoomZombies, battleNoise, expeditionSneakOdds, runShare, roomEventOdds, expeditionGearChance, poiTier, scoutOdds, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
-  gymTeachers, gymLesson, promotionSlots, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, clearOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM, siteDay, siteFocus, unlockedCrops, herdSize, herdKinds, roomStaff, npcGrade,
-} from "./game.js";
+  getChar, aliveChars, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
+  isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, researchRoomYield,
+  techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionHaul, expeditionPlace, expeditionForecast, expeditionRooms, expeditionRoomZombies, battleNoise, expeditionSneakOdds, runShare, roomEventOdds, expeditionGearChance, poiTier, scoutOdds, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
+  gymLesson, craftingCrew, APPRENTICE_POSTS, canApprentice, apprenticeOf, roomName, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, clearOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM, siteDay, siteFocus, unlockedCrops, herdSize, herdKinds, roomStaff, } from "./game.js";
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, MAP_RADIUS, isSchoolHex,
 } from "./map.js";
@@ -326,11 +325,11 @@ function radioTrack(state) {
 // A student's level tooltip: experience toward the next level, and how it's earned.
 function levelTip(c) {
   const lv = overallLevel(c);
-  if (lv >= STUDENT_MAX_LEVEL) return { title: `⭐ Level ${lv} — max`, notes: ["Can be promoted to teacher in the Headmaster's Office"] };
+  if (lv >= STUDENT_MAX_LEVEL) return { title: `⭐ Level ${lv} — max`, notes: ["Can become a room NPC's apprentice — in the Headmaster's Office"] };
   return {
     title: `⭐ Level ${lv}`,
     rows: [["Experience", `${c.exp || 0}/${xpToNextLevel(lv)}`]],
-    notes: [`+${LEVEL_XP.turnOne} for any Turn 1 job: class, training or work`, "Scouting, expeditions, defending and raids give more", `Level ${STUDENT_MAX_LEVEL} unlocks promotion to teacher`],
+    notes: [`+${LEVEL_XP.turnOne} for any Turn 1 job: class, training or work`, "Scouting, expeditions, defending and raids give more", `Level ${STUDENT_MAX_LEVEL}: apprentice to a room's NPC`],
   };
 }
 
@@ -395,29 +394,35 @@ function nameTag(c, { icon = true } = {}) {
 // room reaches the level that opens it. The first one posted is the teacher; the second the assistant.
 // A room's NPC under its banner, where the teacher slots were: name, nickname, how good they are at
 // the job (the room's level: their grade) and one of their lines, a different one each day.
-const NPC_JOB = { classroom: "Teaches", "gym:PE": "Coaches", "gym:Gymnastics": "Coaches", cafeteria: "Cooks", infirmary: "Nurses", research: "Researches", crafting: "Crafts", radio: "Broadcasts", farm: "Runs the Farm", barn: "Runs the Barn", scrapyard: "Runs the yard" };
 function npcLine(state, post) {
-  const id = ROOM_NPC[post];
-  const n = NPCS[id];
-  const key = postRoomKey(post);
-  const grade = npcGrade(state, key);
-  const letter = gradeLetter(grade);
-  const line = n.lines[(state.day + id.length) % n.lines.length];
-  const job = NPC_JOB[post.startsWith("classroom:") ? "classroom" : post];
-  return `<div class="npc-line" ${tipAttr({
-    title: `${esc(n.name)} · “${esc(n.nickname)}”`,
-    rows: [[`${job} · grade`, `${letter} (${grade})`]],
-    notes: ["Their grade goes up with the room's level — upgrade the room to make them better at it"],
-  })}>
-    <span class="npc-who"><b>${esc(n.name)}</b> <i>“${esc(n.nickname)}”</i></span>
-    <span class="npc-grade grade-letter-${letter}">${letter}</span>
-    <span class="npc-say">“${esc(line)}”</span>
+  const n = NPCS[ROOM_NPC[post]];
+  const app = apprenticeOf(state, post);
+  const subj = apprenticeSubject(state, post);
+  const appWhat = app ? (subj ? `${STAT_OF_SUBJECT[subj]} ${gradeLetter(app.grades[subj])} (${app.grades[subj]})` : "+1 dish a day") : "";
+  const appTip = tipAttr({
+    title: app ? `🎓 ${esc(app.name)}` : "🎓 No apprentice",
+    rows: app ? [[app.infection ? "In quarantine" : "Works here with", app.infection ? "—" : appWhat]] : [],
+    notes: ["An apprentice works the room every day with their own grade", "A level 10 student, picked in the Headmaster's Office"],
+  });
+  return `<div class="npc-line" ${npcTip(n)}>
+    <span class="npc-who"><b>${esc(n.name)}</b></span>
+    ${!APPRENTICE_POSTS.includes(post) ? "" : app ? `<button class="npc-appr" data-action="open-card" data-id="${app.id}" ${appTip}>🎓 ${esc(shortName(app))}</button>` : `<span class="npc-appr muted" ${appTip}>🎓 no apprentice</span>`}
   </div>`;
+}
+// An NPC's hover card: who they are, their nickname, and a little lore.
+const npcTip = (n) => tipAttr({ title: esc(n.name), intro: [`also known as <b>“${esc(n.nickname)}”</b>`], notes: n.lore.map(esc) });
+// The subject an apprentice works a room with: a classroom's or gym's own, a Courtyard site's
+// focus, the nurse's CON, research INT, crafting WIS, radio CHA (null: the Cafeteria — one more cook).
+function apprenticeSubject(state, post) {
+  if (post.startsWith("classroom:")) return CLASSROOM_SUBJECT[post.split(":")[1]];
+  if (post.startsWith("gym:")) return post.slice(4);
+  if (SITE_FOCUS[post]) return SITE_FOCUS[post][siteFocus(state, post)].stat;
+  return { infirmary: "Biology", research: "Physics", crafting: "History", radio: "SocialStudies" }[post] ?? null;
 }
 // The NPC standing in its room's banner.
 function npcFigure(post) {
   const n = NPCS[ROOM_NPC[post]];
-  return `<span class="scene-npc" title="${esc(n.name)} · “${esc(n.nickname)}”">${npcSprite(ROOM_NPC[post], 1.25)}</span>`;
+  return `<span class="scene-npc" ${npcTip(n)}>${npcSprite(ROOM_NPC[post], 1.25)}</span>`;
 }
 
 // A generic classroom shows as "Classroom N" until a teacher claims it, then as its subject.
@@ -812,7 +817,7 @@ function hudTips(state) {
     food: { title: `${ri("food")} Food`, rows: [["On hand", `${r.food}`], ["Eaten tonight", `−${pop}`]], total: ["Left after tonight", `${r.food - pop}`], notes: ["Grown at the Farm, found on expeditions"] },
     materials: { title: `${ri("materials")} Scrap`, rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
     medicine: { title: `${ri("medicine")} Medicine`, rows: [["On hand", `${r.medicine}`]], notes: [`Treating a patient costs ${INFIRMARY_MEDICINE_PER_PATIENT}`, "Saving a defender who goes down costs 5 (automatic)", "Grown in the Greenhouse, found on expeditions"] },
-    research: { title: `${ri("research")} Research`, rows: [["On hand", `${r.research}`], ["Made a day", `+${researchRoomYield(state)}`]], notes: ["Made by teachers in the Research Room", "Spent on the tech tree and the Radio Station", ...(techReady(state) ? ["Gold: enough for a new tech"] : []), "Click to open the Research tree"] },
+    research: { title: `${ri("research")} Research`, rows: [["On hand", `${r.research}`], ["Made a day", `+${researchRoomYield(state)}`]], notes: ["Made in the Research Room", "Spent on the tech tree and the Radio Station", ...(techReady(state) ? ["Gold: enough for a new tech"] : []), "Click to open the Research tree"] },
     serum: { title: `${ri("serum")} Antiviral Serum`, rows: [["On hand", `${r.serum}`]], notes: ["The only cure for an infection — one per person", "Pharmacy, Urgent Care and Fire Station now and then", "The General Hospital and Research Institute raids pay out the most"] },
     infected: { title: "🦠 Infected", rows: [["In quarantine", `${infectedChars(state).length}`]], notes: ["Each needs a serum by the end of their fifth day, or they die", "Cure them from the Nurse's Office"] },
   };
@@ -1103,7 +1108,7 @@ const WARNING_KINDS = {
   heal: "❤ Hurt students can be healed",
   dish: "🍲 A dish is ready to cook",
   upgrade: "⬆ Upgrades can be bought",
-  promote: "🎓 Students can be promoted",
+  apprentice: "🎓 Students ready for a mentor",
   recruits: "🙋 Recruits waiting",
   clear: "🔓 Boarded rooms can be cleared",
   // the Exploration Summary (Turn 2)
@@ -1137,7 +1142,7 @@ const WARNING_KINDS = {
 };
 // Which kinds each turn's summary can show (the counter's drop-down lists these).
 const TURN_WARNING_KINDS = {
-  1: ["noTeacher", "noCook", "quarantine", "teacherFree", "available", "rest", "heal", "dish", "upgrade", "promote", "recruits", "clear", "siteWorkers", "plant"],
+  1: ["noTeacher", "noCook", "quarantine", "teacherFree", "available", "rest", "heal", "dish", "upgrade", "apprentice", "recruits", "clear", "siteWorkers", "plant"],
   2: ["teamIdle", "lowOdds", "teamEmpty", "teamUnlock", "scouts", "drops", "raid", "nests"],
   3: ["losses", "infectionDue", "event", "classDone", "available", "teamIdle", "drops", "raid", "teamUnlock", "foodLow", "upgrade", "tech", "rest", "heal", "recruits", "promote",
     "noDefenders", "unarmed", "hurtDefenders", "freeSpots", "build", "kits", "noMedicine", "boss", "weather"],
@@ -1277,7 +1282,7 @@ function renderTurn1Overview(state) {
       used: n, cap, meta: `${n}/${cap} training · up to ${lesson.ceiling}`,
       notes: [upgradeNote(info.roomKey)] });
   }).join("");
-  const cooks = cooksOnDuty(state).length;
+  const cooks = dishCapacity(state);
   const resting = count("restToday");
   const cafeCap = state.rooms.cafeteria.studentCapacity;
   const tired = cafeCap > resting ? students.filter((c) => c.stamina < c.maxStamina && !c.restToday && !c.infirmaryToday).length : 0;
@@ -1293,10 +1298,11 @@ function renderTurn1Overview(state) {
     used: patients, cap: bedCap, meta: `${patients}/${bedCap} healing`,
     notes: [infected ? bad("quarantine", `🦠 ${infected} in quarantine`) : null, hurt ? tip("heal", `❤ ${plural(hurt, "hurt student")} can be healed`) : null, upgradeNote("infirmary")] });
 
-  const ready = state.characters.filter(promotable).length;
+  const ready = state.characters.filter((c) => canApprentice(c) && !c.apprentice).length;
   const office = overviewCard({ tab: "floor3", scene: "headmaster", name: "Headmaster's Office", big: `${state.recruitPool.length}`, unit: "recruits waiting",
     used: state.recruitPool.length, cap: recruitSlots(state), meta: "Albus Doubledoor",
-    notes: [state.recruitPool.length ? tip("recruits", `🙋 ${plural(state.recruitPool.length, "recruit")} waiting to join`) : null] });
+    notes: [state.recruitPool.length ? tip("recruits", `🙋 ${plural(state.recruitPool.length, "recruit")} waiting to join`) : null,
+      ready ? tip("apprentice", `🎓 ${plural(ready, "student")} ready for a mentor`) : null] });
   const radio = isBoarded(state, "radio") ? locked("radio", "radio", "floor3") : overviewCard({ tab: "floor3", scene: `radio@${radioStage(state)}`, name: "Radio Station", level: levelBadge(state, "radio"),
     big: `${Math.round(radioRecruitChance(state) * 100)}%`, unit: "recruit chance a day", used: count("radioToday"), cap: state.rooms.radio.studentCapacity,
     meta: state.rescue && !state.rescue.evacuated ? `🚁 Helicopter on day ${state.rescue.day}` : `${count("radioToday")}/${state.rooms.radio.studentCapacity} on the air`,
@@ -1338,7 +1344,7 @@ function renderTurn1Overview(state) {
   <div class="card">
     <div class="ov-head">
       <div class="ov-head-left">${lazyPill}</div>
-      <h2>Classes Summary ${infoDot({ title: "📚 Turn 1 — Classes Summary", notes: ["Classrooms raise their subject every day, up to the teacher's grade", "The Gymnasium raises STR, Acrobatics DEX", "Resting and healing happen now too", "Orange: something needs you — ⚠ a problem, or something you could do now", "Choose which warnings to show from the counter on the right", "Click a room to go to it"] })}</h2>
+      <h2>Classes Summary ${infoDot({ title: "📚 Turn 1 — Classes Summary", notes: ["Classrooms raise their subject every day, up to the room's limit", "The Gymnasium raises STR, Acrobatics DEX", "Resting and healing happen now too", "Orange: something needs you — ⚠ a problem, or something you could do now", "Choose which warnings to show from the counter on the right", "Click a room to go to it"] })}</h2>
       <div class="ov-head-right">${renderWarningCounter(all, 1)}</div>
     </div>
     <div class="mini-label ov-section">Classrooms</div>
@@ -1358,7 +1364,7 @@ const healHealAmount = (state) => infirmaryHeal(state) + infirmaryNurseBonus(sta
 // The Crafting Room's fortification today: each crafter in turn uses up to 4 of the scrap left.
 function craftingToday(state) {
   let scrap = state.resources.materials;
-  const crafters = roomStaff(state, "crafting").reduce((sum, t) => {
+  const crafters = craftingCrew(state).reduce((sum, t) => {
     const use = Math.min(Math.max(scrap, 0), 4);
     scrap -= use;
     return sum + (use > 0 ? crafterGain(state, t, use) : 0);
@@ -2926,7 +2932,7 @@ function renderTurn3Summary(state) {
   const tired = students.filter((c) => c.stamina < c.maxStamina * 0.4);
   const hurtNow = students.filter((c) => c.hp < c.maxHp * 0.6);
   const turning = infectedChars(state).filter((c) => infectionDaysLeft(state, c) <= 1);
-  const ready = state.characters.filter(promotable).length;
+  const ready = state.characters.filter((c) => canApprentice(c) && !c.apprentice).length;
   const mood = today ? state.happiness - today.start.happiness : 0;
   const faces = [...lostToday, ...joined, ...hurtNow, ...tired].filter((c, i, arr) => arr.indexOf(c) === i).slice(0, 4);
   const event = today?.event;
@@ -2942,7 +2948,7 @@ function renderTurn3Summary(state) {
       tired.length ? tip("rest", `😴 ${plural(tired.length, "student")} worn out — rest them tomorrow`) : null,
       hurtNow.length ? tip("heal", `❤ ${plural(hurtNow.length, "student")} hurt — the Nurse's Office tomorrow`) : null,
       state.recruitPool.length ? tip("recruits", `🙋 ${plural(state.recruitPool.length, "recruit")} waiting to join`) : null,
-      ready ? tip("promote", `🎓 ${plural(ready, "student")} can be promoted`) : null,
+      ready ? tip("apprentice", `🎓 ${plural(ready, "student")} ready for a mentor`) : null,
     ],
   });
 
@@ -3245,29 +3251,10 @@ const STUDENT_SORT_FIELDS = [
 ];
 const TEACHER_SORT_FIELDS = STUDENT_SORT_FIELDS.filter((f) => f.key !== "level");
 
-// Classrooms only teach the four desk subjects, so say which one a teacher would take on — and
-// point a teacher whose best grade is PE or Gymnastics toward the Gym, where it actually counts.
-// A room that already has a subject keeps it, so a second or third teacher teaches that.
-function classroomTeacherNote(t, roomSubject = null) {
-  const subject = roomSubject || bestClassroomSubjectFor(t);
-  let note = `<div class="picker-note">📚 Would ${roomSubject ? "help teach" : "teach"} <b>${SUBJECT_LABEL[subject]}</b> here (${gradeLetter(t.grades[subject])})</div>`;
-  const gym = ["PE", "Gymnastics"].filter((s) => t.grades[s] > t.grades[subject]).sort((a, b) => t.grades[b] - t.grades[a])[0];
-  if (gym) {
-    note += `<div class="picker-note picker-note-warn">${gym === "PE" ? "💪" : "🤸"} Best at ${SUBJECT_LABEL[gym]} (${gradeLetter(t.grades[gym])}) — classrooms don't teach it. They'd do more coaching in ${GYM_SIDES[gym].ref}.</div>`;
-  }
-  return note;
-}
-
 function pickerSortValue(c, sortKey) {
   if (sortKey === "level") return overallLevel(c);
   const subject = SUBJECTS.find((s) => STAT_OF_SUBJECT[s] === sortKey);
   return c.grades[subject];
-}
-
-function teacherBusyLabel(state, c, exceptPost) {
-  if (c.infection) return "🦠 Infected — in quarantine";
-  if (!c.post || c.post === exceptPost) return null;
-  return occupationLabel(state, c);
 }
 
 // Busy in a way a Turn 1 picker can't move them from: quarantine, or a later turn's job.
@@ -3309,7 +3296,7 @@ function lessonEntry(c, reason, lesson) {
   const cap = gradeCap(c, lesson.subject);
   const gain = Math.max(0, Math.min(lesson.gain, lesson.ceiling - now, cap - now));
   if (!gain) {
-    return { c, maxed: `${stat}: MAX`, maxedWhy: now >= cap ? `${stat} ${now} — as far as they can go (${gradeCapLetter(c, lesson.subject)}${lesson.subject === c.favorite ? ", their favourite" : lesson.subject === c.secondary ? ", their second subject" : ""})` : `${stat} ${now} — the teacher here can't take them past ${lesson.ceiling}` };
+    return { c, maxed: `${stat}: MAX`, maxedWhy: now >= cap ? `${stat} ${now} — as far as they can go (${gradeCapLetter(c, lesson.subject)}${lesson.subject === c.favorite ? ", their favourite" : lesson.subject === c.secondary ? ", their second subject" : ""})` : `${stat} ${now} — this room can't take them past ${lesson.ceiling}` };
   }
   return { c, value: now, hint: `<span class="pk-gain" title="What they'd learn here today">${stat} ${now} → <b>${now + gain}</b></span>` };
 }
@@ -3399,17 +3386,11 @@ function resolvePickerCandidates(state, picker) {
 }
 function pickerCandidates(state, picker) {
   const { kind, roomId, postKey } = picker;
-  const teacherRow = (c, exceptPost) => ({ c, reason: teacherBusyLabel(state, c, exceptPost) });
   const studentRow = (c, exceptFlag, extraReason) => ({ c, reason: studentBusyLabel(c, exceptFlag) || (extraReason ? extraReason(c) : null) });
 
   switch (kind) {
-    case "gym-teacher":
-      return {
-        role: "teacher", title: `Assign a ${GYM_SIDES[postKey].room} Coach`,
-        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== `gym:${postKey}`).map((c) => teacherRow(c, `gym:${postKey}`)),
-      };
     case "gym-student": {
-      // taught like a class: up to the coach's grade (or NO_TEACHER_CAP without one)
+      // taught like a class: up to the room's limit
       const lesson = gymLesson(state, postKey);
       return {
         role: "student", title: `Send a Student to ${GYM_SIDES[postKey].ref}`,
@@ -3418,16 +3399,6 @@ function pickerCandidates(state, picker) {
           .map((c) => lessonEntry(c, laterBusyLabel(c), lesson)),
       };
     }
-    case "cafeteria-teacher":
-      return {
-        role: "teacher", title: "Assign a Cook",
-        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "cafeteria").map((c) => teacherRow(c, "cafeteria")),
-      };
-    case "infirmary-teacher":
-      return {
-        role: "teacher", title: "Assign a Nurse",
-        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== "infirmary").map((c) => teacherRow(c, "infirmary")),
-      };
     case "infirmary-student": {
       // the next patient is treated if tonight's medicine still covers one more, else bed rest
       const patients = state.characters.filter((x) => x.alive && x.infirmaryToday).length;
@@ -3468,14 +3439,6 @@ function pickerCandidates(state, picker) {
         list: state.characters.filter((c) => c.role === "student" && c.alive && !c.infection && !c.restToday)
           .map((c) => recoveryEntry(c, laterBusyLabel(c), "⚡", "Stamina", c.stamina, c.maxStamina, Math.min(cafeteriaRest(state), c.maxStamina - c.stamina))),
       };
-    case "classroom-teacher": {
-      const post = `classroom:${roomId}`;
-      return {
-        role: "teacher", title: "Assign a Classroom Teacher",
-        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== post)
-          .map((c) => ({ c, reason: teacherBusyLabel(state, c, post), note: classroomTeacherNote(c, state.rooms.classrooms[roomId].subject) })),
-      };
-    }
     case "classroom-seat": {
       // What each student would learn here today: the room's subject, up to its teacher's grade.
       // A room with no teacher teaches nothing.
@@ -3488,11 +3451,6 @@ function pickerCandidates(state, picker) {
           .map((c) => lessonEntry(c, c.seat ? `Seated in ${roomDisplayName(state, c.seat.room)}` : null, lesson)),
       };
     }
-    case "utility":
-      return {
-        role: "teacher", title: "Assign a Teacher",
-        list: state.characters.filter((c) => c.role === "teacher" && c.alive && c.post !== postKey).map((c) => teacherRow(c, postKey)),
-      };
     case "entrance-student": {
       const placed = new Set(Object.values(state.entranceGrid.students));
       return {
@@ -3805,22 +3763,22 @@ function renderTrainingRoom(state, side) {
   const info = GYM_SIDES[side];
   const room = gymRoom(state, side);
   const students = state.characters.filter((c) => c.gymToday === side && c.alive);
-  const teachers = gymTeachers(state, side);
-  // How a session adds up: the room's level bonus, plus each teacher's bonus for their grade.
+  // How a session adds up: the room's level bonus, plus its apprentice's for their grade.
   const lesson = gymLesson(state, side);
+  const teachers = lesson.teachers;
   const level = roomLevel(state, info.roomKey);
   const gainHow = {
     title: `${info.icon} +${lesson.gain} ${info.gains} a session`,
     rows: [[`Room · level ${level}`, `+${lesson.levelBonus}`],
-      ...(teachers.length ? teachers.map((t) => [`${esc(shortName(t))} · ${gradeLetter(t.grades[side])}`, `+${teachingBonus(t.grades[side])}`]) : [tipNone("No teacher yet", "+0")])],
+      ...(teachers.length ? teachers.map((t) => [`🎓 ${esc(shortName(t))} · ${gradeLetter(t.grades[side])}`, `+${teachingBonus(t.grades[side])}`]) : [tipNone("🎓 No apprentice", "+0")])],
     total: ["Total", `+${lesson.gain}`],
-    notes: [`Stops at <b>${lesson.ceiling}</b> — the coach's grade`, "The coach adds D +1 · C +3 · B +5 · A +7 · S +10", `More ${info.gains} also means more ${info.also}`],
+    notes: [`Stops at <b>${lesson.ceiling}</b> — set by the room's level, or a better apprentice's grade`, "An apprentice adds D +1 · C +3 · B +5 · A +7 · S +10", `More ${info.gains} also means more ${info.also}`],
   };
   return `<div class="room room-${info.roomKey}">
     ${roomScene(`${info.roomKey}@${level}`, students, `${info.room}${levelBadge(state, info.roomKey)}`,
       roomInfo(`${info.icon} ${info.room}`, [
         `Students train here to raise <b>${info.gains}</b> a little every session`,
-        "Up to the coach's grade — it rises with the room's level",
+        "Up to a limit that rises with the room's level",
         `Training ${info.gains} also raises ${info.also}`,
       ], { trains: info.gains }),
       roomUpgradeButton(state, info.roomKey), "", `gym:${side}`)}
@@ -3841,8 +3799,6 @@ function renderTrainingRoom(state, side) {
 export function renderFloor1(state) {
   const cafeRoom = state.rooms.cafeteria;
 
-  const cooks = cooksOnDuty(state);
-
   const infRoom = state.rooms.infirmary;
   const nurses = roomStaff(state, "infirmary");
   const patients = state.characters.filter((c) => c.infirmaryToday && c.alive);
@@ -3854,7 +3810,7 @@ export function renderFloor1(state) {
   const cafeRations = CAFETERIA_RATIONS_BY_LEVEL[cafeLevel - 1];
   const cafeHow = {
     title: "🍲 Cafeteria",
-    rows: [["Dishes a day · 1 per cook", `${dishCapacity(state)}`], ["Rations while cooking", `+${cafeRations} food`],
+    rows: [["Dishes a day · +1 with an apprentice", `${dishCapacity(state)}`], ["Rations while cooking", `+${cafeRations} food`],
       [`Rest · level ${cafeLevel}`, `+${cafeteriaRest(state) - napBonus}`], ...(napBonus ? [["Power Naps", `+${napBonus}`]] : [])],
     total: ["Rest per student", `+${cafeteriaRest(state)} stamina`],
     notes: ["A dish's buff covers the whole school until tonight", "Cook dishes from the menu below"],
@@ -3865,9 +3821,9 @@ export function renderFloor1(state) {
   const nurseHow = {
     title: `${ri("medicine")} Heal +${healHp} HP`,
     rows: [[`Room · level ${roomLevel(state, "infirmary")}`, `+${infirmaryHeal(state)}`],
-      ...(nurses.length ? nurses.map((t) => [`${esc(shortName(t))} · CON ${gradeLetter(t.grades.Biology)}`, `+${nurseHpBonus(t)}`]) : [tipNone("No nurse yet", "+0")])],
+      ...(nurses.length ? nurses.map((t) => [`🎓 ${esc(shortName(t))} · CON ${gradeLetter(t.grades.Biology)}`, `+${nurseHpBonus(t)}`]) : [tipNone("🎓 No apprentice", "+0")])],
     total: ["Per treatment", `+${healHp} HP`],
-    notes: [`Costs ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — without it, only bed rest (+${INFIRMARY_BED_REST} HP)`, `Nurses add ${INFIRMARY_NURSE_HP_PER_RANK} HP per CON rank (D +5 … S +25)`, "The infected wait in quarantine, not in a bed"],
+    notes: [`Costs ${INFIRMARY_MEDICINE_PER_PATIENT} medicine — without it, only bed rest (+${INFIRMARY_BED_REST} HP)`, `An apprentice adds ${INFIRMARY_NURSE_HP_PER_RANK} HP per CON rank (D +5 … S +25)`, "The infected wait in quarantine, not in a bed"],
   };
   const resting = state.characters.filter((c) => c.restToday && c.alive);
 
@@ -3898,8 +3854,8 @@ export function renderFloor1(state) {
         )}
         <div class="mini-label">Today's menu (${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served)</div>
         <div class="menu-strip">
-          ${served.map((d) => `<span class="menu-served" title="${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon} ${esc(d.name)}</span>`).join("") || `<span class="muted">${cooks.length ? "Nothing served yet today" : "No cook on duty — assign one to serve dishes"}</span>`}
-          ${cooks.length ? '<button class="btn btn-sm btn-primary" data-action="open-menu">🍲 Cook a dish…</button>' : ""}
+          ${served.map((d) => `<span class="menu-served" title="${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon} ${esc(d.name)}</span>`).join("") || `<span class="muted">Nothing served yet today</span>`}
+          <button class="btn btn-sm btn-primary" data-action="open-menu">🍲 Cook a dish…</button>
         </div>
       </div>
       <div class="room room-infirmary">
@@ -4007,12 +3963,11 @@ export function renderMenuModal(state) {
       <div class="muted">${esc(d.desc)}</div>
     </div>`;
   }).join("");
-  const cooks = cooksOnDuty(state).length;
   return `<div class="modal-overlay" data-action="close-menu">
     <div class="char-card mission-card menu-modal" data-action="noop">
       <button class="cc-close" data-action="close-menu" title="Close">✕</button>
       <h3>🍲 Today's Menu</h3>
-      <p class="muted">${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served · ${cooks ? "each cook serves one dish a day, and its buff lasts until tonight" : "assign a cook in the Cafeteria to start serving dishes"}</p>
+      <p class="muted">${state.dishesToday.length}/${dishCapacity(state)} dish${dishCapacity(state) === 1 ? "" : "es"} served · one dish a day, one more with an apprentice — its buff lasts until tonight</p>
       <div class="mini-label">Pantry</div>
       <div class="pantry">${pantry}</div>
       <div class="dish-list">${menu}</div>
@@ -4025,7 +3980,7 @@ export function renderMenuModal(state) {
 export function renderFloor2(state) {
   const rooms = CLASSROOM_IDS.map((roomId) => renderClassroom(state, roomId)).join("");
   return `<div class="card">${floorHead(state, "Floor 2 — Classrooms")}
-  <p class="room-tagline">Each classroom has its own teacher and subject — upgrade it to make them better</p>
+  <p class="room-tagline">Each classroom teaches its own subject — upgrade it to teach more</p>
   <div class="floor2-grid">${rooms}</div></div>`;
 }
 
@@ -4034,20 +3989,19 @@ function renderClassroom(state, roomId) {
   const subject = room.subject; // the classroom's NPC's (CLASSROOM_SUBJECT)
   const post = `classroom:${roomId}`;
   if (isBoarded(state, post)) return renderBoardedRoom(state, post, "classroom_empty", "room-classroom");
-  const teachers = roomStaff(state, post);
-
   const count = room.seats.filter(Boolean).length;
-  // Today's lesson: the room's level bonus plus each teacher's, up to the best teacher's grade.
+  // Today's lesson: the room's level bonus plus its apprentice's, up to the room's limit.
   const lesson = classroomLesson(state, roomId);
+  const teachers = lesson.teachers;
   const rawLesson = lesson.levelBonus + teachers.reduce((s, t) => s + teachingBonus(t.grades[subject]), 0);
   const classHow = lesson.subject
     ? {
         title: `📚 +${lesson.gain} ${STAT_OF_SUBJECT[subject]} a day`,
         rows: [[`Room · level ${room.level || 1}`, `+${lesson.levelBonus}`],
-          ...teachers.map((t) => [`${esc(shortName(t))} · ${gradeLetter(t.grades[subject])}`, `+${teachingBonus(t.grades[subject])}`]),
+          ...(teachers.length ? teachers.map((t) => [`🎓 ${esc(shortName(t))} · ${gradeLetter(t.grades[subject])}`, `+${teachingBonus(t.grades[subject])}`]) : [tipNone("🎓 No apprentice", "+0")]),
           ...(lesson.gain !== rawLesson ? [["Study Groups", `+${lesson.gain - rawLesson}`]] : [])],
         total: ["Total", `+${lesson.gain}`],
-        notes: [`Stops at <b>${lesson.ceiling}</b> — the teacher's grade`, "The teacher adds D +1 · C +3 · B +5 · A +7 · S +10", 'At the limit (red "max"), move them to another class'],
+        notes: [`Stops at <b>${lesson.ceiling}</b> — set by the room's level, or a better apprentice's grade`, "An apprentice adds D +1 · C +3 · B +5 · A +7 · S +10", 'At the limit (red "max"), move them to another class'],
       }
     : "";
 
@@ -4075,8 +4029,8 @@ function renderClassroom(state, roomId) {
       `${subject ? SUBJECT_LABEL[subject] : `Classroom ${roomId}`}${levelBadge(state, post)}`,
       subject
         ? roomInfo(`📚 ${SUBJECT_LABEL[subject]} class`, [
-            `Seated students learn <b>${STAT_OF_SUBJECT[subject]}</b> every day, up to the teacher's grade`,
-            "The teacher's grade rises with the room's level",
+            `Seated students learn <b>${STAT_OF_SUBJECT[subject]}</b> every day`,
+            "Up to a limit that rises with the room's level",
           ], { trains: STAT_OF_SUBJECT[subject] })
         : roomInfo("📚 Classroom", [
             "Post a teacher and they teach their best subject here",
@@ -4096,16 +4050,16 @@ function renderClassroom(state, roomId) {
 
 export function renderFloor3(state) {
   const students = state.characters.filter((c) => c.role === "student" && c.alive).sort((a, b) => overallLevel(b) - overallLevel(a));
-  // The Headmaster's Office: its bottom half is split — the students ready to become teachers
-  // (level PROMOTE_LEVEL_THRESHOLD+, best first) on the left, survivors waiting to join on the right,
-  // each with as many slots as the office's level gives.
-  const ready = students.filter(promotable);
-  const promoSlots = promotionSlots(state);
-  const shownReady = ready.slice(0, promoSlots);
-  const readyTiles = shownReady.map((s) => personTile(s, {
-    title: `${s.name} — level ${overallLevel(s)}, best at ${SUBJECT_LABEL[SUBJECTS.reduce((b, x) => (s.grades[x] > s.grades[b] ? x : b), SUBJECTS[0])]}`,
-    extra: `<button class="pt-promote-btn" data-action="ask-promote" data-id="${s.id}" title="Promote ${esc(s.name)} to teacher">Promote</button>`,
+  // The Headmaster's Office: its bottom half is split — the level-10 students, who can become a
+  // room NPC's apprentice (the apprentices first, then as many more as there are rooms), on the
+  // left; survivors waiting to join on the right.
+  const ready = students.filter(canApprentice).sort((a, b) => !!b.apprentice - !!a.apprentice).slice(0, APPRENTICE_POSTS.length);
+  const mentorOf = (c) => NPCS[ROOM_NPC[c.apprentice]].name;
+  const readyTiles = ready.map((s) => personTile(s, {
+    title: s.apprentice ? `${s.name} — ${mentorOf(s)}'s apprentice` : `${s.name} — level ${overallLevel(s)}, ready for a mentor`,
+    extra: `<button class="pt-promote-btn" data-action="ask-apprentice" data-id="${s.id}">${s.apprentice ? `🎓 ${esc(mentorOf(s).split(" ").pop())}` : "Mentor"}</button>`,
   }));
+  const apprentices = ready.filter((c) => c.apprentice).length;
   const pool = state.recruitPool;
   const recSlots = recruitSlots(state);
   const recruitTiles = pool.map((r) => {
@@ -4119,21 +4073,18 @@ export function renderFloor3(state) {
   const officeHow = {
     title: "🎓 Headmaster's Office",
     intro: ["Albus Doubledoor runs the school", "Survivors from the Radio and expeditions wait here to <b>join</b>"],
-    rows: [["Recruits waiting", `${pool.length}/${recSlots}`]],
-    notes: ["Students level up from experience: classes, training, work, scouting and fighting", `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`, "Expel someone from their character card"],
+    rows: [["Recruits waiting", `${pool.length}/${recSlots}`], ["Apprentices", `${apprentices}/${APPRENTICE_POSTS.length}`]],
+    notes: ["Students level up from experience: classes, training, work, scouting and fighting", "A level 10 student can become a room NPC's apprentice — they work that room every day and stay a student", `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`, "Expel someone from their character card"],
   };
   const office = `<div class="room room-office">
-    ${roomScene("headmaster", [...shownReady, ...pool], "Headmaster's Office", officeHow, "",
-      // the Headmaster at his desk (drawn in the scene): he'll give out missions — not yet
-      // his glow: blue when he has a mission to give, green when one can be handed in
-      `${missionStatus(state) ? `<span class="hm-glow hm-${missionStatus(state)}"></span>` : ""}
-      <span class="hm-npc hm-${missionStatus(state) || "none"}" data-action="open-missions" ${tipAttr({
-        title: "🎩 The Headmaster",
-        notes: [missionStatus(state) === "complete" ? "A mission is done — come and collect" : missionStatus(state) === "available" ? "Has a mission for you" : "Nothing for you right now",
-          "Blue glow: a mission to take · green: one to hand in", "Missions and rewards are coming soon"],
-      })}><span class="hm-bubble">${missionStatus(state) === "complete" ? "✅" : "📜"}</span></span>
-      <button class="hm-missions-btn" data-action="open-missions" title="The Headmaster's missions — coming soon">📜 Missions</button>`)}
-    <div class="office-split office-solo">
+    ${roomScene("headmaster", [...ready.filter((c) => !c.apprentice), ...pool], "Headmaster's Office", officeHow, "",
+      `<button class="hm-missions-btn" data-action="open-missions" title="The Headmaster's missions — coming soon">📜 Missions</button>`, "headmaster")}
+    ${npcLine(state, "headmaster")}
+    <div class="office-split">
+      <div>
+        ${statRow(`Apprentices (${apprentices}/${APPRENTICE_POSTS.length})`, "", "stat-row-left")}
+        <div class="person-tiles">${readyTiles.join("") || '<span class="muted office-none">Students who reach level 10 can become a room NPC\'s apprentice</span>'}</div>
+      </div>
       <div>
         ${statRow(`Recruits (${pool.length}/${recSlots})`, "", "stat-row-left")}
         <div class="person-tiles">${recruitTiles.join("")}${placeholders(recSlots - pool.length)}</div>
@@ -4147,20 +4098,20 @@ export function renderFloor3(state) {
   const totalInt = crew.reduce((sum, t) => sum + t.grades.Physics, 0);
   const researchFromInt = Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT);
   const researchLevelBonus = RESEARCH_BONUS_BY_LEVEL[roomLevel(state, "research") - 1];
-  const researchLab = crew.length ? researchRoomYield(state) - researchFromInt - researchLevelBonus : 0; // Lab Equipment
-  const researchHow = crew.length
-    ? {
-        title: `${ri("research")} +${researchRoomYield(state)} research a day`,
-        rows: [[`INT of the ${crew.length} working here`, `${totalInt}`], [`Research · 1 per ${RESEARCH_ROOM_INT_PER_POINT} INT`, `+${researchFromInt}`], [`Room · level ${roomLevel(state, "research")}`, `+${researchLevelBonus}`], ...(researchLab ? [["Lab Equipment · +25%", `+${researchLab}`]] : [])],
-        total: ["Total", `+${researchRoomYield(state)}`],
-        notes: ["Mr. Whiteboard and the assisting students all add their INT", "Research buys the tech tree and the Radio Station's upgrades"],
-      }
-    : { title: `${ri("research")} No research yet`, notes: [`1 research for every ${RESEARCH_ROOM_INT_PER_POINT} INT, plus a level bonus`] };
+  const researchLab = researchRoomYield(state) - researchFromInt - researchLevelBonus; // Lab Equipment
+  const researchHow = {
+    title: `${ri("research")} +${researchRoomYield(state)} research a day`,
+    rows: [[`Room · level ${roomLevel(state, "research")}`, `+${researchLevelBonus}`],
+      crew.length ? [`INT ${totalInt} of the ${crew.length} working here`, `+${researchFromInt}`] : tipNone("Nobody working here", "+0"),
+      ...(researchLab ? [["Lab Equipment · +25%", `+${researchLab}`]] : [])],
+    total: ["Total", `+${researchRoomYield(state)}`],
+    notes: [`The apprentice and the assisting students add 1 research per ${RESEARCH_ROOM_INT_PER_POINT} INT`, "Research buys the tech tree and the Radio Station's upgrades"],
+  };
   const helpersOf = (postKey) => state.characters.filter((c) => c.alive && c[`${postKey}Today`]);
   // `footer(staff)` gives the room's headline: its daily result with a breakdown.
   const utilityRoom = (scene, title, desc, postKey, statLabel, statKey, footer) => {
     if (isBoarded(state, postKey)) return renderBoardedRoom(state, postKey, scene, "room-utility");
-    const staff = roomStaff(state, postKey);
+    const staff = craftingCrew(state);
     return `<div class="room room-utility">
       ${roomScene(`${scene}@${roomLevel(state, postKey)}`, helpersOf(postKey), `${title}${levelBadge(state, postKey)}`, desc, roomUpgradeButton(state, postKey), "", postKey)}
       ${npcLine(state, postKey)}
@@ -4185,9 +4136,9 @@ export function renderFloor3(state) {
     const how = staff.length || helpers.length
       ? {
           title: `🛡 +${total} fortification a day`,
-          rows: [...parts.map((p) => [`${esc(shortName(p.t))} · ${p.use} scrap`, `+${p.gain}`]), ...helpers.map((c) => [`${esc(shortName(c))} · WIS ${c.grades.History}`, `+${craftHelpGain(c)}`])],
+          rows: [...parts.map((p) => [`${p.t.room ? `Room · level ${roomLevel(state, "crafting")}` : `🎓 ${esc(shortName(p.t))}`} · ${p.use} scrap`, `+${p.gain}`]), ...helpers.map((c) => [`${esc(shortName(c))} · WIS ${c.grades.History}`, `+${craftHelpGain(c)}`])],
           total: ["Total", `+${total}`],
-          notes: ["Each crafter turns up to 4 scrap a day into fortification", `Students help for free: +1 per ${CRAFT_HELP_WIS_PER_POINT} WIS`],
+          notes: ["The room and its apprentice each turn up to 4 scrap a day into fortification", `Students help for free: +1 per ${CRAFT_HELP_WIS_PER_POINT} WIS`],
         }
       : { title: "🛡 No crafting yet", notes: ["Up to 4 scrap a day becomes permanent fortification", `Students help for free: +1 per ${CRAFT_HELP_WIS_PER_POINT} WIS, no scrap`] };
     return `🛡 <b>+${total}</b> fortification a day ${infoDot(how)}`;
@@ -4210,7 +4161,7 @@ export function renderFloor3(state) {
         ...(crew.length ? crew.map((c) => [`${esc(shortName(c))} · CHA ${c.grades.SocialStudies}`, `+${pct(radioCrewBonus(c))}`]) : [tipNone("Nobody on the air", "+0%")]),
         ...(rawChance > 0 && chance < 1 && Math.abs(chance - rawChance) > 0.0005 ? [["Meals & research", `×${(chance / rawChance).toFixed(2)}`]] : [])],
       total: ["Total", pct(chance)],
-      notes: [`Recruiters add CHA ÷ ${RADIO_CHA_PER_PERCENT} % — Dale and the students on the air`, "Base: 5 / 7 / 9 / 11% at levels 1–4", `Level 5 calls the helicopter — it lands ${RESCUE_ARRIVAL_DAYS} days later`],
+      notes: [`Recruiters add CHA ÷ ${RADIO_CHA_PER_PERCENT} % — the apprentice and the students on the air`, `Base: ${RADIO_UPGRADES.slice(0, 4).map((u) => Math.round(u.baseChance * 100)).join(" / ")}% at levels 1–4`, `Level 5 calls the helicopter — it lands ${RESCUE_ARRIVAL_DAYS} days later`],
     };
     const pill = state.rescue
       ? state.rescue.evacuated ? "🚁 The helicopter has come and gone" : `🚁 Helicopter lands on <b>day ${state.rescue.day}</b> · 📻 ${pct(chance)}`
@@ -4821,25 +4772,23 @@ function rosterSortValue(c, key, state) {
   if (key === "name") return c.name.toLowerCase();
   if (key === "sex") return c.gender;
   if (key === "level") return overallLevel(c);
-  if (key === "teaches") return SUBJECT_LABEL[c.teachSubject] || "";
-  if (key === "power") return c.role === "teacher" ? -1 : fightPower(state, c).power;
-  if (key === "gear") return c.role === "teacher" ? -1 : gearCount(c);
-  if (key === "hp") return c.role === "teacher" ? -1 : c.hp;
-  if (key === "stamina") return c.role === "teacher" ? -1 : c.stamina;
+  if (key === "power") return fightPower(state, c).power;
+  if (key === "gear") return gearCount(c);
+  if (key === "hp") return c.hp;
+  if (key === "stamina") return c.stamina;
   if (key === "points") return availableSkillPoints(c);
-  if (key === "posted") return c.post ? 1 : 0;
   if (key === "status") return statusTag(c, state).replace(/<[^>]+>/g, "").trim().toLowerCase();
   if (key === "assignment") return rosterLocation(state, c).toLowerCase();
   const subject = SUBJECTS.find((s) => STAT_OF_SUBJECT[s] === key);
   return subject ? c.grades[subject] : 0;
 }
 // Clicking a column sorts by it — numbers biggest first, words A–Z — and clicking it again flips it.
-const ROSTER_TEXT_KEYS = ["name", "sex", "teaches", "status", "assignment"];
+const ROSTER_TEXT_KEYS = ["name", "sex", "status", "assignment"];
 export const rosterDefaultDir = (key) => (ROSTER_TEXT_KEYS.includes(key) ? "asc" : "desc");
-// Teachers: their post by name; students: their classroom, or today's other Turn 1 job.
-const rosterLocation = (state, c) => (c.role === "teacher" ? occupationLabel(state, c) : c.seat ? roomDisplayName(state, c.seat.room) : turnOneJob(state, c) || "Unassigned");
+// Their classroom, or today's other Turn 1 job.
+const rosterLocation = (state, c) => (c.seat ? roomDisplayName(state, c.seat.room) : turnOneJob(state, c) || "Unassigned");
 
-// `filter`: "student", "teacher", or "skills" (students with skill points to spend).
+// `filter`: "student", or "skills" (students with skill points to spend).
 // Full rows (a big portrait) or compact ones (just their face, thinner bars) — the player's pick,
 // remembered in this browser.
 const ROSTER_DENSITY_KEY = "sotd-roster-density";
@@ -4851,23 +4800,21 @@ export function setRosterDensity(density) {
 }
 
 export function renderRoster(state, filter = "student", sortKey = "name", sortDir = "asc") {
-  if (!["teacher", "skills"].includes(filter)) filter = "student";
-  const teachersView = filter === "teacher";
+  if (filter !== "skills") filter = "student";
   const skillsView = filter === "skills";
-  const role = teachersView ? "teacher" : "student";
+  const role = "student";
   // "Show deceased" only appears when someone in this view has died.
   const anyDead = !skillsView && state.characters.some((c) => !c.alive && c.role === role);
   const showDead = anyDead && window.__showDead;
   const compact = rosterCompact();
   const columns = [
     ["name", "Name"], ["sex", "Sex"],
-    ...(teachersView ? [["teaches", "Teaches"]] : [["level", "Lvl"], ["power", "Power"], ["gear", "Gear"], ["points", "Skill pts"], ["hp", "HP"], ["stamina", "Stamina"]]),
+    ["level", "Lvl"], ["power", "Power"], ["gear", "Gear"], ["points", "Skill pts"], ["hp", "HP"], ["stamina", "Stamina"],
     ["status", "Status"], ["assignment", "Assignment"],
     ...SUBJECTS.map((s) => [STAT_OF_SUBJECT[s], STAT_OF_SUBJECT[s]]),
   ];
-  const keys = [...columns.map(([k]) => k).filter(Boolean), ...ROSTER_SORT_FIELDS.map((f) => f.key), ...(teachersView ? ["posted"] : [])];
-  const studentOnly = ["level", "power", "gear", "hp", "stamina", "points"];
-  const effectiveSortKey = keys.includes(sortKey) && !(teachersView && studentOnly.includes(sortKey)) && !(!teachersView && sortKey === "teaches") ? sortKey : "name";
+  const keys = [...columns.map(([k]) => k).filter(Boolean), ...ROSTER_SORT_FIELDS.map((f) => f.key)];
+  const effectiveSortKey = keys.includes(sortKey) ? sortKey : "name";
   const list = state.characters
     .filter((c) => (showDead || c.alive) && c.role === role && (!skillsView || availableSkillPoints(c) > 0))
     .sort((a, b) => {
@@ -4882,10 +4829,10 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
       return `<tr class="${c.alive ? "" : "row-dead"}">
         <td>${rosterNameTag(c)}</td>
         <td>${c.gender}</td>
-        <td>${teachersView ? `🌟 ${SUBJECT_LABEL[c.teachSubject]}` : overallLevel(c)}</td>
-        ${teachersView ? "" : `<td><span class="roster-power" ${tipAttr({ title: "⚔ Fight power", notes: ["Damage a round × what it takes to put them down (HP, armour, dodging), square-rooted", "Weapons and armour raise it — so does healing them"] })}>⚔ ${fightPower(state, c).power}</span></td><td>${gearPill(c)}</td>`}
-        ${teachersView ? "" : `<td>${points ? `<button class="skill-pill" data-action="open-card" data-id="${c.id}" data-card-tab="skills" title="${points} skill point${points === 1 ? "" : "s"} to spend — open their skill tree">🌳 ${points}</button>` : `<button class="skill-pill skill-pill-none" data-action="open-card" data-id="${c.id}" data-card-tab="skills" title="No skill points to spend — open their skill tree">🌳 0</button>`}</td>`}
-        ${teachersView ? "" : `<td>${hpBar(c)}</td><td>${staminaBar(c)}</td>`}
+        <td>${overallLevel(c)}</td>
+        <td><span class="roster-power" ${tipAttr({ title: "⚔ Fight power", notes: ["Damage a round × what it takes to put them down (HP, armour, dodging), square-rooted", "Weapons and armour raise it — so does healing them"] })}>⚔ ${fightPower(state, c).power}</span></td><td>${gearPill(c)}</td>
+        <td>${points ? `<button class="skill-pill" data-action="open-card" data-id="${c.id}" data-card-tab="skills" title="${points} skill point${points === 1 ? "" : "s"} to spend — open their skill tree">🌳 ${points}</button>` : `<button class="skill-pill skill-pill-none" data-action="open-card" data-id="${c.id}" data-card-tab="skills" title="No skill points to spend — open their skill tree">🌳 0</button>`}</td>
+        <td>${hpBar(c)}</td><td>${staminaBar(c)}</td>
         <td>${statusTag(c, state)}</td>
         <td>${esc(rosterLocation(state, c))}</td>
         ${SUBJECTS.map((s) => `<td class="td-stat">${statChip(c, s, null, true)}</td>`).join("")}
@@ -4915,12 +4862,6 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
     unspent.length ? `<button class="ov-chip ov-chip-bad ${skillsView ? "ov-chip-on" : ""}" data-action="set-roster-filter" data-filter="${skillsView ? "student" : "skills"}" ${tipAttr({ title: `🌳 ${plural(points, "skill point")} to spend`, notes: [`${plural(unspent.length, "student")} with points waiting`, skillsView ? "Click to show everyone again" : "Click to list them — a click on their 🌳 opens their skill tree"] })}>🌳 <b>${points}</b> skill point${points === 1 ? "" : "s"} · ${plural(unspent.length, "student")}</button>` : "",
     gearShort ? `<button class="ov-chip ov-chip-bad" data-action="roster-gear-check" ${tipAttr({ title: "🎒 Spare gear in the Armory", rows: [["Weapons", `${spareWeapons} spare · ${unarmed} unarmed`], ["Armour", `${spareArmour} spare · ${unarmoured} without`], ["Accessories", `${spareOther} spare`]], notes: ["Click to sort by gear, the least equipped first", "Click a Gear badge to open their inventory"] })}>🎒 <b>${state.armory.length}</b> spare item${state.armory.length === 1 ? "" : "s"}${unarmed && spareWeapons ? ` · ${unarmed} unarmed` : ""}</button>` : "",
   ].filter(Boolean).join("");
-  // ...and for the teachers: who has no post
-  const idle = state.characters.filter((c) => c.alive && c.role === "teacher" && !c.infection && !c.post);
-  const teacherWarnings = idle.length
-    ? `<button class="ov-chip ov-chip-bad" data-action="roster-unassigned" ${tipAttr({ title: `👩‍🏫 ${plural(idle.length, "unassigned teacher")}`, notes: [...idle.slice(0, 10).map((t) => esc(t.name)), "A teacher with no post teaches nobody — post them in a room", "Click to list them first"] })}>👩‍🏫 <b>${idle.length}</b> unassigned teacher${idle.length === 1 ? "" : "s"}</button>`
-    : "";
-
   const statKeys = SUBJECTS.map((s) => STAT_OF_SUBJECT[s]);
   const head = columns.map(([key, label]) => {
     const on = key === effectiveSortKey;
@@ -4953,7 +4894,7 @@ export function renderRoster(state, filter = "student", sortKey = "name", sortDi
         ${anyDead ? `<label class="check-row"><input type="checkbox" data-action="toggle-show-dead" ${showDead ? "checked" : ""}/> Show deceased</label>` : ""}
       </div>
       <h2>Roster</h2>
-      <div class="ov-head-right roster-warnings">${(teachersView ? teacherWarnings : warnings) || '<span class="ov-chip ov-chip-ok">✓ Nothing to do here</span>'}</div>
+      <div class="ov-head-right roster-warnings">${warnings || '<span class="ov-chip ov-chip-ok">✓ Nothing to do here</span>'}</div>
     </div>
     <div class="table-wrap">
       <table class="roster-table ${compact ? "roster-compact" : ""}">
@@ -5028,40 +4969,37 @@ function cardScene(state, c) {
 // ----- Stats: six cards, one a stat — its grade, the value with gear, a bar, what it does -----
 // A student's favourite subject can reach S, their second A, the rest stop at B (characters.js gradeCap).
 // Why a lesson adds nothing: they're at their own limit, or past what this teacher can take them to.
-const stopWhy = (c, s, ceiling) => (gradeCap(c, s) <= ceiling ? `at their limit of ${gradeCapLetter(c, s)} (${gradeCap(c, s)})` : `the teacher here only takes them to ${ceiling}`);
+const stopWhy = (c, s, ceiling) => (gradeCap(c, s) <= ceiling ? `at their limit of ${gradeCapLetter(c, s)} (${gradeCap(c, s)})` : `this room only takes them to ${ceiling}`);
 const focusNote = (c, s) => (s === c.favorite ? "★ Their favourite subject — the only one that can reach S"
   : s === c.secondary ? "☆ Their second subject — can reach A"
   : `Stops at B (${gradeCap(c, s)}) — only their favourite and second subject go higher`);
 function renderStatsTab(state, c) {
-  const isTeacher = c.role === "teacher";
   const cards = SUBJECTS.map((s) => {
     const stat = STAT_OF_SUBJECT[s];
     const val = c.grades[s];
     const letter = gradeLetter(val);
-    const gear = isTeacher ? 0 : equipmentBonus(c, stat);
+    const gear = equipmentBonus(c, stat);
     const total = val + gear;
     const cap = gradeCap(c, s);
     const capLetter = gradeLetter(cap);
-    const star = isTeacher ? s === c.teachSubject : s === c.favorite;
-    const second = !isTeacher && s === c.secondary;
+    const star = s === c.favorite;
+    const second = s === c.secondary;
     const uses = STAT_GUIDE[stat] || [];
     const tip = tipAttr({
       title: `${pxe(STAT_PIXEL[stat])} ${STAT_LABEL[stat]} (${stat}) — ${SUBJECT_LABEL[s]}`,
-      rows: isTeacher ? [["Grade", letter], ["Teaches a day", `+${teachingBonus(val)}`]] : [["Grade", `${letter} · ${val}`], ["Can reach", `${capLetter} · ${cap}${val >= cap ? " ✓" : ""}`], ...(gear ? [["From gear", `+${gear}`]] : []), ...uses.map(([what, where]) => [what, where, "tip-where"])],
-      notes: isTeacher ? [star ? "🌟 Their specialty — always their best grade" : "Posted to a classroom, every seated student learns this much a day, up to their grade"] : [focusNote(c, s), ...(val >= cap ? ["At their limit — classes and training won't raise it, gear still does"] : []), esc(STAT_EFFECTS[stat] || "")],
+      rows: [["Grade", `${letter} · ${val}`], ["Can reach", `${capLetter} · ${cap}${val >= cap ? " ✓" : ""}`], ...(gear ? [["From gear", `+${gear}`]] : []), ...uses.map(([what, where]) => [what, where, "tip-where"])],
+      notes: [focusNote(c, s), ...(val >= cap ? ["At their limit — classes and training won't raise it, gear still does"] : []), esc(STAT_EFFECTS[stat] || "")],
     });
     return `<div class="cs-card ${star ? "cs-best" : ""} ${second ? "cs-second" : ""}" style="--stat:${STAT_COLOR[stat]}" ${tip}>
       <div class="cs-head">
         <span class="cs-icon">${pixelIcon(STAT_PIXEL[stat], 16)}</span>
         <span class="cs-name"><b>${stat}</b><small>${SUBJECT_LABEL[s]}</small></span>
-        ${star ? `<span class="cs-star">${isTeacher ? "🌟" : "★"}</span>` : second ? '<span class="cs-star cs-star-second">☆</span>' : ""}
+        ${star ? `<span class="cs-star">★</span>` : second ? '<span class="cs-star cs-star-second">☆</span>' : ""}
         <span class="cs-grade grade-letter-${letter}">${letter}</span>
       </div>
-      ${isTeacher
-        ? `<div class="cs-value"><b>+${teachingBonus(val)}</b><small>a day when teaching</small></div>`
-        : `<div class="cs-value"><b>${total}</b>${gear ? `<small class="cs-gear">+${gear} gear</small>` : ""}<small class="cs-cap ${val >= cap ? "cs-cap-full" : ""}">${val >= cap ? "maxed at" : "up to"} <b class="grade-letter-${capLetter}">${capLetter}</b></small></div>
+      ${`<div class="cs-value"><b>${total}</b>${gear ? `<small class="cs-gear">+${gear} gear</small>` : ""}<small class="cs-cap ${val >= cap ? "cs-cap-full" : ""}">${val >= cap ? "maxed at" : "up to"} <b class="grade-letter-${capLetter}">${capLetter}</b></small></div>
            <div class="cs-bar"><i style="width:${Math.min(100, val)}%"></i>${gear ? `<i class="cs-bar-gear" style="width:${Math.min(100 - Math.min(100, val), gear)}%"></i>` : ""}${cap < 100 ? `<span class="cs-bar-cap" style="left:${cap}%"></span>` : ""}</div>`}
-      ${isTeacher ? "" : `<div class="cs-uses">${uses.slice(0, 2).map(([what]) => `<span>${esc(what)}</span>`).join("")}</div>`}
+      ${`<div class="cs-uses">${uses.slice(0, 2).map(([what]) => `<span>${esc(what)}</span>`).join("")}</div>`}
     </div>`;
   }).join("");
   return `<div class="cs-grid">${cards}</div>`;
@@ -5212,26 +5150,34 @@ function renderSkillsTab(c) {
     <div class="sk-grid">${cols}</div>`;
 }
 
-// Under a student's card when promoting them from the Headmaster's Office: yes, no, or keep them
-// a student for good (which frees their promotion slot).
-function promoteConfirm(c) {
-  const best = SUBJECTS.reduce((b, s) => (c.grades[s] > c.grades[b] ? s : b), SUBJECTS[0]);
-  return `<div class="cc-confirm">
-    <div class="cc-confirm-text"><b>🎓 Promote ${esc(c.name)} to teacher?</b>
-      <span class="muted">They'd teach ${SUBJECT_LABEL[best]} (${gradeLetter(c.grades[best])}). A teacher can't go back to being a student.</span></div>
+// Under a level 10 student's card: whose apprentice they'll be — every room's NPC, with the
+// stat they'd work it with (taken ones show their apprentice).
+function apprenticePicker(state, c) {
+  const opts = APPRENTICE_POSTS.map((post) => {
+    const n = NPCS[ROOM_NPC[post]];
+    const holder = apprenticeOf(state, post);
+    const subj = apprenticeSubject(state, post);
+    const room = roomName(state, postRoomKey(post)).replace(/^the /, "");
+    const what = subj ? `${STAT_OF_SUBJECT[subj]} <b class="grade-letter-${gradeLetter(c.grades[subj])}">${gradeLetter(c.grades[subj])}</b>` : "+1 dish";
+    const act = holder ? "disabled" : `data-action="set-apprentice" data-id="${c.id}" data-post="${post}"`;
+    return `<button class="appr-opt ${holder === c ? "on" : ""}" ${act}>
+      <span class="appr-npc">${esc(n.name)}</span><span class="appr-room">${esc(room)}</span>
+      <span class="appr-stat">${holder ? `🎓 ${esc(shortName(holder))}` : what}</span></button>`;
+  });
+  return `<div class="cc-confirm cc-appr">
+    <div class="cc-confirm-text"><b>🎓 Whose apprentice will ${esc(shortName(c))} be?</b>
+      <span class="muted">They work that room every day with their own grade — and stay a student.</span></div>
     <div class="cc-confirm-actions">
-      <button class="btn btn-primary" data-action="confirm-promote" data-id="${c.id}">✓ Yes</button>
-      <button class="btn" data-action="close-card">No</button>
-      <button class="btn btn-danger" data-action="never-promote" data-id="${c.id}" title="Keep them a student and free their promotion slot">🚫 Never promote</button>
+      ${c.apprentice ? `<button class="btn btn-danger" data-action="set-apprentice" data-id="${c.id}">Stop being an apprentice</button>` : ""}
+      <button class="btn" data-action="close-card">Close</button>
     </div>
+    <div class="appr-grid">${opts.join("")}</div>
   </div>`;
 }
 
 // Under a waiting recruit's card: let them join, leave them waiting, or turn them away for good.
 function recruitConfirm(c) {
-  const who = c.role === "teacher"
-    ? `A teacher of ${SUBJECT_LABEL[c.teachSubject]} (${gradeLetter(c.grades[c.teachSubject])})`
-    : `A level ${overallLevel(c)} student`;
+  const who = `A level ${overallLevel(c)} student`;
   return `<div class="cc-confirm">
     <div class="cc-confirm-text"><b>🚪 Let ${esc(c.name)} join the school?</b>
       <span class="muted">${c.legendary ? "✨ Legendary · " : ""}${who}. "No" leaves them waiting.</span></div>
@@ -5244,7 +5190,6 @@ function recruitConfirm(c) {
 }
 
 export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
-  const isTeacher = c.role === "teacher";
   const points = availableSkillPoints(c);
   const level = overallLevel(c);
   const maxed = level >= STUDENT_MAX_LEVEL;
@@ -5253,13 +5198,7 @@ export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
 
   // the strip under the banner
   const tile = (label, value, extra = "", tip = null, cls = "") => `<div class="cc2-tile ${cls}" ${tip ? tipAttr(tip) : ""}><span class="cc2-tile-label">${label}</span><span class="cc2-tile-value">${value}</span>${extra}</div>`;
-  const strip = isTeacher
-    ? [
-      tile("Specialty", `🌟 ${SUBJECT_LABEL[c.teachSubject]} <b class="grade-letter-${gradeLetter(c.grades[c.teachSubject])}">${gradeLetter(c.grades[c.teachSubject])}</b>`),
-      tile("Teaches", `+${teachingBonus(c.grades[c.teachSubject])} a day`, "", { title: "📖 Teaching", notes: ["Each seated student learns this much of the subject a day, up to the teacher's own grade"] }),
-      tile("Post", esc(occupationLabel(state, c)), "", null, "cc2-tile-wide"),
-    ].join("")
-    : [
+  const strip = [
       tile("Level", maxed ? "MAX" : `${level}`, maxed ? "" : `<span class="cc2-xp"><i style="width:${Math.round(((c.exp || 0) / xpToNextLevel(level)) * 100)}%"></i></span>`, levelTip(c)),
       tile("Power", `⚔ ${fightPower(state, c).power}`, "", { title: "⚔ Fight power", notes: ["Damage a round × what it takes to put them down (HP, armour, dodging), square-rooted", "Gear and healing raise it"] }),
       tile("HP", hpBar(c), "", null, "cc2-tile-bar"),
@@ -5267,15 +5206,14 @@ export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
       tile("Doing", esc(occupationLabel(state, c)), "", null, "cc2-tile-wide"),
     ].join("");
 
-  const TABS = isTeacher ? [] : [["stats", "📊 Stats"], ["inventory", "🧳 Inventory"], ["skills", `🌳 Skills${points ? ` <b class="cc2-tab-badge">${points}</b>` : ""}`]];
-  const tab = isTeacher ? "stats" : TABS.some(([id]) => id === cardTab) ? cardTab : "stats";
-  const tabBar = TABS.length ? `<div class="cc2-tabs">${TABS.map(([id, label]) => `<button class="cc2-tab ${tab === id ? "on" : ""}" data-action="set-card-tab" data-tab="${id}">${label}</button>`).join("")}</div>` : "";
+  const TABS = [["stats", "📊 Stats"], ["inventory", "🧳 Inventory"], ["skills", `🌳 Skills${points ? ` <b class="cc2-tab-badge">${points}</b>` : ""}`]];
+  const tab = TABS.some(([id]) => id === cardTab) ? cardTab : "stats";
+  const tabBar = `<div class="cc2-tabs">${TABS.map(([id, label]) => `<button class="cc2-tab ${tab === id ? "on" : ""}" data-action="set-card-tab" data-tab="${id}">${label}</button>`).join("")}</div>`;
   const body = tab === "inventory" ? renderInventoryTab(state, c) : tab === "skills" ? renderSkillsTab(c) : renderStatsTab(state, c);
 
   const inRoster = state.characters.includes(c);
   const footer = [
-    !isTeacher && c.neverPromote ? `<span class="cc2-kept">🚫 Staying a student <button class="btn btn-sm" data-action="allow-promote" data-id="${c.id}">Allow promotion</button></span>` : "",
-    !isTeacher && c.alive && inRoster ? `<button class="btn btn-sm btn-danger" data-action="expel" data-id="${c.id}" title="Send them away from the school for good">🚪 Expel</button>` : "",
+    c.alive && inRoster ? `<button class="btn btn-sm btn-danger" data-action="expel" data-id="${c.id}" title="Send them away from the school for good">🚪 Expel</button>` : "",
   ].filter(Boolean).join("");
 
   return `
@@ -5294,24 +5232,23 @@ export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
         </div>
         <div class="cc2-who">
           <h3 class="cc2-name">${c.legendary ? "✨ " : ""}${esc(c.name)}</h3>
-          <span class="cc2-role">${isTeacher ? "🎓 Teacher" : `🎒 Student · Lv ${level}`}</span>
+          <span class="cc2-role">🎒 Student · Lv ${level}</span>
           ${statusTag(c, state)}
         </div>
         <div class="cc2-info">
-          ${isTeacher
-            ? `<span class="cc2-info-label">Teaches</span><span class="cc2-info-value">🌟 ${SUBJECT_LABEL[c.teachSubject]} <b class="grade-letter-${gradeLetter(c.grades[c.teachSubject])}">${gradeLetter(c.grades[c.teachSubject])}</b></span>`
-            : c.favorite ? `<span class="cc2-info-label">Favourite</span><span class="cc2-info-value" ${tipAttr({ title: "★ Favourite subject", rows: [[`★ ${SUBJECT_LABEL[c.favorite]}`, "up to S"]], notes: ["Picked when they arrived — their best grades and talents"] })}><b class="cc2-star">★</b> ${SUBJECT_LABEL[c.favorite]}</span>
+          ${c.favorite ? `<span class="cc2-info-label">Favourite</span><span class="cc2-info-value" ${tipAttr({ title: "★ Favourite subject", rows: [[`★ ${SUBJECT_LABEL[c.favorite]}`, "up to S"]], notes: ["Picked when they arrived — their best grades and talents"] })}><b class="cc2-star">★</b> ${SUBJECT_LABEL[c.favorite]}</span>
           <span class="cc2-info-label">Second</span><span class="cc2-info-value" ${tipAttr({ title: "☆ Second subject", rows: [[`☆ ${SUBJECT_LABEL[c.secondary]}`, "up to A"], ["Everything else", "up to B"]] })}><b class="cc2-star">☆</b> ${SUBJECT_LABEL[c.secondary]}</span>` : ""}
-          ${isTeacher ? "" : `<span class="cc2-info-label">Talents</span><span class="cc2-info-value cc2-traits">${traits || '<span class="muted">none</span>'}</span>
+          ${`<span class="cc2-info-label">Talents</span><span class="cc2-info-value cc2-traits">${traits || '<span class="muted">none</span>'}</span>
           <span class="cc2-info-label">Skill points</span><span class="cc2-info-value">${points ? `<button class="cc2-points" data-action="set-card-tab" data-tab="skills">✨ ${points} to spend</button>` : '<span class="muted">0 — one a level</span>'}</span>`}
+          ${canApprentice(c) && inRoster ? `<span class="cc2-info-label">Apprentice</span><span class="cc2-info-value"><button class="cc2-points" data-action="ask-apprentice" data-id="${c.id}" title="Pick whose apprentice they are">🎓 ${c.apprentice ? `of ${esc(NPCS[ROOM_NPC[c.apprentice]].name)}` : "Choose a mentor"}</button></span>` : ""}
         </div>
         <button class="cc-close cc2-close" data-action="close-card" title="Close">✕</button>
       </div>
-      <div class="cc2-strip ${isTeacher ? "cc2-strip-teacher" : ""}">${strip}</div>
+      <div class="cc2-strip">${strip}</div>
       ${tabBar}
       <div class="cc2-body">${body}</div>
       ${footer ? `<div class="cc2-footer">${footer}</div>` : ""}
-      ${confirm === "promote" ? promoteConfirm(c) : confirm === "recruit" ? recruitConfirm(c) : ""}
+      ${confirm === "apprentice" && canApprentice(c) ? apprenticePicker(state, c) : confirm === "recruit" ? recruitConfirm(c) : ""}
     </div>
   </div>`;
 }
