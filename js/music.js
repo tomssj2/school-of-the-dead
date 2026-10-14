@@ -99,6 +99,13 @@ const CH = {
   fD: { root: 38, stab: [50, 57, 62], strings: [66, 69, 74] },
   fB: { root: 35, stab: [47, 54, 59], strings: [63, 66, 71] },
   fAm: { root: 45, stab: [45, 52, 57], strings: [64, 69, 72] },
+  // the intro, in A minor: the pad's voicing, and the choir's above it
+  iAm: { root: 33, notes: [57, 60, 64], choir: [64, 69, 72] },
+  iF: { root: 29, notes: [57, 60, 65], choir: [65, 69, 72] },
+  iC: { root: 36, notes: [55, 60, 64], choir: [64, 67, 72] },
+  iG: { root: 31, notes: [55, 59, 62], choir: [62, 67, 71] },
+  iDm: { root: 38, notes: [57, 62, 65], choir: [65, 69, 74] },
+  iE: { root: 28, notes: [56, 59, 64], choir: [64, 68, 71] },
   // the boss, in C minor: the choir and the brass
   bCm: { root: 36, choir: [55, 60, 63, 67], stab: [48, 55, 60, 63] },
   bAb: { root: 32, choir: [56, 60, 63, 68], stab: [44, 51, 56, 60] },
@@ -635,7 +642,40 @@ const BOSS_THEME = [
   [[0, 71, 12], [12, 67, 4]],
 ];
 
+// The intro's tune on the piano: [step, note, length in sixteenths] for each bar — sad, then
+// climbing toward something hopeful, and resolving on E for the loop.
+const INTRO_THEME = [
+  [[0, 76, 6], [6, 74, 2], [8, 72, 8]],
+  [[0, 72, 6], [6, 74, 2], [8, 69, 8]],
+  [[0, 67, 4], [4, 72, 4], [8, 76, 8]],
+  [[0, 74, 12], [12, 71, 4]],
+  [[0, 76, 6], [6, 77, 2], [8, 79, 8]],
+  [[0, 77, 6], [6, 76, 2], [8, 72, 8]],
+  [[0, 74, 4], [4, 72, 4], [8, 69, 8]],
+  [[0, 68, 8], [8, 71, 8]],
+];
+
 const MOODS = {
+  // The intro: slow and cinematic — a dark pad and a low drone, a soft heartbeat, then a choir and
+  // a lonely piano playing the theme, a bell now and then high above it.
+  intro: {
+    bpm: 66, swing: 0.5, cutoff: 6000, echo: 0.8, humanize: 0.006,
+    prog: [CH.iAm, CH.iF, CH.iC, CH.iG, CH.iAm, CH.iF, CH.iDm, CH.iE],
+    play(T, s, t) {
+      const { prog } = T.def;
+      const bar = s >> 4;
+      const p = s & 15;
+      const ch = prog[bar % prog.length];
+      if (p === 0) pad(T, t, ch.notes, 4 * T.beat, { cutoff: 750, gain: 0.032, attack: 1.6, release: 2.6 });
+      if (p === 0) bass(T, t, ch.root, 3.9 * T.beat, { cutoff: 240, gain: 0.26 });
+      // the heartbeat
+      if (bar >= 1 && (p === 0 || p === 3)) tom(T, t, p === 0 ? 0.55 : 0.35, { hi: 70, lo: 42, decay: 0.45, gain: 0.45, skin: 0.1 });
+      if (bar >= 2 && p === 0) choir(T, t, ch.choir, 4 * T.beat, { gain: 0.26, attack: 1.4, release: 2.2 });
+      if (bar >= 2) for (const [at, note, len] of INTRO_THEME[bar % 8]) if (at === p) epiano(T, t, note, len * T.stepDur, 0.62, { rev: 0.55, echo: 0.35 });
+      if (bar >= 4 && p === 8 && bar % 2 === 1) bell(T, t, ch.choir[2] + 12, { vel: 0.45, gain: 0.035, echo: 0.5 });
+    },
+  },
+
   // Turn 1: lofi — an electric piano comping lazily over a swung boom-bap beat, a round bass, now
   // and then a little melody, all through a dusty filter and vinyl crackle.
   morning: {

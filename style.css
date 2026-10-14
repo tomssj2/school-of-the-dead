@@ -4315,3 +4315,105 @@ span.npc-appr { background: none; border-color: transparent; cursor: inherit; }
 .appr-opt.on { opacity: 1; border-color: #5ccf6e; }
 .appr-npc { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .appr-room { color: var(--muted); font-size: 11px; }
+
+/* ===== Quests: the marks over NPCs (❗ a new quest, ❓ one to hand in), the talk pop-up, the journal ===== */
+.q-mark {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 5px; vertical-align: -3px;
+  background: #fffbe8; border: 2px solid #e8b820; color: #b8860b; font-style: normal; font-size: 11px; font-weight: 900; line-height: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+}
+.q-mark.q-ready { border-color: #3fcf7a; color: #2a9a5a; }
+.scene-npc .q-mark { position: absolute; z-index: 3; left: 50%; top: -6px; margin: 0; transform: translateX(-50%); animation: hm-bob 1.6s ease-in-out infinite alternate; }
+.scene-npc, .npc-line { cursor: pointer; }
+.nav-btn { position: relative; }
+.nav-mark { position: absolute; top: -7px; right: -7px; margin: 0; width: 16px; height: 16px; font-size: 10px; }
+.npc-line:hover { border-color: var(--turn-accent, #f4c542); }
+.npc-modal { display: block; width: 560px; max-width: 560px; }
+.npcm-head { display: flex; gap: 14px; align-items: flex-end; margin-bottom: 10px; }
+.npcm-figure svg { display: block; }
+.npcm-who h3 { margin: 0 0 2px; }
+.npcm-nick { font-size: 12px; color: var(--muted); }
+.npcm-nick b { color: var(--turn-accent, #f4c542); }
+.npcm-say { margin: 8px 0 0; font-style: italic; }
+.npcm-quests { display: grid; gap: 8px; }
+.npcm-none { margin: 4px 0; }
+.q-card { padding: 8px 10px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--border); border-left: 3px solid #e8b820; }
+.q-card.q-ready { border-left-color: #3fcf7a; }
+.q-card.q-active { border-left-color: #4a9eff; }
+.q-head { display: flex; align-items: center; gap: 2px; }
+.q-head b { flex: 1; }
+.q-tag { font-size: 11px; color: var(--muted); }
+.q-say { margin: 4px 0; font-size: 12px; font-style: italic; color: var(--muted); }
+.q-steps { margin: 4px 0; padding: 0; list-style: none; font-size: 12px; }
+.q-steps li { padding: 1px 0; }
+.q-steps li.q-done { color: #5ccf6e; }
+.q-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.q-reward { color: var(--muted); }
+.quest-journal h2 { margin: 0 0 8px; }
+.qj-head { margin: 12px 0 6px; font-size: 13px; color: var(--muted); }
+.qj-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.qj-row { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.qj-row:hover .q-card { border-color: var(--turn-accent, #f4c542); }
+.qj-npc svg { display: block; }
+.qj-body { flex: 1; min-width: 0; }
+.qj-giver { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
+.upg-quest { display: flex; flex-direction: column; gap: 2px; margin: 8px 0; padding: 6px 8px; font-size: 12px; background: rgba(232, 184, 32, 0.1); border: 1px solid rgba(232, 184, 32, 0.45); }
+.upg-quest[data-action] { cursor: pointer; }
+.upg-quest small { color: var(--muted); }
+.upg-quest-ok { background: rgba(63, 207, 122, 0.1); border-color: rgba(63, 207, 122, 0.45); }
+/* on the City Map: a ❗ over a place a quest sends you to (it doesn't block clicking the place) */
+.cm-quest { z-index: 4; pointer-events: none; }
+.cm-quest::before { display: none; }
+.cm-quest-mark { pointer-events: auto; transform: translateY(-85%); display: grid; place-items: center; width: 18px; height: 18px; background: #fffbe8; border: 2px solid #e8b820; color: #b8860b; font-size: 11px; font-weight: 900; box-shadow: 0 0 10px rgba(244, 211, 94, 0.6); animation: cm-bob 1.6s ease-in-out infinite; }
+/* "Who's that NPC?!" — the silhouette for 1.6 s, then colour, the name and the button */
+.npc-reveal { position: relative; width: 520px; height: 420px; overflow: hidden; display: grid; justify-items: center; align-content: center; gap: 8px; background: #1b3f8a; border: 3px solid #f4d35e; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); }
+.reveal-burst { position: absolute; inset: -50%; background: repeating-conic-gradient(from 0deg, #2a5cc0 0deg 10deg, #1b3f8a 10deg 20deg); animation: reveal-spin 12s linear infinite; }
+@keyframes reveal-spin { to { transform: rotate(360deg); } }
+.reveal-q, .reveal-figure, .reveal-name, .reveal-btn { position: relative; z-index: 1; }
+.reveal-q { font-size: 30px; font-weight: 900; color: #f4d35e; -webkit-text-stroke: 1px #2a1d06; text-shadow: 3px 3px 0 #2a1d06; animation: reveal-out 0.25s 1.6s forwards; }
+.reveal-figure svg { display: block; filter: brightness(0) drop-shadow(0 0 0 #fff); animation: reveal-color 0.35s 1.6s forwards; }
+@keyframes reveal-color { 0% { filter: brightness(0) drop-shadow(0 0 0 #fff); } 40% { filter: brightness(3) drop-shadow(0 0 12px #fff); } 100% { filter: none; } }
+.reveal-name { margin-top: -6px; display: grid; justify-items: center; font-size: 22px; color: #fff; text-shadow: 2px 2px 0 #10224a; opacity: 0; animation: reveal-in 0.3s 1.8s forwards; }
+.reveal-name b { color: #f4d35e; }
+.reveal-name small { font-size: 14px; color: #cfe0ff; }
+.reveal-btn { opacity: 0; animation: reveal-in 0.3s 2.1s forwards; }
+@keyframes reveal-out { to { opacity: 0; transform: translateY(-8px); } }
+@keyframes reveal-in { to { opacity: 1; } }
+
+/* ===== The intro: a banner over the story, three screens ===== */
+.intro-overlay { background: rgba(4, 4, 8, 0.92); }
+.intro-card { width: 1008px; max-width: calc(100vw - 32px); background: #12141c; border: 2px solid #4a3a2a; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7); }
+.intro-art { position: relative; height: 352px; overflow: hidden; background-size: 100% auto; background-position: 50% 100%; background-repeat: no-repeat; background-color: #0c0a10; image-rendering: pixelated; animation: intro-pan 16s ease-out forwards; }
+.intro-art-2 { background-size: auto 100%; background-position: 50% 50%; animation: intro-fade 1.2s ease-out forwards; }
+@keyframes intro-pan { from { background-size: 100% auto; filter: brightness(0.5); } 10% { filter: none; } to { background-size: 108% auto; } }
+@keyframes intro-fade { from { filter: brightness(0.5); } to { filter: none; } }
+.intro-art-0::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 100%, rgba(255, 110, 40, 0.25), transparent 70%); animation: intro-flicker 0.9s steps(3) infinite alternate; pointer-events: none; }
+@keyframes intro-flicker { from { opacity: 0.5; } to { opacity: 1; } }
+.intro-people { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; align-items: flex-end; justify-content: center; gap: 40px; }
+.intro-npc svg, .intro-crowd svg { display: block; }
+.intro-crowd { display: flex; gap: 2px; transform: scaleX(-1); }
+.intro-text { min-height: 168px; padding: 18px 28px 6px; }
+.intro-text h2 { margin: 0 0 10px; color: #f4c542; letter-spacing: 1px; }
+.intro-text p { margin: 0 0 8px; font-size: 16px; line-height: 1.5; opacity: 0; animation: intro-line 0.8s ease-out forwards; }
+.intro-quote { font-style: italic; color: #f4e3b0; font-size: 17px !important; }
+.intro-quote small { display: block; margin-top: 2px; font-style: normal; font-size: 12px; color: var(--muted); }
+@keyframes intro-line { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.intro-actions { display: flex; align-items: center; justify-content: space-between; padding: 10px 28px 18px; }
+.intro-dots { display: flex; gap: 6px; }
+.intro-dots i { width: 8px; height: 8px; background: #3a3a48; }
+.intro-dots i.on { background: #f4c542; }
+
+/* ===== NPC speech: a pixel-art bubble (notched corners, a stepped tail) typing out their words ===== */
+.say-bubble {
+  position: relative; z-index: 3; padding: 7px 11px; background: #fffbe8; color: #2a1d06; font-size: 13px; font-weight: 600; line-height: 1.4;
+  box-shadow: 0 -3px 0 #2a1d06, 0 3px 0 #2a1d06, -3px 0 0 #2a1d06, 3px 0 0 #2a1d06, 0 6px 0 rgba(0, 0, 0, 0.35);
+  min-height: 1.4em; cursor: pointer;
+}
+.say-bubble::after {
+  content: ""; position: absolute; left: 30px; top: 100%; width: 3px; height: 3px; background: #2a1d06;
+  box-shadow: 3px 0 #2a1d06, 6px 0 #2a1d06, 0 3px #2a1d06, 3px 3px #2a1d06, 0 6px #2a1d06, 3px -3px #fffbe8, 0 -3px #fffbe8, 6px -3px #fffbe8, 0 0 0 0 transparent;
+}
+.npcm-bubble { margin: 4px 6px 16px; }
+.intro-npc { position: relative; }
+.intro-bubble { position: absolute; left: 60%; bottom: calc(100% + 10px); width: 380px; }
+.intro-bubble::after { left: 18px; }

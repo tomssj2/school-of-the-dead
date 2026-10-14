@@ -1,14 +1,16 @@
 import * as G from "./game.js";
+import * as Q from "./quests.js";
 import { WORLD_W, WORLD_H } from "./citymap.js";
 import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict } from "./ui.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
+  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderNpcModal, renderNpcReveal, renderIntro, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionBattle,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor, assignStudentFocus, gradeCap, weaponCategory, studentClass, armorType, makeWeapon, makeArmor, makeAccessory, randomEffect, makeSetItem, SET_PIECES } from "./characters.js";
-import { playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled, setSoundVolume,
+import { NPC_VOICE } from "./npcs.js";
+import { playBlip, playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled, setSoundVolume,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, getGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
 import { installFrames, installBackdrop } from "./frames.js";
@@ -59,6 +61,10 @@ let openRaid = null; // LANDMARKS id whose raid screen is open
 let raidFight = null; // { report, frameIndex, phase: "battle" | "result", after } while a raid replays
 let expeditionReport = null; // { summary, phase: "travel" | "report" } at the end of Turn 2
 let openUpgrade = null; // room key whose Upgrade popup is open
+let openNpc = null; // the NPC being talked to (their quests)
+let talkSeq = 0; // each time someone starts talking (a new bubble key, so they say it again)
+let introStep = 0; // the intro's screen, while state.intro is set (a new game)
+let npcReveal = null; // the NPC of a room just cleared, for the "Who's that NPC?!" reveal
 let openMenu = false; // the Cafeteria's menu pop-up
 let openQuarantine = false; // the Nurse's Office quarantine pop-up
 let openEnemyGuide = false; // the Night Watch's "Know your enemy" pop-up
@@ -537,6 +543,13 @@ function migrateState(s) {
     s.defenseKits[LEGACY_DEFENSE_IDS[id]] = (s.defenseKits[LEGACY_DEFENSE_IDS[id]] || 0) + n;
     delete s.defenseKits[id];
   }
+  // The quests: every room level now needs its NPC's quest (quests.js), so every room starts again
+  // at level 1 (applyRoomLevel below sends anyone past a classroom's new last seat off it).
+  if (!s.quests) {
+    s.quests = {};
+    s.questFacts = { cleared: {}, items: {} };
+    for (const key of G.ROOM_KEYS) G.roomState(s, key).level = 1;
+  }
   for (const key of G.ROOM_KEYS) G.applyRoomLevel(s, key); // (also sets up the Scrapyard's and the Greenhouse's slots)
   // The Courtyard's crews are plain flags now; anyone past a room's workers goes back to being free.
   for (const def of Object.values(WORK_SITES)) {
@@ -630,7 +643,7 @@ function migrateState(s) {
     if (s.raidTarget === oldId) s.raidTarget = newId;
   }
   const raidLm = LANDMARKS.find((l) => l.id === s.raidTarget);
-  if (s.raidTarget && (!raidLm || !G.raidUnlocked(s))) s.raidTarget = null; // gone, or the map isn't fully scouted yet
+  if (s.raidTarget && (!raidLm || !G.raidUnlocked(s, raidLm))) s.raidTarget = null; // gone, or the map isn't fully scouted yet
   // Map milestones are new: an older save is counted as having had the ones it's already past.
   if (!s.mapMilestones) s.mapMilestones = MAP_MILESTONES.filter((m) => G.mapProgress(s).pct >= m);
   if (!s.raidTarget) for (const c of s.characters) if (c.exploreTeam === G.RAID_TEAM) c.exploreTeam = null;
@@ -753,7 +766,11 @@ function render() {
   const sameTab = activeTab === lastRenderedTab;
   root.classList.toggle("tab-enter", !sameTab);
   lastRenderedTab = activeTab;
-  const modalHtml = raidFight
+  const modalHtml = state.intro
+    ? renderIntro(state, introStep, `intro:${talkSeq}:${introStep}`)
+    : npcReveal
+    ? renderNpcReveal(npcReveal)
+    : raidFight
     ? renderRaidFight(state, raidFight)
     : encounter
     ? renderEncounterModal(state, encounter)
@@ -793,6 +810,8 @@ function render() {
     ? renderEnemyGuideModal(state)
     : openDefenseGuide
     ? renderDefenseGuideModal(state)
+    : openNpc
+    ? renderNpcModal(state, openNpc, `talk:${talkSeq}`)
     : openUpgrade
     ? renderRoomUpgradeModal(state, openUpgrade)
     : state.pendingAssault
@@ -820,12 +839,53 @@ function render() {
   fitCityMap();
   fitNightBoard();
   setMusicMood(musicMood());
+  speakBubbles();
 }
+
+// NPCs talk: a speech bubble (ui.js sayBubble) types itself out, a blip of their voice every
+// other letter. Once per key — a re-render mid-sentence carries on where it was, and a line
+// already said shows in full. A click on the bubble finishes it.
+const said = new Set();
+let saying = null; // { key, text, npc, i, timer }
+function speakBubbles() {
+  for (const el of root.querySelectorAll("[data-say-key]")) {
+    const key = el.dataset.sayKey;
+    if (said.has(key)) continue;
+    if (saying?.key === key) {
+      el.textContent = saying.text.slice(0, saying.i);
+      continue;
+    }
+    if (saying) finishSaying();
+    saying = { key, text: el.dataset.say, npc: el.dataset.npc, i: 0 };
+    el.textContent = "";
+    saying.timer = setInterval(() => {
+      const s = saying;
+      const els = root.querySelectorAll(`[data-say-key="${CSS.escape(s.key)}"]`);
+      if (!els.length) return finishSaying(); // closed before they finished
+      s.i++;
+      const ch = s.text[s.i - 1] || "";
+      if (/[a-z0-9]/i.test(ch) && s.i % 2 && NPC_VOICE[s.npc]) playBlip(NPC_VOICE[s.npc], ch);
+      for (const e of els) e.textContent = s.text.slice(0, s.i);
+      if (s.i >= s.text.length) finishSaying();
+    }, 34);
+  }
+}
+function finishSaying() {
+  if (!saying) return;
+  clearInterval(saying.timer);
+  for (const e of root.querySelectorAll(`[data-say-key="${CSS.escape(saying.key)}"]`)) e.textContent = saying.text;
+  said.add(saying.key);
+  saying = null;
+}
+root.addEventListener("click", (e) => {
+  if (saying && e.target.closest?.(`[data-say-key="${CSS.escape(saying.key)}"]`)) finishSaying();
+});
 
 // What the music should be doing (music.js): the turn's own track — lofi in the morning, quicker in
 // the afternoon, tense at night — or a fight's, or something epic for a raid boss (or a boss night),
 // back to the turn's once a fight is over and its result is up; silence when the school has fallen.
 function musicMood() {
+  if (state.intro) return "intro";
   if (state.gameOver) return null;
   if (raidFight?.phase === "battle") return raidFight.report.kind === "chase" ? "fight" : "boss";
   if (battleAnimation?.kind === "grid" && battleAnimation.phase === "battle") return battleAnimation.b?.bossName ? "boss" : "fight";
@@ -1489,9 +1549,43 @@ root.addEventListener("click", (e) => {
         runExpeditions();
       }
       break;
-    case "open-missions":
-      // the Headmaster's missions aren't in yet
-      flash("📜 The Headmaster's missions are coming soon.");
+    case "intro-next":
+    case "intro-skip":
+      if (action === "intro-next" && introStep < 2) {
+        introStep++;
+        render();
+        break;
+      }
+      // the intro's over: the game starts in the Headmaster's Office, talking to Doubledoor
+      delete state.intro;
+      introStep = 0;
+      activeTab = "floor3";
+      openNpc = "doubledoor";
+      talkSeq++;
+      render();
+      break;
+    case "close-reveal":
+      npcReveal = null;
+      render();
+      break;
+    case "open-npc":
+      npcReveal = null;
+      openNpc = el.dataset.npc;
+      talkSeq++;
+      openUpgrade = null;
+      render();
+      break;
+    case "close-npc":
+      openNpc = null;
+      render();
+      break;
+    case "accept-quest":
+      Q.acceptQuest(state, el.dataset.quest);
+      render();
+      break;
+    case "hand-in-quest":
+      Q.handInQuest(state, el.dataset.quest);
+      render();
       break;
     case "toggle-warn-menu":
       toggleWarnMenu();
@@ -1809,7 +1903,13 @@ root.addEventListener("click", (e) => {
         render();
         break;
       }
-      playBattle(b, "expedition", (fight) => G.finishClearBattle(state, roomKey, fight), () => render());
+      // won: its NPC is revealed once the fight's result is closed
+      let met = null;
+      playBattle(b, "expedition", (fight) => {
+        const res = G.finishClearBattle(state, roomKey, fight);
+        if (res.won) met = Q.ROOM_KEY_NPC[roomKey];
+        return res;
+      }, () => { npcReveal = met; render(); });
       break;
     }
     case "close-scout-report":
@@ -2195,8 +2295,10 @@ document.addEventListener("keydown", (e) => {
     battleAnimation.resume();
     return;
   }
-  if (e.key === "Escape" && (openCardId || openMissionLocationId || openUpgrade || openMenu || openQuarantine || openEnemyGuide || openDefenseGuide || openRaid || openNest || scoutReport || clearRoom)) {
+  if (e.key === "Escape" && (openCardId || openNpc || npcReveal || openMissionLocationId || openUpgrade || openMenu || openQuarantine || openEnemyGuide || openDefenseGuide || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
+    openNpc = null;
+    npcReveal = null;
     openUpgrade = null;
     openMenu = false;
     openQuarantine = false;
@@ -2322,6 +2424,14 @@ installBackdrop();
 if (["localhost", "127.0.0.1"].includes(location.hostname)) {
   let beforeMax = null;
   window.schoolDev = {
+    // schoolDev.intro(): play the new-game intro again.
+    intro() {
+      state.intro = true;
+      introStep = 0;
+      talkSeq++;
+      render();
+      return "intro";
+    },
     max() {
       if (!beforeMax) beforeMax = JSON.stringify(state);
       const summary = maxOutSchool(state);

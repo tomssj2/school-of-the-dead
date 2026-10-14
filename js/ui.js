@@ -27,9 +27,10 @@ import {
 import { hexToWorld, viewBox, cityBaseUrl, fogUrl, WORLD_W, WORLD_H } from "./citymap.js";
 import { zombieSprite, hordeSprite } from "./zombies.js";
 import { courtyardBackground, roomBackground, structureSprite } from "./nightwatch.js";
-import { raidBackdrop, streetBackdrop, duskBackdrop } from "./backdrops.js";
+import { raidBackdrop, streetBackdrop, duskBackdrop, introBackdrop } from "./backdrops.js";
 import { characterSprite } from "./sprite.js";
 import { NPCS, npcSprite } from "./npcs.js";
+import { QUESTS, questStatus, stepDone, npcQuests, npcMark, activeQuests, questTargets, upgradeItemFound, upgradeQuest, placeName } from "./quests.js";
 import { getBest, isBestRun } from "./score.js";
 import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZE } from "./graphics.js";
 import { areaOfTab } from "./frames.js";
@@ -252,12 +253,28 @@ export function renderRoomUpgradeModal(state, key) {
       <div class="upg-rows">${rows}</div>
       ${damage ? `<div class="upg-damage">⚠ A raid broke ${damage} worker slot${damage === 1 ? "" : "s"}.
         <button class="btn btn-sm" data-action="repair-room" ${scrap < repair ? "disabled" : ""}>🔧 Repair (${repair} scrap)</button></div>` : ""}
-      ${maxed ? `<p class="muted upg-note">This room is fully upgraded.</p>` : `<div class="upg-actions">
-        <button class="btn btn-primary" data-action="confirm-upgrade" ${scrap < cost ? "disabled" : ""}>Upgrade · ${cost} scrap</button>
+      ${maxed ? `<p class="muted upg-note">This room is fully upgraded.</p>` : `${upgradeNeed(state, key)}<div class="upg-actions">
+        <button class="btn btn-primary" data-action="confirm-upgrade" ${scrap < cost || !upgradeItemFound(state, key) ? "disabled" : ""}>Upgrade · ${cost} scrap</button>
         ${scrap < cost ? `<span class="muted">You have ${scrap}/${cost} scrap</span>` : ""}
       </div>`}
     </div>
   </div>`;
+}
+
+// What an upgrade needs from its NPC's quest: the item, where it is, and how far along you are.
+function upgradeNeed(state, key) {
+  const q = upgradeQuest(state, key);
+  if (!q) return "";
+  const npc = NPCS[q.giver];
+  const where = placeName(q.steps[0].place);
+  const status = questStatus(state, q.id);
+  const found = upgradeItemFound(state, key);
+  const how = found ? "✓ Found — ready to upgrade"
+    : status === "locked" ? `${esc(npc.name)} will ask for it once Doubledoor's tier ${q.level - 1} questline starts`
+    : status === "available" ? `Talk to ${esc(npc.name)} to take the quest`
+    : `Find it on a Turn 2 run to the ${esc(where)}`;
+  return `<div class="upg-quest ${found ? "upg-quest-ok" : ""}" ${status === "available" ? `data-action="open-npc" data-npc="${q.giver}"` : ""}>
+    <span>📦 Needs <b>${esc(q.title)}</b> from the ${esc(where)}</span><small>${how}</small></div>`;
 }
 
 // The Radio Station's upgrades, one per level, in a pop-up like the other rooms' — the next one
@@ -271,7 +288,7 @@ function renderRadioUpgradeModal(state) {
     const status = i < level
       ? '<span class="tag tag-ok">✓ Done</span>'
       : i === level
-      ? `<button class="btn btn-sm btn-primary" data-action="radio-upgrade" ${affordable ? "" : "disabled"}>Build ${costLabel(up.cost)}</button>`
+      ? `<button class="btn btn-sm btn-primary" data-action="radio-upgrade" ${affordable && upgradeItemFound(state, "radio") ? "" : "disabled"}>Build ${costLabel(up.cost)}</button>`
       : `<span class="radio-locked">🔒 ${costLabel(up.cost)}</span>`;
     const effect = up.id === "satellite" ? "" : ` · base ${Math.round(up.baseChance * 100)}% a day`;
     return `<div class="radio-row ${i < level ? "radio-done" : ""} ${i === level ? "radio-next" : ""}">
@@ -289,6 +306,7 @@ function renderRadioUpgradeModal(state) {
       <h3>Radio Station</h3>
       <div class="upg-level"><span>${level >= RADIO_UPGRADES.length ? `Level ${level} · <b>Max</b>` : `Level ${level} → <b>Level ${level + 1}</b>`}</span><span class="upg-pips">${pips}</span></div>
       <p class="muted upg-note">Each level adds on-air student slots (${room.studentCapacity} now, ${HELPER_SLOTS_BY_LEVEL[HELPER_SLOTS_BY_LEVEL.length - 1]} at level ${HELPER_SLOTS_BY_LEVEL.length}); an assistant teacher joins at level 5.</p>
+      ${level >= RADIO_UPGRADES.length ? "" : upgradeNeed(state, "radio")}
       <div class="radio-list">${rows}</div>
     </div>
   </div>`;
@@ -317,7 +335,7 @@ function radioTrack(state) {
     const up = RADIO_UPGRADES[level];
     const affordable = Object.entries(up.cost || {}).every(([res, amt]) => (state.resources[res] || 0) >= amt);
     next = `<span class="rt-next-text"><span>Next: <b>${esc(up.name.replace("Increase range", "Range").replace("Satellite communications", "Satellite"))}</b></span><small>${up.id === "satellite" ? "Calls the helicopter" : `${Math.round(up.baseChance * 100)}% a day · +${HELPER_SLOTS_BY_LEVEL[level] - HELPER_SLOTS_BY_LEVEL[level - 1]} on-air slot${HELPER_SLOTS_BY_LEVEL[level] - HELPER_SLOTS_BY_LEVEL[level - 1] === 1 ? "" : "s"}`}</small></span>
-      <button class="btn btn-sm btn-primary rt-build" data-action="radio-upgrade" ${affordable ? "" : "disabled"} title="${affordable ? "Build it now" : "Not enough yet"}">${costLabel(up.cost)}</button>`;
+      <button class="btn btn-sm btn-primary rt-build" data-action="radio-upgrade" ${affordable && upgradeItemFound(state, "radio") ? "" : "disabled"} title="${!upgradeItemFound(state, "radio") ? `Needs ${esc(upgradeQuest(state, "radio")?.title || "")}` : affordable ? "Build it now" : "Not enough yet"}">${costLabel(up.cost)}</button>`;
   }
   return `<div class="radio-track"><span class="rt-stages">${stages}</span><span class="rt-info">${next}</span></div>`;
 }
@@ -404,13 +422,18 @@ function npcLine(state, post) {
     rows: app ? [[app.infection ? "In quarantine" : "Works here with", app.infection ? "—" : appWhat]] : [],
     notes: ["An apprentice works the room every day with their own grade", "A level 10 student, picked in the Headmaster's Office"],
   });
-  return `<div class="npc-line" ${npcTip(n)}>
-    <span class="npc-who"><b>${esc(n.name)}</b></span>
+  return `<div class="npc-line" data-action="open-npc" data-npc="${ROOM_NPC[post]}" ${npcTip(n)}>
+    <span class="npc-who">${markIcon(ROOM_NPC[post])}<b>${esc(n.name)}</b></span>
     ${!APPRENTICE_POSTS.includes(post) ? "" : app ? `<button class="npc-appr" data-action="open-card" data-id="${app.id}" ${appTip}>🎓 ${esc(shortName(app))}</button>` : `<span class="npc-appr muted" ${appTip}>🎓 no apprentice</span>`}
   </div>`;
 }
 // An NPC's hover card: who they are, their nickname, and a little lore.
-const npcTip = (n) => tipAttr({ title: esc(n.name), intro: [`also known as <b>“${esc(n.nickname)}”</b>`], notes: n.lore.map(esc) });
+const npcTip = (n) => tipAttr({ title: esc(n.name), intro: [`also known as <b>“${esc(n.nickname)}”</b>`], notes: [...n.lore.map(esc), "Click to talk"] });
+// Every NPC's quest mark (quests.js npcMark), worked out once a render (renderApp / renderTabs).
+let npcMarks = {};
+const refreshMarks = (state) => { npcMarks = Object.fromEntries(Object.keys(NPCS).map((id) => [id, npcMark(state, id)])); };
+const MARK = { available: "❗", ready: "❓" };
+const markIcon = (npc) => (npcMarks[npc] ? `<i class="q-mark q-${npcMarks[npc]}">${MARK[npcMarks[npc]]}</i>` : "");
 // The subject an apprentice works a room with: a classroom's or gym's own, a Courtyard site's
 // focus, the nurse's CON, research INT, crafting WIS, radio CHA (null: the Cafeteria — one more cook).
 function apprenticeSubject(state, post) {
@@ -422,7 +445,7 @@ function apprenticeSubject(state, post) {
 // The NPC standing in its room's banner.
 function npcFigure(post) {
   const n = NPCS[ROOM_NPC[post]];
-  return `<span class="scene-npc" ${npcTip(n)}>${npcSprite(ROOM_NPC[post], 1.25)}</span>`;
+  return `<span class="scene-npc" data-action="open-npc" data-npc="${ROOM_NPC[post]}" ${npcTip(n)}>${markIcon(ROOM_NPC[post])}${npcSprite(ROOM_NPC[post], 1.25)}</span>`;
 }
 
 // A generic classroom shows as "Classroom N" until a teacher claims it, then as its subject.
@@ -884,6 +907,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
       <details class="options-dropdown menu-dropdown">
         <summary class="hud-menu" title="Menu">${pixelIcon("menu", 24)}</summary>
         <div class="options-menu">
+          <button class="options-item ${activeTab === "quests" ? "active" : ""}" data-action="set-tab" data-tab="quests">❗ Quests</button>
           <button class="options-item ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
           <button class="options-item ${activeTab === "roster" ? "active" : ""}" data-action="set-tab" data-tab="roster">👥 Roster</button>
           <button class="options-item ${activeTab === "research" ? "active" : ""}" data-action="set-tab" data-tab="research">🧠 Research</button>
@@ -941,8 +965,14 @@ const RIGHT_TABS_BY_TURN = { 1: [["farm", "Farm", "wheat"], ["barn", "Barn", "co
 const OVERVIEW_TAB = { 1: ["Classes", "classes"], 2: ["Explore", "compass"], 3: ["Night", "moon"] };
 
 // Tab icons are 16x16, drawn at exactly 16px.
+// The tab each NPC is on (their room's), for the marks on the tabs.
+const NPC_TAB = { "gym:PE": "floor1", "gym:Gymnastics": "floor1", cafeteria: "floor1", infirmary: "floor1", research: "floor3", crafting: "floor3", radio: "floor3", headmaster: "floor3", farm: "farm", barn: "barn", scrapyard: "scrapyard" };
+const tabMark = (tab) => {
+  const marks = Object.entries(ROOM_NPC).filter(([post]) => (NPC_TAB[post] || "floor2") === tab).map(([, npc]) => npcMarks[npc]);
+  return marks.includes("ready") ? "ready" : marks.includes("available") ? "available" : null;
+};
 const navBtn = (activeTab, [id, label, icon], cls = "", size = 16) =>
-  `<button class="nav-btn ${cls} ${activeTab === id ? "active" : ""}" data-action="set-tab" data-tab="${id}">${pixelIcon(icon, size)}<span>${label}</span></button>`;
+  `<button class="nav-btn ${cls} ${activeTab === id ? "active" : ""}" data-action="set-tab" data-tab="${id}">${pixelIcon(icon, size)}<span>${label}</span>${tabMark(id) ? `<i class="q-mark q-${tabMark(id)} nav-mark">${MARK[tabMark(id)]}</i>` : ""}</button>`;
 
 // The turn button doubles as the clock: a tear-off day card, then the turn's name over the
 // sun → dusk → moon track with the current phase lit.
@@ -964,6 +994,7 @@ function renderTurnButton(state, activeTab) {
 }
 
 export function renderTabs(state, activeTab) {
+  refreshMarks(state);
   return `<nav class="nav">
     <div class="nav-left">${(LEFT_TABS_BY_TURN[state.turn] || LEFT_TABS_BY_TURN[1]).map((t) => navBtn(activeTab, t)).join("")}</div>
     <div class="nav-center">${renderTurnButton(state, activeTab)}</div>
@@ -1462,7 +1493,7 @@ function renderTurn2Summary(state) {
   const scoutsReady = cheapest === null ? 0 : students.filter((c) => exploreRole(c) === "scout" && c.stamina >= cheapest).length;
   const drops = state.mapDrops || [];
   const soonest = drops.length ? Math.min(...drops.map((d) => d.expires - state.day + 1)) : 0;
-  const raids = LANDMARKS.filter((lm) => raidUnlocked(state) && !raidCooldownLeft(state, lm.id)).length;
+  const raids = LANDMARKS.filter((lm) => raidUnlocked(state, lm) && !raidCooldownLeft(state, lm.id)).length;
   const nests = (state.nests || []).length;
   const found = LOCATIONS.filter((l) => isHexExplored(state, l.hex.q, l.hex.r)).length;
   const cityMap = overviewCard({
@@ -1760,6 +1791,21 @@ function renderExplorationMap(state) {
     }
   }
 
+  // Quest markers: where your quests send you — even under the fog (you still scout your way there).
+  const marked = {};
+  for (const t of questTargets(state)) (marked[t.place] ||= []).push(t);
+  for (const [placeId, ts] of Object.entries(marked)) {
+    const loc = LOCATIONS.find((l) => l.id === placeId);
+    if (!loc?.hex) continue; // (items at a raid: the raid's own pin)
+    const { q, r } = loc.hex;
+    if (!shown.some((h) => h.q === q && h.r === r)) shown.push({ q, r });
+    cells += `<div class="cm-cell cm-quest" style="${at(q, r)}" ${tipAttr({
+      title: `❗ ${esc(loc.name)}`,
+      rows: ts.map((t) => [esc(NPCS[t.quest.giver].name), t.step.kind === "item" ? `📦 ${esc(t.quest.title)}` : "Clear every room"]),
+      notes: [isHexExplored(state, q, r) ? "Send a team here" : "Still in the fog — scout your way here first"],
+    })}><span class="cm-quest-mark">❗</span></div>`;
+  }
+
   // Things that come and go: supply drops on scouted blocks, and the horde — big enough to see
   // from the rooftop even through the fog.
   for (const d of state.mapDrops || []) {
@@ -1781,7 +1827,7 @@ function renderExplorationMap(state) {
 
   // The raids: compounds painted into the town past the edge of the map (citymap.js), under the
   // fog with the rest of the outskirts until the whole map is scouted.
-  for (const lm of raidUnlocked(state) ? LANDMARKS : []) {
+  for (const lm of LANDMARKS.filter((l) => raidUnlocked(state, l))) {
     const cooldown = raidCooldownLeft(state, lm.id);
     const boss = raidBoss(state, lm);
     const team = teamAt[lm.id];
@@ -1804,7 +1850,7 @@ function renderExplorationMap(state) {
   return `<div class="citymap" data-view="${vx},${vy},${vw},${vh}">
     <div class="cm-world" style="width:${WORLD_W}px;height:${WORLD_H}px">
       <img class="cm-layer" src="${cityBaseUrl()}" alt="" draggable="false">
-      <img class="cm-layer" src="${fogUrl(clear, reachable, raidUnlocked(state))}" alt="" draggable="false">
+      <img class="cm-layer" src="${fogUrl(clear, reachable, mapProgress(state).pct === 100)}" alt="" draggable="false">
       <svg class="cm-routes" width="${WORLD_W}" height="${WORLD_H}" viewBox="0 0 ${WORLD_W} ${WORLD_H}">${routes}</svg>
     </div>
     <button class="cm-reset" data-action="map-reset" title="Zoom back out">⤢ Whole map</button>
@@ -1899,8 +1945,8 @@ export function renderRaidModal(state, landmarkId) {
     </div>`;
 
   let body;
-  if (!raidUnlocked(state)) {
-    body = `<div class="mission-success mission-bad">${pxe("lock")} Locked — the raids open once the whole map is scouted (${mapProgress(state).pct}% so far).</div>`;
+  if (!raidUnlocked(state, lm)) {
+    body = `<div class="mission-success mission-bad">${pxe("lock")} Locked — it opens at the end of Doubledoor's tier ${lm.tier} questline, or once the whole map is scouted (${mapProgress(state).pct}% so far).</div>`;
   } else if (cooldown) {
     body = `<div class="mission-success mission-ok">${esc(boss.name)} is dead — for now. Something takes its place in ${cooldown} day${cooldown === 1 ? "" : "s"}.</div>`;
   } else if (!planned) {
@@ -2887,7 +2933,7 @@ function renderTurn3Summary(state) {
   const ex = today?.exploration;
   const drops = state.mapDrops || [];
   const soonest = drops.length ? Math.min(...drops.map((d) => d.expires - state.day + 1)) : 0;
-  const raidsOpen = LANDMARKS.filter((lm) => raidUnlocked(state) && !raidCooldownLeft(state, lm.id)).length;
+  const raidsOpen = LANDMARKS.filter((lm) => raidUnlocked(state, lm) && !raidCooldownLeft(state, lm.id)).length;
   const teamPrice = nextTeamCost(state);
   const places = (ex?.places || []).map((p) => `${LOCATION_ICON[p.id] || ""}${p.success ? "" : "✗"}`).join(" ");
   const expeditions = overviewCard({
@@ -4078,7 +4124,7 @@ export function renderFloor3(state) {
   };
   const office = `<div class="room room-office">
     ${roomScene("headmaster", [...ready.filter((c) => !c.apprentice), ...pool], "Headmaster's Office", officeHow, "",
-      `<button class="hm-missions-btn" data-action="open-missions" title="The Headmaster's missions — coming soon">📜 Missions</button>`, "headmaster")}
+      `<button class="hm-missions-btn" data-action="open-npc" data-npc="doubledoor" title="Talk to Albus Doubledoor">${markIcon("doubledoor") || "📜"} Quests</button>`, "headmaster")}
     ${npcLine(state, "headmaster")}
     <div class="office-split">
       <div>
@@ -4224,7 +4270,7 @@ export function renderFloor3(state) {
 // Scrapyard's yard.
 
 const SITE_ICON = { farm: "🌾", barn: "🐄", scrapyard: "🔩" };
-const siteScene = (state, site) => `${site === "barn" ? "farm" : site}@${sceneLevel(state, site)}`;
+const siteScene = (state, site) => `${site}@${sceneLevel(state, site)}`;
 const SITE_INTRO = {
   farm: ["Grows <b>food</b> on its own every day — more with every level", "Workers make more of its focus: food, ingredients or medicine"],
   barn: ["The herd gives <b>eggs, milk and mutton</b> on its own", "Animals come from expeditions and events; its level sets how many of a kind it keeps"],
@@ -5256,6 +5302,7 @@ export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
 // ---------- root ----------
 
 export function renderApp(state, activeTab, rosterFilter = "student", floaties = [], rosterSortKey = "name", rosterSortDir = "asc") {
+  refreshMarks(state);
   let content;
   if (activeTab === "floor1") content = renderFloor1(state);
   else if (activeTab === "floor2") content = renderFloor2(state);
@@ -5270,6 +5317,7 @@ export function renderApp(state, activeTab, rosterFilter = "student", floaties =
   else if (activeTab === "armory") content = renderArmory(state);
   else if (activeTab === "itemlist") content = renderItemList();
   else if (activeTab === "log") content = renderLog(state);
+  else if (activeTab === "quests") content = renderQuestJournal(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 
   // the page wears its part of the school's frames (frames.js): lockers in the Lobby, a chalkboard in the
@@ -5282,4 +5330,128 @@ export function renderApp(state, activeTab, rosterFilter = "student", floaties =
       .replace(/<\/div>\s*$/, () => `</div>${renderTurnOnePanel(state)}</div></div>`);
   }
   return `${renderTopbar(state, floaties, activeTab)}${renderTabs(state, activeTab)}<div class="content" data-area="${areaOfTab(activeTab)}">${content}</div>`;
+}
+
+// ---------- quests ----------
+// One step of a quest, as a line of its checklist.
+function stepText(state, step) {
+  switch (step.kind) {
+    case "room": return `Clear ${roomLabel(step.room)}`;
+    case "quest": return `Help ${NPCS[QUESTS[step.quest].giver].name}: ${QUESTS[step.quest].title}`;
+    case "clear": return `Clear the ${placeName(step.place)} — every room in one run`;
+    case "raid": return `Win the raid on the ${placeName(step.raid)}`;
+    case "item": return `Find it at the ${placeName(step.place)} (a Turn 2 run that succeeds)`;
+    case "upgrade": return `Upgrade the room to level ${step.level}`;
+    default: return "";
+  }
+}
+const QUEST_TAG = { available: "New", active: "In progress", ready: "Ready to hand in" };
+const rewardText = (reward) => Object.entries(reward || {}).map(([res, n]) => `${ri(res === "materials" ? "scrap" : res)} ${n}`).join(" ");
+function questCard(state, q, status, withActions = true) {
+  const steps = q.steps.map((step) => `<li class="${stepDone(state, step) ? "q-done" : ""}">${stepDone(state, step) ? "✓" : "○"} ${esc(stepText(state, step))}</li>`).join("");
+  const act = !withActions ? ""
+    : status === "available" ? `<button class="btn btn-primary btn-sm" data-action="accept-quest" data-quest="${q.id}">Accept</button>`
+    : status === "ready" ? `<button class="btn btn-primary btn-sm" data-action="hand-in-quest" data-quest="${q.id}">Hand in</button>` : "";
+  return `<div class="q-card q-${status}">
+    <div class="q-head">${MARK[status] ? `<i class="q-mark q-${status}">${MARK[status]}</i>` : ""}<b>${esc(q.title)}</b><span class="q-tag">${QUEST_TAG[status]}</span></div>
+    <p class="q-say">“${esc(q.say)}”</p>
+    <ul class="q-steps">${steps}</ul>
+    <div class="q-foot">${q.reward ? `<span class="q-reward">Reward: ${rewardText(q.reward)}</span>` : q.upgrade ? '<span class="q-reward">Unlocks the upgrade</span>' : "<span></span>"}${act}</div>
+  </div>`;
+}
+// Talking to an NPC: who they are, a line, and their quests (to take, in progress, to hand in).
+// A pixel-art speech bubble with what an NPC says — main.js types it out in their voice. `key`
+// names this one time they say it (a new key, and they say it again).
+export const sayBubble = (npc, text, key, cls = "") =>
+  `<div class="say-bubble ${cls}" data-say="${esc(text)}" data-say-key="${esc(key)}" data-npc="${npc}">${esc(text)}</div>`;
+export function renderNpcModal(state, npc, sayKey = "") {
+  const n = NPCS[npc];
+  const quests = npcQuests(state, npc);
+  return `<div class="modal-overlay" data-action="close-npc">
+    <div class="char-card npc-modal" data-action="noop">
+      <button class="cc-close" data-action="close-npc" title="Close">✕</button>
+      ${sayBubble(npc, n.lines[state.day % n.lines.length], sayKey, "npcm-bubble")}
+      <div class="npcm-head">
+        <span class="npcm-figure">${npcSprite(npc, 1.5)}</span>
+        <div class="npcm-who"><h3>${esc(n.name)}</h3><span class="npcm-nick">also known as <b>“${esc(n.nickname)}”</b></span></div>
+      </div>
+      <div class="npcm-quests">${quests.map(({ q, status }) => questCard(state, q, status)).join("") || '<p class="muted npcm-none">Nothing for you right now.</p>'}</div>
+    </div>
+  </div>`;
+}
+// The quest journal (options menu): what you've taken, then who has something new for you.
+function renderQuestJournal(state) {
+  const taken = activeQuests(state).map((id) => QUESTS[id]).sort((a, b) => (questStatus(state, b.id) === "ready") - (questStatus(state, a.id) === "ready"));
+  const offered = Object.keys(NPCS).flatMap((npc) => npcQuests(state, npc).filter((x) => x.status === "available"));
+  const row = (q, status) => `<div class="qj-row" data-action="open-npc" data-npc="${q.giver}">
+    <span class="qj-npc">${npcSprite(q.giver, 0.5)}</span>
+    <div class="qj-body">${questCard(state, q, status, false)}<small class="qj-giver">${esc(NPCS[q.giver].name)} · click to talk</small></div>
+  </div>`;
+  return `<div class="card quest-journal">
+    <h2>❗ Quests ${infoDot({ title: "❗ Quests", notes: ["❗ An NPC has a new quest · ❓ one is ready to hand in", "Talk to an NPC by clicking them in their room", "Quest places get a ❗ on the City Map"] })}</h2>
+    <h3 class="qj-head">Taken (${taken.length})</h3>
+    <div class="qj-list">${taken.map((q) => row(q, questStatus(state, q.id))).join("") || '<p class="muted">No quests taken yet — look for a ❗ over someone\'s head.</p>'}</div>
+    <h3 class="qj-head">Waiting for you (${offered.length})</h3>
+    <div class="qj-list">${offered.map(({ q }) => row(q, "available")).join("") || '<p class="muted">Nobody has anything new.</p>'}</div>
+  </div>`;
+}
+
+// "Who's that NPC?!": a room just cleared, its NPC as a black silhouette on a sunburst, then the
+// colour floods in with their name (style.css .npc-reveal, all CSS timing).
+export function renderNpcReveal(npc) {
+  const n = NPCS[npc];
+  return `<div class="modal-overlay reveal-overlay" data-action="close-reveal">
+    <div class="npc-reveal" data-action="noop">
+      <div class="reveal-burst"></div>
+      <div class="reveal-q">Who's that NPC?!</div>
+      <div class="reveal-figure">${npcSprite(npc, 3)}</div>
+      <div class="reveal-name"><span>It's <b>${esc(n.name)}</b>!</span><small>“${esc(n.nickname)}”</small></div>
+      <button class="btn btn-primary reveal-btn" data-action="open-npc" data-npc="${npc}">Say hello</button>
+    </div>
+  </div>`;
+}
+
+// ---------- the intro ----------
+// A new game opens on three screens, a banner over the story: the city burning, the Academy holding
+// out, then the Headmaster's Office — Doubledoor and the survivors — where the game starts.
+const INTRO = [
+  {
+    title: "The End of the World",
+    text: ["It began at the Research Institute on the edge of town. A leak, a fever, a rumour nobody believed.",
+      "Within a week the hospitals were overrun and the army had pulled out. The dead walked the streets, and the city burned."],
+  },
+  {
+    title: "The Academy",
+    text: ["But not everything has fallen. Behind boarded windows and nailed-shut doors, a few lights still burn.",
+      "The Academy — a final beacon of hope. Our youngest and brightest are hiding in there.", "Maybe there is still hope…"],
+  },
+  {
+    title: "The Headmaster's Office",
+    text: ["The survivors gather in the Headmaster's Office. Albus Doubledoor looks at each of them in turn, and smiles."],
+    quote: "There is a great deal to be done, and time, I fear, is a luxury we do not possess. Let us begin.",
+  },
+];
+export function renderIntro(state, step, sayKey = "") {
+  const screen = INTRO[step];
+  const last = step === INTRO.length - 1;
+  const art = step === 0 ? `style="background-image:${introBackdrop("city")}"`
+    : step === 1 ? `style="background-image:${introBackdrop("academy")}"`
+    : `style="background-image:${sceneBackground("headmaster")}"`;
+  const people = last
+    ? `<div class="intro-people"><span class="intro-npc">${sayBubble("doubledoor", screen.quote, sayKey, "intro-bubble")}${npcSprite("doubledoor", 2)}</span>
+        <span class="intro-crowd">${aliveChars(state).slice(0, 6).map((c) => characterSprite(c, 64)).join("")}</span></div>`
+    : "";
+  const lines = screen.text.map((t, i) => `<p style="animation-delay:${0.3 + i * 0.9}s">${esc(t)}</p>`).join("")
+
+  return `<div class="modal-overlay intro-overlay">
+    <div class="intro-card" data-action="noop">
+      <div class="intro-art intro-art-${step}" ${art}>${people}</div>
+      <div class="intro-text"><h2>${esc(screen.title)}</h2>${lines}</div>
+      <div class="intro-actions">
+        <button class="btn btn-sm" data-action="intro-skip">Skip</button>
+        <span class="intro-dots">${INTRO.map((_, i) => `<i class="${i === step ? "on" : ""}"></i>`).join("")}</span>
+        <button class="btn btn-primary" data-action="intro-next">${last ? "Let us begin" : "Next ▸"}</button>
+      </div>
+    </div>
+  </div>`;
 }

@@ -210,6 +210,15 @@ function person(g, cfg) {
 // Each: the room it runs, name, nickname, who it's inspired by, bubble lines, hover-card lore, its colours (`look`)
 // and its own keys (`extra`: [colour, group, rim-shaded]), and its drawing.
 
+// Each NPC's voice when they talk (main.js speakBubbles): a blip a syllable at [pitch in Hz,
+// waveform] — deep and quiet for Mopovich, high and bouncy for Harleen, sweet for Nurse Joy.
+export const NPC_VOICE = {
+  doubledoor: [170, "triangle"], mopovich: [120, "square"], quinzwheel: [520, "square"], frankenstitch: [270, "sawtooth"],
+  quarkwell: [340, "square"], bickus: [150, "sawtooth"], seen: [430, "triangle"], grillsay: [300, "square"],
+  brockbride: [560, "sine"], whiteboard: [190, "triangle"], gyber: [220, "triangle"], bulldog: [200, "square"],
+  plowson: [175, "sawtooth"], cowper: [245, "square"], scrapperson: [160, "square"],
+};
+
 export const NPCS = {
   doubledoor: {
     room: "headmaster", name: "Albus Doubledoor", nickname: "The Magician", ref: "Dumbledore, with a stage magician's tricks",

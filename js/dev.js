@@ -1,6 +1,7 @@
 // Test shortcuts for developing the game (main.js exposes them as window.schoolDev on localhost;
 // the /max and /min project commands run them). Nothing here saves — the player's Save does.
 import * as G from "./game.js";
+import { QUESTS } from "./quests.js";
 import { makeCharacter, makeLegendaryCharacter, makeAccessory, makeSetItem, makeWeapon, makeArmor, weaponCategory, studentClass } from "./characters.js";
 import { MAP_RADIUS } from "./map.js";
 import { MYTHIC_SETS, ACCESSORIES, CLASSROOM_IDS, PRODUCERS, FARM_CROPS, RANCH_ANIMALS, BARN_HERD_BY_LEVEL, STUDENT_MAX_LEVEL, xpToNextLevel, DEFENSE_ROW0, STREET_ROW0, ENTRANCE_ZONES } from "./data.js";
@@ -12,6 +13,7 @@ export function maxOutSchool(state) {
   const scrap = state.resources.materials;
   state.boardedRooms = [];
   state.resources.materials = 1e9;
+  findQuestItems(state);
   for (const key of G.ROOM_KEYS) if (key !== "radio") while (G.upgradeRoom(state, key));
   state.resources.materials = scrap;
   // the Radio Station to level 4 — level 5 (satellite) would send for the helicopter
@@ -191,10 +193,15 @@ export function forceFollowUp(state, kind = "assault") {
 
 // Clears the Radio Station's boards and builds its first `stage` upgrades for free (5 = satellite
 // communications, which sends for the helicopter).
+// Every upgrade's quest item, as if found (each room upgrade needs its own — quests.js).
+const findQuestItems = (state) => {
+  for (const q of Object.values(QUESTS)) if (q.upgrade) (state.questFacts ||= { cleared: {}, items: {} }).items[q.id] = true;
+};
 export function buildRadio(state, stage = 5) {
   state.boardedRooms = (state.boardedRooms || []).filter((k) => k !== "radio");
   const saved = { ...state.resources };
   state.resources.materials = state.resources.research = 1e6;
+  findQuestItems(state);
   while (G.radioStage(state) < stage && G.buildRadioUpgrade(state));
   state.resources.materials = saved.materials;
   state.resources.research = saved.research;

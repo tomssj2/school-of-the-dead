@@ -2,6 +2,7 @@ import {
   classReach, wideTank, SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME, FARM_CAPACITY, SCRAPYARD_CAPACITY, FORTIFICATION_CAP, FORTIFICATION_PER_POINT, LOCATIONS, STAT_OF_SUBJECT, TRAITS, GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost, CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, EXPEDITION_ENCOUNTERS, ENCOUNTER_CHANCE, ENCOUNTER_EFFECT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED, HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT, HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH, FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, EVENT_CHANCE, EVENTS, TECH_TREE, SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS, ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD, EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE, zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay, RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS, EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL, INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, STARTING_STOCK, WORK_SITES, EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED, EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED, STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS, OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX, MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES, ACCESSORIES, LEGENDARY_TITLES, MAP_MILESTONES, SITE_FOCUS, SITE_WORKERS_BY_LEVEL, FARM_PASSIVE_FOOD, YARD_PASSIVE_SCRAP, BARN_HERD_BY_LEVEL, RANCH_ANIMALS, ROOM_NPC, CLASSROOM_SUBJECT, ROOM_CAP_BY_LEVEL,
 } from "./data.js";
 import { NPCS } from "./npcs.js";
+import { questFinds, upgradeItemFound, raidOpenByQuest } from "./quests.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, capTeacherGrades, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
@@ -114,6 +115,9 @@ export function createInitialState() {
     roomLevels: true, // rooms have levels 1-5 (see migrateState)
     roomSizesV2: true, // rooms sized to the school's headcount (see migrateState)
     runId: newRunId(), // tells this run apart from others in the best-score record
+    intro: true, // a new game opens on the intro (ui.js renderIntro) — gone once it's seen
+    quests: {}, // quest id -> "active" | "done" (quests.js)
+    questFacts: { cleared: {}, items: {} }, // places cleared 100%, quest items found
     boardedRooms: Object.keys(BOARDED_ROOMS), // rooms still overrun — cleared by fighting, then scrap
     roomFightsDone: 0, // the first room-clearing fight shows tutorial tips
     objectivesDone: [], // OBJECTIVES ids finished (see checkObjectives)
@@ -448,14 +452,6 @@ export function finishClearBattle(state, roomKey, b) {
     addLog(state, `The squad couldn't clear ${roomLabel(roomKey)} and fell back.`);
   }
   return { won, fallen: [], hurt, downedCount: hurt.length, cost: room.cost };
-}
-
-// ---------- the Headmaster's missions (work in progress) ----------
-// What the Headmaster has for the player, shown as the glow around him: "complete" (a mission is
-// done — come and collect, green), "available" (one to take on, blue), or null (nothing, no glow).
-// Missions aren't in yet, so for now he always has one on offer.
-export function missionStatus(state) {
-  return "available";
 }
 
 // ---------- objectives ----------
@@ -916,7 +912,7 @@ export function upgradeRoom(state, key) {
   if (key === "radio") return buildRadioUpgrade(state); // paid for in scrap and research, its own way
   const room = roomState(state, key);
   const cost = roomUpgradeCostFor(state, key);
-  if (!room || cost === null || isBoarded(state, key)) return false;
+  if (!room || cost === null || isBoarded(state, key) || !upgradeItemFound(state, key)) return false;
   if (state.resources.materials < cost) return false;
   state.resources.materials -= cost;
   room.level = (room.level || 1) + 1;
@@ -1230,7 +1226,10 @@ export function expeditionGearLevel(location) {
 export const expeditionGearChance = (location) => EXPEDITION_ITEM_CHANCE + expeditionGearLevel(location) * 0.08;
 // A place's tier (1-4, by its difficulty: the rings out from the school) — or "raid" — for what its
 // finds turn out to be (ITEM_DROP_ODDS).
-export const poiTier = (location) => (location.raid ? "raid" : location.difficulty <= 2 ? location.difficulty : location.difficulty <= 4 ? 3 : 4);
+// (a function declaration, so quests.js can use it while the modules load)
+export function poiTier(location) {
+  return location.raid ? "raid" : location.difficulty <= 2 ? location.difficulty : location.difficulty <= 4 ? 3 : 4;
+}
 // A team's odds at a place: EXPEDITION_ODDS_AT_NEED with exactly the power it needs, ±1% per
 // EXPEDITION_POWER_PER_PERCENT over or under, plus research, minus a nest or the horde next door.
 export function expeditionOdds(state, teamIndex, location) {
@@ -1556,6 +1555,7 @@ export function resolveExploration(state, fights = {}) {
       adjustHappiness(state, -HAPPINESS_LOSS_MISSION_FAIL);
     }
 
+    report.finds.push(...questFinds(state, location.id, { won: success, clearedAll: !!fight && fight.room >= fight.rooms }).map((name) => `📦 ${name}`));
     const found = rollExpeditionItem(state, location, success, avg("Physics") * TUNE.itemChancePerInt + (fight && fight.room >= fight.rooms ? EXPEDITION_ROOM.clearGear : 0));
     if (found) {
       itemsFound.push(found);
@@ -2376,7 +2376,7 @@ export function expeditionPlace(id) {
 // Whether today's raid goes ahead: a target, the raids open, and a big enough squad.
 export function raidReady(state) {
   const lm = LANDMARKS.find((l) => l.id === state.raidTarget);
-  return !!lm && raidUnlocked(state) && teamMembers(state, RAID_TEAM).length >= lm.minTeam;
+  return !!lm && raidUnlocked(state, lm) && teamMembers(state, RAID_TEAM).length >= lm.minTeam;
 }
 export function startExpeditionRun(state, teamIndex) {
   const location = expeditionPlace(teamIndex === RAID_TEAM ? state.raidTarget : state.teamLocations[teamIndex]);
@@ -3021,7 +3021,7 @@ function resolveOvernightRecovery(state) {
 // research). The last one, satellite communications, reaches the military: a helicopter will land
 // RESCUE_ARRIVAL_DAYS later.
 export function buildRadioUpgrade(state) {
-  if (isBoarded(state, "radio")) return false;
+  if (isBoarded(state, "radio") || !upgradeItemFound(state, "radio")) return false;
   const level = radioStage(state);
   const up = RADIO_UPGRADES[level];
   if (!up) return false;
@@ -3783,7 +3783,9 @@ export function checkMapMilestones(state) {
   return reached;
 }
 // The raids are the endgame: they open once the whole map has been scouted.
-export const raidUnlocked = (state) => mapComplete(state);
+// A raid opens once the whole map is scouted — or when its questline gets to it (quests.js). With no
+// landmark: whether any raid is open.
+export const raidUnlocked = (state, lm = null) => mapComplete(state) || (lm ? raidOpenByQuest(state, lm.id) : LANDMARKS.some((l) => raidOpenByQuest(state, l.id)));
 
 export function raidCooldownLeft(state, landmarkId) {
   return Math.max(0, (state.raidCooldowns[landmarkId] || 0) - state.day);
@@ -3798,7 +3800,7 @@ export function raidBoss(state, landmark) {
 // Picks (or with null, calls off) today's raid. Switching targets sends the old squad home.
 export function setRaidTarget(state, landmarkId) {
   const landmark = landmarkId && LANDMARKS.find((l) => l.id === landmarkId);
-  if (landmarkId && (!landmark || !raidUnlocked(state) || raidCooldownLeft(state, landmarkId) > 0)) return false;
+  if (landmarkId && (!landmark || !raidUnlocked(state, landmark) || raidCooldownLeft(state, landmarkId) > 0)) return false;
   if (landmarkId !== state.raidTarget) {
     for (const c of state.characters) if (c.exploreTeam === RAID_TEAM) c.exploreTeam = null;
   }
@@ -3873,7 +3875,7 @@ function simulateBossFight(state, boss, squad) {
 // Returns its report.
 function resolveRaid(state, run) {
   const landmark = LANDMARKS.find((l) => l.id === state.raidTarget);
-  if (!landmark || !raidUnlocked(state)) return null; // (the map isn't fully scouted yet)
+  if (!landmark || !raidUnlocked(state, landmark)) return null; // (the map isn't fully scouted yet)
   const squad = state.characters.filter((c) => c.exploreTeam === RAID_TEAM && c.alive);
   if (squad.length < landmark.minTeam) {
     if (!squad.length) return null;
@@ -3911,6 +3913,7 @@ function resolveRaid(state, run) {
       state.armory.push(item);
       report.items.push(item);
     }
+    report.finds = [...(report.finds || []), ...questFinds(state, landmark.id, { won: true, clearedAll: true }).map((name) => `📦 ${name}`)];
     if (Math.random() < landmark.legendaryRecruitChance) report.recruit = addLegendaryRecruit(state).name;
     state.raidKills[landmark.id] = (state.raidKills[landmark.id] || 0) + 1;
     state.raidCooldowns[landmark.id] = state.day + landmark.respawnDays;

@@ -497,9 +497,168 @@ function duskStreet(seed) {
   return toUrl(p, L, [0.72, 0.62, 0.66]);
 }
 
+// ===== the intro (IW x IH, shown at 3x): the city burning, then the Academy holding out =====
+const IW = 252;
+const IH = 88;
+// A shambling silhouette, feet on row `y`, arms out toward `dir` (1 right, -1 left).
+function shambler(p, x, y, c, dir = 1) {
+  p.r(x, y - 9, x + 1, y - 8, c);
+  p.r(x, y - 7, x + 1, y - 3, c);
+  p.r(dir > 0 ? x + 2 : x - 2, y - 6, dir > 0 ? x + 3 : x - 1, y - 6, c);
+  p.set(dir > 0 ? x + 2 : x - 1, y - 5, c);
+  p.r(x, y - 2, x, y, c);
+  p.r(x + 1, y - 2, x + 1 + dir, y, c);
+}
+// Flames `w` either side of x, licking up from row `y` (emissive): white-hot tips, red at the base.
+function flames(p, x, y, w, seed) {
+  for (let fx = Math.round(x - w); fx <= x + w; fx++) {
+    const edge = 1 - Math.abs(fx - x) / (w + 1);
+    const fh = Math.max(1, Math.round((2 + hash(fx, seed) * 7) * edge + 1));
+    for (let k = 0; k < fh; k++) p.set(fx, y - k, k > fh - 2 ? "#fff3b0" : k > fh - 4 ? "#ffc85a" : k > fh - 6 ? "#f4843a" : "#c83a22", 1);
+  }
+}
+// "SOS" in a 3x5 pixel font.
+const SOS = ["111 111 111", "100 101 100", "111 101 111", "001 101 001", "111 111 111"];
+
+function cityBurning() {
+  const p = buffer(IW, IH);
+  const L = [];
+  // a sky lit from below by the fires
+  for (let y = 0; y < 70; y++) p.r(0, y, IW - 1, y, mix("#140a18", "#d0582a", (y / 69) ** 1.7), 1);
+  // the far skyline, black against the glow, windows burning here and there
+  for (let x = 0, i = 0; x < IW; i++) {
+    const w = 5 + Math.floor(hash(i, 81) * 9);
+    const top = 42 + Math.floor(hash(i, 82) * 14);
+    p.r(x, top, x + w - 1, 70, "#2e1820", 1);
+    for (let k = 0; k < 2; k++) if (hash(i * 3 + k, 83) < 0.45) p.set(x + 1 + Math.floor(hash(i + k, 84) * (w - 2)), top + 2 + Math.floor(hash(i + k, 85) * (68 - top)), "#ff9a40", 1);
+    x += w;
+  }
+  // the near city: taller blocks, every third with its roof on fire
+  const blocks = [];
+  for (let x = -3, i = 0; x < IW; i++) {
+    const w = 14 + Math.floor(hash(i, 86) * 18);
+    const top = 26 + Math.floor(hash(i, 87) * 26);
+    blocks.push({ x, w, top, fire: i % 3 === 1 });
+    x += w + 1 + Math.floor(hash(i, 88) * 3);
+  }
+  // smoke from the fires, leaning on the wind (behind the blocks)
+  for (const b of blocks.filter((b) => b.fire)) {
+    const fx = b.x + b.w / 2;
+    for (let k = 0; k < 16; k++) p.oval(fx + k * 2.4 + hash(k, b.x + 9) * 3, b.top - 4 - k * 2.6, 3 + k * 0.9, 2 + k * 0.45, k < 5 ? "#3a2628dd" : "#2a1e24b0");
+  }
+  blocks.forEach((b, i) => {
+    p.r(b.x, b.top, b.x + b.w - 1, 76, "#1a1014");
+    p.r(b.x + b.w - 1, b.top, b.x + b.w - 1, 76, "#3a1c1a");
+    p.r(b.x, b.top, b.x + b.w - 1, b.top, "#2a1a1c");
+    if (hash(i, 89) < 0.5) p.r(b.x + 3, b.top - 4, b.x + 3, b.top - 1, "#1a1014");
+    for (let wy = b.top + 4; wy < 72; wy += 5) for (let wx = b.x + 2; wx + 2 < b.x + b.w - 1; wx += 4) {
+      const h = hash2(wx, wy, 90);
+      if (h < (b.fire ? 0.35 : 0.08)) {
+        p.r(wx, wy, wx + 1, wy + 2, h < 0.05 ? "#fff0a0" : "#ff8a30", 1);
+        if (h < 0.04) L.push({ x: wx, y: wy + 1, r: 8, k: 0.4, c: FIRE });
+      } else p.r(wx, wy, wx + 1, wy + 2, "#0e0a0c");
+    }
+    if (b.fire) {
+      flames(p, b.x + b.w / 2, b.top - 1, Math.round(b.w / 2) - 1, b.x + 50);
+      L.push({ x: b.x + b.w / 2, y: b.top - 3, r: 44, k: 0.95, c: FIRE });
+    }
+  });
+  // the street: a burning car, and the dead walking toward us
+  p.r(0, 76, IW - 1, IH - 1, "#241a1c");
+  p.r(0, 76, IW - 1, 76, "#4a2a22");
+  speckle(p, 0, 77, IW - 1, IH - 1, ["#2e2224", "#1c1416"], 160, 91);
+  for (let sx = 4; sx < IW; sx += 20) p.r(sx, 82, sx + 9, 82, "#6a5a3a");
+  p.r(160, 74, 186, 79, "#3a2a2e");
+  p.r(166, 70, 182, 73, "#3a2a2e");
+  for (const wx of [164, 182]) p.oval(wx, 80, 2, 2, "#0c0a0c");
+  flames(p, 172, 72, 8, 92);
+  L.push({ x: 172, y: 70, r: 36, k: 1.0, c: FIRE });
+  for (const [x, y, d] of [[14, 87, 1], [30, 86, 1], [52, 87, 1], [74, 85, 1], [110, 87, -1], [128, 86, 1], [204, 87, -1], [222, 85, -1], [238, 87, -1]]) shambler(p, x, y, "#0c080a", d);
+  // embers on the wind
+  for (let i = 0; i < 50; i++) p.set(Math.floor(hash(i, 93) * IW), Math.floor(hash(i, 94) * 70), i % 3 ? "#ffb060" : "#fff0a0", 1);
+  return toUrl(p, L, [0.42, 0.3, 0.32]);
+}
+
+function academy() {
+  const p = buffer(IW, IH);
+  const L = [];
+  // the night sky, the horizon still glowing from the city's fires
+  for (let y = 0; y < 62; y++) p.r(0, y, IW - 1, y, mix("#0c1230", "#6a2a34", (y / 61) ** 2.2), 1);
+  stars(p, 0, IW - 1, 28, 95);
+  p.oval(214, 12, 4, 4, "#eef0ff", 1);
+  p.oval(216, 11, 3.6, 3.6, "#0c1230", 1);
+  // the burning city far off
+  for (let x = 0, i = 0; x < IW; i++) {
+    const w = 4 + Math.floor(hash(i, 96) * 8);
+    const top = 46 + Math.floor(hash(i, 97) * 10);
+    p.r(x, top, x + w - 1, 62, "#140e18", 1);
+    if (hash(i, 98) < 0.2) {
+      flames(p, x + w / 2, top - 1, 2, i);
+      L.push({ x: x + w / 2, y: top, r: 14, k: 0.6, c: FIRE });
+    }
+    x += w;
+  }
+  // the school: a brick front, worn and cracked, under its clock tower
+  const BR = "#7a3e32";
+  p.r(52, 32, 200, 72, BR);
+  for (let y = 34; y < 72; y += 3) for (let x = 52 + ((y / 3) % 2) * 3; x < 200; x += 6) p.set(x, y, "#6a342a");
+  p.r(48, 28, 204, 31, "#2e2228");
+  p.r(48, 28, 204, 28, "#4a3a40");
+  p.r(114, 8, 138, 31, BR);
+  for (let i = 0; i < 7; i++) p.r(112 + i, 7 - i, 140 - i, 7 - i, "#2e2228");
+  p.oval(126, 17, 5, 5, "#d8d2b8", 1);
+  p.line(126, 17, 126, 13, "#2a2228", 1);
+  p.line(126, 17, 129, 18, "#2a2228", 1);
+  L.push({ x: 126, y: 17, r: 10, k: 0.3, c: LAMP });
+  // a flag, torn, still flying
+  p.r(142, 2, 142, 9, "#2a2a2e");
+  p.r(143, 2, 149, 5, "#b03030");
+  p.set(149, 5, "#0c1230", 1);
+  p.line(60, 40, 64, 46, "#4a2420");
+  p.line(184, 50, 189, 58, "#4a2420");
+  // the windows: most boarded up — a few lit, someone's in there
+  const LIT = new Set(["72,38", "156,38", "96,52", "168,52"]);
+  for (const wy of [38, 52]) for (let wx = 60; wx < 196; wx += 12) {
+    if (wx > 104 && wx < 142) continue; // the tower and the doors
+    p.r(wx - 1, wy - 1, wx + 6, wy + 7, "#4a2a24");
+    if (LIT.has(`${wx},${wy}`)) {
+      p.r(wx, wy, wx + 5, wy + 6, "#ffd27a", 1);
+      p.r(wx + 2, wy, wx + 3, wy + 6, "#c89040", 1);
+      L.push({ x: wx + 3, y: wy + 3, r: 16, k: 0.7, c: WARM });
+    } else {
+      p.r(wx, wy, wx + 5, wy + 6, "#120e14");
+      p.line(wx, wy + 1, wx + 5, wy + 5, "#8a6040");
+      p.line(wx, wy + 5, wx + 5, wy + 1, "#7a5232");
+    }
+  }
+  // a bedsheet hung from a window: SOS
+  p.r(82, 37, 94, 47, "#e8e2d4");
+  p.r(82, 47, 94, 47, "#c8c2b4");
+  SOS.forEach((row, y) => [...row].forEach((ch, x) => ch === "1" && p.set(83 + x, 39 + y, "#b02a2a")));
+  // the front doors, nailed shut, sandbags piled in front
+  p.r(116, 50, 136, 72, "#2a1c1a");
+  for (const y of [54, 60, 66]) p.r(114, y, 138, y + 1, "#8a6040");
+  for (let row = 0; row < 3; row++) for (let x = 108 + row * 3; x < 146 - row * 3; x += 6) p.oval(x + 3, 71 - row * 3, 3, 1.6, row % 2 ? "#a8946a" : "#988458");
+  // the yard, the fence and its wire, and a fire barrel by the gate
+  p.r(0, 72, IW - 1, IH - 1, "#26242c");
+  speckle(p, 0, 73, IW - 1, IH - 1, ["#302e36", "#1e1c22"], 140, 99);
+  const fenced = (x) => x < 104 || x > 150;
+  for (let x = 2; x < IW; x += 9) if (fenced(x)) p.r(x, 66, x, 78, "#4a4a52");
+  for (const y of [67, 71, 75]) for (let x = 0; x < IW; x++) if (fenced(x) && (x + y) % 3) p.set(x, y, "#6a6a72");
+  for (let x = 0; x < IW; x += 2) if (fenced(x)) p.set(x, x % 4 ? 65 : 64, "#8a8a92");
+  p.r(96, 76, 102, 84, "#3a3a42");
+  p.r(96, 76, 102, 76, "#5a5a62");
+  flames(p, 99, 75, 3, 100);
+  L.push({ x: 99, y: 73, r: 26, k: 0.9, c: FIRE });
+  // the dead outside the fence, pressing in
+  for (const [x, y, d] of [[16, 87, 1], [36, 86, 1], [204, 86, -1], [228, 87, -1], [244, 85, -1]]) shambler(p, x, y, "#0a0a10", d);
+  return toUrl(p, L, [0.34, 0.36, 0.58]);
+}
+
 // ---------- what the UI uses ----------
 
 const RAIDS = { mall, hospital, military_base: militaryBase, institute };
 export const raidBackdrop = (landmarkId) => cached(`raid:${landmarkId}`, () => (RAIDS[landmarkId] || street)());
 export const streetBackdrop = (w = AW, h = AH, depth = AH) => cached(`street:${w}x${h}x${depth}`, () => street(w, h, depth));
+export const introBackdrop = (which) => cached(`intro:${which}`, () => (which === "city" ? cityBurning : academy)());
 export const duskBackdrop = (placeId = "") => cached(`dusk:${placeId}`, () => duskStreet([...placeId].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 9973, 7)));

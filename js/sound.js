@@ -159,3 +159,11 @@ export function playChime() {
   tone(660, 0.15, { gain: 0.14 });
   tone(880, 0.25, { gain: 0.14, delay: 0.12 });
 }
+
+// One syllable of an NPC talking (npcs.js NPC_VOICE): a short blip at their pitch, nudged up or
+// down by the letter, so the same words always "sound" the same.
+const VOICE_STEPS = [1, 1.12, 1.25, 0.9, 1.18, 1.06, 0.95, 1.33];
+export function playBlip([base, type], letter) {
+  const step = VOICE_STEPS[letter.toLowerCase().charCodeAt(0) % VOICE_STEPS.length];
+  tone(base * step, 0.055, { type, gain: type === "sine" || type === "triangle" ? 0.16 : 0.07 });
+}

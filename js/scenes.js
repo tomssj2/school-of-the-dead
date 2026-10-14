@@ -584,6 +584,7 @@ const HI_SCENES = {
     r(102, 26, 126, 26, "#6a8ac8");
     r(103, 28, 125, 28, "#4a3020");
     for (const x of [104, 123]) r(x, 29, x + 1, 31, "#545962");
+    cleaningCart(r, 72); // Coach Anatolio's (the Gym's level 2 item)
     if (lv >= 3) {
       weightRack(r, 50);
       wallBars(r, 132);
@@ -641,6 +642,7 @@ const HI_SCENES = {
     r(66, 19, mx1 + 2, 19, "#c48a50");
     r(66, 20, mx1 + 2, 20, "#7a5230");
     for (const x of [66, Math.round((66 + mx1) / 2), mx1 + 2]) r(x, 21, x, 23, "#8a909a");
+    skates(r, 92); // Harleen's (Acrobatics' level 2 item)
     if (lv >= 3) {
       // rings on their straps
       for (const x of [38, 50]) {
@@ -729,6 +731,7 @@ const HI_SCENES = {
       return;
     }
     for (const x of lv >= 3 ? [34, 96, 158] : [96]) lamp(r, x, 4, true);
+    goldenLadle(r, 132, 6); // Gordana's, back from the Diner (the Cafeteria's level 2 item)
     // the serving counter: steel, a pot steaming on it, a ladle
     box(r, 108, 21, 164, 31, "#9aa5b1", "#5e6670");
     r(108, 21, 164, 21, "#e8eef4");
@@ -876,6 +879,7 @@ const HI_SCENES = {
       r(x, 17 + a, x, 17 + a, "#e8efe8");
       r(x, 17 - a, x, 17 - a, "#f4d35e");
     }
+    specimenJars(r, 158); // Steve's among them (Biology's level 2 item)
     if (lv >= 3) {
       // a poster of a plant cell, pinned at the top
       poster(r, 24, 12, 44, 24, "#f4f6f8");
@@ -921,7 +925,7 @@ const HI_SCENES = {
       r(25, 21, 28, 21, "#545962");
       r(26, 17, 27, 20, "#3a3f48");
       r(26, 17, 26, 20, "#6b707a");
-      plant(r, 160, 31);
+      plant(r, 137, 31);
       plant(r, 58, 31);
     }
   },
@@ -936,6 +940,7 @@ const HI_SCENES = {
       r(110 + Math.round(Math.cos(a) * 4), 18 + Math.round(Math.sin(a) * 6), 110 + Math.round(Math.cos(a) * 4), 18 + Math.round(Math.sin(a) * 6), "#f4d35e");
     }
     disc(r, 110, 18, 1.4, 1.4, "#d64545");
+    armchair(r, 158); // his spot (Physics' level 2 item)
     if (lv >= 3) {
       // a poster of the solar system: the sun, the planets on their orbits
       poster(r, 24, 12, 46, 24, "#1d2240");
@@ -991,6 +996,7 @@ const HI_SCENES = {
       r(x - 1, 14, x + 1, 14, "#f4d35e");
       r(x - 1, 23, x + 1, 23, "#c8d0c8");
     }
+    centurionStatue(r, 162); // from a front garden (History's level 2 item)
     if (lv >= 3) {
       // a world map
       box(r, 20, 12, 48, 25, "#6fa8d0", "#6b4a2f");
@@ -1040,6 +1046,7 @@ const HI_SCENES = {
       r(x + 3, y + 5, x + 4, y + 5, "#e8efe8");
       for (let xx = x + 2; xx < x + w - 1; xx += 2) r(xx, y + 2, xx, y + 2, "#9ab0a0");
     }
+    thankYouLetters(r, 157); // from the families down the street (Social Studies' level 2 item)
     if (lv >= 3) {
       // flags of the world
       for (let i = 0; i < 6; i++) {
@@ -1460,6 +1467,7 @@ Object.assign(HI_SCENES, {
     r(138, 26, 160, 26, "#c49a64");
     r(140, 27, 158, 27, "#a8784a");
     for (const [x, y] of [[132, 20], [150, 20], [156, 20]]) r(x, y, x + 1, y, "#e0c08a");
+    ductTape(r, 158); // (the Crafting Room's level 2 item)
     if (lv >= 3) {
       // a vise on the bench, and a drill press
       box(r, 114, 17, 122, 20, "#6b707a", "#3a3f48");
@@ -1516,82 +1524,123 @@ Object.assign(HI_SCENES, {
   // The Farm and the Scrapyard span the whole page, so they're drawn as one wide
   // landscape each (see wideOutdoor below) rather than a 192-wide scene tiled sideways.
 
-  // The Farm, laid out like its page: crop fields on the left, the barn in the middle, animal pens
-  // on the right. Level 1 is weeds, a caved-in shed, a knocked-over trough and a dead tree; then
-  // tilled fields with sprouts, a shed, a trough, a coop and chickens; cabbages, corn and a
-  // scarecrow, hay and a cow; a barn, tomatoes and pumpkins, sheep and a pig in the mud; and at
-  // the top golden wheat and sunflowers, a windmill, a silo with a vane, a horse and a tractor.
+  // The Farm: crop fields on the left, the shed in the middle, the greenhouse and its beds on the
+  // right. Each level shows what its upgrade quest brought back (quests.js UPGRADE_ITEMS): level 1
+  // is weeds, a caved-in shed and a smashed greenhouse frame; 2 sprouts and a rack of seed packets;
+  // 3 the greenhouse glazed and full, cabbages, corn and a scarecrow; 4 Jezza's ridiculously big
+  // tractor; 5 glowing golden super-wheat, sunflowers, a windmill and a silo.
   farm(r, lv) {
     wideOutdoor(r, lv, lv <= 1 ? "#8a8457" : "#6f9a4f");
     track(r, lv);
     const FIELDS = [36, 80, 124]; // each 40 wide
-    const kinds = [
-      null,
-      null,
-      ["sprout", "sprout", null],
-      ["cabbage", "corn", "carrot"],
-      ["cabbage", "corn", "tomato"],
-      ["wheat", "corn", "pumpkin"],
-    ][lv];
+    const kinds = [null, null, ["sprout", "sprout", null], ["cabbage", "corn", "carrot"], ["cabbage", "corn", "tomato"], ["wheat", "corn", "pumpkin"]][lv];
     if (lv <= 1) {
       for (let i = 0; i < 90; i++) weed(r, 30 + ((i * 53) % 380), 24 + ((i * 7) % 9), i % 3 ? "#9a9a55" : "#7a7a45");
       shed(r, 186, true);
       rail(r, 30, 170, 33, true);
-      trough(r, 314, 31, "tipped");
-      deadTree(r, 288, 31);
-      coop(r, 386, true);
-      rail(r, 250, 414, 33, true);
+      glasshouse(r, 262, 350, 1);
+      deadTree(r, 380, 31);
       wheelbarrow(r, 120, 41, "tipped");
       for (const x of [60, 140, 300, 370]) crow(r, x, 26);
       for (const [x, y] of [[80, 36], [170, 44], [260, 37], [380, 43]]) crack(r, x, y, "#6e6440");
       return;
     }
 
-    // the fields
+    // the fields (level 5: the super-seeds' wheat glows gold)
     FIELDS.forEach((x0, i) => {
       if (!kinds[i]) return;
       furrows(r, x0, x0 + 39, 23, 31);
       for (const y of [25, 28, 31]) for (let x = x0 + 3; x < x0 + 38; x += 5) crop(r, x, y, kinds[i]);
     });
-    if (lv >= 3) scarecrow(r, 121);
     if (lv >= 5) {
+      const glow = r.glow || r;
+      for (let i = 0; i < 18; i++) glow(38 + ((i * 13) % 36), 22 + ((i * 5) % 9), 38 + ((i * 13) % 36), 22 + ((i * 5) % 9), i % 2 ? "#fff3a0" : "#ffe066");
+      r.light?.({ x: 56, y: 26, r: 26, k: 0.35, c: [1.0, 0.9, 0.45] });
       for (const x of [31, 77]) crop(r, x, 31, "sunflower");
       windmill(r, 168);
     }
+    if (lv >= 3) scarecrow(r, 121);
     rail(r, 30, 172, 33, false);
 
-    // the building in the middle
-    if (lv <= 3) {
-      shed(r, 186, false);
-      toolRack(r, 212);
-    } else barn(r, 180);
+    // the shed in the middle, its rack of seed packets (level 2's item)
+    shed(r, 186, false);
+    toolRack(r, 212);
+    seedRack(r, 228);
     if (lv >= 5) {
-      silo(r, 216);
+      silo(r, 240);
       vane(r, 197, 1);
     }
-    if (lv >= 3) hay(r, 229);
 
-    // the pens
-    trough(r, 314, 31, "full");
-    coop(r, 386, false);
-    for (const x of [362, 370]) chicken(r, x, 31);
-    if (lv >= 3) cow(r, 276, 31, "#f4f6f8");
-    if (lv >= 4) {
-      r(295, 29, 312, 31, "#6b4a2f");
-      r(297, 28, 310, 28, "#6b4a2f");
-      pig(r, 297, 31);
-      for (const x of [337, 349]) sheep(r, x, 31);
-      chicken(r, 378, 31);
+    // the greenhouse (level 3's item: its glass) and the beds beside it
+    glasshouse(r, 262, 350, lv >= 3 ? lv : 1);
+    if (lv <= 2) for (const [x, y] of [[300, 31], [330, 31]]) brokenPot(r, x, y);
+    for (const x0 of [362, 390]) {
+      box(r, x0, 27, x0 + 22, 31, "#8a5f33", "#5a3b24");
+      r(x0 + 1, 27, x0 + 21, 27, "#a8753f");
+      for (let x = x0 + 3; x < x0 + 21; x += 6) crop(r, x, 26, lv >= 4 ? "tomato" : lv >= 3 ? "carrot" : "sprout");
     }
-    if (lv >= 5) horse(r, 254, 31);
-    rail(r, 250, 414, 33, false);
 
-    // the front: flowers, a full wheelbarrow, a tractor on the track
-    if (lv >= 4) {
-      for (let i = 0; i < 24; i++) r(12 + ((i * 67) % 390), 44 + (i % 3), 12 + ((i * 67) % 390), 44 + (i % 3), ["#f4d35e", "#e98fb0", "#f4f6f8"][i % 3]);
-      wheelbarrow(r, 150, 41, "full");
+    // the front: flowers, a wheelbarrow, and at level 4 THE tractor (level 4's item)
+    if (lv >= 4) for (let i = 0; i < 24; i++) r(12 + ((i * 67) % 390), 44 + (i % 3), 12 + ((i * 67) % 390), 44 + (i % 3), ["#f4d35e", "#e98fb0", "#f4f6f8"][i % 3]);
+    if (lv >= 3) wheelbarrow(r, 150, 41, "full");
+    if (lv >= 4) bigTractor(r, 54, 44);
+  },
+
+  // The Barn: the barn in the middle, the coop on the left, the pens on the right. Each level shows
+  // what its upgrade quest brought back: level 1 is a barn falling down, a knocked-over trough and a
+  // dead tree; 2 the chicken coop and its hens; 3 hay and sacks of feed, and a cow; 4 a pig in the
+  // mud and a pony; 5 a flock of sheep — and Dolly, the Research Institute's clone, glowing tag and all.
+  barn(r, lv) {
+    wideOutdoor(r, lv, lv <= 1 ? "#8a8457" : "#6f9a4f", 60);
+    track(r, lv);
+    barn(r, 190);
+    if (lv <= 1) {
+      // missing boards, a hole in the roof, the door hanging off
+      for (const [x0, y0, x1, y1] of [[194, 14, 197, 24], [216, 16, 219, 28], [201, 7, 207, 9]]) r(x0, y0, x1, y1, "#2a2420");
+      r(201, 20, 213, 31, "#3a2a24");
+      for (let i = 0; i < 80; i++) weed(r, 10 + ((i * 47) % 400), 24 + ((i * 7) % 9), i % 3 ? "#9a9a55" : "#7a7a45");
+      rail(r, 250, 410, 33, true);
+      rail(r, 10, 170, 33, true);
+      trough(r, 300, 31, "tipped");
+      deadTree(r, 120, 31);
+      for (const x of [70, 340]) crow(r, x, 26);
+      for (const [x, y] of [[60, 40], [280, 43], [370, 37]]) crack(r, x, y, "#6e6440");
+      return;
     }
-    if (lv >= 5) tractor(r, 60, 42);
+    rail(r, 10, 170, 33, false);
+    rail(r, 250, 410, 33, false);
+    // the coop and its hens (level 2's item)
+    coop(r, 40, false);
+    for (const x of [70, 82, 104, 140]) chicken(r, x, 31);
+    trough(r, 300, 31, "full");
+    if (lv >= 3) {
+      // hay and sacks of feed (level 3's item), and a cow at the trough
+      hay(r, 150);
+      for (const x of [232, 241]) {
+        box(r, x, 25, x + 7, 31, "#c9a87a", "#8a6a4a");
+        r(x + 2, 25, x + 5, 25, "#6b4220");
+      }
+      cow(r, 278, 31, "#f4f6f8");
+    }
+    if (lv >= 4) {
+      // a pig in the mud and a pony (level 4's item)
+      r(316, 30, 336, 32, "#6b4a2f");
+      r(318, 29, 334, 29, "#7a5a3a");
+      pig(r, 320, 31);
+      pony(r, 352, 31);
+    }
+    if (lv >= 5) {
+      // the flock, and Dolly (level 5's item): a clone, a glowing tag in her ear
+      for (const x of [376, 392]) sheep(r, x, 31);
+      sheep(r, 258, 44);
+      const glow = r.glow || r;
+      glow(267, 37, 267, 38, "#7fe0ff");
+      for (const [dx, dy] of [[-3, -3], [5, -5], [8, -1]]) glow(262 + dx, 36 + dy, 262 + dx, 36 + dy, "#d8f6ff");
+      r.light?.({ x: 266, y: 38, r: 10, k: 0.3, c: [0.6, 0.9, 1.0] });
+      silo(r, 177);
+      vane(r, 207, 1);
+    }
+    if (lv >= 4) for (let i = 0; i < 20; i++) r(12 + ((i * 71) % 390), 44 + (i % 3), 12 + ((i * 71) % 390), 44 + (i % 3), ["#f4d35e", "#f4f6f8"][i % 2]);
   },
 
   // The Scrapyard, laid out like its page: salvage on the left, the shed in the middle, workbenches
@@ -1635,6 +1684,7 @@ Object.assign(HI_SCENES, {
       return;
     }
     workbench(r, 232);
+    cashRegister(r, 241); // Rick's, on the workbench (the Scrapyard's level 2 item)
     for (const x of [258, 266]) drum(r, x, 31, x === 258 ? "#3f6fb5" : "#b03030");
     if (lv >= 3) {
       weaponRack(r, 280);
@@ -1734,7 +1784,7 @@ Object.assign(HI_SCENES, {
 // bottom rows (the plaque hides the top-left corner, the Upgrade button the bottom-left one).
 
 const WW = 416;
-export const SCENE_WIDTH = { farm: WW, scrapyard: WW, greenhouse: WW };
+export const SCENE_WIDTH = { farm: WW, barn: WW, scrapyard: WW, greenhouse: WW };
 
 function hash01(i, s) {
   let x = Math.imul(i + 11, 2654435761) ^ Math.imul(s + 7, 40503);
@@ -2024,6 +2074,156 @@ function tractor(r, x, base) {
   r(x + 17, base - 5, x + 20, base - 3, "#f4d35e");
   box(r, x + 1, base - 4, x + 7, base, "#1d2026", "#0e1014");
   r(x + 3, base - 2, x + 5, base - 2, "#f4d35e");
+}
+
+// ---- the upgrade items (quests.js UPGRADE_ITEMS), level 2 ----
+// Coach Anatolio's cleaning cart: a grey bin on castors with spray bottles, the yellow mop bucket
+// and its wringer, the mop leaning in it.
+function cleaningCart(r, x) {
+  box(r, x, 23, x + 11, 30, "#6b7a8c", "#3f4a58");
+  r(x + 1, 23, x + 10, 23, "#8a9aac");
+  r(x + 2, 25, x + 9, 28, "#2a2d33");
+  for (const dx of [1, 10]) r(x + dx, 31, x + dx, 31, "#1d2026");
+  for (const [dx, c] of [[2, "#4caf7d"], [6, "#3f8fd0"]]) {
+    r(x + dx, 20, x + dx + 1, 22, c);
+    r(x + dx, 19, x + dx, 19, "#f4f6f8");
+  }
+  box(r, x + 14, 26, x + 22, 31, "#f4c430", "#b8901a");
+  r(x + 15, 26, x + 21, 26, "#ffe066");
+  r(x + 16, 24, x + 20, 25, "#8a909a");
+  for (let y = 22; y <= 27; y++) r(x + 21 + Math.floor((27 - y) / 2), y, x + 21 + Math.floor((27 - y) / 2), y, "#c49a64");
+  r(x + 19, 27, x + 23, 29, "#e8e2d0");
+}
+// Harleen's roller skates hanging off the barre by their laces, one red and one blue.
+function skates(r, x) {
+  for (const [dx, c] of [[0, "#d64545"], [6, "#3f6fb5"]]) {
+    const sx = x + dx;
+    r(sx + 2, 21, sx + 2, 22, "#f4f6f8");
+    box(r, sx, 23, sx + 3, 26, c, shadowOf(c));
+    r(sx + 1, 24, sx + 2, 24, "#f4f6f8");
+    r(sx, 27, sx + 4, 27, c);
+    r(sx, 28, sx + 4, 28, "#3a3f48");
+    for (const wx of [sx, sx + 4]) r(wx, 29, wx, 29, "#f4d35e");
+  }
+}
+// Gordana's golden ladle on two hooks, catching the light.
+function goldenLadle(r, x, y) {
+  for (const dx of [1, 10]) r(x + dx, y - 1, x + dx, y, "#3a3f48");
+  r(x, y + 1, x + 12, y + 1, "#c9a227");
+  r(x, y + 1, x + 8, y + 1, "#e0b840");
+  disc(r, x + 15, y + 2.5, 2.6, 2, "#c9a227");
+  r(x + 13, y + 1, x + 16, y + 1, "#f4d35e");
+  (r.glow || r)(x + 16, y + 2, x + 16, y + 2, "#fff6c0");
+  r.light?.({ x: x + 14, y: y + 2, r: 8, k: 0.25, c: [1.0, 0.9, 0.5] });
+}
+// Specimen jars on a low cabinet, a hand floating in the middle one: Steve.
+function specimenJars(r, x) {
+  box(r, x, 24, x + 10, 31, "#6b4a2f", "#4a3020");
+  r(x + 1, 24, x + 9, 24, "#8a6a4a");
+  r(x + 5, 27, x + 5, 27, "#c9a227");
+  for (const [dx, h] of [[0, 4], [4, 6], [8, 3]]) {
+    const top = 23 - h;
+    box(r, x + dx, top, x + dx + 2, 23, "#9fd8b0", "#5a8a70");
+    r(x + dx, top - 1, x + dx + 2, top - 1, "#8a909a");
+    r(x + dx, top + 1, x + dx, top + 1, "#e8fff0");
+  }
+  r(x + 5, 20, x + 5, 22, "#e8b894");
+  r(x + 6, 19, x + 6, 21, "#e8b894");
+  r(x + 5, 18, x + 5, 19, "#d8a080");
+}
+// His spot: an armchair, with a sign taped to its back.
+function armchair(r, x) {
+  box(r, x + 1, 17, x + 9, 25, "#8a5a33", "#5a3a20");
+  r(x + 2, 18, x + 8, 18, "#a8703f");
+  box(r, x, 24, x + 10, 29, "#8a5a33", "#5a3a20");
+  r(x + 2, 24, x + 8, 25, "#a8703f");
+  for (const dx of [1, 9]) r(x + dx, 30, x + dx, 31, "#3a2618");
+  box(r, x + 3, 19, x + 7, 21, "#f4f6f8", "#c9ccd2");
+  r(x + 4, 20, x + 6, 20, "#d64545");
+}
+// A centurion garden statue on its plinth: stone tunic, a spear and a red-painted crest.
+function centurionStatue(r, x) {
+  box(r, x, 27, x + 7, 31, "#a8a294", "#7a766a");
+  r(x + 1, 27, x + 6, 27, "#c8c2b0");
+  r(x + 2, 21, x + 5, 26, "#c8c2b0");
+  r(x + 2, 21, x + 2, 26, "#e0dace");
+  r(x + 1, 22, x + 1, 25, "#c8c2b0");
+  r(x + 6, 22, x + 6, 24, "#c8c2b0");
+  r(x + 6, 16, x + 6, 26, "#8a909a");
+  disc(r, x + 3.5, 19, 1.4, 1.4, "#d8d2c0");
+  r(x + 2, 17, x + 5, 17, "#d64545");
+  r(x + 3, 16, x + 4, 16, "#d64545");
+}
+// Thank-you letters pinned up from the families she helped, a heart drawn on one.
+function thankYouLetters(r, x) {
+  for (const [dx, dy, c] of [[0, 14, "#f4f6f8"], [6, 15, "#fff0d8"], [1, 20, "#e8f0ff"], [7, 21, "#f4f6f8"]]) {
+    box(r, x + dx, dy, x + dx + 4, dy + 4, c, "#c9c2ad");
+    r(x + dx + 1, dy + 2, x + dx + 3, dy + 2, "#9aa5b1");
+    r(x + dx + 2, dy, x + dx + 2, dy, "#d64545");
+  }
+  for (const [px, py] of [[2, 22], [4, 22], [2, 23], [3, 23], [4, 23], [3, 24]]) r(x + px, py, x + px, py, "#e06a8a");
+}
+// Rolls of duct tape stacked on the bench.
+function ductTape(r, x) {
+  for (const [dx, y] of [[0, 18], [6, 18], [3, 15]]) {
+    disc(r, x + dx + 2, y + 1, 2.4, 1.6, "#9aa0a8");
+    r(x + dx + 2, y + 1, x + dx + 2, y + 1, "#4a4f58");
+    r(x + dx + 1, y, x + dx + 2, y, "#c9ccd2");
+  }
+}
+// Rick's cash register (standing on a workbench top at row 23), its display glowing green.
+function cashRegister(r, x) {
+  box(r, x, 18, x + 8, 22, "#3a3f48", "#1d2026");
+  r(x + 1, 19, x + 7, 20, "#5a5f68");
+  for (let k = 0; k < 4; k++) r(x + 1 + k * 2, 20, x + 1 + k * 2, 20, "#c9ccd2");
+  r(x, 22, x + 8, 22, "#c9a227");
+  box(r, x + 3, 15, x + 7, 17, "#1d2026");
+  (r.glow || r)(x + 4, 16, x + 6, 16, "#7fe0a8");
+}
+
+// A rack of seed packets on legs: two rows of bright packets (the Farm's level 2 item).
+function seedRack(r, x) {
+  r(x, 22, x, 31, "#6b4a2f");
+  r(x + 13, 22, x + 13, 31, "#6b4a2f");
+  box(r, x, 18, x + 13, 27, "#8a5f33", "#5a3b24");
+  const packs = ["#e06a5a", "#f4d35e", "#7fc86a", "#e98fb0", "#6aa8e0", "#f4a030"];
+  packs.forEach((c, i) => {
+    const px = x + 2 + (i % 3) * 4;
+    const py = 19 + Math.floor(i / 3) * 4;
+    box(r, px, py, px + 2, py + 2, c, shadowOf(c));
+    r(px + 1, py + 1, px + 1, py + 1, "#f4f6f8");
+  });
+}
+// Jezza's tractor: absurdly big for the farm — a huge back wheel, a glass cab, an exhaust stack
+// (the Farm's level 4 item).
+function bigTractor(r, x, base) {
+  disc(r, x + 30, base - 9, 9, 9, "#1d2026");
+  disc(r, x + 30, base - 9, 4, 4, "#f4d35e");
+  disc(r, x + 30, base - 9, 1.6, 1.6, "#8a6a1a", false);
+  box(r, x + 4, base - 15, x + 34, base - 8, "#3f8a3a", "#245a22");
+  r(x + 5, base - 15, x + 33, base - 15, "#5aa852");
+  for (let px = x + 7; px < x + 18; px += 3) r(px, base - 13, px, base - 10, "#2a5a26");
+  box(r, x + 20, base - 27, x + 36, base - 15, "#3f8a3a", "#245a22");
+  r(x + 22, base - 25, x + 34, base - 17, "#a9d4ef");
+  r(x + 23, base - 24, x + 25, base - 24, "#e4f4fc");
+  r(x + 20, base - 28, x + 36, base - 28, "#245a22");
+  r(x + 9, base - 22, x + 10, base - 15, "#3a3f48");
+  r(x + 8, base - 23, x + 11, base - 23, "#2a2d33");
+  disc(r, x + 8, base - 5, 5, 5, "#1d2026");
+  disc(r, x + 8, base - 5, 2, 2, "#f4d35e");
+  r(x + 2, base - 13, x + 3, base - 11, "#fff3c4");
+}
+// A pony: a small brown horse with a pale mane (the Barn's level 4 item, with the pig).
+function pony(r, x, b) {
+  box(r, x, b - 8, x + 10, b - 4, "#a8703f", "#6b4424");
+  r(x + 1, b - 8, x + 9, b - 8, "#c48a52");
+  r(x + 9, b - 11, x + 11, b - 8, "#a8703f");
+  box(r, x + 10, b - 12, x + 14, b - 9, "#a8703f", "#6b4424");
+  r(x + 13, b - 10, x + 14, b - 9, "#8a5a33");
+  r(x + 11, b - 11, x + 11, b - 11, "#1d2026");
+  r(x + 8, b - 12, x + 9, b - 8, "#f0e0b0");
+  for (const dx of [1, 3, 7, 9]) r(x + dx, b - 3, x + dx, b, "#6b4424");
+  r(x - 2, b - 8, x - 1, b - 4, "#f0e0b0");
 }
 
 // Pen pieces.
@@ -2394,7 +2594,7 @@ const DAYLIGHT = [0.8, 0.9, 1.0];
 const SCREEN_LIGHTS = { "#7fe0a8": [0.45, 1.0, 0.7], "#d8ffe8": [0.6, 1.0, 0.8], "#ff5b5b": [1.0, 0.4, 0.4], "#fff3c4": [1.0, 0.95, 0.75], "#fffbe8": [1.0, 0.95, 0.8] };
 const INDOOR_AMBIENT = [[0.5, 0.5, 0.58], [0.58, 0.58, 0.65], [0.64, 0.64, 0.7], [0.68, 0.68, 0.73], [0.72, 0.72, 0.76]];
 const AFTERNOON = [[0.68, 0.67, 0.68], [0.82, 0.79, 0.76], [0.89, 0.85, 0.8], [0.93, 0.88, 0.81], [0.96, 0.9, 0.82]];
-const OUTDOOR_SCENES = new Set(["farm", "scrapyard", "greenhouse"]);
+const OUTDOOR_SCENES = new Set(["farm", "barn", "scrapyard", "greenhouse"]);
 
 // Shadows, so the things in a room sit in it: indoors a drop shadow down and to the right of
 // everything on the wall, the ceiling's shadow along the top, and the floor darker where it meets
