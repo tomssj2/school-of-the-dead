@@ -595,7 +595,7 @@ const HI_SCENES = {
       box(r, 108, 20, 126, 25, "#3f6fb5", "#2a4a80");
       r(109, 21, 125, 21, "#6a90d8");
       for (const x of [114, 120]) r(x, 22, x, 24, "#35609e");
-      ball(r, 152, 31);
+      medicineBalls(r, 150); // from the Urgent Care's rehab wing (the Gym's level 4 item)
     }
     if (lv >= 5) {
       // the scoreboard, home 12 : 08 guest
@@ -611,6 +611,7 @@ const HI_SCENES = {
       // the court line, and the lamps shining in the polished floor
       r(0, 38, HW - 1, 38, "#efe6cf");
       for (const x of lamps) floorShine(r, x);
+      samantha(r, 99, 129); // his 500 kg barbell, racked over the bench (the Gym's level 5 item)
     }
   },
 
@@ -644,15 +645,10 @@ const HI_SCENES = {
     for (const x of [66, Math.round((66 + mx1) / 2), mx1 + 2]) r(x, 21, x, 23, "#8a909a");
     skates(r, 92); // Harleen's (Acrobatics' level 2 item)
     if (lv >= 3) {
-      // rings on their straps
-      for (const x of [38, 50]) {
-        r(x, 0, x, 13, "#c9b58c");
-        r(x, 0, x, 13, "#c9b58c");
-        for (let y = 1; y < 13; y += 3) r(x, y, x, y, "#a8946a");
-        disc(r, x, 17, 2.4, 2.4, "#d8c08a", false);
-        disc(r, x, 17, 1.2, 1.2, wall, false);
-        r(x - 2, 15, x - 1, 15, "#f0dcaa");
-      }
+      // the circus trapeze (Acrobatics' level 3 item): two ropes and a striped bar
+      for (const x of [38, 50]) for (let y = 0; y <= 15; y++) r(x, y, x, y, y % 3 ? "#c9b58c" : "#a8946a");
+      for (let x = 37; x <= 51; x++) r(x, 16, x, 17, Math.floor((x - 37) / 3) % 2 ? "#f4f6f8" : "#d64545");
+      r(37, 18, 51, 18, "#7a2a2a");
       // the balance beam on two stands
       r(128, 22, 164, 24, "#c8a070");
       r(128, 22, 164, 22, "#e8c898");
@@ -691,10 +687,17 @@ const HI_SCENES = {
         const c = ["#d64545", "#f4d35e", "#3f6fb5", "#4caf7d"][(x / 5) % 4 | 0];
         for (let y = 0; y <= 2 + (x % 3); y++) r(x + (y % 2), y, x + (y % 2), y, y % 2 ? shadowOf(c) : c);
       }
+      batCase(r, 134, 11); // her bat, in a glass case (Acrobatics' level 5 item)
       r(0, 38, HW - 1, 38, "#f4e3c0");
       floorShine(r, 34);
       floorShine(r, 96);
       floorShine(r, 158);
+    }
+    if (lv >= 4) {
+      // Bud and Lou, sitting up on the mats, one of them laughing (Acrobatics' level 4 item) —
+      // drawn last so the medal board doesn't cover them
+      hyena(r, 12, 26, 1, true);
+      hyena(r, 30, 26, -1, false);
     }
   },
 
@@ -853,14 +856,7 @@ const HI_SCENES = {
       r(176, 24, 176, 25, "#5a626c");
     }
     if (lv >= 5) {
-      // a heart monitor on its stand, its trace glowing
-      box(r, 63, 12, 77, 21, "#1d2026", "#4a4f58");
-      r(64, 12, 76, 12, "#6a707a");
-      const trace = [17, 17, 17, 16, 17, 17, 13, 20, 17, 17, 16, 17, 17];
-      trace.forEach((ty, i) => (r.glow || r)(64 + i, ty, 64 + i, ty, "#7fe0a8"));
-      (r.glow || r)(73, 14, 75, 14, "#ff5b5b");
-      r(70, 22, 70, 30, "#6b707a");
-      r(67, 31, 73, 31, "#3a3f48");
+      recoveryMachine(r, 60); // from the General Hospital (the Nurse's Office's level 5 item)
       plant(r, 186, 31);
       plant(r, 110, 31);
     }
@@ -889,6 +885,7 @@ const HI_SCENES = {
       disc(r, 35, 18, 2.4, 1.8, "#8a5ad6");
       r(34, 17, 34, 17, "#b89af0");
       for (const [x, y] of [[28, 17], [30, 20], [39, 16], [40, 20]]) r(x, y, x + 1, y, "#4caf7d");
+      flytrap(r, 46); // from the Garden Center (Biology's level 3 item)
     }
     if (lv >= 4) {
       // the skeleton on its stand
@@ -910,16 +907,8 @@ const HI_SCENES = {
       r(146, 31, 154, 31, "#545962");
     }
     if (lv >= 5) {
-      // an aquarium (lit, bubbling, a fish in it) and a microscope on the teacher's desk
-      const glow = r.glow || r;
-      box(r, 11, 18, 23, 24, "#3a4150", "#2a2f3a");
-      for (let y = 19; y <= 23; y++) glow(12, y, 22, y, mix("#8fd8f0", "#3f8ab0", (y - 19) / 4));
-      glow(12, 23, 22, 23, "#c8b078");
-      glow(19, 21, 20, 22, "#4caf7d");
-      glow(14, 20, 16, 20, "#e0602a");
-      glow(13, 20, 13, 20, "#f4a030");
-      for (const [x, y] of [[18, 19], [17, 20], [18, 21]]) glow(x, y, x, y, "#e8f8ff");
-      r.light?.({ x: 17, y: 21, r: 12, k: 0.35, c: [0.55, 0.9, 1.0] });
+      // a zombie in a tank on the teacher's desk (Biology's level 5 item), and a microscope
+      zombieTank(r, 9);
       r(25, 24, 29, 24, "#3a3f48");
       r(28, 19, 28, 23, "#545962");
       r(25, 21, 28, 21, "#545962");
@@ -942,15 +931,8 @@ const HI_SCENES = {
     disc(r, 110, 18, 1.4, 1.4, "#d64545");
     armchair(r, 158); // his spot (Physics' level 2 item)
     if (lv >= 3) {
-      // a poster of the solar system: the sun, the planets on their orbits
-      poster(r, 24, 12, 46, 24, "#1d2240");
-      for (const rr of [6, 10, 14]) for (let x = 28; x <= 44; x++) if (Math.abs(x - 28) <= rr && (x + rr) % 2 === 0) r(x, 18 - Math.round(Math.sqrt(Math.max(0, rr * rr - (x - 28) ** 2)) * 0.35), x, 18 - Math.round(Math.sqrt(Math.max(0, rr * rr - (x - 28) ** 2)) * 0.35), "#3a4270");
-      disc(r, 27, 18, 2.6, 2.6, "#f4c542");
-      (r.glow || r)(26, 17, 27, 18, "#fff3c4");
-      for (const [x, y, c] of [[33, 18, "#c98a4a"], [36, 16, "#3f8fd0"], [40, 19, "#d64545"], [43, 17, "#e0b884"]]) {
-        r(x, y, x + 1, y + 1, c);
-        r(x, y, x, y, lightOf(c));
-      }
+      // a model train on its shelf, going round and round (Physics' level 3 item)
+      trainSet(r, 22);
     }
     if (lv >= 4) {
       // a Tesla coil: a base, the copper winding, the ring on top
@@ -970,15 +952,7 @@ const HI_SCENES = {
         for (let k = 0; k <= n; k++) glow(Math.round(x0 + ((x1 - x0) * k) / n) + (k % 2), Math.round(y0 + ((y1 - y0) * k) / n), Math.round(x0 + ((x1 - x0) * k) / n) + (k % 2), Math.round(y0 + ((y1 - y0) * k) / n), "#d8f0ff");
       }
       r.light?.({ x: 151, y: 9, r: 16, k: 0.4, c: [0.7, 0.85, 1.0] });
-      r(16, 13, 20, 22, "#f4f6f8");
-      r(16, 13, 16, 22, "#ffffff");
-      r(20, 13, 20, 22, "#c9ccd2");
-      r(17, 11, 19, 12, "#d64545");
-      r(18, 10, 18, 10, "#d64545");
-      disc(r, 18, 16, 1, 1, "#3f8fd0", false);
-      r(14, 20, 15, 24, "#d64545");
-      r(21, 20, 22, 24, "#d64545");
-      r(17, 23, 19, 24, "#5a5f68");
+      bigRocket(r, 46); // a real one (Physics' level 5 item)
       r(56, 21, 64, 21, "#5a5f68");
       r(60, 22, 61, 23, "#9aa0a8");
       r(62, 24, 62, 25, "#9aa0a8");
@@ -998,23 +972,12 @@ const HI_SCENES = {
     }
     centurionStatue(r, 162); // from a front garden (History's level 2 item)
     if (lv >= 3) {
-      // a world map
-      box(r, 20, 12, 48, 25, "#6fa8d0", "#6b4a2f");
-      r(21, 13, 47, 13, "#8fc0e0");
-      for (const [x0, y0, x1, y1] of [[22, 15, 28, 17], [24, 18, 27, 19], [26, 20, 27, 23], [31, 14, 35, 15], [32, 16, 36, 18], [33, 19, 35, 22], [37, 14, 45, 17], [41, 18, 43, 19], [43, 21, 46, 23]]) r(x0, y0, x1, y1, "#7cae5a");
-      for (const [x, y] of [[22, 15], [31, 14], [37, 14], [43, 21]]) r(x, y, x + 1, y, "#a8d080");
-      r(38, 13, 44, 13, "#f4f6f8");
-      r(22, 24, 46, 24, "#f4f6f8");
+      // the road atlas, redrawn as the Roman Empire (History's level 3 item)
+      romanMap(r, 20, 12);
     }
     if (lv >= 4) {
-      // a globe on its stand
-      disc(r, 151, 17, 5.4, 5.4, "#3f8fd0");
-      for (const [x0, y0, x1, y1] of [[148, 14, 150, 16], [151, 18, 154, 20], [153, 13, 154, 15], [147, 19, 148, 20]]) r(x0, y0, x1, y1, "#6fae6a");
-      r(148, 13, 149, 13, "#8fc8f0");
-      for (let y = 11; y <= 23; y++) r(157 - Math.round(Math.abs(y - 17) * 0.25), y, 157 - Math.round(Math.abs(y - 17) * 0.25), y, "#c9a227");
-      r(151, 23, 151, 29, "#8a5f33");
-      r(147, 30, 155, 31, "#6b4a2f");
-      r(147, 30, 155, 30, "#8a6a4a");
+      // an amphora from St. Mary's crypt, on a little stand (History's level 4 item)
+      amphora(r, 151);
     }
     if (lv >= 5) {
       // a marble bust on a pedestal, and two flags on poles
@@ -1029,12 +992,7 @@ const HI_SCENES = {
       r(14, 12, 20, 12, "#4caf7d");
       r(13, 13, 13, 14, "#4caf7d");
       r(21, 13, 21, 14, "#4caf7d");
-      for (const [x, c] of [[53, "#d64545"]]) {
-        r(x, 12, x, 30, "#8a5f33");
-        r(x, 11, x, 11, "#c9a227");
-        for (let dx = 1; dx <= 7; dx++) r(x + dx, 13 + (dx > 4 ? 1 : 0), x + dx, 18 + (dx > 4 ? 1 : 0), dx % 3 === 0 ? shadowOf(c) : c);
-        r(x + 2, 15, x + 4, 16, "#f4d35e");
-      }
+      spqrStandard(r, 53); // a Roman standard (with the bust, History's level 5 item)
     }
   },
   classroom_SocialStudies(r, lv) {
@@ -1048,16 +1006,8 @@ const HI_SCENES = {
     }
     thankYouLetters(r, 157); // from the families down the street (Social Studies' level 2 item)
     if (lv >= 3) {
-      // flags of the world
-      for (let i = 0; i < 6; i++) {
-        const x = 20 + (i % 3) * 10;
-        const y = 12 + Math.floor(i / 3) * 7;
-        const c = ["#d64545", "#3f6fb5", "#4caf7d", "#f4d35e", "#8a5ad6", "#e0602a"][i];
-        box(r, x, y, x + 7, y + 5, c, "#3a3f48");
-        r(x + 1, y + 2, x + 6, y + 3, i % 2 ? "#f4f6f8" : shadowOf(c));
-        if (i % 3 === 1) r(x + 3, y + 1, x + 4, y + 4, "#f4f6f8");
-        r(x + 1, y + 1, x + 6, y + 1, lightOf(c));
-      }
+      // birthday bunting and balloons — she remembers everyone's (Social Studies' level 3 item)
+      birthday(r, 18);
     }
     if (lv >= 4) {
       // a debate podium with a seal on its front and a microphone
@@ -1079,6 +1029,7 @@ const HI_SCENES = {
         r(x + 1, y, x + 1, y, "#d64545");
       }
       pennants(r, 66, 128, 0, ["#d64545", "#f4f6f8", "#3f6fb5"]);
+      jeansCrate(r, 130); // (Social Studies' level 5 item)
     }
   },
 };
@@ -1315,9 +1266,13 @@ Object.assign(HI_SCENES, {
         r(147, y + 1, 161, y + 1, "#1d2026");
         for (let x = 148; x < 161; x += 3) (r.glow || r)(x, y, x, y, ["#7fe0a8", "#f4d35e", "#ff5b5b"][(x + y) % 3]);
       }
-      r(166, 17, 167, 21, "#2a2d33");
-      r(166, 16, 167, 16, "#8a909a");
-      r(165, 22, 168, 22, "#8a8e96");
+      // the gold mic (the Radio Station's level 4 item)
+      r(166, 17, 167, 21, "#c9a227");
+      r(166, 17, 166, 21, "#f4d35e");
+      r(165, 15, 168, 16, "#f4d35e");
+      (r.glow || r)(165, 15, 165, 15, "#fff6c0");
+      r(165, 22, 168, 22, "#8a6a1a");
+      r.light?.({ x: 166, y: 16, r: 8, k: 0.2, c: [1.0, 0.9, 0.5] });
       r(170, 19, 174, 19, "#2a2d33");
       r(170, 20, 170, 22, "#2a2d33");
       r(174, 20, 174, 22, "#2a2d33");
@@ -1394,6 +1349,7 @@ Object.assign(HI_SCENES, {
       r(148, 12, 148, 16, "#7a808a");
       r(147, 11, 150, 11, "#2a2d33");
       bookcase(r, 14, 12, 40, 31);
+      porkPieHat(r, 101, 9); // on the whiteboard's corner (the Research Room's level 3 item)
     }
     if (lv >= 4) {
       // a computer: a monitor glowing with green text, a keyboard on the desk
@@ -1406,19 +1362,8 @@ Object.assign(HI_SCENES, {
       r(48, 28, 52, 28, "#c9ccd2");
     }
     if (lv >= 5) {
-      // a glowing machine of tubes on the bench, bubbling, piped together, a gauge on it
-      box(r, 160, 8, 182, 21, "#3a3f48", "#1d2026");
-      r(161, 9, 181, 9, "#5a5f68");
-      for (const x of [163, 169, 175]) {
-        box(r, x, 11, x + 4, 19, "#7fe0a8", "#3a8f63");
-        r(x + 1, 12, x + 1, 17, "#d8ffe8");
-        for (const [dx, dy] of [[2, 16], [3, 14], [2, 12]]) r(x + dx, dy, x + dx, dy, "#d8ffe8");
-      }
-      r(167, 13, 168, 13, "#8a909a");
-      r(173, 15, 174, 15, "#8a909a");
-      disc(r, 180, 11, 1.2, 1.2, "#e8e2d0", false);
-      r(180, 11, 180, 11, "#d64545");
-      for (const [x, y] of [[166, 6], [172, 5], [178, 6]]) r(x, y, x, y, "#7fe0a8aa");
+      // the reactor: glowing blue, 99.1% pure (the Research Room's level 5 item)
+      blueReactor(r, 160);
     }
   },
 
@@ -1518,6 +1463,7 @@ Object.assign(HI_SCENES, {
       r(51, 20, 63, 20, "#c9a227");
       r(57, 15, 57, 18, "#1d2026");
       r(57, 19, 57, 19, "#1d2026");
+      for (const x of [108, 119]) riotShield(r, x, 4); // with the razor wire (the Crafting Room's level 5 item)
     }
   },
 
@@ -1666,7 +1612,7 @@ Object.assign(HI_SCENES, {
       wreck(r, 120, 31, "#3a3230", true);
       wreck(r, 122, 25, "#3f6fb5");
       wreck(r, 119, 19, "#c9a236");
-      junkPile(r, 150, 30, 12, "#6b6f78");
+      towTruck(r, 152, 31); // from the Gas Station (the Scrapyard's level 3 item)
     } else wreck(r, 120, 31, "#3a3230", true);
     if (lv >= 2) for (let i = 0; i < 4; i++) tyre(r, 56, 30 - i * 3);
     if (lv >= 4) crane(r, 4);
@@ -2179,6 +2125,248 @@ function cashRegister(r, x) {
   r(x, 22, x + 8, 22, "#c9a227");
   box(r, x + 3, 15, x + 7, 17, "#1d2026");
   (r.glow || r)(x + 4, 16, x + 6, 16, "#7fe0a8");
+}
+
+// ---- the upgrade items, levels 3-5 ----
+// Three medicine balls on a low rack.
+function medicineBalls(r, x) {
+  r(x, 30, x + 12, 31, "#3a3f48");
+  for (const [dx, c] of [[2, "#8a3a2a"], [6, "#2a4a80"], [10, "#3a6a3a"]]) {
+    disc(r, x + dx, 27, 2.4, 2.4, c);
+    r(x + dx - 1, 26, x + dx, 26, lightOf(c));
+  }
+}
+// Samantha: a 500 kg barbell on its uprights, huge plates, a pink name tag on the bar.
+function samantha(r, x0, x1) {
+  for (const x of [x0 + 5, x1 - 5]) { r(x, 24, x, 31, "#3a3f48"); r(x - 1, 31, x + 1, 31, "#2a2d33"); }
+  r(x0 - 6, 23, x1 + 6, 23, "#c9ccd2");
+  r(x0 - 6, 22, x1 + 6, 22, "#e8eef4");
+  for (const x of [x0, x1]) {
+    disc(r, x, 23, 2.2, 6, "#1d2026");
+    disc(r, x + (x === x0 ? -3 : 3), 23, 2, 5, "#2a2d33");
+    r(x, 18, x, 28, "#3a3f48");
+  }
+  const m = Math.round((x0 + x1) / 2);
+  r(m, 24, m, 25, "#e98fb0");
+  box(r, m - 3, 26, m + 3, 29, "#f8b8d0", "#c0607a");
+  r(m - 1, 27, m + 1, 27, "#d64a7a");
+}
+// A hyena sitting up, 16 x 14, feet on row `base` (`dir` 1 faces right): round ears, a bristly
+// mane, high shoulders sloping down to the haunches, spots, a dark muzzle — `grin` opens its mouth
+// in that laugh.
+const HYENA = [
+  "...........o..o.",
+  "..........oboobo",
+  "..........obbbbo",
+  ".........nbbebbo",
+  "........nnbbbmmo",
+  ".......nnnbbbmmo",
+  "......nnnsbbkwwo",
+  ".....obbbbbboooo",
+  "...oolsbbsbbo...",
+  "..olbbbbsbbbo...",
+  ".obsbbbbbbbbo...",
+  "o.obbsbbbo.bo...",
+  "..obbbbbbo.bo...",
+  "..oooooooo.oo...",
+];
+const HYENA_COL = { o: "#4a3220", b: "#c8a46a", l: "#e0c48c", s: "#5a4026", n: "#5a4026", m: "#2e2218", e: "#1d2026", k: "#7a2a2a", w: "#f4f6f8" };
+function hyena(r, x, base, dir = 1, grin = false) {
+  HYENA.forEach((row, y) => [...row].forEach((ch, i) => {
+    if (ch === ".") return;
+    const c = !grin && (ch === "k" || ch === "w") ? "m" : ch;
+    const px = dir > 0 ? x + i : x + 15 - i;
+    r(px, base - 14 + y, px, base - 14 + y, HYENA_COL[c]);
+  }));
+}
+// Harleen's baseball bat in a glass case on the wall, a heart sticker on the glass.
+function batCase(r, x, y) {
+  box(r, x, y, x + 24, y + 8, "#b8dce8", "#6b4a2f");
+  r(x + 1, y + 1, x + 23, y + 7, "#d8eef488");
+  for (let i = 0; i < 18; i++) r(x + 3 + i, y + 4 + (i < 7 ? 0 : 0), x + 3 + i, y + 4 + (i > 9 ? 1 : 0), i < 6 ? "#2a2d33" : "#c49a64");
+  r(x + 20, y + 3, x + 21, y + 6, "#c49a64");
+  for (const [dx, dy] of [[9, 3], [13, 6], [16, 3]]) r(x + dx, y + dy, x + dx, y + dy, "#7a7a7a");
+  r(x + 19, y + 1, x + 19, y + 1, "#e06a8a");
+  r(x + 21, y + 1, x + 21, y + 1, "#e06a8a");
+  r(x + 19, y + 2, x + 21, y + 2, "#e06a8a");
+  r(x + 20, y + 3, x + 20, y + 3, "#e06a8a");
+  for (let i = 0; i < 4; i++) r(x + 2 + i, y + 1 + i, x + 2 + i, y + 1 + i, "#ffffff88");
+}
+// The Recovery Machine: a pink console with six round slots glowing, a screen, a red cross.
+function recoveryMachine(r, x) {
+  box(r, x, 18, x + 20, 31, "#f4c8d4", "#b8788a");
+  r(x + 1, 18, x + 19, 18, "#ffe0ea");
+  const glow = r.glow || r;
+  for (let i = 0; i < 6; i++) {
+    const sx = x + 3 + (i % 3) * 6;
+    const sy = 21 + Math.floor(i / 3) * 4;
+    disc(r, sx, sy, 1.6, 1.4, "#8a4a5a", false);
+    glow(sx, sy, sx, sy, i < 4 ? "#ffd0e0" : "#ffffff");
+  }
+  r(x + 2, 29, x + 18, 29, "#d8a0b0");
+  box(r, x + 4, 9, x + 16, 16, "#2a2d33", "#6a707a");
+  glow(x + 5, 10, x + 15, 15, "#3a6a5a");
+  glow(x + 9, 11, x + 11, 14, "#ff6a8a");
+  glow(x + 8, 12, x + 12, 13, "#ff6a8a");
+  r(x + 10, 17, x + 10, 17, "#6a707a");
+  r.light?.({ x: x + 10, y: 22, r: 14, k: 0.35, c: [1.0, 0.75, 0.85] });
+}
+// A Venus flytrap in a pot, its traps open.
+function flytrap(r, x) {
+  box(r, x, 26, x + 6, 31, "#b8683a", "#7a4224");
+  r(x, 26, x + 6, 26, "#d8885a");
+  for (const [dx, h] of [[1, 6], [3, 9], [5, 5]]) {
+    r(x + dx, 26 - h, x + dx, 25, "#4c8a3a");
+    r(x + dx - 1, 25 - h, x + dx - 1, 25 - h, "#7cc65a");
+    r(x + dx + 1, 25 - h, x + dx + 1, 25 - h, "#7cc65a");
+    r(x + dx, 26 - h, x + dx, 26 - h, "#d64545");
+  }
+}
+// A zombie floating in a tank of green, bubbles rising (on a desk top at row 24).
+function zombieTank(r, x) {
+  const glow = r.glow || r;
+  box(r, x, 10, x + 14, 24, "#3a4150", "#2a2f3a");
+  for (let y = 11; y <= 23; y++) glow(x + 1, y, x + 13, y, mix("#a8f0a0", "#3a9a5a", (y - 11) / 12));
+  glow(x + 5, 13, x + 9, 17, "#7a9a6a");
+  glow(x + 6, 15, x + 6, 15, "#1d2026");
+  glow(x + 8, 15, x + 8, 15, "#1d2026");
+  glow(x + 6, 17, x + 8, 17, "#3a4a32");
+  glow(x + 3, 18, x + 11, 23, "#6a8a5a");
+  glow(x + 7, 19, x + 7, 23, "#5a7a4a");
+  for (const [dx, dy] of [[2, 12], [12, 14], [3, 20], [11, 19]]) glow(x + dx, dy, x + dx, dy, "#e8fff0");
+  r(x - 1, 9, x + 15, 9, "#6a707a");
+  r.light?.({ x: x + 7, y: 17, r: 14, k: 0.4, c: [0.55, 1.0, 0.6] });
+}
+// A model train on a wall shelf: the track, an engine and two cars, a puff of steam.
+function trainSet(r, x) {
+  r(x, 22, x + 22, 23, "#8a5f33");
+  r(x, 22, x + 22, 22, "#a8753f");
+  r(x, 21, x + 22, 21, "#6b707a");
+  box(r, x + 2, 17, x + 7, 20, "#d64545", "#8a2a2a");
+  r(x + 5, 15, x + 6, 16, "#3a3f48");
+  r(x + 2, 16, x + 3, 16, "#3a3f48");
+  for (const cx of [x + 9, x + 15]) box(r, cx, 18, cx + 4, 20, cx === x + 9 ? "#3f6fb5" : "#f4d35e", "#3a3f48");
+  for (const wx of [x + 3, x + 6, x + 10, x + 13, x + 16, x + 19]) r(wx, 21, wx, 21, "#1d2026");
+  for (const [dx, dy] of [[6, 13], [8, 12], [7, 11]]) r(x + dx, dy, x + dx, dy, "#e8eef4aa");
+}
+// A real rocket, nose to the ceiling: fins, a porthole, the flag.
+function bigRocket(r, x) {
+  for (let y = 4; y <= 26; y++) r(x + 2, y, x + 6, y, y < 8 ? "#d64545" : "#f4f6f8");
+  for (let y = 1; y < 4; y++) r(x + 4 - (y - 1) % 2, y, x + 4 + ((y - 1) % 2 ? 0 : 0), y, "#d64545");
+  r(x + 2, 4, x + 2, 26, "#ffffff");
+  r(x + 6, 4, x + 6, 26, "#c9ccd2");
+  disc(r, x + 4, 12, 1.4, 1.4, "#3f8fd0", false);
+  r(x + 3, 16, x + 5, 18, "#3f6fb5");
+  r(x + 4, 17, x + 4, 17, "#f4f6f8");
+  for (const [x0, x1] of [[x, x + 1], [x + 7, x + 8]]) r(x0, 22, x1, 28, "#d64545");
+  r(x + 3, 27, x + 5, 29, "#5a5f68");
+  r(x - 1, 30, x + 9, 31, "#3a3f48");
+}
+// The road atlas, redrawn as the Roman Empire: the sea in the middle, the empire in red around it.
+function romanMap(r, x, y) {
+  box(r, x, y, x + 28, y + 13, "#e8d8b0", "#6b4a2f");
+  r(x + 1, y + 1, x + 27, y + 1, "#f4e8c8");
+  for (const [x0, y0, x1, y1] of [[6, 6, 22, 8], [10, 5, 16, 5], [12, 9, 20, 10], [4, 7, 6, 8]]) r(x + x0, y + y0, x + x1, y + y1, "#6fa8d0");
+  for (const [x0, y0, x1, y1] of [[2, 3, 9, 5], [17, 3, 25, 5], [22, 6, 26, 9], [3, 9, 11, 11], [21, 11, 26, 12]]) r(x + x0, y + y0, x + x1, y + y1, "#c0403a");
+  r(x + 14, y + 4, x + 14, y + 4, "#f4d35e");
+  r(x + 2, y + 12, x + 8, y + 12, "#8a6a4a");
+}
+// An amphora on its stand: two handles, a black-figure band round the belly.
+function amphora(r, x) {
+  r(x - 1, 12, x + 1, 15, "#c8683a");
+  r(x - 2, 11, x + 2, 11, "#a8502a");
+  disc(r, x, 21, 4, 6, "#c8683a");
+  r(x - 3, 19, x + 3, 20, "#2a1d16");
+  r(x - 1, 19, x - 1, 19, "#c8683a");
+  r(x + 2, 20, x + 2, 20, "#c8683a");
+  for (const dx of [-3, 3]) r(x + dx, 13, x + dx, 16, "#a8502a");
+  r(x - 2, 21, x - 1, 24, "#e08a5a");
+  r(x - 1, 27, x + 1, 28, "#a8502a");
+  r(x - 4, 29, x + 4, 31, "#6b4a2f");
+  r(x - 4, 29, x + 4, 29, "#8a6a4a");
+}
+// A Roman standard: the pole, a gold eagle, a red banner with a gold fringe.
+function spqrStandard(r, x) {
+  r(x, 9, x, 30, "#8a5f33");
+  r(x - 2, 7, x + 2, 8, "#c9a227");
+  r(x - 3, 6, x - 3, 6, "#f4d35e");
+  r(x + 3, 6, x + 3, 6, "#f4d35e");
+  r(x, 5, x, 6, "#f4d35e");
+  box(r, x - 4, 11, x + 4, 19, "#b03030", "#7a2020");
+  for (let dx = -4; dx <= 4; dx += 2) r(x + dx, 20, x + dx, 20, "#f4d35e");
+  for (const [dx, dy] of [[-2, 13], [0, 13], [2, 13], [-1, 16], [1, 16]]) r(x + dx, dy, x + dx, dy, "#f4d35e");
+}
+// Birthday bunting across the wall and three balloons on strings.
+function birthday(r, x) {
+  for (let i = 0; i < 32; i++) r(x + i, 12 + Math.round(Math.abs(Math.sin(i / 10)) * 2), x + i, 12 + Math.round(Math.abs(Math.sin(i / 10)) * 2), "#8a8e96");
+  for (let i = 0; i < 6; i++) {
+    const bx = x + 2 + i * 5;
+    const c = ["#d64545", "#f4d35e", "#3f6fb5", "#4caf7d", "#e98fb0", "#8a5ad6"][i];
+    const by = 13 + Math.round(Math.abs(Math.sin((bx - x) / 10)) * 2);
+    r(bx, by, bx + 2, by, c);
+    r(bx + 1, by + 1, bx + 1, by + 1, c);
+  }
+  for (const [dx, c] of [[6, "#e98fb0"], [14, "#f4d35e"], [22, "#4caf7d"]]) {
+    disc(r, x + dx, 18, 2, 2.6, c);
+    r(x + dx - 1, 17, x + dx - 1, 17, "#ffffff");
+    r(x + dx, 21, x + dx, 25, "#c9ccd2");
+  }
+}
+// A wooden crate of Good Jeans: folded denim stacked inside.
+function jeansCrate(r, x) {
+  box(r, x, 24, x + 12, 31, "#a8753f", "#6b4a2f");
+  for (const y of [26, 29]) r(x + 1, y, x + 11, y, "#8a5f33");
+  for (const [dy, c] of [[0, "#3f5f95"], [1, "#4a6aa8"], [2, "#2f4a7a"]]) r(x + 2, 21 + dy, x + 10, 21 + dy, c);
+  r(x + 4, 21, x + 5, 21, "#c9a227");
+  r(x + 8, 22, x + 8, 22, "#c9a227");
+}
+// A black pork-pie hat hung on the whiteboard's corner.
+function porkPieHat(r, x, y) {
+  r(x + 3, y - 1, x + 3, y, "#5a5f68");
+  r(x, y + 1, x + 6, y + 3, "#1d2026");
+  r(x + 1, y + 1, x + 5, y + 1, "#2e323a");
+  r(x, y + 3, x + 6, y + 3, "#5a3a2a");
+  r(x - 2, y + 4, x + 8, y + 4, "#1d2026");
+}
+// The blue reactor: a frame of glowing blue tubes, bubbling, piped together, a gauge.
+function blueReactor(r, x) {
+  const glow = r.glow || r;
+  box(r, x, 8, x + 22, 21, "#3a3f48", "#1d2026");
+  r(x + 1, 9, x + 21, 9, "#5a5f68");
+  for (const tx of [x + 3, x + 9, x + 15]) {
+    glow(tx, 11, tx + 4, 19, "#5ab8ff");
+    glow(tx + 1, 12, tx + 1, 17, "#d8f0ff");
+    for (const [dx, dy] of [[2, 16], [3, 14], [2, 12]]) glow(tx + dx, dy, tx + dx, dy, "#e8f8ff");
+  }
+  r(x + 7, 13, x + 8, 13, "#8a909a");
+  r(x + 13, 15, x + 14, 15, "#8a909a");
+  disc(r, x + 20, 11, 1.2, 1.2, "#e8e2d0", false);
+  r(x + 20, 11, x + 20, 11, "#d64545");
+  for (const [dx, dy] of [[6, 6], [12, 5], [18, 6]]) glow(x + dx, dy, x + dx, dy, "#8fd0ffaa");
+  r.light?.({ x: x + 11, y: 15, r: 22, k: 0.55, c: [0.45, 0.75, 1.0] });
+}
+// A riot shield hung on the wall: clear, a black band across it.
+function riotShield(r, x, y) {
+  box(r, x, y, x + 8, y + 12, "#c8dce888", "#5a5f68");
+  r(x + 1, y + 5, x + 7, y + 6, "#1d2026");
+  r(x + 2, y + 1, x + 2, y + 3, "#ffffffaa");
+}
+// A tow truck, its boom up and the hook down (stands on row `base`).
+function towTruck(r, x, base) {
+  box(r, x, base - 8, x + 24, base - 3, "#e0a536", "#8a6420");
+  r(x + 1, base - 8, x + 23, base - 8, "#f4c860");
+  box(r, x + 16, base - 14, x + 24, base - 8, "#e0a536", "#8a6420");
+  r(x + 18, base - 12, x + 23, base - 9, "#a9d4ef");
+  (r.glow || r)(x + 19, base - 15, x + 21, base - 15, "#ff8a30");
+  r(x + 2, base - 9, x + 13, base - 16, "#3a3f48");
+  for (let i = 0; i < 12; i++) r(x + 2 + i, base - 9 - Math.round(i * 0.6), x + 2 + i, base - 9 - Math.round(i * 0.6), "#3a3f48");
+  r(x + 2, base - 15, x + 2, base - 9, "#6b6f78");
+  r(x + 1, base - 9, x + 3, base - 9, "#9aa0a8");
+  for (const wx of [x + 5, x + 20]) {
+    disc(r, wx, base - 2, 2.4, 2.4, "#1d2026");
+    r(wx, base - 2, wx, base - 2, "#8a909a");
+  }
+  r(x + 6, base - 6, x + 13, base - 5, "#2a2d33");
 }
 
 // A rack of seed packets on legs: two rows of bright packets (the Farm's level 2 item).

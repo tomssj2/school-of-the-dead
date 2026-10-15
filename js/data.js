@@ -527,6 +527,14 @@ export const RADIO_CHA_PER_PERCENT = 20; // CHA 100 on the air adds +5% a day
 // their grades. Reaching the top level is what lets them be promoted to teacher. It takes
 // xpToNextLevel(level) XP to go up a level (40, 60, 80 … 200: about 1,100 in all).
 export const STUDENT_MAX_LEVEL = 10;
+// The difficulties a new game starts at (for now they only change how many students made it to the
+// basement — to be balanced).
+export const DIFFICULTIES = {
+  easy: { name: "Easy", students: 12, desc: "More hands to share the work" },
+  normal: { name: "Normal", students: 9, desc: "The way it's meant to be played" },
+  hard: { name: "Hard", students: 6, desc: "One of each — lose one and it hurts" },
+};
+export const DEFAULT_DIFFICULTY = "normal";
 export const xpToNextLevel = (level) => 20 + 20 * level;
 export const LEVEL_XP = {
   turnOne: 10, // a Turn 1 job: a class, training, a work site or a room's job (not resting or the Nurse's Office)
@@ -623,13 +631,24 @@ export const CLASSROOM_IDS = ["1", "2", "3", "4"];
 // start boarded up, so there are fewer jobs than teachers early on. Clearing one means fighting
 // the zombies still inside (see startClearBattle() in game.js) and then spending the scrap to board up
 // the broken windows behind them. `look` picks the zombie sprite (zombies.js).
+// In the order the tutorial takes them back (a new game starts with all of them overrun; the ones
+// marked `tutorial` were only ever overrun for the tutorial — skipping it opens them).
+const W = { type: "walker", look: "walker" };
 export const BOARDED_ROOMS = {
+  gym: { name: "Gymnasium", cost: 10, tutorial: true, zombies: [W, { type: "walker", look: "jersey" }] },
+  acrobatics: { name: "Acrobatics", cost: 10, tutorial: true, zombies: [W, W] },
+  cafeteria: { name: "Cafeteria", cost: 10, tutorial: true, zombies: [W, { type: "walker", look: "jersey" }] },
+  infirmary: { name: "Nurse's Office", cost: 10, tutorial: true, zombies: [W, W] },
+  "classroom:1": { name: "Classroom 1", cost: 10, tutorial: true, zombies: [W, W] },
   "classroom:2": { name: "Classroom 2", cost: 10, zombies: [{ type: "walker", look: "walker" }, { type: "walker", look: "walker" }] },
   "classroom:3": { name: "Classroom 3", cost: 20, zombies: [{ type: "walker", look: "walker" }, { type: "walker", look: "walker" }, { type: "walker", look: "jersey" }] },
   "classroom:4": { name: "Classroom 4", cost: 30, zombies: [{ type: "walker", look: "walker" }, { type: "runner", look: "walker" }, { type: "walker", look: "jersey" }, { type: "walker", look: "walker" }] },
   research: { name: "Research Room", cost: 25, zombies: [{ type: "walker", look: "labcoat" }, { type: "walker", look: "labcoat" }] },
   crafting: { name: "Crafting Room", cost: 20, zombies: [{ type: "walker", look: "walker" }, { type: "brute", look: "soldier" }] },
   radio: { name: "Radio Station", cost: 20, zombies: [{ type: "walker", look: "jersey" }, { type: "runner", look: "walker" }, { type: "walker", look: "jersey" }] },
+  farm: { name: "Farm", cost: 15, tutorial: true, zombies: [W, W, { type: "runner", look: "walker" }] },
+  barn: { name: "Barn", cost: 15, tutorial: true, zombies: [W, { type: "walker", look: "jersey" }, W] },
+  scrapyard: { name: "Scrapyard", cost: 15, tutorial: true, zombies: [W, { type: "runner", look: "walker" }, W] },
 };
 export const ROOM_ZOMBIE = { hp: 34, damage: 9 }; // before ZOMBIE_TYPES multipliers
 export const ROOM_FIGHT_SQUAD = 4; // students per room-clearing squad

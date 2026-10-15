@@ -655,10 +655,184 @@ function academy() {
   return toUrl(p, L, [0.34, 0.36, 0.58]);
 }
 
+// The school's basement, where the survivors hide: concrete and damp, pipes along the ceiling, the
+// stairs coming down from a door with cold light behind it, one bulb, the boiler glowing, shelves of
+// tins, and "SAFE" chalked on the wall.
+const CHALK = {
+  S: ["111", "100", "111", "001", "111"], A: ["010", "101", "111", "101", "101"],
+  F: ["111", "100", "110", "100", "100"], E: ["111", "100", "110", "100", "111"],
+};
+function basement() {
+  const p = buffer(IW, IH);
+  const L = [];
+  // the back wall: concrete blocks, damp creeping down from the pipes
+  p.r(0, 0, IW - 1, 62, "#3e3c44");
+  for (let y = 4; y < 62; y += 6) {
+    p.r(0, y, IW - 1, y, "#34323a");
+    for (let x = (y / 6) % 2 ? 6 : 0; x < IW; x += 12) p.r(x, y + 1, x, y + 5, "#34323a");
+  }
+  speckle(p, 0, 0, IW - 1, 61, ["#46444c", "#36343c"], 380, 120);
+  for (const [x, w, h] of [[30, 10, 18], [118, 14, 26], [174, 8, 14], [236, 10, 20]]) for (let y = 9; y < 9 + h; y++) p.r(x + Math.round(Math.sin(y / 3) * 1.5), y, x + w - Math.round((y - 9) / 4), y, "#2e2c33aa");
+  p.line(88, 14, 94, 26, "#2a282e");
+  p.line(94, 26, 92, 34, "#2a282e");
+  // "SAFE" in chalk, and a tally of days under it
+  [..."SAFE"].forEach((ch, i) => CHALK[ch].forEach((row, y) => [...row].forEach((b, x) => b === "1" && p.set(100 + i * 5 + x, 24 + y, "#cfcfc4"))));
+  for (let i = 0; i < 4; i++) p.r(101 + i * 2, 32, 101 + i * 2, 35, "#b8b8ae");
+  p.line(100, 35, 108, 32, "#b8b8ae");
+  // pipes along the ceiling, a valve, and one coming down to the boiler
+  p.r(0, 3, IW - 1, 5, "#6a5a4a");
+  p.r(0, 3, IW - 1, 3, "#8a7a62");
+  p.r(0, 8, IW - 1, 9, "#5a5f68");
+  p.r(0, 8, IW - 1, 8, "#7a808a");
+  for (let x = 20; x < IW; x += 46) p.r(x, 2, x + 2, 6, "#4a3e32");
+  p.oval(150, 5, 2, 2, "#b03030");
+  p.r(212, 9, 214, 30, "#5a5f68");
+  p.r(212, 9, 212, 30, "#7a808a");
+  for (const [x, y] of [[60, 10], [61, 12], [140, 10], [141, 13]]) p.set(x, y, "#8ab0d0", 1); // drips
+  // the stairs down from the door, cold light behind it
+  p.r(2, 0, 30, 22, "#1c1c24");
+  p.r(6, 2, 26, 22, "#a8c4e8", 1);
+  p.r(6, 2, 10, 22, "#6a86b0", 1);
+  p.r(26, 2, 28, 22, "#2a2a34");
+  L.push({ x: 16, y: 14, r: 46, k: 0.85, c: [0.6, 0.75, 1.0] });
+  for (let i = 0; i < 9; i++) {
+    const x = 2 + i * 7;
+    const y = 22 + i * 5;
+    p.r(x, y, x + 14, y + 4, "#55525a");
+    p.r(x, y, x + 14, y, "#6e6a72");
+    p.r(x, y + 4, x + 14, 62, "#3a383e");
+  }
+  for (let i = 0; i <= 64; i += 2) p.set(14 + i, 12 + Math.round(i * 0.72), "#7a7a82");
+  for (let i = 0; i < 5; i++) p.r(14 + i * 16, 12 + Math.round(i * 16 * 0.72), 14 + i * 16, 22 + Math.round(i * 16 * 0.72), "#6a6a72");
+  // shelves of tins and jars
+  for (const y of [32, 42, 52]) {
+    p.r(150, y, 184, y + 1, "#6b4a2f");
+    for (let x = 152; x < 183; x += 4) {
+      const c = ["#c0392b", "#d8b84a", "#4a7ab0", "#8a8a92", "#3f8a4a"][(x + y) % 5];
+      p.r(x, y - 4, x + 2, y - 1, c);
+      p.set(x, y - 4, "#c9ccd2");
+    }
+  }
+  p.r(150, 30, 150, 62, "#5a3b24");
+  p.r(184, 30, 184, 62, "#5a3b24");
+  // the boiler, its grate glowing
+  p.r(196, 24, 240, 64, "#7a3a2a");
+  p.r(196, 24, 240, 26, "#9a4a32");
+  p.r(238, 24, 240, 64, "#5a2a20");
+  for (const y of [32, 44, 56]) p.r(196, y, 240, y, "#5a2a20");
+  for (const [x, y] of [[198, 28], [238, 28], [198, 60], [238, 60]]) p.set(x, y, "#c9a227");
+  p.oval(208, 36, 3, 3, "#e8e2d0");
+  p.line(208, 36, 210, 34, "#1d2026");
+  p.oval(226, 36, 3, 3, "#e8e2d0");
+  p.line(226, 36, 224, 38, "#1d2026");
+  p.r(206, 48, 230, 58, "#1a1010");
+  for (let x = 208; x <= 228; x += 3) p.r(x, 49, x + 1, 57, "#2a1a14");
+  for (let x = 208; x <= 228; x++) for (let y = 52; y <= 57; y++) if (hash2(x, y, 121) < 0.5) p.set(x, y, y > 55 ? "#fff0a0" : y > 53 ? "#ffb040" : "#e0602a", 1);
+  L.push({ x: 218, y: 54, r: 60, k: 1.0, c: FIRE });
+  // the bulb hanging in the middle
+  p.r(126, 9, 126, 17, "#2a2a2e");
+  p.r(125, 17, 127, 18, "#4a4a52");
+  p.oval(126, 20, 1.6, 2, "#fff3c4", 1);
+  L.push({ x: 126, y: 21, r: 70, sy: 0.8, k: 0.9, c: LAMP });
+  // the floor: bare concrete, a cot and a blanket, a puddle catching the light
+  p.r(0, 62, IW - 1, IH - 1, "#2c2a2e");
+  p.r(0, 62, IW - 1, 62, "#46444a");
+  speckle(p, 0, 63, IW - 1, IH - 1, ["#34323a", "#242226"], 260, 122);
+  p.r(70, 58, 98, 62, "#4a5a3a");
+  p.r(70, 58, 98, 58, "#5a6a48");
+  for (const x of [71, 97]) p.r(x, 62, x, 64, "#2a2a2e");
+  p.r(76, 56, 84, 58, "#c8c0a8");
+  p.oval(150, 76, 18, 2.4, "#3a4458");
+  p.oval(146, 76, 6, 1, "#8aa0c0", 1);
+  return toUrl(p, L, [0.3, 0.3, 0.42]);
+}
+
+// The school yard at dusk, half wrecked: the court cracked and littered, a burnt-out car, the
+// school's side wall with a corner caved in — and at its foot the cellar door, one leaf thrown open
+// on warm light, a "STILL ALIVE!" sign propped up beside it.
+const SIGN_FONT = {
+  S: ["111", "100", "111", "001", "111"], T: ["111", "010", "010", "010", "010"], I: ["111", "010", "010", "010", "111"],
+  L: ["100", "100", "100", "100", "111"], A: ["010", "101", "111", "101", "101"], V: ["101", "101", "101", "101", "010"],
+  E: ["111", "100", "110", "100", "111"], "!": ["1", "1", "1", "0", "1"], " ": ["0", "0", "0", "0", "0"],
+};
+function yard() {
+  const p = buffer(IW, IH);
+  const L = [];
+  // the dusk sky, smoke going up from the city
+  for (let y = 0; y < 60; y++) p.r(0, y, IW - 1, y, mix("#1a1430", "#8a4232", (y / 59) ** 1.6), 1);
+  stars(p, 0, IW - 1, 18, 130);
+  for (const [x0, k0] of [[40, 0], [118, 3]]) for (let k = 0; k < 14; k++) p.oval(x0 + k * 2 + hash(k, x0) * 3, 44 - k * 3, 3 + k * 0.7, 2 + k * 0.4, "#2a1e26aa");
+  for (let x = 0, i = 0; x < IW; i++) {
+    const w = 5 + Math.floor(hash(i, 131) * 9);
+    const top = 40 + Math.floor(hash(i, 132) * 12);
+    p.r(x, top, x + w - 1, 60, "#24182a", 1);
+    if (hash(i, 133) < 0.15) p.set(x + 2, top + 3, "#ff9a40", 1);
+    x += w;
+  }
+  // the court: cracked asphalt, its faded lines, rubbish blown across it
+  p.r(0, 60, IW - 1, IH - 1, "#3a3640");
+  p.r(0, 60, IW - 1, 60, "#4e4a54");
+  speckle(p, 0, 61, IW - 1, IH - 1, ["#43404a", "#302d36"], 300, 134);
+  for (let x = 6; x < 150; x++) if (hash(x, 135) < 0.85) p.set(x, 74, "#8a8270");
+  for (let y = 61; y < IH; y++) if (hash(y, 136) < 0.85) p.set(70, y, "#8a8270");
+  for (const [x0, y0, x1, y1] of [[20, 66, 34, 80], [96, 64, 88, 86], [130, 70, 146, 84]]) p.line(x0, y0, x1, y1, "#26232b");
+  for (let i = 0; i < 26; i++) p.r(Math.floor(hash(i, 137) * 150), 62 + Math.floor(hash(i, 138) * 24), Math.floor(hash(i, 137) * 150) + 1, 62 + Math.floor(hash(i, 138) * 24), ["#6a6458", "#8a3a2a", "#5a5f68"][i % 3]);
+  // a bent basketball hoop, and a burnt-out car still smouldering
+  p.r(10, 30, 11, 66, "#5a5f68");
+  p.r(6, 26, 20, 34, "#c8c4b8");
+  p.line(14, 36, 20, 40, "#e0602a");
+  p.r(30, 66, 64, 73, "#2a2426");
+  p.r(36, 61, 58, 66, "#2a2426");
+  p.r(38, 62, 44, 65, "#141012");
+  p.r(48, 62, 56, 65, "#141012");
+  for (const wx of [36, 58]) p.oval(wx, 74, 3, 3, "#0e0c0e");
+  for (let k = 0; k < 6; k++) p.set(44 + k, 60 - (k % 3), k % 2 ? "#ff8a30" : "#ffc85a", 1);
+  L.push({ x: 47, y: 62, r: 22, k: 0.55, c: FIRE });
+  // the school's side wall, a corner caved in, its windows boarded or smashed
+  const BR = "#7a3e32";
+  p.r(150, 8, IW - 1, 66, BR);
+  for (let y = 10; y < 66; y += 3) for (let x = 150 + ((y / 3) % 2) * 3; x < IW; x += 6) p.set(x, y, "#6a342a");
+  p.r(150, 6, IW - 1, 8, "#2e2228");
+  for (let y = 6; y < 30; y++) p.r(150, y, 150 + Math.max(0, 30 - y - Math.round(hash(y, 139) * 4)), y, mix("#1a1430", "#8a4232", (y / 59) ** 1.6), 1);
+  for (let i = 0; i < 40; i++) p.r(140 + Math.floor(hash(i, 140) * 30), 56 + Math.floor(hash(i, 141) * 10), 141 + Math.floor(hash(i, 140) * 30), 57 + Math.floor(hash(i, 141) * 10), i % 2 ? "#7a3e32" : "#5a2a22");
+  for (const [wx, wy, kind] of [[172, 18, "boards"], [198, 18, "smashed"], [224, 18, "boards"], [198, 36, "boards"], [224, 36, "smashed"]]) {
+    p.r(wx - 1, wy - 1, wx + 10, wy + 11, "#4a2a24");
+    p.r(wx, wy, wx + 9, wy + 10, "#120e14");
+    if (kind === "boards") { p.line(wx, wy + 1, wx + 9, wy + 9, "#8a6040"); p.line(wx, wy + 9, wx + 9, wy + 1, "#7a5232"); }
+    else for (const [dx, dy] of [[1, 1], [3, 0], [8, 2], [9, 8], [0, 9]]) p.set(wx + dx, wy + dy, "#9ab8d0");
+  }
+  p.line(240, 10, 246, 26, "#4a2420");
+  p.line(246, 26, 243, 40, "#4a2420");
+  // the cellar door at the foot of the wall: one leaf shut, one thrown open on the light below
+  p.r(186, 58, 230, 66, "#4a4a52");
+  p.r(186, 58, 207, 66, "#5a5f68");
+  for (let x = 188; x < 206; x += 4) p.r(x, 59, x, 65, "#4a4f58");
+  p.r(208, 59, 229, 66, "#1a1210");
+  for (let y = 60; y <= 66; y++) p.r(209, y, 228, y, mix("#ffd27a", "#8a4a20", (y - 60) / 6), 1);
+  for (let i = 0; i < 3; i++) p.r(210 + i * 6, 61 + i * 2, 228, 61 + i * 2, "#c89040", 1);
+  for (let i = 0; i < 9; i++) p.r(208 + i, 58 - i * 2, 230 + i, 59 - i * 2, i === 8 ? "#7a808a" : "#5a5f68");
+  L.push({ x: 219, y: 62, r: 40, k: 0.9, c: WARM });
+  // the sign, propped up on two posts: STILL ALIVE!
+  p.r(140, 36, 141, 66, "#5a3b24");
+  p.r(180, 36, 181, 66, "#5a3b24");
+  p.r(134, 36, 186, 46, "#c49a64");
+  p.r(134, 36, 186, 36, "#e0b884");
+  p.r(134, 46, 186, 46, "#8a6440");
+  let cx = 137;
+  for (const ch of "STILL ALIVE!") {
+    const glyph = SIGN_FONT[ch];
+    glyph.forEach((row, y) => [...row].forEach((b, x) => b === "1" && p.set(cx + x, 39 + y, "#b0201a")));
+    cx += glyph[0].length + 1;
+  }
+  p.set(cx - 1, 45, "#b0201a");
+  p.set(137, 45, "#b0201a");
+  return toUrl(p, L, [0.62, 0.5, 0.56]);
+}
+
 // ---------- what the UI uses ----------
 
 const RAIDS = { mall, hospital, military_base: militaryBase, institute };
 export const raidBackdrop = (landmarkId) => cached(`raid:${landmarkId}`, () => (RAIDS[landmarkId] || street)());
 export const streetBackdrop = (w = AW, h = AH, depth = AH) => cached(`street:${w}x${h}x${depth}`, () => street(w, h, depth));
-export const introBackdrop = (which) => cached(`intro:${which}`, () => (which === "city" ? cityBurning : academy)());
+export const introBackdrop = (which) => cached(`intro:${which}`, () => ({ city: cityBurning, academy, yard, basement }[which] || academy)());
 export const duskBackdrop = (placeId = "") => cached(`dusk:${placeId}`, () => duskStreet([...placeId].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 9973, 7)));

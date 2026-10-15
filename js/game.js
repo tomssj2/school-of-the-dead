@@ -1,8 +1,8 @@
 import {
-  classReach, wideTank, SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME, FARM_CAPACITY, SCRAPYARD_CAPACITY, FORTIFICATION_CAP, FORTIFICATION_PER_POINT, LOCATIONS, STAT_OF_SUBJECT, TRAITS, GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost, CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, EXPEDITION_ENCOUNTERS, ENCOUNTER_CHANCE, ENCOUNTER_EFFECT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED, HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT, HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH, FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, EVENT_CHANCE, EVENTS, TECH_TREE, SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS, ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD, EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE, zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay, RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS, EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL, INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, STARTING_STOCK, WORK_SITES, EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED, EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED, STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS, OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX, MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES, ACCESSORIES, LEGENDARY_TITLES, MAP_MILESTONES, SITE_FOCUS, SITE_WORKERS_BY_LEVEL, FARM_PASSIVE_FOOD, YARD_PASSIVE_SCRAP, BARN_HERD_BY_LEVEL, RANCH_ANIMALS, ROOM_NPC, CLASSROOM_SUBJECT, ROOM_CAP_BY_LEVEL,
+  DIFFICULTIES, DEFAULT_DIFFICULTY, classReach, wideTank, SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME, FARM_CAPACITY, SCRAPYARD_CAPACITY, FORTIFICATION_CAP, FORTIFICATION_PER_POINT, LOCATIONS, STAT_OF_SUBJECT, TRAITS, GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost, CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, EXPEDITION_ENCOUNTERS, ENCOUNTER_CHANCE, ENCOUNTER_EFFECT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED, HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT, HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH, FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, EVENT_CHANCE, EVENTS, TECH_TREE, SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS, ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD, EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE, zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay, RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS, EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL, INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, STARTING_STOCK, WORK_SITES, EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED, EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED, STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS, OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX, MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES, ACCESSORIES, LEGENDARY_TITLES, MAP_MILESTONES, SITE_FOCUS, SITE_WORKERS_BY_LEVEL, FARM_PASSIVE_FOOD, YARD_PASSIVE_SCRAP, BARN_HERD_BY_LEVEL, RANCH_ANIMALS, ROOM_NPC, CLASSROOM_SUBJECT, ROOM_CAP_BY_LEVEL,
 } from "./data.js";
 import { NPCS } from "./npcs.js";
-import { questFinds, upgradeItemFound, raidOpenByQuest } from "./quests.js";
+import { questFinds, upgradeItemFound, raidOpenByQuest, isLegend, apprenticeOpen, SCHOOL_PARTS, questStatus } from "./quests.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, capTeacherGrades, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
@@ -115,7 +115,10 @@ export function createInitialState() {
     roomLevels: true, // rooms have levels 1-5 (see migrateState)
     roomSizesV2: true, // rooms sized to the school's headcount (see migrateState)
     runId: newRunId(), // tells this run apart from others in the best-score record
+    pickDifficulty: true, // a new game asks for its difficulty first (setDifficulty) — then the intro
+    difficulty: DEFAULT_DIFFICULTY,
     intro: true, // a new game opens on the intro (ui.js renderIntro) — gone once it's seen
+    tutorial: true, // …and plays the tutorial: take the school back room by room (tutorialTarget)
     quests: {}, // quest id -> "active" | "done" (quests.js)
     questFacts: { cleared: {}, items: {} }, // places cleared 100%, quest items found
     boardedRooms: Object.keys(BOARDED_ROOMS), // rooms still overrun — cleared by fighting, then scrap
@@ -142,9 +145,7 @@ export function createInitialState() {
     armory: starterArmory(),
   };
 
-  for (let i = 0; i < 10; i++) {
-    state.characters.push(makeCharacter("student", i % 2 === 0 ? "F" : "M"));
-  }
+  state.characters.push(...startingStudents(DIFFICULTIES[DEFAULT_DIFFICULTY].students));
   for (const id of CLASSROOM_IDS) state.rooms.classrooms[id].subject = CLASSROOM_SUBJECT[id];
   for (const key of ROOM_KEYS) applyRoomLevel(state, key);
   addLog(state, `Day 1 begins. ${state.characters.length} souls are relying on you.`);
@@ -236,7 +237,7 @@ export const apprenticeOf = (state, post) => state.characters.find((c) => c.aliv
 export function setApprentice(state, id, post) {
   const c = getChar(state, id);
   if (!canApprentice(c)) return false;
-  if (post && (!APPRENTICE_POSTS.includes(post) || apprenticeOf(state, post))) return false;
+  if (post && (!APPRENTICE_POSTS.includes(post) || apprenticeOf(state, post) || !apprenticeOpen(state, post))) return false;
   if (post === (c.apprentice || null)) return false;
   c.apprentice = post || null;
   addLog(state, post ? `🎓 ${c.name} is now ${NPCS[ROOM_NPC[post]].name}'s apprentice.` : `${c.name} is no longer an apprentice.`);
@@ -398,6 +399,73 @@ export function canFightForRoom(c) {
 }
 
 export const boardedRoomCost = (roomKey) => BOARDED_ROOMS[roomKey]?.cost ?? Infinity;
+
+// ---------- the difficulty and the starting students ----------
+// The students a new school starts with: one of every class (their ★ favourite subject makes it),
+// the rest spread out — never more than two of a class. Each is rolled like any student until their
+// favourite fits, so their grades stay natural.
+export function startingStudents(n) {
+  const classes = Object.keys(NIGHT_CLASSES);
+  const shuffle = (a) => [...a].sort(() => Math.random() - 0.5);
+  const wanted = shuffle([...classes, ...shuffle(classes).slice(0, Math.max(0, Math.min(classes.length, n - classes.length)))]).slice(0, n);
+  return wanted.map((cls, i) => {
+    let c = null;
+    for (let tries = 0; tries < 400 && (!c || studentClass(c) !== cls); tries++) c = makeCharacter("student", i % 2 === 0 ? "F" : "M");
+    return c;
+  });
+}
+// A new roll of survivors at the same difficulty (the intro's Reroll button, before the game starts).
+export function rerollSurvivors(state) {
+  if (!state.pickDifficulty) return false;
+  state.characters = state.characters.filter((c) => c.role !== "student");
+  state.characters.push(...startingStudents(DIFFICULTIES[state.difficulty].students));
+  return true;
+}
+// The difficulty, picked on the intro's "Still Alive" screen: choosing one rolls that many survivors
+// (shown walking up to the cellar door); starting the game (`lock`) settles it.
+export function setDifficulty(state, key, lock = false) {
+  const d = DIFFICULTIES[key];
+  if (!d || !state.pickDifficulty) return false;
+  if (key !== state.difficulty || state.characters.filter((c) => c.role === "student").length !== d.students) {
+    state.characters = state.characters.filter((c) => c.role !== "student");
+    state.characters.push(...startingStudents(d.students));
+    state.difficulty = key;
+  }
+  if (lock) {
+    delete state.pickDifficulty;
+    addLog(state, `Difficulty: ${d.name} — ${d.students} students made it to the basement.`);
+  }
+  return true;
+}
+
+// ---------- the tutorial ----------
+// A new game takes the school back a floor at a time (quests.js SCHOOL_PARTS, from Doubledoor in
+// the basement — the headquarters until it's done): within the floor he's sent you to, one room at
+// a time, for free and with no lasting harm (he covers the boards; the squad is patched up after).
+// The tabs open floor by floor (ui.js tutorialTabs); the turn button only once the courtyard's
+// been handed in.
+export const tutorialOn = (state) => !!state.tutorial && questStatus(state, "main:yard") !== "done";
+// The room to clear now: the next overrun one on a floor he's sent you to (null: report to him).
+export function tutorialTarget(state) {
+  if (!tutorialOn(state)) return null;
+  for (const part of SCHOOL_PARTS) {
+    if (state.quests?.[part.id] !== "active") continue;
+    const room = part.rooms.find((k) => isBoarded(state, k));
+    if (room) return room;
+  }
+  return null;
+}
+// Scrap to clear a room: nothing in the tutorial.
+export const clearCost = (state, roomKey) => (tutorialOn(state) ? 0 : boardedRoomCost(roomKey));
+// Skipping it: the rooms only the tutorial had overrun open, the rest stay boarded as before.
+export function skipTutorial(state) {
+  if (!state.tutorial) return false;
+  state.boardedRooms = state.boardedRooms.filter((k) => !BOARDED_ROOMS[k]?.tutorial);
+  delete state.tutorial;
+  (state.quests ||= {})["main:f1"] = "done"; // (the Lobby's open; Doubledoor has the next floor)
+  addLog(state, "Tutorial skipped — the whole school is yours to run.");
+  return true;
+}
 // Clearing a boarded-up room: the same fight as an expedition's, on the same board — the squad at the
 // door, the room's own zombies (BOARDED_ROOMS, at ROOM_ZOMBIE strength) coming at them. Nobody dies
 // in here: anyone who goes down is dragged out.
@@ -405,8 +473,9 @@ export function startClearBattle(state, roomKey, ids) {
   const room = BOARDED_ROOMS[roomKey];
   const squad = ids.map((id) => getChar(state, id)).filter(canFightForRoom).slice(0, ROOM_FIGHT_SQUAD);
   if (!room || !isBoarded(state, roomKey) || !squad.length) return null;
+  if (tutorialOn(state) && tutorialTarget(state) !== roomKey) return null; // (one room at a time)
   const b = roomBattle(state, squad, room.zombies.map((z) => z.type), ROOM_ZOMBIE, {
-    clear: roomKey, place: { name: room.name, ground: "school", difficulty: 1 }, tutorial: !state.roomFightsDone,
+    clear: roomKey, place: { name: room.name, ground: "school", difficulty: 1 }, tutorial: !state.roomFightsDone || tutorialOn(state),
   });
   b.frames.push(battleSnapshot(b, []));
   return b;
@@ -427,14 +496,18 @@ export function clearOdds(state, roomKey, ids, trials = 60) {
 export function finishClearBattle(state, roomKey, b) {
   const room = BOARDED_ROOMS[roomKey];
   const tutorial = b.tutorial;
+  const cost = clearCost(state, roomKey);
+  const patchedUp = tutorialOn(state); // (the tutorial leaves no lasting harm)
   state.roomFightsDone = (state.roomFightsDone || 0) + 1;
-  const won = b.students.some((s) => !s.downed) && b.killed >= b.spawned && state.resources.materials >= room.cost;
+  const won = b.students.some((s) => !s.downed) && b.killed >= b.spawned && state.resources.materials >= cost;
   const hurt = [];
   for (const s of b.students) {
     const c = getChar(state, s.id);
     if (!c) continue;
-    c.stamina = Math.max(0, c.stamina - ROOM_FIGHT_STAMINA);
-    c.hp = s.downed ? Math.max(1, Math.round(c.maxHp * 0.1)) : Math.max(1, Math.min(c.maxHp, s.hp - (s.bonusHp || 0)));
+    if (!patchedUp) {
+      c.stamina = Math.max(0, c.stamina - ROOM_FIGHT_STAMINA);
+      c.hp = s.downed ? Math.max(1, Math.round(c.maxHp * 0.1)) : Math.max(1, Math.min(c.maxHp, s.hp - (s.bonusHp || 0)));
+    }
     c.injured = c.hp < c.maxHp * 0.5;
     if (s.downed) {
       const bitten = !tutorial && Math.random() < INFECTION_CHANCE_DOWNED && infect(state, c, "was bitten before they were dragged out");
@@ -445,13 +518,13 @@ export function finishClearBattle(state, roomKey, b) {
     gainExp(state, c, LEVEL_XP.roomFight);
   }
   if (won) {
-    state.resources.materials -= room.cost;
+    state.resources.materials -= cost;
     state.boardedRooms = state.boardedRooms.filter((k) => k !== roomKey);
-    addLog(state, `The squad cleared the zombies out of ${roomLabel(roomKey)} and boarded the windows back up (-${room.cost} scrap). It's ready to use.`);
+    addLog(state, `The squad cleared the zombies out of ${roomLabel(roomKey)}${cost ? ` and boarded the windows back up (-${cost} scrap)` : ""}. It's ready to use.`);
   } else {
     addLog(state, `The squad couldn't clear ${roomLabel(roomKey)} and fell back.`);
   }
-  return { won, fallen: [], hurt, downedCount: hurt.length, cost: room.cost };
+  return { won, fallen: [], hurt, downedCount: hurt.length, cost };
 }
 
 // ---------- objectives ----------
@@ -565,7 +638,8 @@ export const teacherRank = (t, subject) => GRADE_TIERS.indexOf(gradeLetter(t.gra
 
 // A Gymnasium (STR) / Acrobatics (DEX) session, taught exactly like a class (see lessonFrom).
 export function gymLesson(state, side) {
-  const lesson = lessonFrom(side, gymTeachers(state, side), roomLevel(state, GYM_SIDES[side].roomKey), 0, techPerk(state, "gradeCap"));
+  const legend = isLegend(state, ROOM_NPC[`gym:${side}`]) ? 0.5 : 0; // (their coach a Legend)
+  const lesson = lessonFrom(side, gymTeachers(state, side), roomLevel(state, GYM_SIDES[side].roomKey), legend, techPerk(state, "gradeCap"));
   lesson.gain += techPerk(state, "gymGain");
   return lesson;
 }
@@ -591,7 +665,7 @@ export function workerYield(state, site, c, focus = siteFocus(state, site)) {
 export const craftingCrew = (state) => isBoarded(state, "crafting") ? []
   : [{ room: true, name: "The Crafting Room", grades: { History: ROOM_CAP_BY_LEVEL[roomLevel(state, "crafting") - 1] } }, ...roomStaff(state, "crafting")];
 export function crafterGain(state, crafter, scrap) {
-  return Math.round((scrap + crafter.grades.History / 20) * 0.8) + CRAFTING_BONUS_BY_LEVEL[roomLevel(state, "crafting") - 1];
+  return Math.round(((scrap + crafter.grades.History / 20) * 0.8 + CRAFTING_BONUS_BY_LEVEL[roomLevel(state, "crafting") - 1]) * (isLegend(state, "gyber") ? 1.5 : 1));
 }
 
 // The Radio Station's recruiters: its apprentice and the students on the air today.
@@ -602,7 +676,7 @@ export const radioCrewBonus = (c) => c.grades.SocialStudies / RADIO_CHA_PER_PERC
 // level's base chance plus every recruiter's CHA bonus (then meals and research on top).
 export function radioRecruitChance(state) {
   if (isBoarded(state, "radio")) return 0;
-  const base = RADIO_UPGRADES[radioStage(state) - 1].baseChance + radioCrew(state).reduce((sum, c) => sum + radioCrewBonus(c), 0);
+  const base = RADIO_UPGRADES[radioStage(state) - 1].baseChance + radioCrew(state).reduce((sum, c) => sum + radioCrewBonus(c), 0) + (isLegend(state, "bulldog") ? 0.05 : 0);
   return Math.min(1, base * dishMultiplier(state, "recruitChance") * (1 + techPerk(state, "recruitChance")));
 }
 export const radioStage = (state) => roomLevel(state, "radio");
@@ -757,7 +831,7 @@ function restoreTurnOneJobs(state) {
 // What a treatment gives at the Nurse's Office's current care level.
 // HP a treated patient gets back from the room itself, by its level.
 export function infirmaryHeal(state) {
-  return INFIRMARY_HEAL_BY_LEVEL[roomLevel(state, "infirmary") - 1] + techPerk(state, "healBonus");
+  return Math.round((INFIRMARY_HEAL_BY_LEVEL[roomLevel(state, "infirmary") - 1] + techPerk(state, "healBonus")) * (isLegend(state, "brockbride") ? 1.5 : 1));
 }
 // HP one nurse adds to every treatment: INFIRMARY_NURSE_HP_PER_RANK per rank of their CON grade.
 export const nurseHpBonus = (n) => teacherRank(n, "Biology") * INFIRMARY_NURSE_HP_PER_RANK;
@@ -1002,6 +1076,7 @@ export function siteDay(state, site, crew = siteCrew(state, site)) {
     const p = PRODUCERS[kind];
     rows.push({ who: null, res: p.product, amount: (herdSize(state, kind) * p.yield) / p.growDays, kind });
   }
+  if (isLegend(state, ROOM_NPC[site])) for (const row of rows) row.amount *= 1.5; // (what it makes on its own, its NPC a Legend)
   const focus = siteFocus(state, site);
   const F = SITE_FOCUS[site][focus];
   const pool = F.res === "crops" ? unlockedCrops(state) : F.res === "goods" ? herdKinds(state) : null;
@@ -1135,7 +1210,7 @@ export const fortifyMult = (state) => 1 + state.fortification * FORTIFICATION_PE
 export function dishCapacity(state) {
   // the Cafeteria serves one a day, its apprentice one more
   if (isBoarded(state, "cafeteria")) return 0;
-  return (1 + roomStaff(state, "cafeteria").length) * (1 + techPerk(state, "extraDishesPerCook"));
+  return (1 + roomStaff(state, "cafeteria").length) * (1 + techPerk(state, "extraDishesPerCook")) + (isLegend(state, "grillsay") ? 1 : 0);
 }
 
 export function exploreStaminaCost(state) {
@@ -1273,7 +1348,7 @@ export function researchRoomYield(state) {
   if (isBoarded(state, "research")) return 0;
   const researchers = researchCrew(state);
   const totalInt = researchers.reduce((sum, c) => sum + c.grades.Physics, 0);
-  return Math.floor((Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) + RESEARCH_BONUS_BY_LEVEL[roomLevel(state, "research") - 1]) * (1 + techPerk(state, "researchYield")));
+  return Math.floor((Math.floor(totalInt / RESEARCH_ROOM_INT_PER_POINT) + RESEARCH_BONUS_BY_LEVEL[roomLevel(state, "research") - 1]) * (1 + techPerk(state, "researchYield") + (isLegend(state, "whiteboard") ? 0.25 : 0)));
 }
 
 // A classroom's lesson today, in grade points for every seated student: the room's level bonus
@@ -1283,7 +1358,8 @@ export function classroomLesson(state, roomId) {
   const room = state.rooms.classrooms[roomId];
   const subject = CLASSROOM_SUBJECT[roomId];
   const teachers = roomStaff(state, `classroom:${roomId}`);
-  return lessonFrom(subject, teachers, room?.level || 1, techPerk(state, "classXp"), techPerk(state, "gradeCap"));
+  const legend = isLegend(state, ROOM_NPC[`classroom:${roomId}`]) ? 0.5 : 0; // (their teacher a Legend)
+  return lessonFrom(subject, teachers, room?.level || 1, techPerk(state, "classXp") + legend, techPerk(state, "gradeCap"));
 }
 // A day's teaching in `subject` from these teachers in a room of this level: its gain in grade
 // points (the level bonus + each teacher's, times 1 + `boost`) and the ceiling nobody learns past
@@ -3242,16 +3318,6 @@ function checkGameOver(state) {
 
 // ---------- headmaster actions ----------
 
-
-export function expelCharacter(state, id) {
-  const idx = state.characters.findIndex((c) => c.id === id);
-  if (idx === -1) return false;
-  const c = state.characters[idx];
-  unseat(state, id);
-  state.characters.splice(idx, 1);
-  addLog(state, `${c.name} was expelled from the school.`);
-  return true;
-}
 
 
 export function acceptRecruit(state, index) {

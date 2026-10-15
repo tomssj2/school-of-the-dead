@@ -11,6 +11,7 @@ import {
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, ROOM_FIGHT_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
   LEGENDARY_CHANCE, ASSAULT_CHANCE, FACILITY_RAID_CHANCE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, SCOUT_ENCOUNTER_HP_LOSS,
   RESOURCE_NAME, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_ENCOUNTERS, expeditionShare, EXPEDITION_NOISE, EXPEDITION_ROOM, ROOM_EVENTS, ENCOUNTER_EFFECT, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, SITE_FOCUS, BARN_HERD_BY_LEVEL, FARM_PASSIVE_FOOD, YARD_PASSIVE_SCRAP, SITE_WORKERS_BY_LEVEL, FARM_CROPS, RANCH_ANIMALS, ROOM_NPC,
+  DIFFICULTIES,
 } from "./data.js";
 import {
   overallLevel, gradeLetter, effectiveGrade, equipmentBonus, availableSkillPoints, teachingBonus, gradeCap, gradeCapLetter,
@@ -20,7 +21,7 @@ import {
   getChar, aliveChars, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, researchRoomYield,
   techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionHaul, expeditionPlace, expeditionForecast, expeditionRooms, expeditionRoomZombies, battleNoise, expeditionSneakOdds, runShare, roomEventOdds, expeditionGearChance, poiTier, scoutOdds, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
-  gymLesson, craftingCrew, APPRENTICE_POSTS, canApprentice, apprenticeOf, roomName, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, clearOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM, siteDay, siteFocus, unlockedCrops, herdSize, herdKinds, roomStaff, } from "./game.js";
+  gymLesson, craftingCrew, tutorialTarget, tutorialOn, clearCost, APPRENTICE_POSTS, canApprentice, apprenticeOf, roomName, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, clearOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM, siteDay, siteFocus, unlockedCrops, herdSize, herdKinds, roomStaff, } from "./game.js";
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, MAP_RADIUS, isSchoolHex,
 } from "./map.js";
@@ -29,8 +30,9 @@ import { zombieSprite, hordeSprite } from "./zombies.js";
 import { courtyardBackground, roomBackground, structureSprite } from "./nightwatch.js";
 import { raidBackdrop, streetBackdrop, duskBackdrop, introBackdrop } from "./backdrops.js";
 import { characterSprite } from "./sprite.js";
-import { NPCS, npcSprite } from "./npcs.js";
-import { QUESTS, questStatus, stepDone, npcQuests, npcMark, activeQuests, questTargets, upgradeItemFound, upgradeQuest, placeName } from "./quests.js";
+import { NPCS, npcSprite, BANTER } from "./npcs.js";
+import { QUESTS, questStatus, stepDone, npcQuests, npcMark, activeQuests, questTargets, upgradeItemFound, upgradeQuest, placeName,
+  RENOWN_RANKS, RENOWN_MAX, LEGEND_BUFF, questRenown, renownPoints, renownRank, apprenticeOpen, NPC_PLACE, banterFor, NPC_INTRO, ROOM_GUIDE, SCHOOL_PARTS } from "./quests.js";
 import { getBest, isBestRun } from "./score.js";
 import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZE } from "./graphics.js";
 import { areaOfTab } from "./frames.js";
@@ -422,18 +424,36 @@ function npcLine(state, post) {
     rows: app ? [[app.infection ? "In quarantine" : "Works here with", app.infection ? "—" : appWhat]] : [],
     notes: ["An apprentice works the room every day with their own grade", "A level 10 student, picked in the Headmaster's Office"],
   });
-  return `<div class="npc-line" data-action="open-npc" data-npc="${ROOM_NPC[post]}" ${npcTip(n)}>
+  return `<div class="npc-line" data-action="open-npc" data-npc="${ROOM_NPC[post]}" ${npcTip(ROOM_NPC[post])}>
     <span class="npc-who">${markIcon(ROOM_NPC[post])}<b>${esc(n.name)}</b></span>
     ${!APPRENTICE_POSTS.includes(post) ? "" : app ? `<button class="npc-appr" data-action="open-card" data-id="${app.id}" ${appTip}>🎓 ${esc(shortName(app))}</button>` : `<span class="npc-appr muted" ${appTip}>🎓 no apprentice</span>`}
   </div>`;
 }
 // An NPC's hover card: who they are, their nickname, and a little lore.
-const npcTip = (n) => tipAttr({ title: esc(n.name), intro: [`also known as <b>“${esc(n.nickname)}”</b>`], notes: [...n.lore.map(esc), "Click to talk"] });
+const npcTip = (id) => {
+  const n = NPCS[id];
+  const rank = npcRanks[id] ?? 0;
+  const lore = n.lore.slice(0, rank + 1);
+  return tipAttr({
+    title: esc(n.name), intro: [`also known as <b>“${esc(n.nickname)}”</b>`],
+    rows: NPC_PLACE[id] ? [["Renown", `⭐ ${RENOWN_RANKS[rank].name}`]] : [],
+    notes: [...lore.map(esc), ...(lore.length < n.lore.length ? ["🔒 More as they come to trust you"] : []), "Click to talk"],
+  });
+};
+// Every NPC's renown rank, worked out once a render with the marks.
+let npcRanks = {};
 // Every NPC's quest mark (quests.js npcMark), worked out once a render (renderApp / renderTabs).
 let npcMarks = {};
-const refreshMarks = (state) => { npcMarks = Object.fromEntries(Object.keys(NPCS).map((id) => [id, npcMark(state, id)])); };
+const refreshMarks = (state) => {
+  npcMarks = Object.fromEntries(Object.keys(NPCS).map((id) => [id, npcMark(state, id)]));
+  npcRanks = Object.fromEntries(Object.keys(NPCS).map((id) => [id, renownRank(state, id)]));
+  npcChats = Object.fromEntries(Object.keys(NPCS).map((id) => [id, !!banterFor(state, id)]));
+  tutorialTabNow = tutorialTarget(state) ? tutorialTab(state) : null;
+};
 const MARK = { available: "❗", ready: "❓" };
-const markIcon = (npc) => (npcMarks[npc] ? `<i class="q-mark q-${npcMarks[npc]}">${MARK[npcMarks[npc]]}</i>` : "");
+const markIcon = (npc) => (npcMarks[npc] ? `<i class="q-mark q-${npcMarks[npc]}">${MARK[npcMarks[npc]]}</i>`
+  : npcChats[npc] ? `<i class="q-mark q-chat" title="Has something to say">💬</i>` : "");
+let npcChats = {};
 // The subject an apprentice works a room with: a classroom's or gym's own, a Courtyard site's
 // focus, the nurse's CON, research INT, crafting WIS, radio CHA (null: the Cafeteria — one more cook).
 function apprenticeSubject(state, post) {
@@ -445,7 +465,7 @@ function apprenticeSubject(state, post) {
 // The NPC standing in its room's banner.
 function npcFigure(post) {
   const n = NPCS[ROOM_NPC[post]];
-  return `<span class="scene-npc" data-action="open-npc" data-npc="${ROOM_NPC[post]}" ${npcTip(n)}>${markIcon(ROOM_NPC[post])}${npcSprite(ROOM_NPC[post], 1.25)}</span>`;
+  return `<span class="scene-npc" data-action="open-npc" data-npc="${ROOM_NPC[post]}" ${npcTip(ROOM_NPC[post])}>${markIcon(ROOM_NPC[post])}${npcSprite(ROOM_NPC[post], 1.25)}</span>`;
 }
 
 // A generic classroom shows as "Classroom N" until a teacher claims it, then as its subject.
@@ -668,6 +688,18 @@ function stayToggle(state, roomKey, until = "", how = null) {
 // A room still overrun from the first night: its scene boarded over, and the cost to clear it.
 function renderBoardedRoom(state, roomKey, scene, cls = "") {
   const b = BOARDED_ROOMS[roomKey];
+  const target = tutorialTarget(state);
+  if (tutorialOn(state)) {
+    const next = target === roomKey;
+    return `<div class="room ${cls} room-boarded ${next ? "room-tut-next" : ""}">
+      <div class="room-scene room-scene-boarded" style="background-image:${sceneBackground(`${scene}@1`)}">
+        <div class="boards"></div>
+        <div class="scene-plaque">🔒 ${b.name}</div>
+      </div>
+      <p class="room-tagline">Overrun — ${b.zombies.length} zombies inside.${next ? " Doubledoor wants this one taken back next." : target ? ` Doubledoor wants ${esc(BOARDED_ROOMS[target].name)} cleared first.` : " Report to Doubledoor in the basement first."}</p>
+      ${next ? `<div class="boarded-actions"><button class="btn btn-sm btn-primary" data-action="open-clear-room" data-room="${roomKey}">❗ Clear it out</button><span class="muted">free · nobody gets hurt for good</span></div>` : ""}
+    </div>`;
+  }
   const afford = state.resources.materials >= b.cost;
   return `<div class="room ${cls} room-boarded">
     <div class="room-scene room-scene-boarded" style="background-image:${sceneBackground(`${scene}@1`)}">
@@ -773,7 +805,8 @@ const BOARDED_SCENE = (roomKey) => (roomKey.startsWith("classroom:") ? "classroo
 export function renderClearRoomModal(state, clear) {
   const b = BOARDED_ROOMS[clear.roomKey];
   const squad = clear.ids.map((id) => getChar(state, id)).filter(canFightForRoom);
-  const afford = state.resources.materials >= b.cost;
+  const cost = clearCost(state, clear.roomKey);
+  const afford = state.resources.materials >= cost;
   const entries = state.characters
     .filter((c) => c.role === "student" && c.alive && !c.infection)
     .map((c) => {
@@ -802,14 +835,14 @@ export function renderClearRoomModal(state, clear) {
       </div>
       <div class="stat-row farm-pill">
         <span class="stat-pill">🧟 ${inside} inside ${infoDot(how)}</span>
-        <span class="${afford ? "farm-ready-ok" : "plot-warn"}">${ri("materials")} ${state.resources.materials}/${b.cost}</span>
+        <span class="${afford ? "farm-ready-ok" : "plot-warn"}">${cost ? `${ri("materials")} ${state.resources.materials}/${cost}` : "Free — Doubledoor covers it"}</span>
         <span class="mini-label">Squad (${squad.length}/${ROOM_FIGHT_SQUAD})</span>
       </div>
       ${squadGrid(state, entries, { action: "clear-toggle", cost: ROOM_FIGHT_STAMINA })}
       ${verdict}
       <div class="row-actions">
         <button class="btn btn-sm" data-action="close-clear-room">Not now</button>
-        <button class="btn btn-primary" data-action="go-clear-room" ${squad.length && afford ? "" : "disabled"}>${afford ? `⚔ Go in (${squad.length})` : `Need ${b.cost - state.resources.materials} more scrap`}</button>
+        <button class="btn btn-primary" data-action="go-clear-room" ${squad.length && afford ? "" : "disabled"}>${afford ? `⚔ Go in (${squad.length})` : `Need ${cost - state.resources.materials} more scrap`}</button>
       </div>
     </div>
   </div>`;
@@ -891,7 +924,19 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
     : "";
   const tips = hudTips(state);
   const stage = radioStage(state);
-  const rescue = state.rescue?.evacuated
+  const taken = activeQuests(state);
+  const ready = taken.filter((id) => questStatus(state, id) === "ready").length;
+  const marks = Object.values(npcMarks);
+  const logMark = ready || marks.includes("ready") ? "ready" : marks.includes("available") ? "available" : null;
+  const questLog = `<button class="hud-stat hud-quests ${activeTab === "quests" ? "active" : ""}" data-action="set-tab" data-tab="quests" ${tipAttr({
+    title: "📜 Quest Log", rows: [["Active", `${taken.length}`], ["Ready to hand in", `${ready}`]],
+    notes: ["Your questlines, what you've finished, and everyone's renown", "❗ someone has a new quest · ❓ one to hand in"],
+  })}>
+    <span class="hud-icon" style="--tile:${HUD_TILE.antenna}">${pixelIcon("scroll", 32)}</span>
+    <span class="hud-val"><span class="hud-num"><b>Quest Log</b></span><small>${taken.length} active</small></span>
+    ${logMark ? `<i class="q-mark q-${logMark} nav-mark">${MARK[logMark]}</i>` : ""}
+  </button>`;
+  const rescue = !state.rescue || state.rescue.evacuated
     ? ""
     : `<button class="hud-stat hud-rescue ${satelliteReady(state) ? "hud-rescue-ready" : ""}" data-action="set-tab" data-tab="floor3"
         ${tipAttr(state.rescue
@@ -907,7 +952,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
       <details class="options-dropdown menu-dropdown">
         <summary class="hud-menu" title="Menu">${pixelIcon("menu", 24)}</summary>
         <div class="options-menu">
-          <button class="options-item ${activeTab === "quests" ? "active" : ""}" data-action="set-tab" data-tab="quests">❗ Quests</button>
+          <button class="options-item ${activeTab === "quests" ? "active" : ""}" data-action="set-tab" data-tab="quests">📜 Quest Log</button>
           <button class="options-item ${activeTab === "log" ? "active" : ""}" data-action="set-tab" data-tab="log">📜 Log</button>
           <button class="options-item ${activeTab === "roster" ? "active" : ""}" data-action="set-tab" data-tab="roster">👥 Roster</button>
           <button class="options-item ${activeTab === "research" ? "active" : ""}" data-action="set-tab" data-tab="research">🧠 Research</button>
@@ -934,7 +979,7 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
         ${hudStat(floaties, "happiness", moodIcon(state.happiness, 32), HUD_TILE.mood, state.happiness, "Morale", tips.happiness)}
       </div>
     </div>
-    <div class="hud-center">${rescue}</div>
+    <div class="hud-center">${questLog}${rescue}</div>
     <div class="hud-right">
       <div class="hud-group">
         ${hudStat(floaties, "food", pixelIcon("food", 32), HUD_TILE.food, r.food, "Food", tips.food,
@@ -967,7 +1012,9 @@ const OVERVIEW_TAB = { 1: ["Classes", "classes"], 2: ["Explore", "compass"], 3: 
 // Tab icons are 16x16, drawn at exactly 16px.
 // The tab each NPC is on (their room's), for the marks on the tabs.
 const NPC_TAB = { "gym:PE": "floor1", "gym:Gymnastics": "floor1", cafeteria: "floor1", infirmary: "floor1", research: "floor3", crafting: "floor3", radio: "floor3", headmaster: "floor3", farm: "farm", barn: "barn", scrapyard: "scrapyard" };
+let tutorialTabNow = null; // the tab with the tutorial's next room (refreshMarks)
 const tabMark = (tab) => {
+  if (tab === tutorialTabNow) return "available";
   const marks = Object.entries(ROOM_NPC).filter(([post]) => (NPC_TAB[post] || "floor2") === tab).map(([, npc]) => npcMarks[npc]);
   return marks.includes("ready") ? "ready" : marks.includes("available") ? "available" : null;
 };
@@ -995,11 +1042,32 @@ function renderTurnButton(state, activeTab) {
 
 export function renderTabs(state, activeTab) {
   refreshMarks(state);
+  const tut = tutorialTabs(state);
+  const show = (t) => !tut || tut.includes(t[0]);
   return `<nav class="nav">
-    <div class="nav-left">${(LEFT_TABS_BY_TURN[state.turn] || LEFT_TABS_BY_TURN[1]).map((t) => navBtn(activeTab, t)).join("")}</div>
-    <div class="nav-center">${renderTurnButton(state, activeTab)}</div>
-    <div class="nav-right">${(RIGHT_TABS_BY_TURN[state.turn] || []).map((t) => navBtn(activeTab, t)).join("")}</div>
+    <div class="nav-left">${(LEFT_TABS_BY_TURN[state.turn] || LEFT_TABS_BY_TURN[1]).filter(show).map((t) => navBtn(activeTab, t)).join("")}</div>
+    <div class="nav-center">${tut ? basementButton(state, activeTab) : renderTurnButton(state, activeTab)}</div>
+    <div class="nav-right">${(RIGHT_TABS_BY_TURN[state.turn] || []).filter(show).map((t) => navBtn(activeTab, t)).join("")}</div>
   </nav>`;
+}
+// The tutorial's tabs: the basement, and each floor (the courtyard's three) once Doubledoor has sent
+// you to it (null when there's no tutorial). ROOM_TAB: where each room is.
+const ROOM_TAB = (key) => key.startsWith("classroom:") ? "floor2" : ["gym", "acrobatics", "cafeteria", "infirmary"].includes(key) ? "floor1" : ["research", "crafting", "radio"].includes(key) ? "floor3" : key;
+export function tutorialTabs(state) {
+  if (!tutorialOn(state)) return null;
+  const sent = SCHOOL_PARTS.filter((p) => state.quests?.[p.id]).flatMap((p) => p.rooms.map(ROOM_TAB));
+  return ["basement", ...new Set(sent)];
+}
+// Where the tutorial wants you: the next room's tab — or the basement, to report to Doubledoor.
+export const tutorialTab = (state) => (tutorialTarget(state) ? ROOM_TAB(tutorialTarget(state)) : "basement");
+// Where the turn button goes in the tutorial: down to the basement, or back up to the school.
+function basementButton(state, activeTab) {
+  const down = activeTab !== "basement";
+  const mark = down ? markIcon("doubledoor") : tutorialTarget(state) ? `<i class="q-mark q-available nav-mark">❗</i>` : "";
+  return `<button class="nav-btn nav-turn nav-basement ${down ? "" : "active"}" data-action="set-tab" data-tab="${down ? "basement" : tutorialTab(state) === "basement" ? "floor1" : tutorialTab(state)}"
+    title="${down ? "Go down to the basement — report to Doubledoor" : "Go up into the school"}">
+    <span class="turn-label">${pixelIcon(down ? "lantern" : "school", 16)}<span>${down ? "To the Basement" : "To the School"}</span></span>${mark}
+  </button>`;
 }
 
 // ---------- overview / turn action ----------
@@ -3807,6 +3875,7 @@ function nightRoster(state) {
 // The Gymnasium (PE → STR) and Acrobatics (Gymnastics → DEX) work the same way, taught like a class.
 function renderTrainingRoom(state, side) {
   const info = GYM_SIDES[side];
+  if (isBoarded(state, info.roomKey)) return renderBoardedRoom(state, info.roomKey, info.roomKey, `room-${info.roomKey}`);
   const room = gymRoom(state, side);
   const students = state.characters.filter((c) => c.gymToday === side && c.alive);
   // How a session adds up: the room's level bonus, plus its apprentice's for their grade.
@@ -3816,7 +3885,8 @@ function renderTrainingRoom(state, side) {
   const gainHow = {
     title: `${info.icon} +${lesson.gain} ${info.gains} a session`,
     rows: [[`Room · level ${level}`, `+${lesson.levelBonus}`],
-      ...(teachers.length ? teachers.map((t) => [`🎓 ${esc(shortName(t))} · ${gradeLetter(t.grades[side])}`, `+${teachingBonus(t.grades[side])}`]) : [tipNone("🎓 No apprentice", "+0")])],
+      ...(teachers.length ? teachers.map((t) => [`🎓 ${esc(shortName(t))} · ${gradeLetter(t.grades[side])}`, `+${teachingBonus(t.grades[side])}`]) : [tipNone("🎓 No apprentice", "+0")]),
+      ...(lesson.gain !== lesson.levelBonus + teachers.reduce((s, t) => s + teachingBonus(t.grades[side]), 0) ? [["⭐ Legend · +50%", `+${lesson.gain - lesson.levelBonus - teachers.reduce((s, t) => s + teachingBonus(t.grades[side]), 0)}`]] : [])],
     total: ["Total", `+${lesson.gain}`],
     notes: [`Stops at <b>${lesson.ceiling}</b> — set by the room's level, or a better apprentice's grade`, "An apprentice adds D +1 · C +3 · B +5 · A +7 · S +10", `More ${info.gains} also means more ${info.also}`],
   };
@@ -3880,7 +3950,7 @@ export function renderFloor1(state) {
     <div class="floor-grid floor1-grid">
       ${renderTrainingRoom(state, "PE")}
       ${renderTrainingRoom(state, "Gymnastics")}
-      <div class="room room-cafeteria">
+      ${isBoarded(state, "cafeteria") ? renderBoardedRoom(state, "cafeteria", "cafeteria", "room-cafeteria") : `<div class="room room-cafeteria">
         ${roomScene(`cafeteria@${cafeLevel}`, resting, `Cafeteria${levelBadge(state, "cafeteria")}`,
           roomInfo("🍲 Cafeteria", [
             "Cooks serve <b>dishes</b> — each buffs the whole school until tonight",
@@ -3903,8 +3973,8 @@ export function renderFloor1(state) {
           ${served.map((d) => `<span class="menu-served" title="${esc(d.name)} — ${esc(d.desc)} Wears off tonight.">${d.icon} ${esc(d.name)}</span>`).join("") || `<span class="muted">Nothing served yet today</span>`}
           <button class="btn btn-sm btn-primary" data-action="open-menu">🍲 Cook a dish…</button>
         </div>
-      </div>
-      <div class="room room-infirmary">
+      </div>`}
+      ${isBoarded(state, "infirmary") ? renderBoardedRoom(state, "infirmary", "infirmary", "room-infirmary") : `<div class="room room-infirmary">
         ${roomScene(`infirmary@${roomLevel(state, "infirmary")}`, [...infected, ...patients], `Nurse's Office${levelBadge(state, "infirmary")}`,
           roomInfo("🏥 Nurse's Office", [
             "Hurt students <b>heal</b> here — a treatment costs medicine, without it only bed rest",
@@ -3936,7 +4006,7 @@ export function renderFloor1(state) {
           <span class="quarantine-chips">${quarantineOrder(state, infected).slice(0, 3).map((c) => `<span class="quarantine-chip" title="${esc(c.name)} — infected: cure with antiviral serum by the end of day ${c.infection.dueDay}">${esc(shortName(c))} · ${daysLeftLabel(state, c, true)}</span>`).join("")}${infected.length > 3 ? `<span class="quarantine-chip" title="${infected.length - 3} more in quarantine">+${infected.length - 3}</span>` : ""}${infected.length ? "" : '<span class="muted">Nobody in quarantine</span>'}</span>
           ${infected.length ? '<button class="btn btn-sm btn-primary" data-action="open-quarantine">🦠 Quarantine…</button>' : ""}
         </div>
-      </div>
+      </div>`}
     </div>
   </div>`;
 }
@@ -4045,7 +4115,7 @@ function renderClassroom(state, roomId) {
         title: `📚 +${lesson.gain} ${STAT_OF_SUBJECT[subject]} a day`,
         rows: [[`Room · level ${room.level || 1}`, `+${lesson.levelBonus}`],
           ...(teachers.length ? teachers.map((t) => [`🎓 ${esc(shortName(t))} · ${gradeLetter(t.grades[subject])}`, `+${teachingBonus(t.grades[subject])}`]) : [tipNone("🎓 No apprentice", "+0")]),
-          ...(lesson.gain !== rawLesson ? [["Study Groups", `+${lesson.gain - rawLesson}`]] : [])],
+          ...(lesson.gain !== rawLesson ? [["Boosts · Study Groups, Legend", `+${lesson.gain - rawLesson}`]] : [])],
         total: ["Total", `+${lesson.gain}`],
         notes: [`Stops at <b>${lesson.ceiling}</b> — set by the room's level, or a better apprentice's grade`, "An apprentice adds D +1 · C +3 · B +5 · A +7 · S +10", 'At the limit (red "max"), move them to another class'],
       }
@@ -4120,7 +4190,7 @@ export function renderFloor3(state) {
     title: "🎓 Headmaster's Office",
     intro: ["Albus Doubledoor runs the school", "Survivors from the Radio and expeditions wait here to <b>join</b>"],
     rows: [["Recruits waiting", `${pool.length}/${recSlots}`], ["Apprentices", `${apprentices}/${APPRENTICE_POSTS.length}`]],
-    notes: ["Students level up from experience: classes, training, work, scouting and fighting", "A level 10 student can become a room NPC's apprentice — they work that room every day and stay a student", `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`, "Expel someone from their character card"],
+    notes: ["Students level up from experience: classes, training, work, scouting and fighting", "A level 10 student can become a room NPC's apprentice — they work that room every day and stay a student", `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`],
   };
   const office = `<div class="room room-office">
     ${roomScene("headmaster", [...ready.filter((c) => !c.apprentice), ...pool], "Headmaster's Office", officeHow, "",
@@ -4411,6 +4481,7 @@ function workerStaminaLine(c, cost) {
 // One Courtyard room, the full screen: its banner, then Today | Workers make | In store, the crew,
 // and its cards.
 function renderSiteRoom(state, site) {
+  if (isBoarded(state, site)) return renderBoardedRoom(state, site, site, "room-site");
   const def = WORK_SITES[site];
   const crew = siteCrew(state, site);
   const slots = siteWorkerSlots(state, site);
@@ -4671,6 +4742,7 @@ export function renderArmory(state) {
   return `<div class="card">
     <h2>🗡 Armory</h2>
     <p class="muted">Unequipped gear sitting in the shared armory — equip it on a student from their card's Inventory tab.</p>
+    ${(state.giftBoxes || []).length ? `<div class="armory-gifts" ${tipAttr({ title: "🎁 Gift boxes", rows: state.giftBoxes.map((g) => [esc(NPCS[g.from].name), `day ${g.day}`]), notes: ["A thank-you from each NPC who became your Friend", "Opening them comes soon"] })}>🎁 <b>${state.giftBoxes.length}</b> gift box${state.giftBoxes.length === 1 ? "" : "es"} <span class="muted">— opening them comes soon</span></div>` : ""}
     <div class="armory-row">${Object.keys(WEAPON_TYPES).map((type) => section(`weapon:${type}`)).join("")}</div>
     <div class="armory-row">${Object.keys(ARMOR_TYPES).map((type) => section(`armor:${type}`)).join("")}</div>
     ${section("accessory")}
@@ -5205,10 +5277,11 @@ function apprenticePicker(state, c) {
     const subj = apprenticeSubject(state, post);
     const room = roomName(state, postRoomKey(post)).replace(/^the /, "");
     const what = subj ? `${STAT_OF_SUBJECT[subj]} <b class="grade-letter-${gradeLetter(c.grades[subj])}">${gradeLetter(c.grades[subj])}</b>` : "+1 dish";
-    const act = holder ? "disabled" : `data-action="set-apprentice" data-id="${c.id}" data-post="${post}"`;
-    return `<button class="appr-opt ${holder === c ? "on" : ""}" ${act}>
+    const open = apprenticeOpen(state, post);
+    const act = holder || !open ? "disabled" : `data-action="set-apprentice" data-id="${c.id}" data-post="${post}"`;
+    return `<button class="appr-opt ${holder === c ? "on" : ""}" ${act} ${open ? "" : `title="Opens when ${esc(n.name)} trusts you (renown: Trusted)"`}>
       <span class="appr-npc">${esc(n.name)}</span><span class="appr-room">${esc(room)}</span>
-      <span class="appr-stat">${holder ? `🎓 ${esc(shortName(holder))}` : what}</span></button>`;
+      <span class="appr-stat">${!open ? "🔒 Trusted" : holder ? `🎓 ${esc(shortName(holder))}` : what}</span></button>`;
   });
   return `<div class="cc-confirm cc-appr">
     <div class="cc-confirm-text"><b>🎓 Whose apprentice will ${esc(shortName(c))} be?</b>
@@ -5258,9 +5331,6 @@ export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
   const body = tab === "inventory" ? renderInventoryTab(state, c) : tab === "skills" ? renderSkillsTab(c) : renderStatsTab(state, c);
 
   const inRoster = state.characters.includes(c);
-  const footer = [
-    c.alive && inRoster ? `<button class="btn btn-sm btn-danger" data-action="expel" data-id="${c.id}" title="Send them away from the school for good">🚪 Expel</button>` : "",
-  ].filter(Boolean).join("");
 
   return `
   <div class="modal-overlay" data-action="close-card">
@@ -5293,7 +5363,6 @@ export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
       <div class="cc2-strip">${strip}</div>
       ${tabBar}
       <div class="cc2-body">${body}</div>
-      ${footer ? `<div class="cc2-footer">${footer}</div>` : ""}
       ${confirm === "apprentice" && canApprentice(c) ? apprenticePicker(state, c) : confirm === "recruit" ? recruitConfirm(c) : ""}
     </div>
   </div>`;
@@ -5318,6 +5387,7 @@ export function renderApp(state, activeTab, rosterFilter = "student", floaties =
   else if (activeTab === "itemlist") content = renderItemList();
   else if (activeTab === "log") content = renderLog(state);
   else if (activeTab === "quests") content = renderQuestJournal(state);
+  else if (activeTab === "basement") content = renderBasement(state);
   else content = renderOverview(state); // "overview" and any stale/unrecognized tab both land here
 
   // the page wears its part of the school's frames (frames.js): lockers in the Lobby, a chalkboard in the
@@ -5356,7 +5426,7 @@ function questCard(state, q, status, withActions = true) {
     <div class="q-head">${MARK[status] ? `<i class="q-mark q-${status}">${MARK[status]}</i>` : ""}<b>${esc(q.title)}</b><span class="q-tag">${QUEST_TAG[status]}</span></div>
     <p class="q-say">“${esc(q.say)}”</p>
     <ul class="q-steps">${steps}</ul>
-    <div class="q-foot">${q.reward ? `<span class="q-reward">Reward: ${rewardText(q.reward)}</span>` : q.upgrade ? '<span class="q-reward">Unlocks the upgrade</span>' : "<span></span>"}${act}</div>
+    <div class="q-foot"><span class="q-reward">${[q.reward ? `Reward: ${rewardText(q.reward)}` : q.upgrade ? "Unlocks the upgrade" : "", questRenown(q) ? `⭐ +${questRenown(q)} renown` : ""].filter(Boolean).join(" · ")}</span>${act}</div>
   </div>`;
 }
 // Talking to an NPC: who they are, a line, and their quests (to take, in progress, to hand in).
@@ -5364,35 +5434,115 @@ function questCard(state, q, status, withActions = true) {
 // names this one time they say it (a new key, and they say it again).
 export const sayBubble = (npc, text, key, cls = "") =>
   `<div class="say-bubble ${cls}" data-say="${esc(text)}" data-say-key="${esc(key)}" data-npc="${npc}">${esc(text)}</div>`;
-export function renderNpcModal(state, npc, sayKey = "") {
+export function renderNpcModal(state, npc, sayKey = "", banterId = null) {
+  const banter = banterId === "intro" ? { lines: NPC_INTRO[npc].map((line) => [npc, line]) } : BANTER.find((b) => b.id === banterId);
   const n = NPCS[npc];
   const quests = npcQuests(state, npc);
   return `<div class="modal-overlay" data-action="close-npc">
     <div class="char-card npc-modal" data-action="noop">
       <button class="cc-close" data-action="close-npc" title="Close">✕</button>
-      ${sayBubble(npc, n.lines[state.day % n.lines.length], sayKey, "npcm-bubble")}
+      ${banter ? `<div class="talk-lines">${banter.lines.map(([who, line], i) => who === npc
+        ? `<div class="talk-line">${sayBubble(who, line, `${sayKey}:${i}`)}</div>`
+        : `<div class="talk-line talk-other"><span class="talk-face" title="${esc(NPCS[who].name)}">${npcSprite(who, 0.75)}</span>${sayBubble(who, line, `${sayKey}:${i}`)}</div>`).join("")}</div>`
+        : sayBubble(npc, n.lines[state.day % n.lines.length], sayKey, "npcm-bubble")}
       <div class="npcm-head">
         <span class="npcm-figure">${npcSprite(npc, 1.5)}</span>
-        <div class="npcm-who"><h3>${esc(n.name)}</h3><span class="npcm-nick">also known as <b>“${esc(n.nickname)}”</b></span></div>
+        <div class="npcm-who"><h3>${esc(n.name)}</h3><span class="npcm-nick">also known as <b>“${esc(n.nickname)}”</b></span>${renownLine(state, npc)}</div>
       </div>
+      ${roomGuide(npc)}
       <div class="npcm-quests">${quests.map(({ q, status }) => questCard(state, q, status)).join("") || '<p class="muted npcm-none">Nothing for you right now.</p>'}</div>
+      ${npc === "doubledoor" && tutorialTarget(state) ? '<div class="npcm-skip"><button class="btn btn-sm" data-action="skip-tutorial" title="Open every room and tab now — for players who know the game">Skip the tutorial</button></div>' : ""}
     </div>
   </div>`;
 }
-// The quest journal (options menu): what you've taken, then who has something new for you.
+// An NPC's room in short: what it's for, the stat it trains, what that stat does and the students
+// it suits (their ★ favourite subject makes their night class).
+function roomGuide(npc) {
+  const g = ROOM_GUIDE[npc];
+  if (!g) return "";
+  const [what, subject] = g;
+  const stat = subject && STAT_OF_SUBJECT[subject];
+  const cls = subject && Object.values(NIGHT_CLASSES).find((k) => k.subject === subject);
+  // (values are HTML: the class icon is already pixel art)
+  const rows = [["This room", esc(what)], ...(stat ? [
+    [`${stat} does`, esc((STAT_GUIDE[stat] || []).slice(0, 3).map(([w]) => w).join(" · "))],
+    [`★ ${SUBJECT_LABEL[subject]} students`, cls ? `become ${cls.icon} ${esc(cls.name)}s at night` : ""],
+  ] : [])];
+  return `<div class="npcm-guide">${rows.map(([k, v]) => `<span class="npcm-guide-k">${esc(k)}</span><span>${v}</span>`).join("")}</div>`;
+}
+
+// An NPC's renown: their rank, a bar, and what the next rank brings.
+function renownLine(state, npc) {
+  if (!NPC_PLACE[npc]) return "";
+  const rank = renownRank(state, npc);
+  const points = renownPoints(state, npc);
+  const next = RENOWN_RANKS[rank + 1];
+  return `<div class="npcm-renown" ${tipAttr({
+    title: `⭐ Renown — ${RENOWN_RANKS[rank].name}`,
+    rows: RENOWN_RANKS.slice(1).map((r, i) => [`${i + 1 < rank + 1 ? "✓" : "○"} ${r.name} · ${r.at}`, i === 2 ? esc(LEGEND_BUFF[npc]) : r.unlock]),
+    notes: ["Clearing their place: +2 · each room upgrade: +1"],
+  })}>
+    <span class="npcm-rank rank-${rank}">⭐ ${RENOWN_RANKS[rank].name}</span>
+    <span class="npcm-bar"><i style="width:${Math.round((points / RENOWN_MAX) * 100)}%"></i></span>
+    <small>${points}/${RENOWN_MAX}${next ? ` · next: ${next.name} — ${rank + 1 === 3 ? esc(LEGEND_BUFF[npc]) : next.unlock}` : ` · ${esc(LEGEND_BUFF[npc])}`}</small>
+  </div>`;
+}
+
+// The Quest Log (the top bar's button, or the menu): Doubledoor's main questline as a track, the
+// quests you've taken and the ones waiting, what's finished — and, on the right, everyone's renown.
+const MAIN_IDS = ["main:f1", "main:f2", "main:f3", "main:yard", "main:t1", "main:t2", "main:t3", "main:t4"];
 function renderQuestJournal(state) {
-  const taken = activeQuests(state).map((id) => QUESTS[id]).sort((a, b) => (questStatus(state, b.id) === "ready") - (questStatus(state, a.id) === "ready"));
-  const offered = Object.keys(NPCS).flatMap((npc) => npcQuests(state, npc).filter((x) => x.status === "available"));
+  const taken = activeQuests(state).filter((id) => !MAIN_IDS.includes(id)).map((id) => QUESTS[id])
+    .sort((a, b) => (questStatus(state, b.id) === "ready") - (questStatus(state, a.id) === "ready"));
+  const offered = Object.keys(NPCS).flatMap((npc) => npcQuests(state, npc).filter((x) => x.status === "available" && !MAIN_IDS.includes(x.q.id)));
   const row = (q, status) => `<div class="qj-row" data-action="open-npc" data-npc="${q.giver}">
     <span class="qj-npc">${npcSprite(q.giver, 0.5)}</span>
     <div class="qj-body">${questCard(state, q, status, false)}<small class="qj-giver">${esc(NPCS[q.giver].name)} · click to talk</small></div>
   </div>`;
+  // the main line: each quest a stop on the track, the current one opened up
+  const STOP = { done: "✓", ready: "❓", active: "▶", available: "❗", locked: "🔒" };
+  const main = MAIN_IDS.map((id) => {
+    const q = QUESTS[id];
+    const status = questStatus(state, id);
+    const open = status === "active" || status === "ready" || status === "available";
+    return `<div class="qm-stop qm-${status}" data-action="open-npc" data-npc="doubledoor">
+      <span class="qm-dot">${STOP[status]}</span>
+      <div class="qm-body"><b>${esc(q.title)}</b>${q.tier ? `<small>Tier ${q.tier}</small>` : ""}
+        ${open ? questCard(state, q, status, false) : ""}</div>
+    </div>`;
+  }).join("");
+  // what's finished: the main line, the places, the room upgrades
+  const done = Object.values(QUESTS).filter((q) => questStatus(state, q.id) === "done");
+  const count = (pick) => [done.filter(pick).length, Object.values(QUESTS).filter(pick).length];
+  const [mainDone, mainAll] = count((q) => q.giver === "doubledoor");
+  const [placeDone, placeAll] = count((q) => !q.upgrade && q.giver !== "doubledoor");
+  const [upDone, upAll] = count((q) => q.upgrade);
+  const finished = done.filter((q) => !MAIN_IDS.includes(q.id)).slice(-24).reverse()
+    .map((q) => `<span class="qf-chip" data-action="open-npc" data-npc="${q.giver}" title="${esc(NPCS[q.giver].name)}">✓ ${esc(q.title)}</span>`).join("");
+  const renown = Object.keys(NPC_PLACE).map((npc) => `<div class="qj-rn" data-action="open-npc" data-npc="${npc}">
+      <span class="qj-npc">${markIcon(npc)}${npcSprite(npc, 0.5)}</span><span class="qj-rn-name">${esc(NPCS[npc].name)}</span>
+      <span class="npcm-rank rank-${renownRank(state, npc)}">${RENOWN_RANKS[renownRank(state, npc)].name}</span>
+      <span class="npcm-bar"><i style="width:${Math.round((renownPoints(state, npc) / RENOWN_MAX) * 100)}%"></i></span>
+      <small class="qj-rn-pts">${renownPoints(state, npc)}/${RENOWN_MAX}</small></div>`).join("");
   return `<div class="card quest-journal">
-    <h2>❗ Quests ${infoDot({ title: "❗ Quests", notes: ["❗ An NPC has a new quest · ❓ one is ready to hand in", "Talk to an NPC by clicking them in their room", "Quest places get a ❗ on the City Map"] })}</h2>
-    <h3 class="qj-head">Taken (${taken.length})</h3>
-    <div class="qj-list">${taken.map((q) => row(q, questStatus(state, q.id))).join("") || '<p class="muted">No quests taken yet — look for a ❗ over someone\'s head.</p>'}</div>
-    <h3 class="qj-head">Waiting for you (${offered.length})</h3>
-    <div class="qj-list">${offered.map(({ q }) => row(q, "available")).join("") || '<p class="muted">Nobody has anything new.</p>'}</div>
+    <h2>📜 Quest Log ${infoDot({ title: "📜 Quest Log", notes: ["❗ An NPC has a new quest · ❓ one is ready to hand in", "Talk to an NPC by clicking them — here or in their room", "Quest places get a ❗ on the City Map"] })}</h2>
+    <div class="ql-cols">
+      <div class="ql-main">
+        <h3 class="qj-head">Albus Doubledoor's questline</h3>
+        <div class="qm-track">${main}</div>
+        <h3 class="qj-head">Active (${taken.length})</h3>
+        <div class="qj-list">${taken.map((q) => row(q, questStatus(state, q.id))).join("") || '<p class="muted">No quests taken — look for a ❗ over someone\'s head.</p>'}</div>
+        <h3 class="qj-head">Waiting for you (${offered.length})</h3>
+        <div class="qj-list">${offered.map(({ q }) => row(q, "available")).join("") || '<p class="muted">Nobody has anything new.</p>'}</div>
+        <h3 class="qj-head">Finished</h3>
+        <div class="qf-totals"><span>Main questline <b>${mainDone}/${mainAll}</b></span><span>Places cleared <b>${placeDone}/${placeAll}</b></span><span>Room upgrades <b>${upDone}/${upAll}</b></span></div>
+        <div class="qf-list">${finished || '<span class="muted">Nothing yet.</span>'}</div>
+      </div>
+      <div class="ql-side">
+        <h3 class="qj-head">Renown ${infoDot({ title: "⭐ Renown", rows: RENOWN_RANKS.slice(1).map((r) => [`${r.name} · ${r.at}`, r.unlock]), notes: ["Clearing their place: +2 · each room upgrade: +1"] })}</h3>
+        <div class="qj-renown">${renown}</div>
+      </div>
+    </div>
   </div>`;
 }
 
@@ -5417,40 +5567,108 @@ export function renderNpcReveal(npc) {
 const INTRO = [
   {
     title: "The End of the World",
+    art: "city",
     text: ["It began at the Research Institute on the edge of town. A leak, a fever, a rumour nobody believed.",
       "Within a week the hospitals were overrun and the army had pulled out. The dead walked the streets, and the city burned."],
   },
   {
     title: "The Academy",
+    art: "academy",
     text: ["But not everything has fallen. Behind boarded windows and nailed-shut doors, a few lights still burn.",
       "The Academy — a final beacon of hope. Our youngest and brightest are hiding in there.", "Maybe there is still hope…"],
   },
   {
-    title: "The Headmaster's Office",
-    text: ["The survivors gather in the Headmaster's Office. Albus Doubledoor looks at each of them in turn, and smiles."],
-    quote: "There is a great deal to be done, and time, I fear, is a luxury we do not possess. Let us begin.",
+    title: "Still Alive",
+    art: "yard",
+    text: ["A small group of friends, tired from all the fighting, look for a place to rest and survive another day…"],
+    walkers: true,
+  },
+  {
+    title: "The Basement",
+    art: "basement",
+    text: ["The survivors run down the stairs into the school's basement, and the door slams shut behind them.", "Someone is already down there, waiting by the boiler."],
+    // Doubledoor's speech, a line at a time once everyone's in
+    speech: [
+      "Come in, come in — quickly now. You're safe down here. For the moment.",
+      "I know you are frightened. So am I. Fear is only courage that hasn't found its feet yet.",
+      "Above us is our school. Our home. And the dead have no business being in it.",
+      "We take it back together — one room at a time. Our staff are still up there, waiting for us.",
+      "There is a great deal to be done, and time, I fear, is a luxury we do not possess. Let us begin.",
+    ],
   },
 ];
-export function renderIntro(state, step, sayKey = "") {
+export function renderIntro(state, step, sayKey = "", settled = false) {
   const screen = INTRO[step];
   const last = step === INTRO.length - 1;
-  const art = step === 0 ? `style="background-image:${introBackdrop("city")}"`
-    : step === 1 ? `style="background-image:${introBackdrop("academy")}"`
-    : `style="background-image:${sceneBackground("headmaster")}"`;
-  const people = last
-    ? `<div class="intro-people"><span class="intro-npc">${sayBubble("doubledoor", screen.quote, sayKey, "intro-bubble")}${npcSprite("doubledoor", 2)}</span>
-        <span class="intro-crowd">${aliveChars(state).slice(0, 6).map((c) => characterSprite(c, 64)).join("")}</span></div>`
+  const art = `style="background-image:${introBackdrop(screen.art)}"`;
+  // the basement: the students run down the stairs to their places, one after another, then
+  // Doubledoor speaks — one bubble at a time (main.js speakBubbles: data-say-solo), once they're in
+  const crowd = aliveChars(state).filter((c) => c.role === "student").slice(0, 12);
+  const gap = Math.min(52, Math.floor(470 / Math.max(1, crowd.length - 1))); // (closer together, the more of them)
+  // the yard: a few of them walking up to the cellar door
+  // (the survivors you'd start with — all of them, re-rolled with the difficulty; `settled`: they've
+  // already walked in, so a new choice doesn't replay it)
+  const walkers = screen.walkers
+    ? `<div class="yd-walkers ${settled ? "yd-settled" : ""}">${aliveChars(state).filter((c) => c.role === "student").map((c, i) => `<span class="yd-walker" data-action="open-card" data-id="${c.id}" title="${esc(c.name)} — click for their card" style="--x:${70 + i * 52}px;--d:${0.3 + i * 0.22}s">${characterSprite(c, 56)}</span>`).join("")}</div>`
     : "";
-  const lines = screen.text.map((t, i) => `<p style="animation-delay:${0.3 + i * 0.9}s">${esc(t)}</p>`).join("")
+  const walkerTip = screen.walkers ? `<span class="yd-tip ${settled ? "yd-tip-still" : ""}">💡 Tip: You can click on the students to see their stat cards!</span>` : "";
+  // …and, in a new game, how many survived: the difficulty
+  const pick = screen.walkers && state.pickDifficulty
+    ? `<div class="yd-pick"><span class="yd-pick-q">How many survived?</span>${Object.entries(DIFFICULTIES).map(([key, d]) => `<button class="yd-opt ${key === state.difficulty ? "on" : ""}" data-action="choose-difficulty" data-difficulty="${key}" title="${esc(d.desc)}"><b>${esc(d.name)}</b><small>${d.students} survivors</small></button>`).join("")}
+        <span class="yd-actions"><button class="btn yd-reroll" data-action="reroll-students" title="Roll a new set of survivors at this difficulty">🎲 Reroll students</button><button class="btn btn-primary yd-start" data-action="intro-next">Start the game ▸</button></span></div>`
+    : "";
+  const people = walkers || (screen.speech
+    ? `<div class="bs-crowd">${crowd.map((c, i) => `<span class="bs-runner" style="--x:${180 + i * gap}px;--from:${-(150 + i * gap)}px;--d:${0.4 + i * 0.28}s">${characterSprite(c, 64)}</span>`).join("")}</div>
+      <div class="bs-npc">${npcSprite("doubledoor", 2)}</div>
+      <div class="bs-speech" data-say-solo data-say-delay="3700">${screen.speech.map((line, i) => sayBubble("doubledoor", line, `${sayKey}:${i}`, "bs-bubble")).join("")}</div>`
+    : "");
+  const lines = screen.text.map((t, i) => `<p style="animation-delay:${0.3 + i * 0.9}s">${esc(t)}</p>`).join("");
 
   return `<div class="modal-overlay intro-overlay">
     <div class="intro-card" data-action="noop">
-      <div class="intro-art intro-art-${step}" ${art}>${people}</div>
-      <div class="intro-text"><h2>${esc(screen.title)}</h2>${lines}</div>
+      <div class="intro-art intro-art-${step} ${settled ? "intro-art-still" : ""}" ${art}>${people}${walkerTip}</div>
+      <div class="intro-text ${settled ? "intro-text-still" : ""}"><h2>${esc(screen.title)}</h2>${lines}${pick}</div>
       <div class="intro-actions">
-        <button class="btn btn-sm" data-action="intro-skip">Skip</button>
+        <span></span>
         <span class="intro-dots">${INTRO.map((_, i) => `<i class="${i === step ? "on" : ""}"></i>`).join("")}</span>
-        <button class="btn btn-primary" data-action="intro-next">${last ? "Let us begin" : "Next ▸"}</button>
+        ${pick ? "<span></span>" : `<button class="btn btn-primary" data-action="intro-next">${last ? "Let us begin" : "Next ▸"}</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---------- the basement ----------
+// The headquarters until the school is taken back: Doubledoor by the boiler, the students waiting
+// around him, and the floor he's sent you to. Report to him here; the button in the middle of the
+// tabs goes back up into the school.
+function renderBasement(state) {
+  const part = SCHOOL_PARTS.find((p) => ["active", "ready", "available"].includes(questStatus(state, p.id)));
+  const status = part ? questStatus(state, part.id) : null;
+  const crowd = aliveChars(state).filter((c) => c.role === "student").slice(0, 12);
+  const how = status === "ready" ? "❓ Done — hand it in to Doubledoor" : status === "available" ? "❗ Doubledoor has the next floor for you" : "Clear the rooms, then come back down to report";
+  return `<div class="card basement-card">
+    <h2>🔦 The Basement ${infoDot({ title: "🔦 The Basement", notes: ["Our headquarters until the school is ours again", "Doubledoor sends you up a floor at a time — report back to him here", "The button in the middle of the tabs goes up to the school and back down"] })}</h2>
+    <div class="basement-scene" style="background-image:${introBackdrop("basement")}">
+      <div class="basement-crowd">${crowd.map((c) => `<span class="basement-kid" data-action="open-card" data-id="${c.id}" title="${esc(c.name)}">${characterSprite(c, 56)}</span>`).join("")}</div>
+      <span class="basement-npc" data-action="open-npc" data-npc="doubledoor" ${npcTip("doubledoor")}>${markIcon("doubledoor")}${npcSprite("doubledoor", 2)}</span>
+    </div>
+    <div class="basement-foot">
+      <div>${part ? questCard(state, QUESTS[part.id], status, false) : ""}<small class="muted">${how}</small></div>
+      <button class="btn btn-primary" data-action="open-npc" data-npc="doubledoor">${markIcon("doubledoor")} Talk to Doubledoor</button>
+    </div>
+  </div>`;
+}
+
+// ---------- the game's own confirm / input box ----------
+// (the browser's confirm() and prompt() don't show in some embedded browsers — they just say no)
+export function renderDialog(d) {
+  return `<div class="modal-overlay dialog-overlay" data-action="dialog-no">
+    <div class="char-card dialog-card" data-action="noop">
+      <p class="dialog-text">${esc(d.text)}</p>
+      ${d.input !== null ? `<input class="dialog-input" type="text" value="${esc(d.input)}" maxlength="13" spellcheck="false">` : ""}
+      <div class="row-actions">
+        <button class="btn" data-action="dialog-no">Cancel</button>
+        <button class="btn ${d.danger ? "btn-danger" : "btn-primary"}" data-action="dialog-yes">${esc(d.yes || "OK")}</button>
       </div>
     </div>
   </div>`;

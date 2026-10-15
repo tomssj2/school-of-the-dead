@@ -1,10 +1,10 @@
 import * as G from "./game.js";
 import * as Q from "./quests.js";
 import { WORLD_W, WORLD_H } from "./citymap.js";
-import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict } from "./ui.js";
+import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict, tutorialTabs, tutorialTab } from "./ui.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderNpcModal, renderNpcReveal, renderIntro, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
+  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderNpcModal, renderNpcReveal, renderIntro, renderDialog, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionBattle,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
@@ -62,8 +62,18 @@ let raidFight = null; // { report, frameIndex, phase: "battle" | "result", after
 let expeditionReport = null; // { summary, phase: "travel" | "report" } at the end of Turn 2
 let openUpgrade = null; // room key whose Upgrade popup is open
 let openNpc = null; // the NPC being talked to (their quests)
+let openBanter = null; // the conversation playing in their talk window (npcs.js BANTER), if any
 let talkSeq = 0; // each time someone starts talking (a new bubble key, so they say it again)
+// The game's own confirm / input box (ui.js renderDialog): { text, input (null: just a yes/no),
+// yes: the button's label, danger, then: what OK does with the input }.
+let dialog = null;
+function ask(text, then, { input = null, yes = "OK", danger = false } = {}) {
+  dialog = { text, then, input, yes, danger };
+  render();
+}
 let introStep = 0; // the intro's screen, while state.intro is set (a new game)
+const INTRO_DIFFICULTY_STEP = 2; // "Still Alive": a new game picks its difficulty there
+let introSettled = false; // the survivors have walked in on that screen (a new pick doesn't replay it)
 let npcReveal = null; // the NPC of a room just cleared, for the "Who's that NPC?!" reveal
 let openMenu = false; // the Cafeteria's menu pop-up
 let openQuarantine = false; // the Nurse's Office quarantine pop-up
@@ -545,6 +555,14 @@ function migrateState(s) {
   }
   // The quests: every room level now needs its NPC's quest (quests.js), so every room starts again
   // at level 1 (applyRoomLevel below sends anyone past a classroom's new last seat off it).
+  // "Take Back the School" was split into a quest a floor: what it was, its parts are.
+  if (s.quests?.["main:school"]) {
+    for (const part of Q.SCHOOL_PARTS) s.quests[part.id] = s.quests["main:school"] === "done" ? "done" : part.id === "main:f1" ? "active" : undefined;
+    for (const part of Q.SCHOOL_PARTS) if (!s.quests[part.id]) delete s.quests[part.id];
+    delete s.quests["main:school"];
+  }
+  // An apprentice needs their NPC to trust you (renown: Trusted) — any from before that leave.
+  for (const c of s.characters) if (c.apprentice && !Q.apprenticeOpen(s, c.apprentice)) delete c.apprentice;
   if (!s.quests) {
     s.quests = {};
     s.questFacts = { cleared: {}, items: {} };
@@ -725,7 +743,7 @@ function render() {
   hideHoverTip(); // whatever it pointed at is about to be replaced
   if (!openCardId) cardAsk = ""; // a closed card takes its question with it
   const card = openCardId ? G.getCharAnywhere(state, openCardId) : null;
-  if (openCardId && !card) openCardId = null; // e.g. expelled while card was open
+  if (openCardId && !card) openCardId = null; // (whoever it was is gone)
   if (openScoutHex && (openScoutHex.drop ? !G.dropAt(state, openScoutHex.q, openScoutHex.r) : G.isHexExplored(state, openScoutHex.q, openScoutHex.r))) openScoutHex = null;
 
   const newFloaties = computeFloaties();
@@ -766,8 +784,15 @@ function render() {
   const sameTab = activeTab === lastRenderedTab;
   root.classList.toggle("tab-enter", !sameTab);
   lastRenderedTab = activeTab;
+  // the tutorial keeps to its tabs: anywhere else goes to the one with the room to clear
+  const tutTabs = tutorialTabs(state);
+  if (tutTabs && !tutTabs.includes(activeTab) && !["quests", "log", "roster", "research", "armory", "itemlist"].includes(activeTab)) activeTab = tutorialTab(state);
+  if (!tutTabs && activeTab === "basement") activeTab = "floor3"; // (the school's ours: Doubledoor's back in his office)
+  // the page behind the game: black through the intro, the basement through the tutorial
+  document.body.classList.toggle("blackout", !!state.intro);
+  document.body.classList.toggle("basement-bg", !state.intro && G.tutorialOn(state));
   const modalHtml = state.intro
-    ? renderIntro(state, introStep, `intro:${talkSeq}:${introStep}`)
+    ? renderIntro(state, introStep, `intro:${talkSeq}:${introStep}`, introSettled && introStep === INTRO_DIFFICULTY_STEP) + (card ? renderCharacterCard(state, card, cardTab, cardAsk) : "")
     : npcReveal
     ? renderNpcReveal(npcReveal)
     : raidFight
@@ -811,7 +836,7 @@ function render() {
     : openDefenseGuide
     ? renderDefenseGuideModal(state)
     : openNpc
-    ? renderNpcModal(state, openNpc, `talk:${talkSeq}`)
+    ? renderNpcModal(state, openNpc, `talk:${talkSeq}`, openBanter)
     : openUpgrade
     ? renderRoomUpgradeModal(state, openUpgrade)
     : state.pendingAssault
@@ -826,7 +851,7 @@ function render() {
   const barsBefore = sameTab ? new Map([...barWidths()].map(([key, el]) => [key, el.style.width])) : null;
   if (state.gameOver || state.victory) recordRun(state, G.aliveChars(state).length);
   setNightBattle(battleAnimation?.kind === "grid" ? battleAnimation : null);
-  root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml;
+  root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml + (dialog ? renderDialog(dialog) : "");
   if (barsBefore) slideBars(barsBefore);
   if (reachShown) {
     const { battle, studentId, row, col } = reachShown;
@@ -834,6 +859,7 @@ function render() {
     showReach(root.querySelector(battle ? ".nw-battle" : ".nw-main > .nw-board"), studentId, row, col);
   }
   pixelizeDom(root); // any emoji left in the text becomes its pixel icon
+  root.querySelector(".dialog-input")?.select();
   const newContent = root.querySelector(".content");
   if (newContent) newContent.scrollTop = contentScroll;
   fitCityMap();
@@ -847,15 +873,42 @@ function render() {
 // already said shows in full. A click on the bubble finishes it.
 const said = new Set();
 let saying = null; // { key, text, npc, i, timer }
+const sayFirstSeen = new Map(); // when a bubble with a delay (data-say-delay, ms) first showed up
 function speakBubbles() {
+  // (a line whose bubble is gone — the window closed — is over)
+  if (saying && !root.querySelector(`[data-say-key="${CSS.escape(saying.key)}"]`)) return finishSaying();
+  let busy = !!saying || sayPause;
   for (const el of root.querySelectorAll("[data-say-key]")) {
     const key = el.dataset.sayKey;
-    if (said.has(key)) continue;
+    if (said.has(key)) {
+      el.classList.remove("say-wait");
+      continue;
+    }
     if (saying?.key === key) {
       el.textContent = saying.text.slice(0, saying.i);
       continue;
     }
-    if (saying) finishSaying();
+    // a conversation: the next lines wait their turn, hidden
+    if (busy) {
+      el.textContent = "";
+      el.classList.add("say-wait");
+      continue;
+    }
+    // (a speech that waits for the scene: the students running in first)
+    const delay = Number(el.closest("[data-say-delay]")?.dataset.sayDelay || 0);
+    if (delay) {
+      if (!sayFirstSeen.has(key)) sayFirstSeen.set(key, Date.now());
+      const wait = sayFirstSeen.get(key) + delay - Date.now();
+      if (wait > 0) {
+        el.textContent = "";
+        el.classList.add("say-wait");
+        busy = true;
+        setTimeout(speakBubbles, wait + 20);
+        continue;
+      }
+    }
+    busy = true;
+    el.classList.remove("say-wait");
     saying = { key, text: el.dataset.say, npc: el.dataset.npc, i: 0 };
     el.textContent = "";
     saying.timer = setInterval(() => {
@@ -869,13 +922,27 @@ function speakBubbles() {
       if (s.i >= s.text.length) finishSaying();
     }, 34);
   }
+  // one at a time (data-say-solo): only the line being said — or the last one said — shows
+  for (const box of root.querySelectorAll("[data-say-solo]")) {
+    const els = [...box.querySelectorAll("[data-say-key]")];
+    let cur = els.findIndex((e) => saying?.key === e.dataset.sayKey);
+    if (cur < 0) cur = els.map((e) => said.has(e.dataset.sayKey)).lastIndexOf(true);
+    els.forEach((e, i) => e.classList.toggle("say-past", i < cur));
+  }
 }
+let sayPause = false; // a breath between one line and the next
+// A line's done (or skipped): it shows in full, and the next one in the conversation starts.
 function finishSaying() {
   if (!saying) return;
   clearInterval(saying.timer);
   for (const e of root.querySelectorAll(`[data-say-key="${CSS.escape(saying.key)}"]`)) e.textContent = saying.text;
   said.add(saying.key);
   saying = null;
+  sayPause = true;
+  setTimeout(() => {
+    sayPause = false;
+    speakBubbles();
+  }, 650);
 }
 root.addEventListener("click", (e) => {
   if (saying && e.target.closest?.(`[data-say-key="${CSS.escape(saying.key)}"]`)) finishSaying();
@@ -1246,6 +1313,11 @@ function saveGame() {
 }
 
 let flashTimer = null;
+// An NPC's renown went up a rank: say so (quests.js checkRenown also logs it and gives the gift box).
+function renownNews() {
+  const news = Q.checkRenown(state);
+  if (news.length) flash(news.join(" · "), 3600);
+}
 function flash(msg, ms = 1800) {
   let el = document.getElementById("flash");
   if (!el) {
@@ -1549,19 +1621,37 @@ root.addEventListener("click", (e) => {
         runExpeditions();
       }
       break;
+    case "reroll-students":
+      G.rerollSurvivors(state);
+      introSettled = true;
+      render();
+      break;
+    case "choose-difficulty":
+      G.setDifficulty(state, el.dataset.difficulty);
+      introSettled = true;
+      render();
+      break;
     case "intro-next":
-    case "intro-skip":
-      if (action === "intro-next" && introStep < 2) {
+      // "Start the game": the difficulty's settled, down into the basement
+      if (introStep === INTRO_DIFFICULTY_STEP && state.pickDifficulty) G.setDifficulty(state, state.difficulty, true);
+      if (introStep < 3) {
         introStep++;
+        introSettled = false;
         render();
         break;
       }
       // the intro's over: the game starts in the Headmaster's Office, talking to Doubledoor
       delete state.intro;
       introStep = 0;
-      activeTab = "floor3";
+      activeTab = G.tutorialOn(state) ? "basement" : "floor3";
       openNpc = "doubledoor";
       talkSeq++;
+      openBanter = null;
+      render();
+      break;
+    case "skip-tutorial":
+      G.skipTutorial(state);
+      openNpc = null;
       render();
       break;
     case "close-reveal":
@@ -1572,6 +1662,15 @@ root.addEventListener("click", (e) => {
       npcReveal = null;
       openNpc = el.dataset.npc;
       talkSeq++;
+      // meeting them for the first time: they introduce themselves and their room (once) — or a
+      // conversation they're in, waiting to be heard (once); otherwise their line of the day
+      if (Q.NPC_INTRO[openNpc] && !(state.npcMet || []).includes(openNpc)) {
+        openBanter = "intro";
+        (state.npcMet ||= []).push(openNpc);
+      } else {
+        openBanter = Q.banterFor(state, openNpc)?.id || null;
+        if (openBanter) (state.banterSeen ||= []).push(openBanter);
+      }
       openUpgrade = null;
       render();
       break;
@@ -1585,6 +1684,7 @@ root.addEventListener("click", (e) => {
       break;
     case "hand-in-quest":
       Q.handInQuest(state, el.dataset.quest);
+      renownNews();
       render();
       break;
     case "toggle-warn-menu":
@@ -1618,12 +1718,16 @@ root.addEventListener("click", (e) => {
       saveGame();
       break;
     case "reset-game":
-      if (confirm("Start a brand new game? This will erase your current progress.")) {
-        state = G.createInitialState();
-        dropNightBattle();
-        lastTurnKey = null; // the new game opens on Turn 1's home tab
-        render();
-      }
+      // A clean start: the save goes and the page reloads, so nothing of the old game is left open
+      // (windows, a fight, the intro's screen) — and a game with no save starts at the intro.
+      ask("Start a brand new game? This will erase your current progress.", () => {
+        try {
+          localStorage.removeItem(SAVE_KEY);
+        } catch (e) {
+          // (no storage: the reload still starts a fresh game)
+        }
+        location.reload();
+      }, { yes: "Start a new game", danger: true });
       break;
     case "unseat":
       G.unseat(state, el.dataset.id);
@@ -1784,6 +1888,7 @@ root.addEventListener("click", (e) => {
       break;
     case "confirm-upgrade":
       if (openUpgrade && !G.upgradeRoom(state, openUpgrade)) flash("Not enough scrap for that upgrade yet.");
+      else renownNews();
       render();
       break;
     case "repair-room":
@@ -1811,16 +1916,6 @@ root.addEventListener("click", (e) => {
       render();
       break;
     }
-    case "expel":
-      {
-        const c = G.getChar(state, el.dataset.id);
-        if (c && confirm(`Expel ${c.name} from the school? This cannot be undone.`)) {
-          G.expelCharacter(state, el.dataset.id);
-          if (openCardId === el.dataset.id) openCardId = null;
-          render();
-        }
-      }
-      break;
     case "auto-equip": {
       const n = G.autoEquip(state, el.dataset.id);
       flash(n ? `🎒 Equipped ${n} item${n === 1 ? "" : "s"}` : "Nothing better in the Armory for them");
@@ -1834,6 +1929,7 @@ root.addEventListener("click", (e) => {
       openPicker = null;
       openCardId = el.dataset.id;
       cardTab = el.dataset.cardTab || "stats";
+      if (state.intro) introSettled = true; // (the intro behind it holds still)
       render();
       break;
     case "close-card":
@@ -1896,7 +1992,7 @@ root.addEventListener("click", (e) => {
       if (!clearRoom || !clearRoom.ids.length) break;
       // the fight, on the board (the same as an expedition's), in its pop-up
       const { roomKey, ids } = clearRoom;
-      const b = state.resources.materials >= G.boardedRoomCost(roomKey) && G.startClearBattle(state, roomKey, ids);
+      const b = state.resources.materials >= G.clearCost(state, roomKey) && G.startClearBattle(state, roomKey, ids);
       clearRoom = null;
       if (!b) {
         flash("Can't clear it right now.");
@@ -2151,6 +2247,7 @@ root.addEventListener("click", (e) => {
       break;
     case "radio-upgrade":
       if (!G.buildRadioUpgrade(state)) flash("Not enough resources for that upgrade yet.");
+      else renownNews();
       render();
       break;
     case "evac-go":
@@ -2266,11 +2363,10 @@ root.addEventListener("click", (e) => {
     case "rename-char": {
       const c = G.getCharAnywhere(state, el.dataset.id);
       if (!c) break;
-      const name = prompt("Enter a new name (first and last name, up to 6 letters each):", c.name);
-      if (name !== null) {
-        G.renameCharacter(state, el.dataset.id, name);
-        render();
-      }
+      const id = el.dataset.id;
+      ask("A new name — first and last, up to 6 letters each:", (name) => {
+        if (name !== null) G.renameCharacter(state, id, name);
+      }, { input: c.name, yes: "Rename" });
       break;
     }
     case "toggle-stay":
@@ -2279,6 +2375,18 @@ root.addEventListener("click", (e) => {
       break;
     case "reroll-portrait":
       G.rerollPortrait(state, el.dataset.id);
+      render();
+      break;
+    case "dialog-yes": {
+      const d = dialog;
+      const value = root.querySelector(".dialog-input")?.value ?? null;
+      dialog = null;
+      d?.then(value);
+      render();
+      break;
+    }
+    case "dialog-no":
+      dialog = null;
       render();
       break;
     case "noop":
@@ -2290,6 +2398,16 @@ root.addEventListener("click", (e) => {
 
 
 document.addEventListener("keydown", (e) => {
+  // the game's own confirm / input box: Enter is OK, Escape cancels
+  if (dialog && (e.key === "Enter" || e.key === "Escape")) {
+    e.preventDefault();
+    if (e.key === "Enter") root.querySelector("[data-action=\"dialog-yes\"]")?.click();
+    else {
+      dialog = null;
+      render();
+    }
+    return;
+  }
   if (e.key === "Escape" && battleAnimation?.target) {
     battleAnimation.target = null; // stop aiming a night action
     battleAnimation.resume();

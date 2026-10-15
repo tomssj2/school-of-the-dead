@@ -806,7 +806,112 @@ function drawNight() {
   return k.cv.toDataURL("image/png");
 }
 
+// The basement, behind the game during the tutorial (it's the headquarters until the school is
+// taken back): concrete blocks streaked with damp, pipes along the ceiling, warm bulbs, the stairs
+// and the cold-lit door on the left, the boiler glowing on the right — the busy bits out at the
+// edges, where the game's window doesn't cover them.
+function drawBasement() {
+  const k = sceneKit(960, 540);
+  const { W, H, rect, disc, line } = k;
+  const glow = (x, y, rgb, sizes) => sizes.forEach(([r, a]) => disc(x, y, r, `rgba(${rgb},${a})`));
+  // the wall: concrete blocks, each a shade off its neighbours, mortar between
+  rect(0, 0, W, H, "#2b2a30");
+  for (let y = 40, row = 0; y < 470; y += 16, row++) {
+    for (let x = row % 2 ? -16 : 0; x < W; x += 32) {
+      const n = hashAt(x, y);
+      rect(x + 1, y + 1, 30, 14, n > 0.7 ? "#323138" : n < 0.25 ? "#26252b" : "#2d2c32");
+      if (n > 0.92) rect(x + 4 + Math.floor(n * 20), y + 4, 3, 2, "#222126");
+    }
+    rect(0, y, W, 1, "#201f24");
+  }
+  for (let x = 0; x < W; x += 32) for (let y = 40; y < 470; y += 32) rect(x, y, 1, 16, "#201f24");
+  // damp running down from the pipes
+  for (const [x, h, w] of [[70, 120, 18], [250, 200, 24], [410, 90, 14], [560, 160, 20], [720, 110, 16], [900, 180, 22]]) {
+    for (let y = 44; y < 44 + h; y += 2) rect(x + Math.round(Math.sin(y / 9) * 3), y, Math.max(2, w - (y - 44) / 10), 2, "rgba(16,18,24,0.35)");
+  }
+  // the ceiling, and the pipes along it
+  rect(0, 0, W, 40, "#18171c");
+  rect(0, 14, W, 12, "#6a5440");
+  rect(0, 14, W, 3, "#8c7258");
+  rect(0, 24, W, 2, "#4a3a2c");
+  rect(0, 30, W, 7, "#4e535c");
+  rect(0, 30, W, 2, "#727884");
+  for (let x = 40; x < W; x += 150) {
+    rect(x, 11, 10, 18, "#4a3a2c");
+    rect(x + 60, 28, 8, 11, "#3a3e46");
+  }
+  disc(512, 20, 7, "#a83228");
+  rect(511, 8, 3, 6, "#6a6e78");
+  for (const [x, y] of [[130, 46], [131, 52], [610, 44], [611, 50], [612, 58]]) rect(x, y, 2, 3, "#7a98c0");
+  // the bulbs, each hanging in its pool of warm light
+  for (const x of [240, 480, 720]) {
+    line(x, 37, x, 92, "#121116", 2);
+    rect(x - 4, 92, 9, 4, "#3a3a42");
+    glow(x, 102, "255,214,140", [[210, 0.025], [150, 0.035], [96, 0.045], [52, 0.06], [24, 0.09]]);
+    disc(x, 102, 6, "#ffe9b0");
+    disc(x - 1, 101, 3, "#fffbe8");
+  }
+  // the stairs down from the door on the left, cold light spilling through
+  glow(70, 110, "150,180,240", [[180, 0.03], [120, 0.04], [70, 0.06]]);
+  rect(20, 50, 90, 120, "#141319");
+  rect(30, 58, 70, 112, "#9db8e0");
+  rect(30, 58, 18, 112, "#7590bc");
+  rect(96, 58, 4, 112, "#24232a");
+  for (let i = 0; i < 12; i++) {
+    const x = i * 16, y = 170 + i * 25;
+    rect(x, y, 40, 25, "#3e3c44");
+    rect(x, y, 40, 3, "#55525c");
+  }
+  for (let i = 0; i <= 190; i += 3) rect(30 + i, 120 + i * 1.55, 3, 3, "#6a6a74");
+  for (let i = 0; i < 6; i++) rect(30 + i * 36, 120 + i * 36 * 1.55, 3, 30, "#5a5a64");
+  // chalk on the wall: SAFE and a tally of the days
+  const CHALK = { S: ["111", "100", "111", "001", "111"], A: ["010", "101", "111", "101", "101"], F: ["111", "100", "110", "100", "100"], E: ["111", "100", "110", "100", "111"] };
+  [..."SAFE"].forEach((ch, i) => CHALK[ch].forEach((row, y) => [...row].forEach((b, x) => b === "1" && rect(170 + i * 20 + x * 4, 200 + y * 4, 4, 4, "#bcbcb2"))));
+  for (let i = 0; i < 4; i++) rect(172 + i * 8, 228, 3, 18, "#a8a89e");
+  line(168, 244, 206, 230, "#a8a89e", 3);
+  // the boiler on the right, its grate glowing, a pipe up into the ceiling
+  glow(870, 410, "255,140,60", [[220, 0.03], [150, 0.045], [90, 0.07]]);
+  rect(880, 36, 14, 250, "#4e535c");
+  rect(880, 36, 4, 250, "#727884");
+  rect(800, 280, 150, 190, "#6e3424");
+  rect(800, 280, 150, 8, "#8e4632");
+  rect(940, 280, 10, 190, "#4e2418");
+  for (const y of [320, 380, 440]) rect(800, y, 150, 3, "#4e2418");
+  for (const [x, y] of [[808, 292], [936, 292], [808, 456], [936, 456]]) disc(x, y, 3, "#c9a227");
+  for (const x of [840, 905]) { disc(x, 340, 12, "#d8d2c0"); line(x, 340, x + 6, 333, "#1d2026", 2); }
+  rect(830, 395, 90, 50, "#1a0e0a");
+  for (let x = 834; x < 916; x += 8) rect(x, 398, 4, 44, "#2a1610");
+  for (let x = 836; x < 916; x += 2) for (let y = 412; y < 442; y += 2) {
+    const n = hashAt(x, y);
+    if (n < 0.55) rect(x, y, 2, 2, y > 432 ? "#fff0a0" : y > 422 ? "#ffb040" : "#e0602a");
+  }
+  // a shelf of tins up on the right wall
+  for (const y of [150, 196]) {
+    rect(760, y, 180, 5, "#5a3b24");
+    for (let x = 766; x < 934; x += 14) {
+      const c = ["#c0392b", "#d8b84a", "#4a7ab0", "#8a8a92", "#3f8a4a"][Math.floor(hashAt(x, y) * 5)];
+      rect(x, y - 18, 10, 18, c);
+      rect(x, y - 18, 10, 3, "#c9ccd2");
+      rect(x, y - 15, 2, 15, "rgba(255,255,255,0.18)");
+    }
+  }
+  // the floor: bare concrete, crates by the stairs, a puddle catching a bulb
+  rect(0, 470, W, H - 470, "#232227");
+  rect(0, 470, W, 4, "#38363e");
+  for (let i = 0; i < 260; i++) rect(Math.floor(hashAt(i, 9) * W), 476 + Math.floor(hashAt(i, 10) * 60), 2, 2, i % 2 ? "#2c2b31" : "#1c1b20");
+  for (const [x, y, w, h] of [[200, 420, 56, 50], [256, 438, 40, 32], [214, 388, 40, 32]]) {
+    rect(x, y, w, h, "#6b4a2f");
+    rect(x, y, w, 4, "#8a6440");
+    rect(x + 4, y + 8, w - 8, 2, "#5a3b24");
+    rect(x + 4, y + h - 10, w - 8, 2, "#5a3b24");
+  }
+  for (let y = -6; y <= 6; y++) { const w = Math.round(46 * Math.sqrt(1 - (y / 7) ** 2)); rect(600 - w, 505 + y, w * 2, 1, "rgba(60,72,96,0.55)"); }
+  rect(574, 503, 52, 2, "rgba(255,226,160,0.3)");
+  return k.cv.toDataURL("image/png");
+}
+
 export function installBackdrop(root = document.documentElement) {
+  root.style.setProperty("--sky-basement", `url("${drawBasement()}")`);
   root.style.setProperty("--sky-morning", `url("${drawMorning()}")`);
   root.style.setProperty("--sky-dusk", `url("${drawDusk()}")`);
   root.style.setProperty("--sky-night", `url("${drawNight()}")`);
