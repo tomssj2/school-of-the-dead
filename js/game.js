@@ -1,8 +1,8 @@
 import {
-  DIFFICULTIES, DEFAULT_DIFFICULTY, classReach, wideTank, SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME, FARM_CAPACITY, SCRAPYARD_CAPACITY, FORTIFICATION_CAP, FORTIFICATION_PER_POINT, LOCATIONS, STAT_OF_SUBJECT, TRAITS, GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost, CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, EXPEDITION_ENCOUNTERS, ENCOUNTER_CHANCE, ENCOUNTER_EFFECT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED, HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT, HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH, FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, EVENT_CHANCE, EVENTS, TECH_TREE, SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS, ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD, EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE, zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, hordeComposition, isBossNight, bossNameForDay, RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS, EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL, INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, STARTING_STOCK, WORK_SITES, EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED, EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED, STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS, OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX, MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES, ACCESSORIES, LEGENDARY_TITLES, MAP_MILESTONES, SITE_FOCUS, SITE_WORKERS_BY_LEVEL, FARM_PASSIVE_FOOD, YARD_PASSIVE_SCRAP, BARN_HERD_BY_LEVEL, RANCH_ANIMALS, ROOM_NPC, CLASSROOM_SUBJECT, ROOM_CAP_BY_LEVEL,
+  DIFFICULTIES, DEFAULT_DIFFICULTY, classReach, wideTank, SUBJECTS, CLASSROOM_IDS, CLASSROOM_CAPACITY, CLASSROOM_MAX_TEACHERS, GYM_CAPACITY, GYM_MAX_TEACHERS, CAFETERIA_MAX_TEACHERS, RESEARCH_ROOM_TEACHERS, RESEARCH_ROOM_INT_PER_POINT, RESOURCE_NAME, FARM_CAPACITY, SCRAPYARD_CAPACITY, FORTIFICATION_CAP, FORTIFICATION_PER_POINT, LOCATIONS, STAT_OF_SUBJECT, TRAITS, GRADE_TIERS, SKILL_TREE, SUBJECT_LABEL, GYM_SIDES, ROOM_LEVELS, ROOM_MAX_LEVEL, OFFICE_RECRUIT_SLOTS, ROOM_STAT_BONUS_BY_LEVEL, ROOM_TEACHER_LEVELS, ROOM_REPAIR_COST, roomUpgradeCost, CAFETERIA_RATIONS_BY_LEVEL, RESEARCH_BONUS_BY_LEVEL, CRAFTING_BONUS_BY_LEVEL, STAMINA_COST_EXPLORE, EXPLORE_ROLES, EXPLORE_TEAM_COSTS, EXPLORE_TEAM_SLOTS, EXPLORE_TEAMWORK_BONUS, EXPEDITION_NEED, EXPEDITION_ODDS_AT_NEED, EXPEDITION_POWER_PER_PERCENT, EXPEDITION_ODDS_RANGE, EXPEDITION_LOOT, EXPEDITION_ENCOUNTERS, ENCOUNTER_CHANCE, ENCOUNTER_EFFECT, INFECTION_DAYS, INFECTION_CHANCE_DOWNED, HAPPINESS_START, HAPPINESS_MIN, HAPPINESS_MAX, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT, HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH, FACILITY_RAID_CHANCE, ASSAULT_CHANCE, RAIDABLE_FACILITIES, LEGENDARY_CHANCE, EVENT_CHANCE, EVENTS, TECH_TREE, SCOUT_STAMINA_COST, SCOUT_ENCOUNTER_CHANCE_PER_HEX, SCOUT_ENCOUNTER_HP_LOSS, ENTRANCE_GRID_SIZE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, DEFENSE_STRUCTURES, NIGHT_ACTIONS, MOLOTOV_DAMAGE, BATTLE_CRIT, NIGHT_CLASSES, NIGHT_ABILITY2_SKILLS, NIGHT_ABILITY3_SKILLS, NIGHT_MORALE, THROWN_ROCKS, ZOMBIE_WALK_EVERY, NIGHT_CONDITIONS, NIGHT_STAR_REWARD, EXPEDITION_ROOM, EXPEDITION_NOISE, expeditionShare, ROOM_EVENTS, ROOM_EVENT_STARTS, ROOM_EVENT_CHANCE, ROOM_EVENT_ODDS, ZOMBIE_HIT_CHANCE, FIST_WEAPON, BATTLE_MAX_TICKS, DOWNED_DEATH_CHANCE, MEDICINE_PER_STABILIZE, zombieStatsForDay, zombieCountForDay, ZOMBIE_TYPES, ZOMBIE_SMASH, HEADMASTER_BOSS, hordeComposition, isBossNight, bossNameForDay, RADIO_UPGRADES, RADIO_CHA_PER_PERCENT, STUDENT_MAX_LEVEL, xpToNextLevel, LEVEL_XP, CRAFT_HELP_WIS_PER_POINT, RESCUE_ARRIVAL_DAYS, RESCUE_DELAY_DAYS, EXPEDITION_ITEM_CHANCE, EXPEDITION_ITEM_CHANCE_FAILED, INFIRMARY_CAPACITY, INFIRMARY_MAX_TEACHERS, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_HEAL_BY_LEVEL, CAFETERIA_REST_BY_LEVEL, INFIRMARY_NURSE_HP_PER_RANK, INFIRMARY_BED_REST, INGREDIENTS, STARTING_PANTRY, DISHES, SCAVENGED_INGREDIENTS, PRODUCERS, FARM_CROPS, FARM_GROUPS, STARTING_STOCK, WORK_SITES, EXPEDITION_SEED_CHANCE, EXPEDITION_SEED_CHANCE_FAILED, EXPEDITION_INGREDIENT_CHANCE, EXPEDITION_INGREDIENT_CHANCE_FAILED, STAT_TUNING, SKILL_EFFECTS, BOARDED_ROOMS, ROOM_ZOMBIE, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, ROOM_FIGHT_MAX_ROUNDS, OBJECTIVES, HEX_FINDS, CACHE_RESOURCE, NEST_SCOUT_DANGER, NEST_EXPEDITION_PENALTY, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX, MAP_DROPS, MAP_DROP_CHANCE, MAP_DROP_MAX, MAP_DROP_DAYS, HORDE_START_RING, LANDMARKS, RAID_MAX_TEAM, RAID_MAX_ROUNDS, RAID_BOSS_SCALING, ITEM_DROP_ODDS, RARITIES, ACCESSORIES, LEGENDARY_TITLES, MAP_MILESTONES, SITE_FOCUS, SITE_WORKERS_BY_LEVEL, FARM_PASSIVE_FOOD, YARD_PASSIVE_SCRAP, BARN_HERD_BY_LEVEL, RANCH_ANIMALS, ROOM_NPC, CLASSROOM_SUBJECT, ROOM_CAP_BY_LEVEL,
 } from "./data.js";
 import { NPCS } from "./npcs.js";
-import { questFinds, upgradeItemFound, raidOpenByQuest, isLegend, apprenticeOpen, SCHOOL_PARTS, questStatus } from "./quests.js";
+import { ROOM_CUTSCENES, questFinds, upgradeItemFound, raidOpenByQuest, isLegend, apprenticeOpen, SCHOOL_PARTS, questStatus } from "./quests.js";
 import { hexTerrain, TERRAIN_NAMES, locationAt, isSchoolHex, SCHOOL_RADIUS, MAP_RADIUS } from "./map.js";
 import {
   makeCharacter, makeLegendaryCharacter, capTeacherGrades, randInt, pick, maxHpFor, overallLevel, starterArmory, effectiveGrade,
@@ -442,28 +442,46 @@ export function setDifficulty(state, key, lock = false) {
 // A new game takes the school back a floor at a time (quests.js SCHOOL_PARTS, from Doubledoor in
 // the basement — the headquarters until it's done): within the floor he's sent you to, one room at
 // a time, for free and with no lasting harm (he covers the boards; the squad is patched up after).
-// The tabs open floor by floor (ui.js tutorialTabs); the turn button only once the courtyard's
-// been handed in.
-export const tutorialOn = (state) => !!state.tutorial && questStatus(state, "main:yard") !== "done";
+// The tabs open floor by floor (ui.js tutorialTabs); the turn button only once every part's been
+// handed in.
+export const tutorialOn = (state) => !!state.tutorial && !SCHOOL_PARTS.every((p) => questStatus(state, p.id) === "done");
 // The room to clear now: the next overrun one on a floor he's sent you to (null: report to him).
 export function tutorialTarget(state) {
   if (!tutorialOn(state)) return null;
   for (const part of SCHOOL_PARTS) {
     if (state.quests?.[part.id] !== "active") continue;
-    const room = part.rooms.find((k) => isBoarded(state, k));
+    const room = part.rooms.find((k) => (k === "headmaster" ? !bossDown(state) : isBoarded(state, k)));
     if (room) return room;
   }
   return null;
 }
 // Scrap to clear a room: nothing in the tutorial.
 export const clearCost = (state, roomKey) => (tutorialOn(state) ? 0 : boardedRoomCost(roomKey));
-// Skipping it: the rooms only the tutorial had overrun open, the rest stay boarded as before.
+// What skipping it would pay out: every part not yet handed in (its quest reward) and every room not
+// yet taken back that has something in it (ROOM_CUTSCENES' `reward`).
+export function tutorialSkipRewards(state) {
+  const got = {};
+  const add = (r) => { for (const [k, n] of Object.entries(r || {})) got[k] = (got[k] || 0) + n; };
+  for (const part of SCHOOL_PARTS) {
+    if (state.quests?.[part.id] !== "done") add(part.reward);
+    for (const k of part.rooms) if (k === "headmaster" ? !bossDown(state) : isBoarded(state, k)) add(ROOM_CUTSCENES[k]?.reward);
+  }
+  return got;
+}
+// Skipping it: every room opens (the ones that are boarded up after it too), every part counts as
+// handed in, and what playing it would have given is theirs.
 export function skipTutorial(state) {
   if (!state.tutorial) return false;
-  state.boardedRooms = state.boardedRooms.filter((k) => !BOARDED_ROOMS[k]?.tutorial);
+  const got = tutorialSkipRewards(state);
+  for (const [k, n] of Object.entries(got)) state.resources[k] = (state.resources[k] || 0) + n;
+  state.quests ||= {};
+  for (const part of SCHOOL_PARTS) state.quests[part.id] = "done";
+  const f = (state.questFacts ||= { cleared: {}, items: {} });
+  f.bosses = { ...(f.bosses || {}), [HEADMASTER_BOSS.id]: true };
+  state.boardedRooms = [];
   delete state.tutorial;
-  (state.quests ||= {})["main:f1"] = "done"; // (the Lobby's open; Doubledoor has the next floor)
-  addLog(state, "Tutorial skipped — the whole school is yours to run.");
+  delete state.techTip;
+  addLog(state, `Tutorial skipped — every room is open, and its rewards are yours: ${Object.entries(got).map(([k, n]) => `+${n} ${RESOURCE_NAME[k] || k}`).join(", ") || "nothing left to collect"}.`);
   return true;
 }
 // Clearing a boarded-up room: the same fight as an expedition's, on the same board — the squad at the
@@ -475,11 +493,286 @@ export function startClearBattle(state, roomKey, ids) {
   if (!room || !isBoarded(state, roomKey) || !squad.length) return null;
   if (tutorialOn(state) && tutorialTarget(state) !== roomKey) return null; // (one room at a time)
   const b = roomBattle(state, squad, room.zombies.map((z) => z.type), ROOM_ZOMBIE, {
-    clear: roomKey, place: { name: room.name, ground: "school", difficulty: 1 }, tutorial: !state.roomFightsDone || tutorialOn(state),
+    clear: roomKey, place: { name: room.name, ground: COURTYARD_SITES.includes(roomKey) ? roomKey : "school", difficulty: 1 }, tutorial: !state.roomFightsDone || tutorialOn(state),
   });
   b.frames.push(battleSnapshot(b, []));
   return b;
 }
+// The tutorial's cutscenes (quests.js ROOM_CUTSCENES): the students of the class(es) the room suits
+// go in — the best of each, or the best left if nobody's that class.
+export function cutsceneHeroes(state, roomKey) {
+  const kids = state.characters.filter((c) => c.alive && c.role === "student" && !c.infection);
+  const best = (list) => [...list].sort((a, b) => fightPower(state, b).power - fightPower(state, a).power)[0] || null;
+  const team = [];
+  for (const cls of [ROOM_CUTSCENES[roomKey]?.cls].flat()) {
+    const left = kids.filter((c) => !team.includes(c));
+    const c = cls === "any" ? (left.length ? pick(left) : null) : best(left.filter((k) => nightClass(k) === cls)) || best(left);
+    if (c) team.push(c);
+  }
+  return team;
+}
+// …against one zombie (a weak one, unless the scene says), coming straight down their lane: a
+// lesson, not a fight. A team lines up in that lane, the first in front.
+const LESSON_ZOMBIE = { hp: 22, damage: 4 };
+export function startLessonBattle(state, roomKey, heroIds, { alarm = false } = {}) {
+  const room = BOARDED_ROOMS[roomKey];
+  const C = ROOM_CUTSCENES[roomKey];
+  const team = heroIds.map((id) => getChar(state, id)).filter(Boolean);
+  if (!room || !C || !team.length || !isBoarded(state, roomKey)) return null;
+  const R = C.reinforce;
+  const going = R ? team.slice(0, R.go || 1) : team; // (a reinforcement waits at the door)
+  const b = roomBattle(state, going, [C.zombie || "walker"].flat(), C.strength || LESSON_ZOMBIE, {
+    clear: roomKey, place: { name: room.name, ground: COURTYARD_SITES.includes(roomKey) ? roomKey : "school", difficulty: 1 }, tutorial: true, lesson: roomKey,
+    heroIds: team.map((c) => c.id), waiting: R ? team.slice(R.go || 1).map((c) => c.id) : [],
+  });
+  // their own lanes, in the front row — or lined up in the middle one, the first in front
+  const mid = b.students[0].col;
+  for (const [i, c] of going.entries()) {
+    const s = b.students.find((x) => x.id === c.id);
+    Object.assign(s, C.cols ? { col: C.cols[i], row: b.studentRows - 1 - (C.rows?.[i] || 0) } : { col: mid, row: b.studentRows - 1 - i });
+    if (R?.hp) s.hp = Math.max(1, Math.round(s.maxHp * R.hp));
+  }
+  b.opening = C.lanes ? [...C.lanes] : [mid];
+  if (C.defenses) b.toPlace = [...C.defenses]; // (placed on the board before it starts — lessonPlace)
+  if (alarm) b.alarm = true; // (a scream over the speakers: every zombie howled)
+  b.frames.push(battleSnapshot(b, []));
+  return b;
+}
+// A cutscene's check (`check` in ROOM_CUTSCENES): who tries it, and their chance — an expedition's
+// lock (INT) or sneak (DEX).
+export function cutsceneCheckOdds(state, roomKey, heroIds) {
+  const K = ROOM_CUTSCENES[roomKey]?.check;
+  const who = K && getChar(state, heroIds[K.who || 0]);
+  if (!who) return { who: null, chance: 0 };
+  const N = EXPEDITION_NOISE[K.kind];
+  return { who, stat: N.stat, chance: Math.min(N.max, N.base + effectiveGrade(state, who, N.stat) * N.perGrade) };
+}
+export const cutsceneCheck = (state, roomKey, heroIds) => Math.random() < cutsceneCheckOdds(state, roomKey, heroIds).chance;
+// …done quietly: the room's cleared without a fight.
+export function clearRoomQuietly(state, roomKey) {
+  if (!isBoarded(state, roomKey)) return false;
+  state.boardedRooms = state.boardedRooms.filter((k) => k !== roomKey);
+  addLog(state, `The students took back ${roomLabel(roomKey)} without a sound.`);
+  return true;
+}
+// What clearing a cutscene's room brings (`reward`); research shows the way to the research tree.
+export function lessonReward(state, roomKey) {
+  const R = ROOM_CUTSCENES[roomKey]?.reward;
+  if (!R) return;
+  for (const [k, n] of Object.entries(R)) state.resources[k] = (state.resources[k] || 0) + n;
+  addLog(state, `Found in ${roomLabel(roomKey)}: ${Object.entries(R).map(([k, n]) => `+${n} ${RESOURCE_NAME[k] || k}`).join(", ")}.`);
+  if (R.research) state.techTip = true; // (ui.js: "spend it on the research tree")
+}
+// A defense found in a cutscene's room, placed on the board before the fight (a free square between
+// the squad and the road).
+export function lessonPlace(state, b, id, row, col) {
+  const def = DEFENSE_STRUCTURES.find((d) => d.id === id);
+  const key = `${row},${col}`;
+  if (!def || !b.toPlace?.includes(id) || b.phase !== "break" || row < b.studentRows || row >= b.rows - 1 || col < 0 || col >= b.size) return false;
+  if (b.structures[key] || zombieAt(b, row, col)) return false;
+  const maxHp = def.hp || 0;
+  b.structures[key] = { key, row, col, def, hp: maxHp, maxHp, destroyed: false };
+  b.toPlace.splice(b.toPlace.indexOf(id), 1); // (one of them — there may be two of a kind)
+  b.frames.push(battleSnapshot(b, []));
+  return true;
+}
+// A cutscene's reinforcement is called (the popup's button): whoever waited at the door runs in.
+export function lessonReinforce(state, b) {
+  const R = ROOM_CUTSCENES[b.lesson]?.reinforce;
+  if (!R || b.called !== "now") return false;
+  const C = ROOM_CUTSCENES[b.lesson];
+  const row = b.studentRows - 1;
+  const events = [];
+  for (const id of b.waiting) {
+    const c = getChar(state, id);
+    const col = C.cols[b.heroIds.indexOf(id)];
+    if (!c || studentAt(b, row, col)) continue;
+    b.students.push(nightFighter(state, c, row, col, 0, b.condition, b.chili));
+    events.push({ type: "posted", at: [row, col], id });
+  }
+  b.waiting = [];
+  b.morale -= R.morale || 0; // (spent on them)
+  b.called = "done";
+  b.phase = "fight";
+  b.frames.push(battleSnapshot(b, events));
+  return true;
+}
+// ---------- the tutorial's last fight: Gellert Grimwald (HEADMASTER_BOSS) ----------
+export const bossDown = (state) => !!state.questFacts?.bosses?.[HEADMASTER_BOSS.id];
+// Everyone (the best 9) on his board — the Tanks and Brawlers in the front row, the Medics and
+// Trappers behind them, the Shooters at the back (the middle of each row first) — with the defenses to
+// place, morale to spend, and him on his dais.
+export function startBossBattle(state) {
+  const H = HEADMASTER_BOSS;
+  const order = { tank: 0, brawler: 1, rallier: 2, medic: 3, trapper: 4, shooter: 5 };
+  const squad = state.characters.filter((c) => c.alive && c.role === "student" && !c.infection)
+    .sort((a, c) => fightPower(state, c).power - fightPower(state, a).power).slice(0, H.studentRows * 3)
+    .sort((a, c) => order[nightClass(a)] - order[nightClass(c)]);
+  if (!squad.length) return null;
+  const k = Math.min(1, 0.4 + squad.length / 15); // (a smaller squad, a little less of him: 6 → 80%)
+  const b = roomBattle(state, squad, ["warlock"], { hp: Math.round(H.zStats.hp * k), damage: Math.round(H.zStats.damage * k) }, {
+    clear: "headmaster", place: { name: "Headmaster's Office", ground: "school", difficulty: 5 }, tutorial: true, lesson: "headmaster",
+    bossFight: H.id, bossName: H.name, bossStats: { hp: Math.round(H.hp * k), dmg: Math.round(H.damage * k) }, size: 3, rows: H.rows, studentRows: H.studentRows,
+  });
+  const squares = [];
+  for (let r = H.studentRows - 1; r >= 0; r--) for (const col of [1, 0, 2]) squares.push([r, col]);
+  b.students = squad.map((c, i) => nightFighter(state, c, squares[i][0], squares[i][1], 0, b.condition, b.chili));
+  b.morale = H.morale;
+  b.toPlace = [...H.defenses];
+  b.prompted = {};
+  const boss = spawnZombie(b, "warlock", b.rows - 1, 1);
+  Object.assign(boss, { phase: 1, t: 0, hex: null, shield: false, stun: 0 });
+  b.frames.push(battleSnapshot(b, []));
+  return b;
+}
+// What he takes: a tenth behind his ward, half as much again while he's stunned.
+const wardMult = (z) => (z.type !== "warlock" ? 1 : z.shield ? HEADMASTER_BOSS.wardTaken : z.stun > 0 ? HEADMASTER_BOSS.stunTaken : 1);
+// His turn (phases in HEADMASTER_BOSS). Returns false only when he's down off his dais and fights
+// like any heavy this turn (the battle's own walk, wind-up and bite).
+function warlockTurn(b, z, events) {
+  const H = HEADMASTER_BOSS;
+  z.t++;
+  const free = (row, col) => !zombieAt(b, row, col) && !studentAt(b, row, col) && !wallAt(b, row, col);
+  const raise = (type, cols, extra = {}) => {
+    for (const col of cols) {
+      const row = [b.rows - 1, b.rows - 2].find((r) => free(r, col));
+      if (row === undefined) continue;
+      const m = spawnZombie(b, type, row, col);
+      Object.assign(m, extra);
+      if (extra.warden) m.hp = m.maxHp = Math.round(m.hp * H.wardenToughness);
+      b.toSpawn++;
+      events.push({ type: "summon", at: [row, col], ztype: type });
+    }
+  };
+  // the ward shatters once its wardens are down (or it's held as long as it can): stunned, and the
+  // students cheer
+  if (z.shield && (!b.zombies.some((o) => o.alive && o.warden) || --z.wardLeft <= 0)) {
+    z.shield = false;
+    z.stun = H.stunTurns;
+    b.morale += H.cheer;
+    events.push({ type: "wardBreak", at: [z.row, z.col], cheer: H.cheer });
+    return true;
+  }
+  if (z.stun > 0) {
+    z.stun--;
+    events.push({ type: "stunned", at: [z.row, z.col] });
+    return true;
+  }
+  // last turn's hex comes down: the first thing in the lane takes the bolt — a wall before anyone
+  if (z.hex !== null && z.hex !== undefined) {
+    const col = z.hex;
+    z.hex = null;
+    const wall = Object.values(b.structures).filter((st) => st.col === col && st.def.blocks && !st.destroyed && st.row < z.row).sort((a, c) => c.row - a.row)[0];
+    const s = b.students.filter((x) => !x.downed && x.col === col && x.row < z.row).sort((a, c) => c.row - a.row)[0];
+    if (wall && (!s || wall.row > s.row)) {
+      const dmg = Math.round(z.dmg * H.boltWall);
+      wall.hp -= dmg;
+      events.push({ type: "bolt", col, at: [wall.row, col], from: [z.row, z.col], dmg, wall: true });
+      if (wall.hp <= 0) {
+        wall.hp = 0;
+        wall.destroyed = true;
+        events.push({ type: "destroyed", at: [wall.row, col] });
+      }
+    } else if (s) {
+      const dmg = Math.max(1, Math.round(z.dmg * H.boltMult * s.armorMult * b.squad.damageTaken * (0.9 + Math.random() * 0.2)));
+      s.hp -= dmg;
+      s.stats.taken += dmg;
+      events.push({ type: "bolt", col, at: [s.row, col], from: [z.row, z.col], dmg });
+      if (s.hp <= 0 && s.secondWind) {
+        s.secondWind = false;
+        s.hp = Math.round(s.maxHp * NIGHT_CLASSES.tank.ability2.revive);
+        events.push({ type: "secondWind", at: [s.row, s.col], id: s.id });
+      } else if (s.hp <= 0) {
+        s.downed = true;
+        events.push({ type: "downed", at: [s.row, s.col], id: s.id });
+      }
+    } else events.push({ type: "bolt", col, at: [0, col], from: [z.row, z.col], dmg: 0 });
+    return true;
+  }
+  // the phases
+  const frac = z.hp / z.maxHp;
+  if (z.phase === 1 && frac <= H.ward) {
+    z.phase = 2;
+    z.shield = true;
+    z.wardLeft = H.wardTurns;
+    events.push({ type: "ward", at: [z.row, z.col] });
+    raise("screamer", [0, 1, 2].filter((c) => c !== z.col).slice(0, H.wardens), { warden: true });
+    return true;
+  }
+  if (z.phase === 2 && !z.shield && frac <= H.rage) {
+    z.phase = 3;
+    z.dmg = Math.round(z.dmg * H.rageDmg);
+    events.push({ type: "rage", at: [z.row, z.col] });
+    return true;
+  }
+  // the next spell in his rotation: a hex on the lane where most of them stand (he's watching), the
+  // dead raised beside him, a blink to another lane — or, down off the dais, nothing: he fights
+  const book = H.spells[z.phase];
+  const spell = book[(z.cast = (z.cast ?? -1) + 1) % book.length];
+  if (spell === "hex") {
+    const lanes = [0, 1, 2].map((col) => ({ col, n: b.students.filter((x) => !x.downed && x.col === col).length })).filter((l) => l.n);
+    const most = Math.max(0, ...lanes.map((l) => l.n));
+    const lane = pick(lanes.filter((l) => l.n === most));
+    if (lane) {
+      z.hex = lane.col;
+      events.push({ type: "hexMark", col: lane.col, at: [z.row, z.col] });
+    }
+    return true;
+  }
+  if (spell === "summon") {
+    raise("walker", [0, 1, 2].filter((c) => c !== z.col));
+    return true;
+  }
+  if (spell === "blink") {
+    const to = [0, 1, 2].filter((c) => c !== z.col && free(z.row, c));
+    if (to.length) {
+      const col = pick(to);
+      events.push({ type: "blink", from: [z.row, z.col], at: [z.row, col] });
+      z.col = col;
+    }
+    return true;
+  }
+  return z.phase < 3; // (on his dais until the end)
+}
+// The night actions, explained the first time they'd help (main.js pauses for it): Rally when his
+// ward shatters, fire when he winds up a smash, Patch Up when someone's badly hurt, a Molotov when the
+// dead bunch up.
+function bossPrompt(state, b, events) {
+  const cost = nightActionCost(state);
+  const seen = (b.prompted ||= {});
+  const ask = (id) => {
+    seen[id] = true;
+    b.prompt = id;
+  };
+  const boss = b.zombies.find((z) => z.alive && z.type === "warlock");
+  if (!seen.rally && events.some((e) => e.type === "wardBreak") && b.morale >= cost.rally) return ask("rally");
+  if (!seen.fire && boss?.windup && b.morale >= cost.molotov) return ask("fire");
+  if (!seen.patch && b.morale >= cost.patch && b.students.some((x) => !x.downed && x.hp < x.maxHp * 0.45)) return ask("patch");
+  if (!seen.molotov && b.morale >= cost.molotov) {
+    const minions = b.zombies.filter((z) => z.alive && z.type !== "warlock");
+    if (minions.some((z) => minions.filter((o) => chebyshev(o, z) <= 2).length >= 2)) return ask("molotov");
+  }
+}
+// The fight's over: down (the questline can be handed in) or not (nobody's hurt for good — the
+// tutorial — so they can go again). Everyone who fought learns from it.
+export function finishBossBattle(state, b) {
+  const won = b.zombies.some((z) => z.type === "warlock" && z.killed);
+  for (const s of b.students) {
+    const c = getChar(state, s.id);
+    if (!c) continue;
+    grantXp(state, c.id, "PE", 4 + randInt(0, 2));
+    grantXp(state, c.id, "Gymnastics", 4 + randInt(0, 2));
+    gainExp(state, c, LEVEL_XP.roomFight * 3);
+  }
+  if (won) {
+    const f = (state.questFacts ||= { cleared: {}, items: {} });
+    f.bosses = { ...(f.bosses || {}), [HEADMASTER_BOSS.id]: true };
+    addLog(state, `${HEADMASTER_BOSS.name}, the Dark Headmaster, has fallen. The school is ours again.`);
+  } else addLog(state, `The squad fell back from the Headmaster's Office.`);
+  return { won, fallen: [], hurt: [], downedCount: b.students.filter((x) => x.downed).length, bossKilled: won };
+}
+// (the courtyard's rooms are out in the open: their fights get the yard's own board)
+const COURTYARD_SITES = ["farm", "barn", "scrapyard"];
 // The squad's chance, from the fight itself: `trials` of it played out in the background.
 export function clearOdds(state, roomKey, ids, trials = 60) {
   let wins = 0;
@@ -1850,6 +2143,7 @@ export function nightActionCost(state) {
 
 // A screamer's howl: a zombie within range of one (not itself) hits harder.
 function howlMult(b, z) {
+  if (b.alarm) return ZOMBIE_TYPES.screamer.howl.mult;
   let m = 1;
   for (const o of b.zombies) {
     const H = ZOMBIE_TYPES[o.type].howl;
@@ -1862,7 +2156,8 @@ function battleSnapshot(b, events) {
   return {
     tick: b.tick,
     events,
-    zombies: b.zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp, windup: z.windup ? { ...z.windup } : null, enraged: !!z.enraged, howled: howlMult(b, z) > 1 })),
+    zombies: b.zombies.filter((z) => z.alive).map((z) => ({ id: z.id, type: z.type, row: z.row, col: z.col, hp: z.hp, maxHp: z.maxHp, windup: z.windup ? { ...z.windup } : null, enraged: !!z.enraged, howled: howlMult(b, z) > 1,
+      ...(z.type === "warlock" ? { phase: z.phase, hex: z.hex ?? null, shield: !!z.shield, stun: z.stun || 0 } : {}), warden: !!z.warden })),
     students: b.students.map((s) => ({ id: s.id, row: s.row, col: s.col, hp: Math.max(0, s.hp), maxHp: s.maxHp, downed: s.downed, cls: s.cls, ability2: s.ability2, ability3: s.ability3 })),
     structures: Object.values(b.structures).map((st) => ({ key: st.key, id: st.def.id, hp: st.hp, maxHp: st.maxHp, destroyed: st.destroyed })),
     killed: b.killed,
@@ -1981,7 +2276,16 @@ function killZombie(b, z, events) {
   z.killed = true;
   b.killed++;
   b.morale += NIGHT_MORALE.perKill;
-  events.push({ type: "kill", at: [z.row, z.col], boss: z.type === "boss", ztype: z.type });
+  events.push({ type: "kill", at: [z.row, z.col], boss: z.type === "boss" || z.type === "warlock", ztype: z.type });
+  if (z.type === "warlock") {
+    events.push({ type: "bossFall" });
+    for (const o of b.zombies.filter((o) => o.alive)) {
+      o.alive = false;
+      o.killed = true;
+      b.killed++;
+      events.push({ type: "kill", at: [o.row, o.col], ztype: o.type });
+    }
+  }
 }
 // A zombie stepping onto a trap (or appearing on one): it's cut, and may be snagged in place.
 // Returns false if that killed it.
@@ -2002,7 +2306,7 @@ function springTrap(b, z, events) {
 // The wave's next zombie appears on (row, col).
 function spawnZombie(b, type, row, col) {
   const T = ZOMBIE_TYPES[type];
-  const raidBoss = type === "boss" && b.bossStats; // (a raid's boss brings its own)
+  const raidBoss = (type === "boss" || type === "warlock") && b.bossStats; // (a raid's boss brings its own — so does he)
   const hp = raidBoss ? raidBoss.hp : Math.round(b.zStats.hp * T.hpMult);
   const z = { id: b.spawned + 1, type, row, col, hp, maxHp: hp, dmg: raidBoss ? raidBoss.dmg : Math.max(1, Math.round(b.zStats.damage * T.dmgMult)), alive: true, snagged: false, walk: 0, slow: 0 };
   b.zombies.push(z);
@@ -2030,9 +2334,15 @@ export function battleTick(state, b) {
     for (let col = 0; col < size; col++) if (!zombieAt(b, road, col)) free.push(col);
     if (!free.length) break;
     // the opening zombies take the lanes the planning board marked
-    const planned = b.tick === 1 ? b.opening.shift() : undefined;
+    const planned = b.tick === 1 || b.lesson ? b.opening[0] : undefined;
+    if (b.lesson && planned !== undefined && !free.includes(planned)) break; // (a cutscene's: its lane, or wait —
+    const at = ROOM_CUTSCENES[b.lesson]?.spawnAt?.[b.waveSpawned]; //  and its turn)
+    if (at === "call" ? b.called !== "done" : b.tick < (at ?? 0)) break;
+    if (planned !== undefined) b.opening.shift();
     const col = planned !== undefined && free.includes(planned) ? planned : pick(free);
     const z = spawnZombie(b, wave[b.waveSpawned], road, col);
+    const tough = b.lesson && ROOM_CUTSCENES[b.lesson]?.toughness?.[b.waveSpawned - 1]; // (a cutscene's tougher one)
+    if (tough) z.hp = z.maxHp = Math.round(z.hp * tough);
     if (z.type === "boss") events.push({ type: "bossArrives", at: [road, col] });
     springTrap(b, z, events); // (a trap under it gets it as it arrives)
   }
@@ -2082,7 +2392,7 @@ export function battleTick(state, b) {
     const desperate = b.lastStand && s.hp < s.maxHp * 0.25 ? 2 : 1;
     const boosted = s.cheered ? 1 + cry.buff : 1; // Rally Cry
     const dmg = hit
-      ? Math.max(1, Math.round(s.weapon.damage * s.dmgMult * typeMult * desperate * rallied * boosted * b.squad.damageDealt * (0.85 + Math.random() * 0.3) * (crit ? BATTLE_CRIT.mult : 1)))
+      ? Math.max(1, Math.round(s.weapon.damage * s.dmgMult * typeMult * desperate * rallied * boosted * b.squad.damageDealt * (0.85 + Math.random() * 0.3) * (crit ? BATTLE_CRIT.mult : 1) * wardMult(z)))
       : 0;
     const dealt = Math.min(dmg, Math.max(0, z.hp)); // (overkill doesn't count)
     z.hp -= dmg;
@@ -2133,7 +2443,7 @@ export function battleTick(state, b) {
     const C = NIGHT_CLASSES[s.cls];
     if (s.cls === "rallier") {
       // morale every few turns, more the higher their CHA
-      if (++s.timer % C.every === 0 && !b.room) {
+      if (++s.timer % C.every === 0 && (!b.room || b.lesson)) {
         const gain = Math.round(C.morale * (s.ability3 ? C.ability3.moraleMult : 1) * s.moraleMult); // Inspire: double; a Whistle: more
         b.morale += gain;
         s.stats.morale += gain;
@@ -2225,7 +2535,7 @@ export function battleTick(state, b) {
     if (ahead < 0) {
       // (in a room a boss never leaves — nor does anything in the school's own rooms, with nowhere to
       // go: it lunges in front of the nearest of them still standing)
-      const spot = b.room && (z.type === "boss" || b.clear) && b.students
+      const spot = b.room && (z.type === "boss" || z.type === "warlock" || b.clear) && b.students
         .filter((s) => !s.downed && s.row + 1 < b.rows && !zombieAt(b, s.row + 1, s.col))
         .sort((s1, s2) => Math.abs(s1.col - z.col) - Math.abs(s2.col - z.col))[0];
       if (spot) {
@@ -2233,7 +2543,7 @@ export function battleTick(state, b) {
         hurtStudent(z, spot, z.dmg, "bite");
         return false;
       }
-      if (b.room && (z.type === "boss" || b.clear) && b.students.some((s) => !s.downed)) return false; // (it waits for a way in)
+      if (b.room && (z.type === "boss" || z.type === "warlock" || b.clear) && b.students.some((s) => !s.downed)) return false; // (it waits for a way in)
       z.alive = false;
       b.breached++;
       events.push({ type: "breach", at: [z.row, z.col] });
@@ -2266,6 +2576,7 @@ export function battleTick(state, b) {
   };
   for (const z of b.zombies.filter((z) => z.alive).sort((a, c) => a.row - c.row)) {
     const T = ZOMBIE_TYPES[z.type];
+    if (z.type === "warlock" && warlockTurn(b, z, events)) continue; // (his own: hexes, the dead, his ward)
     if (z.slow > 0) z.slow--;
     if (z.netted > 0) { // caught in a Trapper's Wide Net
       z.netted--;
@@ -2314,6 +2625,10 @@ export function battleTick(state, b) {
 
   if (b.rally > 0) b.rally--;
 
+  // a cutscene's reinforcement: called once the first zombies are down (main.js shows it)
+  const R = b.lesson && b.waiting?.length && !b.called && ROOM_CUTSCENES[b.lesson]?.reinforce;
+  if (R && (R.morale ? b.morale >= R.morale : b.killed >= R.after)) b.called = "now";
+
   // 4. is this wave over? (all of it spawned, and every zombie put down or in the school) The night
   // only ends early with nobody left standing (once the whole horde's here) or in a stalemate
   // (BATTLE_MAX_TICKS) — and then whatever's still out there walks in.
@@ -2328,6 +2643,8 @@ export function battleTick(state, b) {
       events.push({ type: "breach", at: [z.row, z.col] });
     }
   }
+  if (b.called === "now" && b.phase === "fight" && !cleared) b.phase = "break"; // (waiting for them)
+  if (b.bossFight && b.phase === "fight" && !cleared && !endsEarly) bossPrompt(state, b, events);
   if (cleared || endsEarly) {
     if (b.wave < b.waves.length - 1 && !endsEarly) {
       b.wave++;
@@ -2415,8 +2732,9 @@ export function battleAction(state, b, actionId, row, col) {
     const dmg = Math.round(b.zStats.hp * MOLOTOV_DAMAGE);
     for (let r = row - 1; r <= row + 1; r++) for (let c = col - 1; c <= col + 1; c++) if (r >= 0 && c >= 0 && r < b.rows && c < b.size) events.push({ type: "fire", at: [r, c] });
     for (const z of b.zombies.filter((z) => z.alive && chebyshev(z, { row, col }) <= 1)) {
-      z.hp -= dmg;
-      events.push({ type: "burn", at: [z.row, z.col], dmg });
+      const burn = Math.max(1, Math.round(dmg * wardMult(z)));
+      z.hp -= burn;
+      events.push({ type: "burn", at: [z.row, z.col], dmg: burn });
       if (z.windup && z.hp > 0) events.push({ type: "interrupt", at: [z.row, z.col] });
       z.windup = null; // fire breaks a wind-up
       if (z.hp <= 0) killZombie(b, z, events);
@@ -2734,7 +3052,8 @@ export function finishExpeditionBattle(state, run, b) {
 // Plays the rest of the night straight through (waves start on their own).
 export function runNightBattle(state, b) {
   while (b.phase !== "done") {
-    if (b.phase === "break") startNextWave(b);
+    if (b.phase === "break" && b.called === "now") lessonReinforce(state, b); // (a cutscene's reinforcement)
+    else if (b.phase === "break") startNextWave(b);
     battleTick(state, b);
   }
 }

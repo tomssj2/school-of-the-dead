@@ -7,6 +7,9 @@
 //   night      Turn 3   tense: a dark pad, a pulsing bass, a heartbeat kick, a music box
 //   fight               driving: rock drums, an eighth-note bass, a string ostinato, a lead
 //   boss                epic: taiko, a choir, galloping low strings and a brass theme
+//   raid                the Dark Headmaster (the tutorial's last fight): a pipe organ, a choir, taiko,
+//                       a harpsichord's arpeggios and the brass theme, in D minor
+//   raidRage            the same theme, faster and frantic, once he comes down off his dais
 // The moods cross-fade into each other. Nothing plays until the first click or key press (browsers
 // don't allow it), or while the Music option is off.
 
@@ -112,6 +115,11 @@ const CH = {
   bEb: { root: 39, choir: [55, 58, 63, 67], stab: [51, 55, 58, 63] },
   bBb: { root: 34, choir: [53, 58, 62, 65], stab: [46, 53, 58, 62] },
   bG: { root: 31, choir: [55, 59, 62, 67], stab: [43, 50, 55, 59] },
+  // the Dark Headmaster, in D minor (the A major's C# for the dread): the organ's voicing, the choir above
+  rDm: { root: 38, notes: [62, 65, 69], choir: [65, 69, 74] },
+  rBb: { root: 34, notes: [62, 65, 70], choir: [65, 70, 74] },
+  rGm: { root: 31, notes: [62, 67, 70], choir: [67, 70, 74] },
+  rA: { root: 33, notes: [61, 64, 69], choir: [64, 69, 73] },
 };
 
 // A short melodic idea for one bar: a few notes on the sixteenths, walking up and down `scale`
@@ -608,6 +616,32 @@ function bell(T, t, midi, { vel = 1, gain = 0.05, echo = 0.4 } = {}) {
   run(oscs, t, t + 1.7);
 }
 
+// A pipe organ: a square pipe at the note, sine pipes an octave and a twelfth above, through a
+// filter, with a slow tremolo — the Dark Headmaster's.
+function organ(T, t, notes, len, { gain = 0.03, attack = 0.08, release = 0.7 } = {}) {
+  const lp = filter(T, "lowpass", 2400, 0.5);
+  const a = env(T, t);
+  const end = t + Math.max(attack, len);
+  a.gain.linearRampToValueAtTime(gain, t + attack);
+  a.gain.setValueAtTime(gain, end);
+  a.gain.linearRampToValueAtTime(0.0001, end + release);
+  const trem = osc(T, "sine", 5.5, t);
+  const depth = T.ac.createGain();
+  depth.gain.value = gain * 0.2;
+  trem.connect(depth).connect(a.gain);
+  const oscs = [trem];
+  for (const m of notes) for (const [mult, type, g] of [[1, "square", 0.35], [2, "sine", 0.6], [3, "sine", 0.22]]) {
+    const o = osc(T, type, mtof(m) * mult, t);
+    const og = T.ac.createGain();
+    og.gain.value = g;
+    o.connect(og).connect(lp);
+    oscs.push(o);
+  }
+  lp.connect(a);
+  out(T, a, { rev: 0.6 }, "organ");
+  run(oscs, t, end + release + 0.05);
+}
+
 // ---------- the moods ----------
 
 const MORNING_COMP = [
@@ -644,6 +678,20 @@ const BOSS_THEME = [
 
 // The intro's tune on the piano: [step, note, length in sixteenths] for each bar — sad, then
 // climbing toward something hopeful, and resolving on E for the loop.
+// The Dark Headmaster's theme, over D minor, B flat, G minor and A — a turn round the D, climbing
+// to the high B flat, falling back down through the A chord to the D.
+const RAID_THEME = [
+  [[0, 74, 4], [4, 73, 2], [6, 74, 2], [8, 77, 4], [12, 76, 2], [14, 74, 2]],
+  [[0, 70, 6], [6, 69, 2], [8, 67, 4], [12, 65, 4]],
+  [[0, 67, 4], [4, 70, 4], [8, 74, 6], [14, 72, 2]],
+  [[0, 73, 8], [8, 76, 4], [12, 73, 4]],
+  [[0, 74, 4], [4, 73, 2], [6, 74, 2], [8, 77, 4], [12, 79, 2], [14, 81, 2]],
+  [[0, 82, 6], [6, 81, 2], [8, 79, 4], [12, 77, 4]],
+  [[0, 79, 4], [4, 77, 4], [8, 76, 4], [12, 73, 4]],
+  [[0, 74, 12], [12, 69, 4]],
+];
+const RAID_PROG = [CH.rDm, CH.rBb, CH.rGm, CH.rA, CH.rDm, CH.rBb, CH.rA, CH.rDm];
+
 const INTRO_THEME = [
   [[0, 76, 6], [6, 74, 2], [8, 72, 8]],
   [[0, 72, 6], [6, 74, 2], [8, 69, 8]],
@@ -822,6 +870,72 @@ const MOODS = {
       }
     },
   },
+  // The Dark Headmaster: a gong and taiko, the organ holding each chord, a choir every other bar, a
+  // harpsichord rippling the chord in sixteenths, and the brass playing his theme (with the organ an
+  // octave down on every other phrase).
+  raid: {
+    bpm: 100, swing: 0.5, cutoff: 8000, echo: 0.75, humanize: 0.004,
+    prog: RAID_PROG,
+    play(T, s, t) {
+      const bar = s >> 4;
+      const p = s & 15;
+      const ch = T.def.prog[bar % 8];
+      const phraseEnd = bar % 8 === 7;
+      if (p === 0 && bar % 4 === 0) {
+        crash(T, t, 0.8);
+        tom(T, t, 1, { hi: 70, lo: 34, decay: 1.4, gain: 0.8, skin: 0.5 }); // the gong-like boom
+      }
+      if (p === 0) organ(T, t, ch.notes, 3.9 * T.beat, { gain: 0.028 });
+      if (p === 0 && bar % 2 === 0) choir(T, t, ch.choir, 7.6 * T.beat, { gain: 0.36, attack: bar === 0 ? 1.8 : 0.6, release: 1.4 });
+      if (p === 0 || p === 8) bass(T, t, ch.root, 1.7 * T.beat, { type: "sawtooth", cutoff: 240, gain: 0.26 });
+      // taiko, and a roll into each phrase
+      if ([0, 6, 8, 11].includes(p)) tom(T, t, p === 0 ? 1 : 0.7, { hi: 92, lo: 46, decay: 0.75, gain: 0.65, skin: 0.35 });
+      if (p === 4 || p === 12) snare(T, t, 0.5, { tone: 1500, decay: 0.22, gain: 0.16, body: 150 });
+      if (phraseEnd && p >= 8) tom(T, t, 0.35 + (p - 8) * 0.08, { hi: 140, lo: 70, decay: 0.3, gain: 0.45 });
+      // the harpsichord
+      if (bar >= 1 && p % 2 === 0) {
+        const arp = [...ch.notes, ch.notes[0] + 12];
+        pluck(T, t, arp[(p >> 1) % arp.length] + 12, { vel: p % 8 === 0 ? 1 : 0.65, gain: 0.03, decay: 0.22, echo: 0.2 });
+      }
+      // the theme
+      if (bar >= 2) {
+        for (const [at, note, len] of RAID_THEME[bar % 8]) {
+          if (at !== p) continue;
+          brass(T, t, note, len * T.stepDur * 0.95, { gain: 0.055 });
+          if (((bar >> 3) & 1) === 1) organ(T, t, [note - 12], len * T.stepDur * 0.9, { gain: 0.02, attack: 0.03, release: 0.25 });
+        }
+      }
+      if (p === 0 && bar % 8 === 0) bell(T, t, ch.notes[2] + 24, { gain: 0.04, echo: 0.5 });
+    },
+  },
+  // …and when he comes down off the dais: faster, the drums doubled, strings sawing in sixteenths,
+  // the choir on every bar and the theme an octave up.
+  raidRage: {
+    bpm: 138, swing: 0.5, cutoff: 9000, echo: 0.5, humanize: 0.003,
+    prog: RAID_PROG,
+    play(T, s, t) {
+      const bar = s >> 4;
+      const p = s & 15;
+      const ch = T.def.prog[bar % 8];
+      if (p === 0 && bar % 2 === 0) crash(T, t, 0.9);
+      if (p === 0) {
+        organ(T, t, ch.notes, 3.8 * T.beat, { gain: 0.03 });
+        choir(T, t, ch.choir, 3.6 * T.beat, { gain: 0.38, attack: 0.25, release: 0.8 });
+      }
+      if (p % 4 === 0) kick(T, t, 1, { gain: 0.7 });
+      if (p === 4 || p === 12) snare(T, t, 0.8, { gain: 0.24 });
+      if (p % 2 === 1) hat(T, t, 0.7, false, 0.05);
+      if ([0, 3, 6, 10, 11].includes(p)) tom(T, t, 0.8, { hi: 100, lo: 50, decay: 0.5, gain: 0.5, skin: 0.3 });
+      if (bar % 8 === 7 && p >= 8) tom(T, t, 0.5 + (p - 8) * 0.06, { hi: 150, lo: 75, decay: 0.25, gain: 0.45 });
+      strings(T, t, ch.root + 24 + (p % 4 === 2 ? 7 : 0), 0.18 * T.beat, { vel: p % 4 === 0 ? 1 : 0.6, gain: 0.045, cutoff: 2200 });
+      if (p % 4 === 0) bass(T, t, ch.root, 0.9 * T.beat, { type: "sawtooth", cutoff: 300, gain: 0.25 });
+      for (const [at, note, len] of RAID_THEME[bar % 8]) {
+        if (at !== p) continue;
+        brass(T, t, note + 12, len * T.stepDur * 0.9, { gain: 0.05 });
+        brass(T, t, note, len * T.stepDur * 0.9, { gain: 0.045 });
+      }
+    },
+  },
 };
 
 // ---------- playing live ----------
@@ -836,7 +950,7 @@ function switchTo(mood) {
   if (!isMusicEnabled()) mood = null;
   if ((current?.mood || null) === mood) return;
   const now = E.ac.currentTime;
-  const urgent = mood === "fight" || mood === "boss";
+  const urgent = mood === "fight" || mood === "boss" || mood === "raid" || mood === "raidRage";
   if (current) {
     const old = current;
     const fade = urgent ? 0.6 : mood ? 2.5 : 1.5;

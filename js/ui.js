@@ -5,7 +5,7 @@ import {
   TECH_TREE, CLASSROOM_SUBJECT, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ACCESSORIES, ACCESSORY_RANGES, RARITIES, RARITY_ORDER, ITEM_DROP_ODDS, MYTHIC_SETS, WEAPON_TEMPLATES, ARMOR_TEMPLATES, ARMOR_TYPES, WEAPON_TYPES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
-  NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_CLASSES, NIGHT_MORALE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD,
+  HEADMASTER_BOSS, NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_CLASSES, NIGHT_MORALE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD,
   DISHES, INGREDIENTS, PRODUCERS, WORK_SITES, GYM_SIDES, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, RESEARCH_BONUS_BY_LEVEL, HELPER_SLOTS_BY_LEVEL, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, ROOM_FIGHT_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
@@ -18,7 +18,7 @@ import {
   stripHonorific, setsWorn, weaponCategory, studentClass, armorType,
 } from "./characters.js";
 import {
-  getChar, aliveChars, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
+  getChar, aliveChars, cutsceneCheckOdds, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, researchRoomYield,
   techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionHaul, expeditionPlace, expeditionForecast, expeditionRooms, expeditionRoomZombies, battleNoise, expeditionSneakOdds, runShare, roomEventOdds, expeditionGearChance, poiTier, scoutOdds, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
   gymLesson, craftingCrew, tutorialTarget, tutorialOn, clearCost, APPRENTICE_POSTS, canApprentice, apprenticeOf, roomName, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, clearOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM, siteDay, siteFocus, unlockedCrops, herdSize, herdKinds, roomStaff, } from "./game.js";
@@ -27,12 +27,12 @@ import {
 } from "./map.js";
 import { hexToWorld, viewBox, cityBaseUrl, fogUrl, WORLD_W, WORLD_H } from "./citymap.js";
 import { zombieSprite, hordeSprite } from "./zombies.js";
-import { courtyardBackground, roomBackground, structureSprite } from "./nightwatch.js";
+import { courtyardBackground, roomBackground, officeArena, structureSprite } from "./nightwatch.js";
 import { raidBackdrop, streetBackdrop, duskBackdrop, introBackdrop } from "./backdrops.js";
 import { characterSprite } from "./sprite.js";
 import { NPCS, npcSprite, BANTER } from "./npcs.js";
 import { QUESTS, questStatus, stepDone, npcQuests, npcMark, activeQuests, questTargets, upgradeItemFound, upgradeQuest, placeName,
-  RENOWN_RANKS, RENOWN_MAX, LEGEND_BUFF, questRenown, renownPoints, renownRank, apprenticeOpen, NPC_PLACE, banterFor, NPC_INTRO, ROOM_GUIDE, SCHOOL_PARTS } from "./quests.js";
+  RENOWN_RANKS, RENOWN_MAX, LEGEND_BUFF, questRenown, renownPoints, renownRank, apprenticeOpen, NPC_PLACE, banterFor, NPC_INTRO, ROOM_GUIDE, SCHOOL_PARTS, ROOM_CUTSCENES, CLASS_LESSON } from "./quests.js";
 import { getBest, isBestRun } from "./score.js";
 import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZE } from "./graphics.js";
 import { areaOfTab } from "./frames.js";
@@ -1052,7 +1052,7 @@ export function renderTabs(state, activeTab) {
 }
 // The tutorial's tabs: the basement, and each floor (the courtyard's three) once Doubledoor has sent
 // you to it (null when there's no tutorial). ROOM_TAB: where each room is.
-const ROOM_TAB = (key) => key.startsWith("classroom:") ? "floor2" : ["gym", "acrobatics", "cafeteria", "infirmary"].includes(key) ? "floor1" : ["research", "crafting", "radio"].includes(key) ? "floor3" : key;
+const ROOM_TAB = (key) => key.startsWith("classroom:") ? "floor2" : ["gym", "acrobatics", "cafeteria", "infirmary"].includes(key) ? "floor1" : ["research", "crafting", "radio", "headmaster"].includes(key) ? "floor3" : key;
 export function tutorialTabs(state) {
   if (!tutorialOn(state)) return null;
   const sent = SCHOOL_PARTS.filter((p) => state.quests?.[p.id]).flatMap((p) => p.rooms.map(ROOM_TAB));
@@ -2352,6 +2352,8 @@ function gridBattle(state, anim) {
   const zombieAtPrev = (row, col) => (prev?.zombies || []).find((z) => z.row === row && z.col === col);
   const breakTime = anim.phase === "battle" && b?.phase === "break";
   const condition = summary.condition || NIGHT_CONDITIONS.clear;
+  const bossFight = !!summary.bossFight; // (the tutorial's last: Gellert Grimwald, in the Office)
+  const wl = bossFight ? frame.zombies.find((z) => z.type === "warlock") : null;
 
   // who did what this turn
   const clsAt = new Map(frame.students.map((s) => [`${s.row},${s.col}`, s.cls])); // each defender's class, by square
@@ -2434,7 +2436,33 @@ function gridBattle(state, anim) {
       banner = `<div class="nw-banner nw-banner-boss">${BOSS_ICON} ${esc(summary.bossName || "The boss")} goes berserk!</div>`;
       shake = 2;
     } else if (e.type === "summon") {
-      fx += pop(e.at[0], e.at[1], "nw-pop-bad", "+🧟");
+      fx += `<span class="nw-puff nw-puff-green" ${at(e.at[0], e.at[1])}></span>`;
+      fx += pop(e.at[0], e.at[1], "nw-pop-bad", e.ztype === "screamer" ? "+📢" : "+🧟");
+    } else if (e.type === "hexMark") {
+      fx += pop(e.at[0], e.at[1], "nw-pop-warn", "⚡ hex!");
+    } else if (e.type === "bolt") {
+      // lightning down the hexed lane, into the first thing in it
+      fx += `<span class="nw-bolt" style="--c:${e.col};--r0:${e.at[0]};--r1:${e.from[0]}"></span>`;
+      if (e.dmg) fx += pop(e.at[0], e.at[1], `nw-pop-bad nw-pop-smash`, `${e.wall ? "🧱" : "⚡"}-${e.dmg}`);
+      else fx += pop(e.at[0], e.at[1], "nw-pop-miss", "fizzles");
+      if (e.dmg) hurt.add(`${e.at[0]},${e.at[1]}`);
+      shake = 2;
+    } else if (e.type === "blink") {
+      fx += `<span class="nw-puff" ${at(e.from[0], e.from[1])}></span><span class="nw-puff" ${at(e.at[0], e.at[1])}></span>`;
+      fx += pop(e.at[0], e.at[1], "nw-pop-note", "🌀 blink!");
+    } else if (e.type === "ward") {
+      banner = `<div class="nw-banner nw-banner-boss nw-banner-ward">🛡 The Dark Ward! Take down his 📢 wardens</div>`;
+      shake = 1;
+    } else if (e.type === "wardBreak") {
+      banner = `<div class="nw-banner nw-banner-clear">💥 The ward shatters! He's stunned — hit him now! (+${e.cheer} 😊)</div>`;
+      shake = 2;
+    } else if (e.type === "stunned") {
+      fx += pop(e.at[0], e.at[1], "nw-pop-note", "💫 stunned");
+    } else if (e.type === "rage") {
+      banner = `<div class="nw-banner nw-banner-boss">😡 Expelled! He's coming down off the dais</div>`;
+      shake = 2;
+    } else if (e.type === "bossFall") {
+      shake = 2;
     } else if (e.type === "kill") {
       const type = e.ztype || zombieAtPrev(e.at[0], e.at[1])?.type || (e.boss ? "boss" : "walker");
       fx += `<div class="nw-unit nw-corpse" ${at(e.at[0], e.at[1])}>${hordeSprite(type, 36)}</div>`;
@@ -2538,7 +2566,7 @@ function gridBattle(state, anim) {
   for (const z of frame.zombies) {
     const p = prevZombies.get(z.id);
     const T = ZOMBIE_TYPES[z.type] || ZOMBIE_TYPES.walker;
-    units += `<div class="nw-unit nw-zombie nw-z-${z.type} ${hurt.has(`${z.row},${z.col}`) ? "nw-flash" : ""} ${z.windup ? "nw-winding" : ""} ${z.enraged ? "nw-enraged" : ""} ${z.howled ? "nw-howled" : ""}" ${at(z.row, z.col, `--pr:${p ? p.row : z.row + 1};--pc:${p ? p.col : z.col};`)} ${tipAttr({
+    units += `<div class="nw-unit nw-zombie nw-z-${z.type} ${z.shield ? "nw-warded" : ""} ${z.stun ? "nw-stunned" : ""} ${z.phase === 3 ? "nw-raging" : ""} ${z.warden ? "nw-warden" : ""} ${hurt.has(`${z.row},${z.col}`) ? "nw-flash" : ""} ${z.windup ? "nw-winding" : ""} ${z.enraged ? "nw-enraged" : ""} ${z.howled ? "nw-howled" : ""}" ${at(z.row, z.col, `--pr:${p ? p.row : z.row + 1};--pc:${p ? p.col : z.col};`)} ${tipAttr({
       title: `${T.badge || "🧟"} ${T.name}${z.enraged ? " · berserk" : ""}`, rows: [["HP", `${Math.max(0, z.hp)}/${z.maxHp}`]],
       notes: [esc(T.desc), ...(z.howled ? ["📢 A screamer's howl: hits 30% harder"] : []), ...(z.windup ? ["⚠ Winding up a smash — hit it with an ability, a crit or fire to break it"] : [])],
     })}>
@@ -2547,10 +2575,20 @@ function gridBattle(state, anim) {
     // the square it's about to smash
     if (z.windup) units += `<div class="nw-cell nw-telegraph" ${at(z.windup.row, z.windup.col)}><span>⚠ Smash</span></div>`;
   }
-  // aiming a night action: every square is a button
+  if (wl && wl.hex !== null && wl.hex !== undefined) {
+    for (let row = 0; row < wl.row; row++) units += `<div class="nw-cell nw-hexlane" ${at(row, wl.hex)}><span>⚡</span></div>`;
+  }
+  // aiming a night action: every square is a button (or placing a cutscene's defense: the free ones
+  // between the squad and the road)
   let aimCells = "";
+  if (anim.placing && b) {
+    const taken = new Set([...Object.keys(b.structures), ...frame.zombies.map((z) => `${z.row},${z.col}`)]);
+    for (let row = b.studentRows; row < b.rows - 1; row++) for (let col = 0; col < size; col++) {
+      if (!taken.has(`${row},${col}`)) aimCells += `<div class="nw-cell nw-pick nw-pick-ok nw-pick-place" ${at(row, col)} data-action="lesson-place" data-row="${row}" data-col="${col}"></div>`;
+    }
+  }
   if (anim.target) {
-    for (let row = 0; row < ENTRANCE_ROWS; row++) for (let col = 0; col < size; col++) {
+    for (let row = 0; row < summary.rows; row++) for (let col = 0; col < size; col++) {
       const hasZombie = frame.zombies.some((z) => z.row === row && z.col === col);
       const hasHurt = frame.students.some((s) => !s.downed && s.row === row && s.col === col && s.hp < s.maxHp);
       const ok = anim.target === "molotov" || (anim.target === "patch" && hasHurt);
@@ -2562,7 +2600,9 @@ function gridBattle(state, anim) {
   const waveNow = Math.min(waves, (frame.wave ?? 0) + 1);
 
   // the break between waves
-  const breakBanner = breakTime && clear
+  const breakBanner = breakTime && clear && summary.lesson
+    ? "" // (the tutorial's 1v1: its class lesson pops up over the board instead)
+    : breakTime && clear
     ? `<div class="nw-break">
         <b>🔨 ${esc(room.name)}</b>
         <span>${summary.tutorial ? "Each student fights by their class — hover one to see what they reach. Nobody dies in here." : "Something's moving in there."} Drag the squad into place, then go in.</span>
@@ -2586,7 +2626,28 @@ function gridBattle(state, anim) {
   const total = summary.toSpawn ?? summary.spawned;
   const morale = anim.phase === "battle" && b ? Math.floor(b.morale) : frame.morale ?? 0;
   let controls = "";
-  if (anim.phase === "battle" && room) {
+  if (anim.phase === "battle" && bossFight) {
+    const costs = nightActionCost(state);
+    const actions = Object.keys(NIGHT_ACTIONS).map((id) =>
+      actionTile(id, costs[id], b?.phase === "fight" && !b.prompt && morale >= costs[id], { tag: "button", attrs: `data-action="night-action" data-id="${id}"`, on: anim.target === id })).join("");
+    const aimHint = anim.target
+      ? `<div class="nw-aim-hint">${NIGHT_ACTIONS[anim.target].icon} ${{ molotov: "Pick a square to throw it at", patch: "Pick a hurt student" }[anim.target]} · <button class="btn btn-sm" data-action="night-cancel">Cancel</button></div>`
+      : "";
+    const phase = wl?.phase || 3;
+    const PHASES = [["The Lecture", "⚡ hexes · 📜 raises the dead · 🌀 blinks"], ["The Dark Ward", "🛡 takes almost nothing — down his 📢 wardens"], ["Expelled!", "😡 comes down off the dais for you"]];
+    const delta = anim.shownMorale === undefined ? 0 : morale - anim.shownMorale;
+    anim.shownMorale = morale;
+    controls = `${aimHint}
+      <div class="bb-phases">${PHASES.map(([name, what], i) => `<div class="bb-phase ${i + 1 === phase ? "on" : i + 1 < phase ? "past" : ""}"><b>${i + 1}</b><span>${name}<small>${what}</small></span></div>`).join("")}</div>
+      ${moraleCard(morale, "<span>kills +5 · 📣 Ralliers</span><span>spent on night actions</span>", { delta })}
+      <div class="mini-label">Night actions ${infoDot({ title: "😊 Night actions", rows: Object.entries(NIGHT_ACTIONS).map(([id, a]) => [`${a.icon} ${a.name}`, `${costs[id]} morale`]), notes: Object.values(NIGHT_ACTIONS).map((a) => `${a.icon} ${a.desc}`).concat(["🔥 Fire also breaks a wind-up"]) })}</div>
+      <div class="nw-actions">${actions}</div>
+      <div class="nw-battle-buttons">
+        <button class="btn" data-action="toggle-pause" ${breakTime ? "disabled" : ""}>${anim.paused ? "▶ Resume" : "⏸ Pause"}</button>
+        <button class="btn nw-speed" data-action="battle-speed" title="How fast the fight plays — click to change">⏩ ${anim.speed || 1}×</button>
+        <button class="btn" data-action="skip-battle" title="Play the rest of the fight out at once">⏭ Skip</button>
+      </div>`;
+  } else if (anim.phase === "battle" && room) {
     const queue = summary.waves[0];
     const tiles = ["walker", "runner", "brute", "spitter", "screamer", "boss"].filter((t) => queue.includes(t)).map((t) => {
       const T = ZOMBIE_TYPES[t];
@@ -2600,6 +2661,7 @@ function gridBattle(state, anim) {
     }).join("");
     controls = `${summary.run ? noiseMeter(Math.min(EXPEDITION_NOISE.max, summary.noise0 + battleNoise(summary))) : ""}<div class="mini-label">In the dark ${infoDot({ title: "🔦 The room", rows: [["Zombies", `${queue.length}`]], notes: clear ? ["The squad stands at the door; the zombies come at them out of the dark", "Every one of them down: the room's cleared", "Nowhere to go in here — one that gets past turns on them", "Nobody dies: anyone who goes down is dragged out"] : ["The team stands where they came in; the zombies come out of the dark at the bottom", "Anyone still standing at the end: the place is cleared and the loot is theirs", "Everyone down: they drag themselves out with a little", "A zombie that gets past them bites someone on its way"] })}</div>
       <div class="nw-horde">${tiles}</div>
+      ${ROOM_CUTSCENES[summary.lesson]?.reinforce?.morale ? moraleCard(morale, `<span>📣 Ralliers +5 every 2 turns · kills +5</span><span>${b?.waiting?.length ? `at ${ROOM_CUTSCENES[summary.lesson].reinforce.morale}, someone joins` : "spent on bringing someone in"}</span>`) : ""}
       <div class="nw-battle-buttons">
         <button class="btn" data-action="toggle-pause" ${breakTime ? "disabled" : ""}>${anim.paused ? "▶ Resume" : "⏸ Pause"}</button>
         <button class="btn nw-speed" data-action="battle-speed" title="How fast the fight plays — click to change">⏩ ${anim.speed || 1}×</button>
@@ -2699,7 +2761,11 @@ function gridBattle(state, anim) {
       <div class="mini-label">Fight stats ${infoDot({ title: "📊 Fight stats", notes: ["The top defenders tonight in each — the bar is against the best", "Hover someone for everything they did"] })}</div>
       <div class="nw-stats">${meters || '<p class="muted">Nothing to show.</p>'}</div>`;
   }
-  const side = room
+  const side = bossFight
+    ? `<div class="nw-side-head"><span class="nw-cond">🧙 Raid</span><h2>The Office</h2><span class="ov-chip">${b ? b.students.filter((x) => !x.downed).length : frame.students.filter((x) => !x.downed).length} standing</span></div>
+    <div class="nw-facts"><span>🧟 ${frame.spawned - 1} raised</span><span>💀 ${frame.killed} down</span><span>🩸 ${frame.students.filter((x) => x.downed).length} hurt</span></div>
+    ${controls}`
+    : room
     ? `<div class="nw-side-head">
       ${clear ? `<span class="nw-cond">🔨 Squad</span>` : `<span class="nw-cond" style="--team:${TEAM_COLORS[summary.teamIndex]}"><i class="team-dot"></i>${teamLabel(summary.teamIndex)}</span>`}
       <h2>${esc(room.name)}</h2>
@@ -2718,7 +2784,18 @@ function gridBattle(state, anim) {
 
   // once it's over: the result and its stars, on the board until the night's finished
   let result = "";
-  if (anim.phase !== "battle" && room) {
+  if (anim.phase !== "battle" && bossFight) {
+    const { won } = summary;
+    result = `<div class="nw-result">
+      <div class="fight-result gb-result bb-result ${won ? "fight-win" : "fight-lose"} ${anim.resultDrawn ? "nw-still" : ""}">
+        <div class="fight-result-icon">${won ? "🏆" : "⚠️"}</div>
+        <div class="fight-result-text">${won ? `${esc(HEADMASTER_BOSS.name)} has fallen!` : "The squad fell back!"}</div>
+        <div class="nw-star-reward">${won ? "The Headmaster's Office — and the whole school — is yours again" : "Nobody's hurt for good — catch your breath and go again"}</div>
+        <div class="gb-result-stats">💀 ${summary.killed} put down · 🩸 ${summary.downedCount} went down</div>
+      </div>
+    </div>`;
+    anim.resultDrawn = true;
+  } else if (anim.phase !== "battle" && room) {
     const { won, killed, spawned, breached, downedCount, cleared, rooms } = summary;
     const clean = won && !downedCount && killed === spawned;
     const text = clear ? (won ? `${esc(room.name)} is clear!` : "The squad fell back!")
@@ -2757,8 +2834,9 @@ function gridBattle(state, anim) {
     </div>`;
     anim.resultDrawn = true; // (it pops in once; redraws after that — saving someone — leave it be)
   }
-  const art = room ? roomBackground(size, summary.rows, room.ground, room.raid ? room.tier * 13 + 5 : room.hex ? room.hex.q * 31 + room.hex.r * 7 + 50 : room.name.length * 11) : courtyardBackground(size);
-  const board = `<div class="nw-board nw-battle ${room ? "nw-room" : ""} nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${summary.rows};--steps:${room ? 0 : ENTRANCE_ZONES.steps};background-image:${art}">
+  const art = bossFight ? officeArena(size, summary.rows) : room ? roomBackground(size, summary.rows, room.ground, room.raid ? room.tier * 13 + 5 : room.hex ? room.hex.q * 31 + room.hex.r * 7 + 50 : room.name.length * 11) : courtyardBackground(size);
+  const board = `<div class="nw-board nw-battle ${room ? "nw-room" : ""} ${bossFight ? "nw-arena" : ""} ${wl?.phase === 3 ? "nw-arena-rage" : ""} nw-cond-${condition.id} ${shake === 2 ? "nw-shake-big" : shake ? "nw-shake" : ""} ${breach ? "nw-breach" : ""} ${rallyNow ? "nw-rally" : ""} ${slowmo ? "nw-slowmo" : ""} ${anim.target ? "nw-aiming" : ""}" style="--size:${size};--rows:${summary.rows};--steps:${room ? 0 : ENTRANCE_ZONES.steps};background-image:${art}">
+      ${wl ? bossBar(wl) : ""}
       <div class="nw-cells">${units}${fx}${aimCells}</div>
       ${result || (breakTime || !freshTurn ? "" : banner)}
       ${breakBanner}
@@ -2767,6 +2845,38 @@ function gridBattle(state, anim) {
 }
 
 const raidBossName = (lm) => lm.boss.name;
+
+// His health along the top of his board: the marks where the ward goes up (60%) and he comes down
+// (30%), and what he's doing.
+function bossBar(z) {
+  const H = HEADMASTER_BOSS;
+  const pct = Math.max(0, Math.round((z.hp / z.maxHp) * 100));
+  const state = z.shield ? "🛡 Warded" : z.stun ? "💫 Stunned" : z.phase === 3 ? "😡 Expelled!" : z.hex !== null && z.hex !== undefined ? "⚡ Hexing a lane" : "📜 Lecturing";
+  return `<div class="bb-bar ${z.shield ? "bb-warded" : ""} ${z.stun ? "bb-stunned" : ""}">
+    <div class="bb-name"><b>🧙 ${esc(H.name)}</b><small>${esc(H.title)}</small><em>${state}</em></div>
+    <div class="bb-hp"><i style="width:${pct}%"></i><b style="left:${H.ward * 100}%"></b><b style="left:${H.rage * 100}%"></b><span>${Math.max(0, z.hp)} / ${z.maxHp}</span></div>
+  </div>`;
+}
+
+// The night actions, explained the first time they'd help (game.js bossPrompt): the fight waits.
+const BOSS_PROMPTS = {
+  molotov: { title: "🔥 Molotov", text: ["The dead are bunching up.", "A Molotov burns everything on a 3×3 patch — and fire breaks a wind-up."], go: "🔥 Aim the Molotov" },
+  patch: { title: "🩹 Patch Up", text: ["Someone's badly hurt.", "Patch Up heals a student by half their HP, right now."], go: "🩹 Pick who" },
+  rally: { title: "🔔 Rally", text: ["The ward is down and he's stunned — taking 50% more!", "Rally: everyone hits 50% harder for 3 turns. Now's the moment."], go: "🔔 Rally!" },
+  fire: { title: "⚠ He's winding up a smash!", text: ["Look at the ⚠ Smash mark — it lands next turn, and it hurts.", "Fire breaks a wind-up: throw a Molotov at him."], go: "🔥 Aim at him" },
+};
+export function renderBossPrompt(state, b) {
+  const P = BOSS_PROMPTS[b.prompt];
+  if (!P) return "";
+  const cost = nightActionCost(state)[b.prompt === "fire" ? "molotov" : b.prompt];
+  return `<div class="modal-overlay cs-lesson-overlay bb-prompt-overlay">
+    <div class="char-card cs-lesson bb-prompt" data-action="noop">
+      <h3>${P.title} <span class="muted">· ${cost} morale</span></h3>
+      ${P.text.map((t) => `<p>${esc(t)}</p>`).join("")}
+      <div class="row-actions"><button class="btn" data-action="boss-prompt" data-do="ok">Not now</button><button class="btn btn-primary" data-action="boss-prompt" data-do="${b.prompt}">${P.go}</button></div>
+    </div>
+  </div>`;
+}
 
 // What turned up between rooms (ROOM_EVENTS): what happened so far, then its options — who'd try
 // each and their chance — until it's settled.
@@ -4192,7 +4302,11 @@ export function renderFloor3(state) {
     rows: [["Recruits waiting", `${pool.length}/${recSlots}`], ["Apprentices", `${apprentices}/${APPRENTICE_POSTS.length}`]],
     notes: ["Students level up from experience: classes, training, work, scouting and fighting", "A level 10 student can become a room NPC's apprentice — they work that room every day and stay a student", `With ${recSlots} recruits waiting, newcomers are turned away (legendary ones always fit)`],
   };
-  const office = `<div class="room room-office">
+  const office = tutorialOn(state) ? `<div class="room room-office room-boarded">
+      <div class="room-scene room-scene-boarded" style="background-image:${sceneBackground("headmaster")}"><div class="boards"></div><div class="scene-plaque">🔒 Headmaster's Office</div></div>
+      <p class="room-tagline">${tutorialTarget(state) === "headmaster" ? "Doubledoor has given you the key. Everyone goes in — together." : "Locked tight. Doubledoor has the only key — and something big is pacing around in there."}</p>
+      ${tutorialTarget(state) === "headmaster" ? '<div class="boarded-actions"><button class="btn btn-sm btn-primary btn-boss" data-action="open-clear-room" data-room="headmaster">❗ Face him</button><span class="muted">the last fight · everyone goes in</span></div>' : ""}
+    </div>` : `<div class="room room-office">
     ${roomScene("headmaster", [...ready.filter((c) => !c.apprentice), ...pool], "Headmaster's Office", officeHow, "",
       `<button class="hm-missions-btn" data-action="open-npc" data-npc="doubledoor" title="Talk to Albus Doubledoor">${markIcon("doubledoor") || "📜"} Quests</button>`, "headmaster")}
     ${npcLine(state, "headmaster")}
@@ -4578,7 +4692,7 @@ export function renderDefenseGuideModal(state) {
 export function renderEnemyGuideModal(state) {
   const comp = hordeComposition(state.day);
   const z = zombieStatsForDay(state.day);
-  const rows = Object.entries(ZOMBIE_TYPES).map(([id, t]) => {
+  const rows = Object.entries(ZOMBIE_TYPES).filter(([, t]) => !t.unique).map(([id, t]) => {
     const coming = comp[id] || 0;
     const when = t === ZOMBIE_TYPES.boss ? "Every 5th night" : t.from > 1 ? `From night ${t.from}` : "Every night";
     return `<div class="enemy-row ${coming ? "enemy-coming" : ""}">
@@ -4694,7 +4808,8 @@ export function renderResearch(state) {
   const total = TECH_TREE.filter((t) => owned(t.id)).length;
 
   return `
-  <div class="card tt-page">
+  <div class="card tt-page ${state.techTip ? "tt-tutor" : ""}">
+    ${state.techTip ? `<div class="tt-tutor-tip">🧠 Your first research! Every path starts with a node for ${ri("research")} 10 — the glowing ones. Pick one and click it.</div>` : ""}
     <div class="ov-head floor-head">
       <div class="ov-head-left"><span class="ov-chip">${ri("research")} <b>${state.resources.research}</b> research banked</span></div>
       <h2>Research ${infoDot({ title: `${ri("research")} Research`, notes: ["Permanent upgrades for the whole school, one path for each turn of the day", "Each path forks into two branches — learn a node to open the one below it", "Research comes from the Research Room (Floor 3)"] })}</h2>
@@ -5412,6 +5527,7 @@ function stepText(state, step) {
     case "raid": return `Win the raid on the ${placeName(step.raid)}`;
     case "item": return `Find it at the ${placeName(step.place)} (a Turn 2 run that succeeds)`;
     case "upgrade": return `Upgrade the room to level ${step.level}`;
+    case "boss": return `Defeat ${HEADMASTER_BOSS.name} in the Headmaster's Office`;
     default: return "";
   }
 }
@@ -5451,7 +5567,7 @@ export function renderNpcModal(state, npc, sayKey = "", banterId = null) {
       </div>
       ${roomGuide(npc)}
       <div class="npcm-quests">${quests.map(({ q, status }) => questCard(state, q, status)).join("") || '<p class="muted npcm-none">Nothing for you right now.</p>'}</div>
-      ${npc === "doubledoor" && tutorialTarget(state) ? '<div class="npcm-skip"><button class="btn btn-sm" data-action="skip-tutorial" title="Open every room and tab now — for players who know the game">Skip the tutorial</button></div>' : ""}
+      ${npc === "doubledoor" && tutorialOn(state) ? '<div class="npcm-skip"><button class="btn btn-sm" data-action="skip-tutorial" title="Open every room now and collect the tutorial’s rewards — for players who know the game">Skip the tutorial</button></div>' : ""}
     </div>
   </div>`;
 }
@@ -5490,7 +5606,7 @@ function renownLine(state, npc) {
 
 // The Quest Log (the top bar's button, or the menu): Doubledoor's main questline as a track, the
 // quests you've taken and the ones waiting, what's finished — and, on the right, everyone's renown.
-const MAIN_IDS = ["main:f1", "main:f2", "main:f3", "main:yard", "main:t1", "main:t2", "main:t3", "main:t4"];
+const MAIN_IDS = ["main:f1", "main:f2", "main:yard", "main:f3", "main:office", "main:t1", "main:t2", "main:t3", "main:t4"];
 function renderQuestJournal(state) {
   const taken = activeQuests(state).filter((id) => !MAIN_IDS.includes(id)).map((id) => QUESTS[id])
     .sort((a, b) => (questStatus(state, b.id) === "ready") - (questStatus(state, a.id) === "ready"));
@@ -5550,7 +5666,7 @@ function renderQuestJournal(state) {
 // colour floods in with their name (style.css .npc-reveal, all CSS timing).
 export function renderNpcReveal(npc) {
   const n = NPCS[npc];
-  return `<div class="modal-overlay reveal-overlay" data-action="close-reveal">
+  return `<div class="modal-overlay reveal-overlay">
     <div class="npc-reveal" data-action="noop">
       <div class="reveal-burst"></div>
       <div class="reveal-q">Who's that NPC?!</div>
@@ -5590,10 +5706,8 @@ const INTRO = [
     // Doubledoor's speech, a line at a time once everyone's in
     speech: [
       "Come in, come in — quickly now. You're safe down here. For the moment.",
-      "I know you are frightened. So am I. Fear is only courage that hasn't found its feet yet.",
       "Above us is our school. Our home. And the dead have no business being in it.",
-      "We take it back together — one room at a time. Our staff are still up there, waiting for us.",
-      "There is a great deal to be done, and time, I fear, is a luxury we do not possess. Let us begin.",
+      "We take it back together — one room at a time. Our staff are still up there, waiting for us. Let us begin.",
     ],
   },
 ];
@@ -5635,6 +5749,151 @@ export function renderIntro(state, step, sayKey = "", settled = false) {
       </div>
     </div>
   </div>`;
+}
+
+// ---------- the tutorial's room cutscenes (quests.js ROOM_CUTSCENES) ----------
+// `cs`: { roomKey, part: "before" | "after", heroIds, cast: [a, b] (two of the others' ids), seq }.
+// The heroes as the lines name them: "hero", "hero2", "hero3"…
+const heroKeys = (heroes) => Object.fromEntries(heroes.map((c, i) => [i ? `hero${i + 1}` : "hero", c]));
+// Before: the students at the boarded doors, the noises behind them, and the volunteer(s); after:
+// the room clear, the others running in, and someone still alive in there.
+export function renderRoomCutscene(state, cs) {
+  const C = ROOM_CUTSCENES[cs.roomKey];
+  const heroes = cs.heroIds.map((id) => getChar(state, id)).filter(Boolean);
+  if (!C || !heroes.length) return "";
+  const hero = heroes[0];
+  const who = { ...heroKeys(heroes), a: getChar(state, cs.cast[0]) || hero, b: getChar(state, cs.cast[1]) || hero };
+  const before = cs.part === "before";
+  const check = cs.part === "check"; // (inside, just them: the lock, the sneak)
+  const going = C.reinforce ? heroes.slice(0, C.reinforce.go || 1) : heroes; // (a reinforcement waits at the door)
+  // (whoever waits at the door stands in with the others until then — nothing gives them away)
+  const waiting = before ? heroes.filter((c) => !going.includes(c)) : [];
+  const shown = heroes.filter((c) => !waiting.includes(c));
+  const rest = check ? [] : aliveChars(state).filter((c) => c.role === "student" && !heroes.includes(c));
+  const others = [...rest.slice(0, 2), ...waiting, ...rest.slice(2)].slice(0, 9);
+  const crowd = others.map((c, i) => before
+    ? `<span class="cs-kid" style="--x:${40 + i * 46}px">${characterSprite(c, 56)}</span>`
+    : `<span class="bs-runner" style="--x:${40 + i * 46}px;--from:-${120 + i * 46}px;--d:${0.3 + i * 0.18}s">${characterSprite(c, 56)}</span>`).join("");
+  const sounds = before || (check && !cs.result) ? C.sound.map((t, i) => `<b class="cs-noise" style="--n:${i}">${esc(t)}</b>`).join("") : "";
+  const script = check ? (cs.result ? C.check[cs.result] : []) : cs.part === "after" && cs.quiet && C.afterQuiet ? C.afterQuiet : C[cs.part];
+  const lines = script.map(([w, text], i) => {
+    if (w === "dd") return `<div class="talk-line talk-other"><span class="cs-face" title="${esc(NPCS.doubledoor.name)}">${npcSprite("doubledoor", 0.75)}<small>Doubledoor</small></span>${sayBubble("doubledoor", text, `cut:${cs.seq}:${cs.part}:${i}`)}</div>`;
+    const c = who[w];
+    return `<div class="talk-line ${w.startsWith("hero") ? "" : "talk-other"}"><span class="cs-face" title="${esc(c.name)}">${characterSprite(c, 40)}<small>${esc(shortName(c))}</small></span>${sayBubble(c.gender === "M" ? "kidM" : "kidF", text, `cut:${cs.seq}:${cs.part}:${i}`)}</div>`;
+  }).join("");
+  const clsOf = (c) => NIGHT_CLASSES[nightClass(c)] || NIGHT_CLASSES.brawler;
+  const names = C.boss ? "everyone go in" : going.length > 2 ? "the whole squad go in" : going.map((c) => esc(shortName(c))).join(" and ") + (going.length === 1 && heroes.length > 1 ? " go in alone" : " go in");
+  return `<div class="modal-overlay intro-overlay cs-overlay">
+    <div class="intro-card cs-card" data-action="noop">
+      <div class="intro-art cs-art ${before ? "cs-before" : "cs-after"}" style="--n:${shown.length};background-image:${sceneBackground(`${C.scene || cs.roomKey}@1`)}">
+        ${before && !["farm", "barn", "scrapyard"].includes(cs.roomKey) ? '<div class="cs-boards"></div>' : ""}${sounds}
+        <div class="cs-crowd">${crowd}</div>
+        ${C.boss ? `<span class="cs-dd">${npcSprite("doubledoor", 2)}</span>` : ""}
+        ${check && C.check.lurker && cs.result !== "ok" ? `<span class="cs-lurker ${C.check.asleep && !cs.result ? "cs-asleep" : ""}">${hordeSprite(C.check.lurker, 72)}</span>` : ""}
+        ${shown.map((c, i) => `<span class="cs-hero" style="--h:${i}" title="${esc(c.name)} — ${clsOf(c).name}">${characterSprite(c, 64)}<i class="cs-hero-tag">${clsOf(c).icon} ${esc(shortName(c))}</i></span>`).join("")}
+      </div>
+      <div class="intro-text cs-text">${check ? cutsceneCheckText(state, cs, C, lines) : `<h2>${esc(before ? C.where : (BOARDED_ROOMS[cs.roomKey]?.name || C.title))}</h2><div class="talk-lines">${lines}</div>`}</div>
+      <div class="intro-actions">
+        ${check ? "<span></span>" : `<button class="btn btn-sm cs-skip" data-action="cutscene-go" title="Skip the rest of the scene">⏭ Skip scene</button>`}<span></span>
+        ${check && !cs.result ? "" : `<button class="btn btn-primary" data-action="cutscene-go">${before ? `${going.map((c) => clsOf(c).icon).join("")} Let ${names} ▸` : check ? (cs.result === "ok" ? "Take it ▸" : "⚔ Fight! ▸") : C.boss ? "🏆 The school is ours! ▸" : "Who's there?! ▸"}</button>`}
+      </div>
+    </div>
+  </div>`;
+}
+// A cutscene's check, inside the room: what's there, who tries it and their chance (the button rolls
+// it) — then how it went.
+function cutsceneCheckText(state, cs, C, lines) {
+  const K = C.check;
+  const { who, stat, chance } = cutsceneCheckOdds(state, cs.roomKey, cs.heroIds);
+  if (!who) return "";
+  if (cs.result) return `<h2>${esc(K.title)} — ${cs.result === "ok" ? "done!" : "🔊 it went wrong!"}</h2><div class="talk-lines">${lines}</div>`;
+  return `<h2>${esc(K.title)}</h2>
+    ${K.lines.map((t) => `<p>${esc(t)}</p>`).join("")}
+    <div class="cs-check">
+      <span class="cs-face">${characterSprite(who, 40)}<small>${esc(shortName(who))}</small></span>
+      <div class="cs-check-odds"><b>${esc(who.name)}</b> · ${STAT_OF_SUBJECT[stat]} ${effectiveGrade(state, who, stat)}<small>${K.points.map(esc).join("<br>")}</small></div>
+      <button class="btn btn-primary cs-check-go" data-action="cutscene-roll">${esc(K.go)} — ${Math.round(chance * 100)}%</button>
+    </div>`;
+}
+// Before the cutscene's fight: how the volunteer's class fights (or the scene's own lesson, for a
+// team). "Fight!" sends the zombie in.
+export function renderClassLesson(state, b, anim = {}) {
+  const C = ROOM_CUTSCENES[b.lesson];
+  if (anim.placing) {
+    const d = DEFENSE_STRUCTURES.find((x) => x.id === anim.placing);
+    return `<div class="cs-place-hint">${d.icon} Pick a square on the board for the <b>${esc(d.name)}</b> <button class="btn btn-sm" data-action="lesson-cancel-place">Cancel</button></div>`;
+  }
+  if (C?.reinforce && b.called === "now") return renderReinforcement(state, b, C);
+  if (C?.reinforce && (!C.lessonFirst || b.called || b.tick > 0)) return ""; // (the hero went in without one)
+  const team = b.students.map((s) => getChar(state, s.id)).filter(Boolean);
+  const cls = team[0] && NIGHT_CLASSES[nightClass(team[0])];
+  if (!C || !cls) return "";
+  const title = C.lesson?.title || `${cls.icon} How ${cls.name}s fight`;
+  const points = C.lesson?.points || CLASS_LESSON[nightClass(team[0])];
+  // (a big team: just who's who, on one line)
+  const big = team.length > 2;
+  const sub = big ? team.map((c) => `${NIGHT_CLASSES[nightClass(c)].icon} ${esc(shortName(c))}`).join(" · ")
+    : team.map((c) => { const k = NIGHT_CLASSES[nightClass(c)]; return `${esc(c.name)} · ${k.icon} ${k.name} · ★ ${esc(SUBJECT_LABEL[k.subject])} — ${STAT_OF_SUBJECT[k.subject]}`; }).join("<br>");
+  return `<div class="modal-overlay cs-lesson-overlay">
+    <div class="char-card cs-lesson" data-action="noop">
+      <div class="cs-lesson-head ${big ? "cs-lesson-big" : ""}">
+        <span class="cs-lesson-fig">${team.map((c) => characterSprite(c, big ? 40 : 64)).join("")}</span>
+        <div><h3>${esc(title)}</h3><span class="muted">${sub}</span></div>
+      </div>
+      <ul class="cs-lesson-list">${points.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+      <p class="muted cs-lesson-note">Every student's class comes from their ★ favourite subject. Just watch — ${team.length > 1 ? "they do" : `${esc(shortName(team[0]))} does`} the rest.</p>
+      <div class="row-actions">${b.toPlace?.length
+        ? b.toPlace.map((id) => { const d = DEFENSE_STRUCTURES.find((x) => x.id === id); return `<button class="btn btn-primary" data-action="lesson-pick-place" data-id="${id}">${d.icon} Place the ${esc(d.name)}</button>`; }).join("")
+        : '<button class="btn btn-primary" data-action="start-wave">⚔ Fight!</button>'}</div>
+    </div>
+  </div>`;
+}
+
+// …or, mid-fight, the call for whoever waited at the door: what the hero shouts, who answers, and
+// how the one running in fights. "Send them in" brings them in (main.js lesson-reinforce).
+function renderReinforcement(state, b, C) {
+  const R = C.reinforce;
+  const help = b.waiting.map((id) => getChar(state, id)).filter(Boolean);
+  if (!help.length) return "";
+  const who = heroKeys(b.heroIds.map((id) => getChar(state, id)));
+  const k = NIGHT_CLASSES[nightClass(help[0])];
+  // (the ones fighting on the left, whoever's coming in on the right)
+  const lines = R.lines.map(([w, text], i) => `<div class="talk-line ${help.includes(who[w]) ? "talk-other" : ""}"><span class="cs-face" title="${esc(who[w].name)}">${characterSprite(who[w], 40)}<small>${esc(shortName(who[w]))}</small></span>${sayBubble(who[w].gender === "M" ? "kidM" : "kidF", text, `call:${b.lesson}:${b.tick}:${i}`)}</div>`).join("");
+  return `<div class="modal-overlay cs-lesson-overlay">
+    <div class="char-card cs-lesson" data-action="noop">
+      <div class="talk-lines cs-call">${lines}</div>
+      <div class="cs-lesson-head">
+        <span class="cs-lesson-fig">${characterSprite(help[0], 64)}</span>
+        <div><h3>${esc(R.title)}</h3><span class="muted">${esc(help[0].name)} · ${k.icon} ${k.name} to the rescue · ★ ${esc(SUBJECT_LABEL[k.subject])} — ${STAT_OF_SUBJECT[k.subject]}</span></div>
+      </div>
+      <ul class="cs-lesson-list">${R.points.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+      <div class="row-actions"><button class="btn btn-primary" data-action="lesson-reinforce">${k.icon} Send ${esc(shortName(help[0]))} in</button></div>
+    </div>
+  </div>`;
+}
+
+// A part of the tutorial done: report to Doubledoor from wherever you are (no walk to the basement).
+export function renderReportTip(state) {
+  const part = SCHOOL_PARTS.find((p) => questStatus(state, p.id) === "ready");
+  if (!part) return "";
+  return `<div class="tech-tip report-tip">${markIcon("doubledoor")}<span><b>${esc(part.title)}</b> — done! Doubledoor wants to hear about it.</span>
+    <button class="btn btn-primary btn-sm" data-action="open-npc" data-npc="doubledoor">📻 Report in</button></div>`;
+}
+
+// …and when the next room to take back is on another tab (the courtyard's each have their own):
+// where it is, and the way there.
+export function renderNextTip(state, activeTab) {
+  const target = tutorialTarget(state);
+  if (!target || ROOM_TAB(target) === activeTab) return "";
+  const name = target === "headmaster" ? "the Headmaster's Office" : BOARDED_ROOMS[target]?.name || target;
+  return `<div class="tech-tip next-tip"><i class="q-mark q-available">❗</i><span>Next: <b>${esc(name)}</b></span>
+    <button class="btn btn-primary btn-sm" data-action="set-tab" data-tab="${ROOM_TAB(target)}">▸ Go there</button></div>`;
+}
+
+// The tutorial's first research (state.techTip): where to spend it — over the game, until it's spent.
+export function renderTechTip(state) {
+  return `<div class="tech-tip">${ri("research")} <span>You have <b>${state.resources.research}</b> research! Spend it on the <b>research tree</b>.</span>
+    <button class="btn btn-primary btn-sm" data-action="set-tab" data-tab="research">🧠 Open the research tree</button></div>`;
 }
 
 // ---------- the basement ----------

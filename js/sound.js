@@ -155,6 +155,18 @@ export function playFail() {
   tone(300, 0.35, { type: "sawtooth", gain: 0.15, glideTo: 120 });
 }
 
+// "Who's that NPC?!": a questioning sting and a drumroll while the silhouette shows, then a bright
+// fanfare and a sparkle as they're revealed (the card's colour comes in at 1.6s — style.css).
+export function playReveal() {
+  tone(392, 0.12, { type: "triangle", gain: 0.16 });
+  tone(523, 0.12, { type: "triangle", gain: 0.16, delay: 0.1 });
+  tone(659, 0.35, { type: "triangle", gain: 0.16, delay: 0.2, glideTo: 784 });
+  for (let i = 0; i < 20; i++) noise(0.05, { gain: 0.03 + i * 0.006, delay: 0.45 + i * 0.055, filter: "highpass", freq: 1800 });
+  for (const [f, d] of [[523, 0], [659, 0], [784, 0], [1047, 0.12]]) tone(f, 0.6, { type: "square", gain: 0.06, delay: 1.6 + d });
+  tone(262, 0.7, { type: "triangle", gain: 0.18, delay: 1.6 });
+  for (const [f, d] of [[1568, 1.78], [2093, 1.88], [2637, 1.98]]) tone(f, 0.25, { gain: 0.08, delay: d });
+}
+
 export function playChime() {
   tone(660, 0.15, { gain: 0.14 });
   tone(880, 0.25, { gain: 0.14, delay: 0.12 });

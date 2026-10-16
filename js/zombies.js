@@ -39,6 +39,7 @@ const LOOKS = {
   jersey: { frame: "brute", skin: "#87a672", hair: "#2a2020", shirt: "#b03030", pants: "#c9ccd2", shoes: "#1e1e22", eyes: "#f4d35e", helmet: "#b03030", number: "#f4f4f4", stripe: "#b03030" },
   spitter: { frame: "bloated", skin: "#b0bf5a", shirt: "#cfc6a0", pants: "#4a5a30", shoes: "#2a2420", eyes: "#d0ff40", drool: "#c8f050" },
   screamer: { frame: "screamer", skin: "#b4bfa6", hair: "#9a958a", shirt: "#7a4a8a", pants: "#34343f", shoes: "#2a2420", eyes: "#ffffff", strings: "#e8e0f0" },
+  warlock: { frame: "warlock", skin: "#9aab8c", hair: "#d8dce6", shirt: "#3b2a63", pants: "#6b4a2a", shoes: "#1a1a22", eyes: "#7dff6a", stripe: "#c9a43a", hat: "#2a1f48", band: "#c9a43a", badge: "#ffe28a", orb: "#7dff9a" },
   boss: { frame: "brute", skin: "#7f9e6c", hair: "#1a1a1a", hairStyle: "combover", shirt: "#2e3140", pants: "#23252f", shoes: "#141416", eyes: "#ff2a2a", suit: true, tie: "#b02030" },
   // the raid bosses and the rooms' zombies
   soldier: { frame: "shamble", skin: "#8fae7a", shirt: "#5a6a3a", pants: "#4a5a30", shoes: "#2a2420", eyes: "#ff3b3b", camo: ["#4a5a2e", "#6b7a45"], helmet: "#465533" },
@@ -55,6 +56,7 @@ export const HORDE_LOOK = {
   spitter: { look: "spitter", scale: 1 },
   screamer: { look: "screamer", scale: 0.95 },
   boss: { look: "boss", scale: 1.35 },
+  warlock: { look: "warlock", scale: 1.75 },
 };
 export const hordeSprite = (type, sizePx) => {
   const h = HORDE_LOOK[type] || HORDE_LOOK.walker;
@@ -306,6 +308,48 @@ const FRAMES = {
   },
 };
 
+FRAMES.warlock = function warlock(g, L, rng) {
+  // the robe, flaring out to the floor, a gold trim down the front and a ragged hem
+  for (let y = 24; y <= 39; y++) {
+    const half = 5 + Math.floor((y - 24) * 0.6);
+    g.rect(16 - half, y, 15 + half, y, "u");
+  }
+  for (let y = 27; y <= 39; y++) g.set(20 + (y % 3 === 0 ? 1 : 0), y, "U");
+  for (let x = 2; x < 30; x += 3) g.set(x + Math.floor(rng() * 2), 39, null);
+  g.rect(15, 24, 15, 39, "a");
+  // the far arm hanging, a bony hand; the near one out front, gripping the staff
+  g.rect(22, 25, 25, 33, "l");
+  g.rect(22, 34, 25, 35, "s");
+  g.rect(5, 25, 11, 28, "l");
+  g.rect(3, 25, 5, 28, "s");
+  // the staff: a gnarled pole, the orb glowing at its head
+  g.rect(3, 9, 4, 39, "p");
+  g.points([[2, 14], [5, 20], [2, 30]], "p");
+  g.rect(1, 3, 6, 8, "G");
+  g.points([[1, 3], [6, 3], [1, 8], [6, 8]], null);
+  g.points([[2, 4], [3, 4], [2, 5]], "G2");
+  // the head, under the hat, and the long beard down over the robe
+  head(g, 0, 7);
+  face(g, 0, 7);
+  g.rect(11, 22, 20, 27, "h");
+  g.rect(12, 28, 19, 31, "h");
+  g.rect(13, 32, 18, 34, "h");
+  g.rect(14, 35, 17, 36, "h");
+  g.points([[15, 37], [16, 37]], "h");
+  for (let y = 22; y <= 36; y++) for (const x of [13, 16, 18]) if (g.get(x, y) === "h" && y % 3) g.set(x, y, "H");
+  g.rect(14, 22, 17, 23, "m"); // the jaw, showing through
+  g.points([[14, 22], [16, 22]], "t");
+  // the hat: a wide brim and a tall crooked cone with a band and stars
+  for (let y = 0; y <= 9; y++) {
+    const half = Math.max(1, Math.round((y + 1) * 0.75));
+    const cx = 17 + Math.round((9 - y) * 0.45);
+    g.rect(cx - half, y, cx + half - 1, y, "r");
+  }
+  g.rect(4, 10, 27, 11, "r");
+  g.rect(9, 8, 22, 9, "a2");
+  g.points([[17, 5], [20, 2], [13, 7]], "y");
+};
+
 // Hats and gear over the head, by look.
 function headgear(g, L) {
   const dy = L.frame === "brute" ? 1 : 0;
@@ -377,8 +421,8 @@ function build(lookId) {
     c: L.coat || "#e8e4dc", a: L.stripe || L.number || L.tie || L.strings || (L.camo ? L.camo[0] : "#e8e4dc"), A: L.camo ? L.camo[1] : shadowOf(L.shirt),
     y: L.badge || "#f2c14e",
     p: L.pants, f: L.shoes,
-    r: L.helmet || L.cap || "#465533", R: shadowOf(L.helmet || L.cap || "#465533"), a2: L.band || L.stripe || "#f4f4f4",
-    g: L.mask || "#9aa0aa", G: L.goggles || "#9fd8f0", G2: "#ffffff", R2: "#3a3f48",
+    r: L.helmet || L.cap || L.hat || "#465533", R: shadowOf(L.helmet || L.cap || L.hat || "#465533"), a2: L.band || L.stripe || "#f4f4f4",
+    g: L.mask || "#9aa0aa", G: L.goggles || L.orb || "#9fd8f0", G2: "#ffffff", R2: "#3a3f48",
   };
   if (L.suit) base.c = "#e8e4dc";
 

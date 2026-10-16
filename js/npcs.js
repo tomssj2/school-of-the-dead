@@ -282,6 +282,7 @@ export const NPC_VOICE = {
   quarkwell: [340, "square"], bickus: [150, "sawtooth"], seen: [430, "triangle"], grillsay: [300, "square"],
   brockbride: [560, "sine"], whiteboard: [190, "triangle"], gyber: [220, "triangle"], bulldog: [200, "square"],
   plowson: [175, "sawtooth"], cowper: [245, "square"], scrapperson: [160, "square"],
+  kidF: [400, "triangle"], kidM: [270, "triangle"], // (the students, in the tutorial's cutscenes)
 };
 
 export const NPCS = {

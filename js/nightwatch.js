@@ -558,6 +558,7 @@ const ROOM_LOOK = {
 };
 const WOODEN = ["houses", "apartments", "field", "park"];
 export function roomBackground(cols, rows, ground = "", seed = 1) {
+  if (["farm", "barn", "scrapyard"].includes(ground)) return yardBackground(cols, rows, ground);
   const kind = ground === "school" ? "school" : WOODEN.includes(ground) ? "wood" : "tile";
   const key = `room${cols}x${rows}:${kind}:${seed}`;
   if (cache.has(key)) return cache.get(key);
@@ -672,6 +673,245 @@ export function roomBackground(cols, rows, ground = "", seed = 1) {
     lights.push({ x: MARGIN + col * CELL_W + CELL_W / 2, y: FACADE_H + CELL_H, len: (rows - 1) * CELL_H, w0: 5, spread: 0.32, k: 0.42, c: [1.0, 0.94, 0.75] });
   }
   const url = `url('${lightUp(p, lights, { ambient: [0.2, 0.22, 0.34], mist: false })}')`;
+  cache.set(key, url);
+  return url;
+}
+
+// The tutorial's last fight: the Headmaster's Office as a raid arena — the door they came in by at
+// the top, oak panels and two old headmasters' portraits; a parquet floor for the squad with a long
+// carpet down the middle lane; and at the far end his dais, a magic circle burning green on it,
+// candles all round, cracks glowing out across the floor. Bookcases down both sides, and the moon
+// through the tall windows beside the dais.
+export function officeArena(cols, rows) {
+  const key = `arena${cols}x${rows}`;
+  if (cache.has(key)) return cache.get(key);
+  const W = cols * CELL_W + 2 * MARGIN;
+  const H = FACADE_H + rows * CELL_H;
+  const mid = Math.round(W / 2);
+  const DAIS = FACADE_H + (rows - 1) * CELL_H; // the last row: his
+  const p = buffer(W, H);
+  const lights = [];
+  const GREEN = "#7dff9a";
+
+  // the floor: dark oak parquet, blocks staggered row by row
+  for (let y = FACADE_H; y < DAIS; y++) {
+    const band = Math.floor((y - FACADE_H) / 4);
+    for (let x = 0; x < W; x++) {
+      const off = band % 2 ? 0 : 3;
+      const block = Math.floor((x + off) / 7);
+      const seam = (y - FACADE_H) % 4 === 3 || (x + off) % 7 === 0;
+      let c = seam ? "#22140c" : mix("#4a2e1c", "#5e3c26", hash(block * 13 + band * 7, 3));
+      if (!seam && hash2(x, y, 9) < 0.06) c = mix(c, "#7a5236", 0.4); // the polish catching the light
+      p.set(x, y, c);
+    }
+  }
+  // the carpet down the middle lane: deep red, gold edging, a diamond every few squares
+  const c0 = MARGIN + CELL_W + 4;
+  const c1 = MARGIN + 2 * CELL_W - 5;
+  p.r(c0, FACADE_H, c1, DAIS - 1, "#6a1820");
+  p.r(c0, FACADE_H, c0, DAIS - 1, "#c9a43a");
+  p.r(c1, FACADE_H, c1, DAIS - 1, "#c9a43a");
+  for (let y = FACADE_H + 6; y < DAIS - 4; y += 10) {
+    p.set(mid, y, "#c9a43a");
+    p.r(mid - 1, y + 1, mid + 1, y + 1, "#a8323c");
+    p.r(mid - 2, y + 2, mid + 2, y + 2, "#c9a43a");
+    p.r(mid - 1, y + 3, mid + 1, y + 3, "#a8323c");
+    p.set(mid, y + 4, "#c9a43a");
+  }
+  // what the fight before this left: papers, a fallen book, a snapped chair leg
+  for (let i = 0; i < 14; i++) {
+    const x = MARGIN + 2 + Math.floor(hash(i, 41) * (cols * CELL_W - 6));
+    const y = FACADE_H + 2 * CELL_H + Math.floor(hash(i, 42) * (CELL_H * 3 - 4));
+    if (i % 4 === 0) p.r(x, y, x + 3, y + 2, ["#3a5a8a", "#8a2a2a", "#2a6a4a"][i % 3]); // a book
+    else if (i % 4 === 1) p.r(x, y, x + 5, y, "#5a3a24");
+    else p.r(x, y, x + 2, y + 1, "#e8e2d0");
+  }
+  // cracks spreading from the dais, glowing faintly where his magic got in
+  for (let k = 0; k < 5; k++) {
+    let x = MARGIN + 6 + Math.floor(hash(k, 51) * (cols * CELL_W - 12));
+    for (let y = DAIS - 1; y > DAIS - CELL_H * 2 + Math.floor(hash(k, 52) * 10); y--) {
+      x += hash(y, k + 53) < 0.33 ? -1 : hash(y, k + 54) < 0.5 ? 1 : 0;
+      p.set(x, y, "#140c08");
+      if (hash(y, k + 55) < 0.35) p.set(x + 1, y, GREEN, 1);
+    }
+  }
+
+  // the dais: two steps up to dark stone, the magic circle burning on it
+  p.r(0, DAIS, W - 1, H - 1, "#2e2838");
+  for (let y = DAIS + 3; y < H; y++) for (let x = 0; x < W; x++) {
+    if ((x + (Math.floor((y - DAIS) / 5) % 2) * 4) % 8 === 0 || (y - DAIS) % 5 === 2) p.set(x, y, "#221e2a");
+    else if (hash2(x, y, 61) < 0.05) p.set(x, y, "#3e3650");
+  }
+  p.r(0, DAIS, W - 1, DAIS, "#5a5270");
+  p.r(0, DAIS + 1, W - 1, DAIS + 2, "#3e3650");
+  const cy = DAIS + 11;
+  for (let a = 0; a < 360; a += 3) {
+    const t = (a * Math.PI) / 180;
+    p.set(mid + Math.round(Math.cos(t) * 14), cy + Math.round(Math.sin(t) * 6), GREEN, 1);
+    if (a % 6 === 0) p.set(mid + Math.round(Math.cos(t) * 10), cy + Math.round(Math.sin(t) * 4), "#4acf6a", 1);
+  }
+  for (let i = 0; i < 6; i++) { // runes round it, and the star inside
+    const t = (i / 6) * Math.PI * 2;
+    const rx = mid + Math.round(Math.cos(t) * 12);
+    const ry = cy + Math.round(Math.sin(t) * 5);
+    p.r(rx, ry - 1, rx, ry, "#b8ffc8", 1);
+    const t2 = ((i + 2) / 6) * Math.PI * 2;
+    p.line(mid + Math.round(Math.cos(t) * 9), cy + Math.round(Math.sin(t) * 3.5), mid + Math.round(Math.cos(t2) * 9), cy + Math.round(Math.sin(t2) * 3.5), "#3a9a5a", 1);
+  }
+  lights.push({ x: mid, y: cy, r: 40, sy: 0.55, k: 0.85, c: [0.45, 1.0, 0.6] });
+  // candles round the dais: a stick, a drip, a flame
+  for (const cx of [MARGIN + 3, MARGIN + CELL_W - 3, MARGIN + 2 * CELL_W + 3, W - MARGIN - 4, mid - 18, mid + 18]) {
+    const by = DAIS + (cx === mid - 18 || cx === mid + 18 ? 15 : 6);
+    p.r(cx, by - 4, cx + 1, by, "#e8e0c8");
+    p.set(cx + 1, by - 2, "#f4efe2");
+    p.r(cx, by - 6, cx + 1, by - 5, "#ffd27a", 1);
+    p.set(cx, by - 7, "#fff0b8", 1);
+    lights.push({ x: cx, y: by - 5, r: 13, sy: 0.8, k: 0.55, c: WARM });
+  }
+
+  // bookcases down both sides — and, beside the dais, the tall windows and the moon
+  for (const [a, b] of [[0, MARGIN - 1], [W - MARGIN, W - 1]]) {
+    p.r(a, FACADE_H, b, DAIS - 1, "#2a1a10");
+    for (let y = FACADE_H + 2; y < DAIS - 1; y += 9) {
+      p.r(a, y + 7, b, y + 7, "#4a2e1c");
+      for (let x = a + 1; x < b; x++) if (hash2(x, y, 71) < 0.8) p.r(x, y + 2 + Math.floor(hash2(x, y, 72) * 2), x, y + 6, ["#7a2a2a", "#2a4a7a", "#2a6a3a", "#c9a43a", "#5a3a6a", "#8a7a5a"][Math.floor(hash2(x, y, 73) * 6)]);
+    }
+    p.r(a + 1, DAIS - 2, b - 1, H - 2, "#1a1424");
+    for (let y = DAIS - 1; y < H - 2; y++) p.r(a + 2, y, b - 2, y, mix("#9fb8e8", "#3a4a7a", (y - DAIS) / CELL_H), 1);
+    p.r((a + b) >> 1, DAIS - 1, (a + b) >> 1, H - 2, "#1a1424"); // the mullion
+    lights.push({ x: (a + b) / 2, y: DAIS + 6, r: 16, sy: 1, k: 0.4, c: [0.6, 0.72, 1.0] });
+  }
+
+  // the wall they came in through: oak panels, two old headmasters glaring down, the doors flung open
+  p.r(0, 0, W - 1, FACADE_H - 1, "#3a2414");
+  for (let x = 2; x < W; x += 9) p.r(x, 2, x, FACADE_H - 4, "#2a1a10");
+  p.r(0, FACADE_H - 3, W - 1, FACADE_H - 1, "#22140c");
+  p.r(0, FACADE_H - 3, W - 1, FACADE_H - 3, "#5a3a24");
+  for (const [px, tint] of [[6, "#4a3a5a"], [W - 22, "#3a4a3a"]]) {
+    p.r(px, 3, px + 15, 17, "#c9a43a");
+    p.r(px + 1, 4, px + 14, 16, tint);
+    p.oval(px + 8, 9, 3, 3, "#c8b8a0");
+    p.r(px + 4, 13, px + 11, 16, "#2a2030");
+    p.set(px + 7, 9, "#1a1414");
+    p.set(px + 9, 9, "#1a1414");
+  }
+  const d0 = mid - 9;
+  const d1 = mid + 8;
+  p.r(d0 - 1, 2, d1 + 1, FACADE_H - 1, "#22140c");
+  for (let y = 3; y < FACADE_H; y++) p.r(d0, y, d1, y, mix("#f0c890", "#8a6a48", (y - 3) / (FACADE_H - 3)), 1);
+  p.r(d0 - 4, 3, d0 - 2, FACADE_H - 2, "#5a3a24"); // the doors, flung back
+  p.r(d1 + 2, 3, d1 + 4, FACADE_H - 2, "#5a3a24");
+  p.r(mid - 4, 0, mid + 3, 1, "#c9a43a"); // the plaque over it
+  lights.push({ x: mid, y: FACADE_H, r: 26, sy: 1.3, k: 0.45, c: WARM });
+
+  // the squad's torches, a beam down each lane
+  for (let col = 0; col < cols; col++) {
+    lights.push({ x: MARGIN + col * CELL_W + CELL_W / 2, y: FACADE_H + CELL_H, len: (rows - 2) * CELL_H, w0: 5, spread: 0.3, k: 0.3, c: [1.0, 0.92, 0.75] });
+  }
+  const url = `url('${lightUp(p, lights, { ambient: [0.24, 0.2, 0.36], mist: false })}')`;
+  cache.set(key, url);
+  return url;
+}
+
+// The courtyard's fights, out behind the school at night: the school's back wall at the top (the
+// barn's own wall, inside it) with the door they came out of, and the ground the zombies come across —
+// the Farm's grass and furrows with corn down both sides, the Barn's straw-strewn dirt between its
+// stalls and bales, the Scrapyard's oily gravel between stacks of tyres and wrecked cars.
+function yardBackground(cols, rows, site) {
+  const key = `yard${cols}x${rows}:${site}`;
+  if (cache.has(key)) return cache.get(key);
+  const W = cols * CELL_W + 2 * MARGIN;
+  const H = FACADE_H + rows * CELL_H;
+  const mid = Math.round(W / 2);
+  const p = buffer(W, H);
+  const lights = [];
+  const seed = site.length * 7;
+
+  // the ground
+  for (let y = FACADE_H; y < H; y++) for (let x = 0; x < W; x++) {
+    const n = hash2(x, y, seed);
+    let c;
+    if (site === "farm") {
+      c = mix("#3e6a32", "#4e7e3a", hash2(x >> 1, y >> 1, seed + 1));
+      if (n < 0.08) c = "#5e8e44";
+      if ((y - FACADE_H) % 12 >= 9 && (x < MARGIN + 2 || x > W - MARGIN - 3 || hash(Math.floor(y / 12), seed + 2) < 0.3)) c = mix("#5a3e26", "#4a3220", n); // a furrow
+    } else if (site === "barn") {
+      c = mix("#5a4430", "#6a5038", hash2(x >> 1, y >> 1, seed + 1));
+      if (n < 0.12) c = mix("#c8a858", "#a88a40", hash2(x, y, seed + 3)); // straw
+    } else {
+      c = mix("#4a4a50", "#5a5a5e", hash2(x >> 1, y >> 1, seed + 1));
+      if (n < 0.1) c = "#6a6a70";
+      if (n > 0.97) c = "#3a3a3e";
+    }
+    p.set(x, y, c);
+  }
+  if (site === "farm") {
+    // sprouts in the furrows, a trampled path down the middle lane
+    for (let y = FACADE_H + 10; y < H; y += 12) for (let x = 2; x < W - 2; x += 5) if (hash2(x, y, seed + 4) < 0.6) p.r(x, y - 2, x, y, "#7ab84a");
+    for (let y = FACADE_H; y < H; y++) if (hash(y, seed + 5) < 0.5) p.r(mid - 3 + Math.round(hash(y, seed + 6) * 2), y, mid + 2, y, "#5a4a32");
+  } else if (site === "barn") {
+    // a bale burst open, a pitchfork, the odd feather
+    p.r(mid - 18, FACADE_H + 46, mid - 10, FACADE_H + 50, "#d8b858");
+    p.line(mid + 12, FACADE_H + 70, mid + 22, FACADE_H + 62, "#8a6a40");
+    for (let i = 0; i < 8; i++) p.set(MARGIN + Math.floor(hash(i, seed + 7) * cols * CELL_W), FACADE_H + Math.floor(hash(i, seed + 8) * (H - FACADE_H)), "#f0ece0");
+  } else {
+    // oil stains, bolts and a hubcap
+    for (let i = 0; i < 6; i++) p.oval(MARGIN + 6 + Math.floor(hash(i, seed + 9) * (cols * CELL_W - 12)), FACADE_H + 10 + Math.floor(hash(i, seed + 10) * (H - FACADE_H - 20)), 4, 2, "#24242a");
+    for (let i = 0; i < 12; i++) p.set(MARGIN + Math.floor(hash(i, seed + 11) * cols * CELL_W), FACADE_H + Math.floor(hash(i, seed + 12) * (H - FACADE_H)), "#a8a8b0");
+    p.oval(mid + 20, FACADE_H + 58, 3, 3, "#b8bcc4");
+    p.oval(mid + 20, FACADE_H + 58, 1, 1, "#6a6a72");
+  }
+  // down both sides, past the squares
+  for (const [a, b] of [[0, MARGIN - 1], [W - MARGIN, W - 1]]) {
+    for (let y = FACADE_H; y < H; y++) {
+      if (site === "farm") { // corn: tall stalks, a cob here and there
+        for (let x = a; x <= b; x++) if ((x + Math.floor(y / 3)) % 3 === 0) p.set(x, y, hash2(x, y, seed + 13) < 0.5 ? "#4a8a3a" : "#3a6a2a");
+        if (y % 9 === 0) p.r(a + 2, y, a + 3, y + 2, "#e8c040");
+      } else if (site === "barn") { // the stalls: plank walls, a bale stacked in each
+        p.r(a, y, b, y, y % 6 === 0 ? "#3a2414" : "#6a3e22");
+        if ((y - FACADE_H) % 22 > 12) p.r(a + 1, y, b - 1, y, y % 3 ? "#d8b858" : "#b89838");
+      } else { // tyres stacked up, a crushed car
+        const t = (y - FACADE_H) % 16;
+        if (t < 10) {
+          const cy = y - t + 5;
+          for (let x = a; x <= b; x++) if ((x - (a + b) / 2) ** 2 / 16 + (y - cy) ** 2 / 25 <= 1) p.set(x, y, (x - (a + b) / 2) ** 2 / 4 + (y - cy) ** 2 / 6 < 1 ? "#4a4a50" : "#1e1e22");
+        } else p.r(a, y, b, y, mix("#8a4a2a", "#6a3a22", hash(y, seed + 14)));
+      }
+    }
+  }
+
+  // the wall at the top: the school's back wall (the barn's own, inside it), the door they came out of
+  if (site === "barn") {
+    p.r(0, 0, W - 1, FACADE_H - 1, "#7a3424");
+    for (let x = 0; x < W; x += 4) p.r(x, 0, x, FACADE_H - 1, "#5a2418");
+    p.r(0, 4, W - 1, 4, "#e8e0d0");
+  } else {
+    for (let y = 0; y < FACADE_H; y++) for (let x = 0; x < W; x++) {
+      const mortar = y % 4 === 3 || (x + (Math.floor(y / 4) % 2) * 4) % 8 === 0;
+      p.set(x, y, mortar ? "#5a3a32" : mix("#8a4a3a", "#9a5644", hash2(x >> 2, y >> 2, seed + 15)));
+    }
+  }
+  const d0 = mid - 8;
+  const d1 = mid + 7;
+  p.r(d0 - 1, 3, d1 + 1, FACADE_H - 1, "#2a2420");
+  for (let y = 4; y < FACADE_H; y++) p.r(d0, y, d1, y, mix("#f0c890", "#8a6a48", (y - 4) / (FACADE_H - 4)), 1);
+  lights.push({ x: mid, y: FACADE_H, r: 30, sy: 1.4, k: 0.5, c: [1.0, 0.8, 0.55] });
+  if (site !== "barn") {
+    p.r(d1 + 4, 6, d1 + 6, 9, "#f8e0a0", 1); // a lamp over the door
+    lights.push({ x: d1 + 5, y: 9, r: 22, sy: 1.2, k: 0.4, c: [1.0, 0.86, 0.6] });
+  }
+
+  // the far end, into the dark
+  for (let y = H - CELL_H * 2; y < H; y++) {
+    const t = (y - (H - CELL_H * 2)) / (CELL_H * 2);
+    for (let x = 0; x < W; x++) if (bayer(x, y) < t * 0.9) p.set(x, y, mix(p.col[y * W + x] || "#000000", "#06060a", 0.7));
+  }
+  // the squad's torches, a beam down each lane
+  for (let col = 0; col < cols; col++) {
+    lights.push({ x: MARGIN + col * CELL_W + CELL_W / 2, y: FACADE_H + CELL_H, len: (rows - 1) * CELL_H, w0: 5, spread: 0.32, k: 0.4, c: [1.0, 0.94, 0.75] });
+  }
+  if (site === "barn") lights.push({ x: mid, y: FACADE_H + 46, r: 46, sy: 1, k: 0.55, c: WARM }); // (a lantern hung from the beam)
+  const url = `url('${lightUp(p, lights, { ambient: site === "barn" ? [0.34, 0.3, 0.38] : [0.3, 0.34, 0.55], mist: site !== "barn" })}')`;
   cache.set(key, url);
   return url;
 }

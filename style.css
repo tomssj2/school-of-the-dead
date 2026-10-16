@@ -4543,3 +4543,123 @@ body.basement-bg { --sky-now: var(--sky-basement); }
 /* the Still Alive banner: a tip under the cellar door, once the survivors have walked up */
 .yd-tip { position: absolute; right: 14px; bottom: 14px; max-width: 250px; padding: 5px 9px; font-size: 12px; line-height: 1.35; color: #f4e3b0; background: rgba(12, 10, 16, 0.78); border: 1px solid rgba(244, 211, 94, 0.5); opacity: 0; animation: intro-line 0.8s ease-out 3s forwards; }
 .yd-tip-still { animation: none; opacity: 1; }
+
+/* ===== the tutorial's first floor: a cutscene before and after each room's 1v1 ===== */
+.cs-art { height: 300px; background-size: cover; background-position: 50% 70%; animation: intro-fade 1s ease-out forwards; }
+.cs-boards { position: absolute; inset: 0; background: repeating-linear-gradient(-14deg, transparent 0 46px, #8a5a30 46px 64px, #6b4423 64px 67px, transparent 67px 110px), rgba(6, 6, 10, 0.62); }
+.cs-noise { position: absolute; left: calc(18% + var(--n) * 26%); top: calc(16% + var(--n) * 9%); font-size: 22px; font-weight: 900; color: #ffe08a; text-shadow: 2px 2px 0 #2a1d06, 0 0 10px rgba(0, 0, 0, 0.8); opacity: 0; animation: cs-noise 2.4s steps(1) calc(0.6s + var(--n) * 0.8s) infinite; }
+@keyframes cs-noise { 0% { opacity: 1; transform: translate(0, 0) rotate(-4deg); } 10% { transform: translate(3px, -2px) rotate(3deg); } 20% { transform: translate(-2px, 1px) rotate(-2deg); } 35% { opacity: 0; } 100% { opacity: 0; } }
+.cs-crowd { position: absolute; left: 0; right: 0; bottom: 12px; height: 72px; }
+.cs-kid { position: absolute; left: var(--x); bottom: 0; }
+.cs-kid svg, .cs-hero svg, .cs-face svg { display: block; }
+.cs-before .cs-kid:nth-child(odd) svg { animation: cs-shiver 0.3s steps(2) infinite; }
+@keyframes cs-shiver { 50% { transform: translateX(1px); } }
+.cs-hero { position: absolute; bottom: 10px; filter: drop-shadow(0 0 6px rgba(244, 197, 66, 0.7)); }
+.cs-before .cs-hero { left: calc(500px + var(--h) * 70px); }
+.cs-after .cs-hero { left: calc(min(640px, 940px - var(--n) * 70px) + var(--h) * 70px); }
+.cs-hero-tag { position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%); padding: 1px 6px; font-size: 11px; font-style: normal; font-weight: 800; white-space: nowrap; color: #2a1d06; background: #f4c542; }
+.cs-text { min-height: 0; padding-bottom: 0; }
+.cs-text .talk-lines { margin: 4px 0 0; gap: 10px; }
+.cs-face { display: grid; justify-items: center; flex: none; width: 56px; }
+.cs-face small { font-size: 11px; color: var(--muted); }
+/* the class lesson, over the board before the 1v1 */
+.cs-lesson-overlay { z-index: 1100; background: rgba(0, 0, 0, 0.55); }
+.cs-lesson { display: block; width: 480px; max-width: calc(100vw - 32px); }
+.cs-lesson-head { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.cs-lesson-head h3 { margin: 0 0 2px; color: #f4c542; }
+.cs-lesson-fig { display: flex; gap: 4px; flex: none; }
+.cs-lesson-fig svg { display: block; }
+.cs-lesson-list { margin: 0 0 10px; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.cs-lesson-note { margin: 0 0 12px; font-size: 12px; }
+.cs-lesson .row-actions { justify-content: flex-end; }
+.cs-call { margin: 0 0 12px; }
+.cs-lesson-big { flex-direction: column; align-items: flex-start; gap: 8px; }
+.cs-lesson { width: 520px; }
+
+/* the tutorial's top floor: a check before the fight (a lock, a sneak), defenses to place, the research tip */
+.cs-text > p { margin: 0 0 6px; font-size: 15px; line-height: 1.45; }
+.cs-check { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-top: 10px; padding: 10px 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border); }
+.cs-check-odds { display: grid; gap: 4px; font-size: 14px; }
+.cs-check-odds small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+.cs-check-go { white-space: nowrap; }
+.cs-place-hint { position: fixed; z-index: 1100; left: 50%; top: 90px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #12141c; border: 2px solid #f4c542; font-size: 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6); }
+.nw-pick-place { cursor: pointer; }
+.cs-lesson .row-actions { flex-wrap: wrap; gap: 8px; }
+.tech-tip { position: fixed; z-index: 900; left: 50%; bottom: 24px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #12141c; border: 2px solid #4a9eff; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); font-size: 14px; }
+.tt-tutor-tip { margin: 0 0 10px; padding: 8px 12px; background: rgba(74, 158, 255, 0.12); border: 1px solid rgba(74, 158, 255, 0.5); font-size: 14px; }
+.tt-tutor .tt-ready { box-shadow: 0 0 0 2px #f4c542, 0 0 14px rgba(244, 197, 66, 0.6); animation: tt-glow 1.2s ease-in-out infinite alternate; }
+@keyframes tt-glow { from { box-shadow: 0 0 0 2px #f4c542, 0 0 6px rgba(244, 197, 66, 0.3); } to { box-shadow: 0 0 0 2px #f4c542, 0 0 18px rgba(244, 197, 66, 0.8); } }
+.cs-text > p { opacity: 1; animation: none; }
+.cs-lurker { position: absolute; right: 150px; bottom: 14px; }
+.cs-lurker svg { display: block; }
+.cs-asleep { transform: rotate(-80deg) translateX(-20px); filter: brightness(0.8); }
+.cs-asleep::after { content: "z z z"; position: absolute; left: 70px; top: -10px; transform: rotate(80deg); color: #cfe6ff; font-weight: 800; font-size: 14px; animation: hm-bob 1.4s ease-in-out infinite alternate; }
+
+/* ===== the tutorial's last fight: Gellert Grimwald, in the Headmaster's Office ===== */
+/* the arena: lightning flickering at the windows, a green haze rising off the dais */
+.nw-arena::before { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(0deg, rgba(90, 255, 140, 0.12), transparent 30%); animation: bb-haze 3s ease-in-out infinite alternate; }
+.nw-arena::after { background: radial-gradient(ellipse at 50% 70%, transparent 40%, rgba(6, 2, 14, 0.75) 100%); animation: bb-lightning 9s steps(1) infinite; }
+@keyframes bb-haze { from { opacity: 0.5; } to { opacity: 1; } }
+@keyframes bb-lightning { 0%, 61%, 63%, 65%, 100% { background-color: transparent; } 62%, 64% { background-color: rgba(200, 220, 255, 0.16); } }
+.nw-arena-rage::before { background: linear-gradient(0deg, rgba(255, 60, 40, 0.18), transparent 45%); animation-duration: 0.9s; }
+/* his bar, over the wall at the top of the board */
+.bb-bar { position: absolute; z-index: 30; left: 8px; right: 8px; top: 6px; padding: 5px 8px 6px; background: rgba(8, 4, 16, 0.86); border: 2px solid #6a4ab0; box-shadow: 0 0 14px rgba(125, 255, 154, 0.25); pointer-events: none; }
+.bb-name { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; font-size: 13px; }
+.bb-name b { color: #c9b8ff; letter-spacing: 0.04em; }
+.bb-name small { color: var(--muted); }
+.bb-name em { margin-left: auto; font-style: normal; font-weight: 800; font-size: 12px; color: #9fffb4; }
+.bb-hp { position: relative; height: 12px; background: rgba(0, 0, 0, 0.6); border: 1px solid #3a2a5a; }
+.bb-hp i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(180deg, #ff6a5a, #b0202a); transition: width 0.4s ease; }
+.bb-hp b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: #ffe28a; box-shadow: 0 0 4px #ffe28a; }
+.bb-hp span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 10px; font-weight: 800; color: #fff; text-shadow: 0 1px 0 #000; }
+.bb-warded .bb-hp i { background: linear-gradient(180deg, #b89aff, #5a3ab0); }
+.bb-warded { border-color: #b89aff; box-shadow: 0 0 18px rgba(184, 154, 255, 0.55); }
+.bb-stunned { border-color: #ffe28a; }
+/* him: bigger, glowing; his ward a bubble, his daze stars, his rage red */
+.nw-z-warlock svg { filter: drop-shadow(0 0 8px rgba(125, 255, 154, 0.85)); }
+.nw-z-warlock .nw-hp { width: 64px; height: 6px; }
+.nw-warded::before { content: ""; position: absolute; left: 50%; bottom: 4px; width: 84px; height: 92px; transform: translateX(-50%); border-radius: 50%; border: 2px solid rgba(184, 154, 255, 0.95); background: radial-gradient(ellipse, rgba(140, 100, 255, 0.08), rgba(140, 100, 255, 0.32)); box-shadow: 0 0 16px rgba(184, 154, 255, 0.8); animation: bb-ward 1.2s ease-in-out infinite alternate; }
+@keyframes bb-ward { from { opacity: 0.7; } to { opacity: 1; } }
+.nw-stunned::after { content: "💫"; position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 18px; animation: hm-bob 0.5s ease-in-out infinite alternate; }
+.nw-stunned svg { filter: grayscale(0.4) drop-shadow(0 0 6px #ffe28a); }
+.nw-raging svg { filter: drop-shadow(0 0 10px rgba(255, 60, 40, 0.95)); animation-duration: 0.35s; }
+.nw-warden svg { filter: drop-shadow(0 0 6px rgba(184, 154, 255, 0.9)); }
+.nw-warden::before { content: "🛡"; position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font-size: 13px; }
+/* the hexed lane, crackling until the bolt comes down it */
+.nw-hexlane { z-index: 2; pointer-events: none; align-items: center; background: repeating-linear-gradient(0deg, rgba(150, 110, 255, 0.28) 0 6px, rgba(150, 110, 255, 0.1) 6px 12px); border: 1px solid rgba(184, 154, 255, 0.7); animation: nw-telegraph 0.35s ease-in-out infinite alternate; }
+.nw-hexlane span { font-size: 18px; filter: drop-shadow(0 0 6px #b89aff); opacity: 0.9; }
+.nw-bolt { position: absolute; z-index: 26; pointer-events: none; left: calc((var(--c) + 0.5) * 32px * var(--px)); top: calc(var(--r0) * 20px * var(--px)); height: calc((var(--r1) - var(--r0) + 0.6) * 20px * var(--px)); width: 18px; transform: translateX(-50%);
+  background: repeating-linear-gradient(170deg, transparent 0 10px, #e8e0ff 10px 14px, transparent 14px 22px), linear-gradient(90deg, transparent 30%, rgba(200, 180, 255, 0.9) 45%, #fff 50%, rgba(200, 180, 255, 0.9) 55%, transparent 70%);
+  box-shadow: 0 0 24px 8px rgba(160, 120, 255, 0.75); animation: bb-bolt 0.6s steps(4) forwards; }
+@keyframes bb-bolt { 0% { opacity: 1; } 40% { opacity: 0.6; } 60% { opacity: 1; } 100% { opacity: 0; } }
+.nw-puff { position: absolute; z-index: 25; pointer-events: none; left: calc((var(--c) + 0.5) * 32px * var(--px)); top: calc((var(--r) + 0.5) * 20px * var(--px)); width: 70px; height: 70px; margin: -35px 0 0 -35px; border-radius: 50%; background: radial-gradient(circle, rgba(184, 154, 255, 0.9), rgba(90, 50, 160, 0.5) 50%, transparent 70%); animation: bb-puff 0.8s ease-out forwards; }
+.nw-puff-green { background: radial-gradient(circle, rgba(125, 255, 154, 0.85), rgba(40, 140, 80, 0.45) 50%, transparent 70%); }
+@keyframes bb-puff { from { transform: scale(0.3); opacity: 1; } to { transform: scale(1.4); opacity: 0; } }
+.nw-banner-ward { color: #c9b8ff; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.6), 0 0 22px rgba(160, 120, 255, 0.95); }
+/* the side panel: his three phases */
+.bb-phases { display: grid; gap: 4px; margin-bottom: 8px; }
+.bb-phase { display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: center; gap: 8px; padding: 4px 8px; font-size: 13px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border); opacity: 0.55; }
+.bb-phase b { display: grid; place-items: center; width: 22px; height: 22px; background: #2a2040; color: #c9b8ff; }
+.bb-phase small { display: block; color: var(--muted); font-size: 11px; }
+.bb-phase.on { opacity: 1; border-color: #b89aff; box-shadow: 0 0 10px rgba(184, 154, 255, 0.35); }
+.bb-phase.past { opacity: 0.4; text-decoration: line-through; }
+/* a night action explained, mid-fight */
+.bb-prompt h3 { margin: 0 0 8px; color: #f4c542; }
+.bb-prompt p { margin: 0 0 6px; font-size: 14px; }
+.bb-prompt .row-actions { margin-top: 10px; }
+.bb-result .fight-result-text { color: #c9b8ff; }
+/* his door, and Doubledoor at it */
+.btn-boss { --b-face: #8a4ad0; --b-hi: #c9a0ff; --b-lo: #4a2080; --b-edge: #1a0a30; --b-ink: #fff; }
+.cs-dd { position: absolute; right: 40px; bottom: 8px; filter: drop-shadow(0 0 10px rgba(255, 140, 60, 0.35)); }
+.cs-dd svg { display: block; }
+
+/* the tutorial: a room's controls wait until the school is taken back */
+body.tut-lock .room:not(.room-boarded) .person-tiles { position: relative; }
+body.tut-lock .room:not(.room-boarded) .person-tiles::after { content: "🔒 Opens once the school is ours"; position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; background: rgba(10, 12, 18, 0.62); color: #f4d35e; font-size: 12px; font-weight: 700; cursor: not-allowed; }
+body.tut-lock .room:not(.room-boarded) .scene-upgrade, body.tut-lock .room:not(.room-boarded) .stay-toggle { opacity: 0.35; filter: grayscale(1); cursor: not-allowed; }
+.cs-skip { opacity: 0.75; }
+.cs-skip:hover { opacity: 1; }
+.report-tip { border-color: #f4c542; }
+.report-tip .q-mark { position: static; margin: 0; }
+.next-tip { border-color: #e8b820; }
+.next-tip .q-mark, .report-tip .q-mark { position: static; margin: 0; }

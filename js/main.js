@@ -4,13 +4,13 @@ import { WORLD_W, WORLD_H } from "./citymap.js";
 import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict, tutorialTabs, tutorialTab } from "./ui.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderNpcModal, renderNpcReveal, renderIntro, renderDialog, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
+  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderNpcModal, renderNpcReveal, renderIntro, renderDialog, renderRoomCutscene, renderClassLesson, renderTechTip, renderReportTip, renderNextTip, renderBossPrompt, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionBattle,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
 import { emptyEquipment, starterArmory, withTeacherHonorific, fitName, capTeacherGrades, repairIds, maxStaminaFor, maxHpFor, assignStudentFocus, gradeCap, weaponCategory, studentClass, armorType, makeWeapon, makeArmor, makeAccessory, randomEffect, makeSetItem, SET_PIECES } from "./characters.js";
 import { NPC_VOICE } from "./npcs.js";
-import { playBlip, playHit, playSuccess, playFail, playChime, isSoundEnabled, setSoundEnabled, setSoundVolume,
+import { playBlip, playHit, playSuccess, playFail, playChime, playReveal, isSoundEnabled, setSoundEnabled, setSoundVolume,
   playShot, playSwing, playCrit, playKill, playBoom, playGrowl, playAbility, playWave, playHeal } from "./sound.js";
 import { applyGraphics, getGraphics, setGraphics, applyUiScale, setUiSize } from "./graphics.js";
 import { installFrames, installBackdrop } from "./frames.js";
@@ -74,7 +74,9 @@ function ask(text, then, { input = null, yes = "OK", danger = false } = {}) {
 let introStep = 0; // the intro's screen, while state.intro is set (a new game)
 const INTRO_DIFFICULTY_STEP = 2; // "Still Alive": a new game picks its difficulty there
 let introSettled = false; // the survivors have walked in on that screen (a new pick doesn't replay it)
+let roomCutscene = null; // the tutorial's first floor: before / after a room's 1v1 (ui.js renderRoomCutscene)
 let npcReveal = null; // the NPC of a room just cleared, for the "Who's that NPC?!" reveal
+let revealHeard = null; // (its jingle plays once, as it shows)
 let openMenu = false; // the Cafeteria's menu pop-up
 let openQuarantine = false; // the Nurse's Office quarantine pop-up
 let openEnemyGuide = false; // the Night Watch's "Know your enemy" pop-up
@@ -791,16 +793,26 @@ function render() {
   // the page behind the game: black through the intro, the basement through the tutorial
   document.body.classList.toggle("blackout", !!state.intro);
   document.body.classList.toggle("basement-bg", !state.intro && G.tutorialOn(state));
+  document.body.classList.toggle("tut-lock", !state.intro && G.tutorialOn(state));
+  // the reveal's jingle, as it first shows
+  if (npcReveal !== revealHeard) {
+    revealHeard = npcReveal;
+    if (npcReveal) playReveal();
+  }
   const modalHtml = state.intro
     ? renderIntro(state, introStep, `intro:${talkSeq}:${introStep}`, introSettled && introStep === INTRO_DIFFICULTY_STEP) + (card ? renderCharacterCard(state, card, cardTab, cardAsk) : "")
     : npcReveal
     ? renderNpcReveal(npcReveal)
+    : roomCutscene
+    ? renderRoomCutscene(state, roomCutscene)
     : raidFight
     ? renderRaidFight(state, raidFight)
     : encounter
     ? renderEncounterModal(state, encounter)
     : battleAnimation?.kind === "expedition"
     ? renderExpeditionBattle(state, battleAnimation)
+      + (battleAnimation.b?.lesson && battleAnimation.phase === "battle" && battleAnimation.b.phase === "break" ? renderClassLesson(state, battleAnimation.b, battleAnimation) : "")
+      + (battleAnimation.b?.prompt && battleAnimation.phase === "battle" && !battleAnimation.target ? renderBossPrompt(state, battleAnimation.b) : "")
     : expeditionReport
     ? renderExpeditionReport(state, expeditionReport)
     : battleAnimation && battleAnimation.kind !== "grid" // (the night's fight plays on the board)
@@ -851,7 +863,9 @@ function render() {
   const barsBefore = sameTab ? new Map([...barWidths()].map(([key, el]) => [key, el.style.width])) : null;
   if (state.gameOver || state.victory) recordRun(state, G.aliveChars(state).length);
   setNightBattle(battleAnimation?.kind === "grid" ? battleAnimation : null);
-  root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml + (dialog ? renderDialog(dialog) : "");
+  root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml + (dialog ? renderDialog(dialog) : "")
+    + (state.techTip && !modalHtml && activeTab !== "research" ? renderTechTip(state) : "")
+    + (G.tutorialOn(state) && !modalHtml && !state.techTip ? renderReportTip(state) || renderNextTip(state, activeTab) : "");
   if (barsBefore) slideBars(barsBefore);
   if (reachShown) {
     const { battle, studentId, row, col } = reachShown;
@@ -865,6 +879,7 @@ function render() {
   fitCityMap();
   fitNightBoard();
   setMusicMood(musicMood());
+  autosave();
   speakBubbles();
 }
 
@@ -956,6 +971,7 @@ function musicMood() {
   if (state.gameOver) return null;
   if (raidFight?.phase === "battle") return raidFight.report.kind === "chase" ? "fight" : "boss";
   if (battleAnimation?.kind === "grid" && battleAnimation.phase === "battle") return battleAnimation.b?.bossName ? "boss" : "fight";
+  if (battleAnimation?.b?.bossFight && battleAnimation.phase === "battle") return battleAnimation.b.zombies.some((z) => z.type === "warlock" && z.phase === 3) ? "raidRage" : "raid";
   if (battleAnimation?.kind === "expedition" && battleAnimation.phase === "battle") return battleAnimation.b.bossName ? "boss" : "fight";
   if (state.victory) return "morning";
   return ["morning", "afternoon", "night"][state.turn - 1] || "morning";
@@ -1303,6 +1319,30 @@ function loadGame() {
   }
 }
 
+// The game saves itself — quietly, a moment after it's drawn (at most every few seconds, the latest
+// always), whenever nothing's mid-fight (a fight isn't in the save; its result is), and as the page
+// closes — so closing the tab never loses more than a moment. Not during the intro (a new game starts
+// there anyway), and not once a dev shortcut (schoolDev.*) has touched this session's game, so tests
+// never overwrite a real save.
+let devTouched = false;
+let lastAutosave = 0;
+let autosaveTimer = null;
+const canAutosave = () => !devTouched && !state.intro && !battleAnimation && !raidFight && !encounter;
+function writeAutosave() {
+  if (!canAutosave()) return;
+  lastAutosave = Date.now();
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  } catch (e) {
+    // (no storage: the Save button says so)
+  }
+}
+function autosave() {
+  clearTimeout(autosaveTimer);
+  if (canAutosave()) autosaveTimer = setTimeout(writeAutosave, Math.max(300, 4000 - (Date.now() - lastAutosave)));
+}
+window.addEventListener("pagehide", writeAutosave);
+
 function saveGame() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
@@ -1425,7 +1465,11 @@ function playBattleSounds(events) {
 const BATTLE_TICK_MS = 1500;
 const BATTLE_SPEEDS = [1, 2, 3];
 let battleSpeed = 1;
-const tickMs = () => BATTLE_TICK_MS / battleSpeed;
+// The tutorial's lesson fights (short, and they can't be lost) go at 2× unless the player picks
+// another speed in one — remembered for the rest of them, apart from the night's.
+let lessonSpeed = null;
+const isLesson = (b) => !!b?.lesson && !b.bossFight;
+const tickMs = () => BATTLE_TICK_MS / (battleAnimation?.speed || battleSpeed);
 let battleTimer = null;
 // A new game (or a dev reset) drops whatever night fight was on, so it can't block the next turn.
 function dropNightBattle() {
@@ -1442,7 +1486,7 @@ function playNightBattle(afterResult) {
 // A fight played live (the night's, or an expedition's): `b` from its start, `finish` settles it into
 // the summary, `afterResult` runs once the player moves on from the result.
 function playBattle(b, kind, finish, afterResult) {
-  const anim = { kind, live: true, b, summary: b, frameIndex: 0, phase: "battle", target: null, paused: false, speed: battleSpeed };
+  const anim = { kind, live: true, b, summary: b, frameIndex: 0, phase: "battle", target: null, paused: false, speed: isLesson(b) ? lessonSpeed ?? 2 : battleSpeed };
   const sync = () => { anim.frameIndex = b.frames.length - 1; };
   const showResult = () => {
     if (anim.phase !== "battle") return;
@@ -1472,6 +1516,7 @@ function playBattle(b, kind, finish, afterResult) {
     } catch (err) {
       console.error("Night battle render failed:", err);
     }
+    if (b.prompt && b.phase === "fight") return; // (a night action explained: it waits — boss-prompt)
     if (b.phase === "fight") battleTimer = setTimeout(step, tickMs());
     // the last kill lingers a moment (the board goes slow-motion) before the result
     else if (b.phase === "done") battleTimer = setTimeout(showResult, lastKill ? 1800 : 900);
@@ -1598,6 +1643,12 @@ root.addEventListener("click", (e) => {
   const el = e.target.closest("[data-action]");
   if (!el) return;
   const action = el.dataset.action;
+  // (the tutorial: the rooms are being taken back, not run yet — only meeting their NPC, a student's
+  // card and the next room to clear work in them)
+  if (G.tutorialOn(state) && el.closest(".room:not(.room-boarded)") && !["open-npc", "open-card", "open-clear-room", "noop"].includes(action)) {
+    flash("🔒 The rooms open for business once the school is ours.", 2400);
+    return;
+  }
 
   switch (action) {
     case "encounter-pick": {
@@ -1649,11 +1700,16 @@ root.addEventListener("click", (e) => {
       openBanter = null;
       render();
       break;
-    case "skip-tutorial":
-      G.skipTutorial(state);
-      openNpc = null;
-      render();
+    case "skip-tutorial": {
+      // (it can't be undone: asked first, with what it pays out)
+      const got = Object.entries(G.tutorialSkipRewards(state)).map(([k, n]) => `+${n} ${k === "materials" ? "scrap" : k}`).join(", ");
+      ask(`Skip the tutorial? Every room opens now, and you get everything it would have given you${got ? `: ${got}` : ""}.`, () => {
+        G.skipTutorial(state);
+        openNpc = null;
+        renownNews();
+      }, { yes: "Skip it" });
       break;
+    }
     case "close-reveal":
       npcReveal = null;
       render();
@@ -1680,6 +1736,11 @@ root.addEventListener("click", (e) => {
       break;
     case "accept-quest":
       Q.acceptQuest(state, el.dataset.quest);
+      // (the tutorial's next part: straight up to its first room)
+      if (G.tutorialOn(state) && Q.SCHOOL_PARTS.some((p) => p.id === el.dataset.quest) && G.tutorialTarget(state)) {
+        openNpc = null;
+        activeTab = tutorialTab(state);
+      }
       render();
       break;
     case "hand-in-quest":
@@ -1715,12 +1776,14 @@ root.addEventListener("click", (e) => {
       if (!battleAnimation) resolveCurrentTurn();
       break;
     case "save-game":
+      devTouched = false; // (saving by hand: this game's the one to keep — autosave picks it up again)
       saveGame();
       break;
     case "reset-game":
       // A clean start: the save goes and the page reloads, so nothing of the old game is left open
       // (windows, a fight, the intro's screen) — and a game with no save starts at the intro.
       ask("Start a brand new game? This will erase your current progress.", () => {
+        devTouched = true; // (no autosave on the way out — it would bring the old game back)
         try {
           localStorage.removeItem(SAVE_KEY);
         } catch (e) {
@@ -1979,10 +2042,132 @@ root.addEventListener("click", (e) => {
       render();
       break;
     }
-    case "open-clear-room":
+    case "open-clear-room": {
       openCardId = null;
-      clearRoom = { roomKey: el.dataset.room, ids: [] };
+      // the tutorial's first floor: a cutscene and a 1v1 instead of picking a squad
+      const roomKey = el.dataset.room;
+      const heroes = G.tutorialOn(state) && Q.ROOM_CUTSCENES[roomKey] ? G.cutsceneHeroes(state, roomKey) : [];
+      if (heroes.length) {
+        const others = G.aliveChars(state).filter((c) => c.role === "student" && !heroes.includes(c)).sort(() => Math.random() - 0.5);
+        const first = (c) => c.name.split(" ")[0];
+        const named = new Set(heroes.map(first));
+        const cast = others.filter((c) => !named.has(first(c)) && named.add(first(c))).slice(0, 2);
+        for (const c of others) if (cast.length < 2 && !cast.includes(c)) cast.push(c); // (too few names to go round)
+        roomCutscene = { roomKey, part: "before", heroIds: heroes.map((c) => c.id), cast: cast.map((c) => c.id), seq: Date.now() };
+      } else clearRoom = { roomKey, ids: [] };
       render();
+      break;
+    }
+    case "cutscene-go": {
+      const cs = roomCutscene;
+      if (!cs) break;
+      roomCutscene = null;
+      // after: on to whoever's still alive in there
+      if (cs.part === "after" && Q.ROOM_CUTSCENES[cs.roomKey].boss) {
+        activeTab = "basement"; // (Doubledoor's waiting to hear it)
+        render();
+        break;
+      }
+      if (cs.part === "after") {
+        npcReveal = Q.ROOM_KEY_NPC[cs.roomKey];
+        render();
+        break;
+      }
+      const C = Q.ROOM_CUTSCENES[cs.roomKey];
+      // the last: everyone, against him (the planning popup first: the defenses, the night actions)
+      if (C.boss) {
+        const b = G.startBossBattle(state);
+        if (!b) {
+          render();
+          break;
+        }
+        let won = false;
+        playBattle(b, "expedition", (fight) => {
+          const res = G.finishBossBattle(state, fight);
+          won = res.won;
+          return res;
+        }, () => {
+          if (won) roomCutscene = { ...cs, part: "after", seq: Date.now() };
+          render();
+        });
+        break;
+      }
+      // a check first (a lock, a sneak): its popup — then, done, the room's theirs without a fight
+      if (cs.part === "before" && C.check) {
+        roomCutscene = { ...cs, part: "check", seq: Date.now() };
+        render();
+        break;
+      }
+      if (cs.part === "check" && cs.result === "ok") {
+        G.clearRoomQuietly(state, cs.roomKey);
+        G.lessonReward(state, cs.roomKey);
+        roomCutscene = { ...cs, part: "after", quiet: true, seq: Date.now() };
+        render();
+        break;
+      }
+      // the volunteer(s) go in (the class lesson pops up over the board first)
+      const b = G.startLessonBattle(state, cs.roomKey, cs.heroIds, { alarm: cs.result === "fail" && !!C.check?.alarm });
+      if (!b) {
+        render();
+        break;
+      }
+      let won = false;
+      if (C.reinforce && !C.lessonFirst) G.startNextWave(b); // (they go in alone, no lesson first)
+      playBattle(b, "expedition", (fight) => {
+        const res = G.finishClearBattle(state, cs.roomKey, fight);
+        won = res.won;
+        if (won) G.lessonReward(state, cs.roomKey);
+        return res;
+      }, () => {
+        if (won) roomCutscene = { ...cs, part: "after", seq: Date.now() };
+        render();
+      });
+      break;
+    }
+    case "cutscene-roll":
+      // a cutscene's check: the lock, the sneak — rolled once
+      if (roomCutscene?.part === "check" && !roomCutscene.result) {
+        roomCutscene = { ...roomCutscene, result: G.cutsceneCheck(state, roomCutscene.roomKey, roomCutscene.heroIds) ? "ok" : "fail", seq: Date.now() };
+        (roomCutscene.result === "ok" ? playSuccess : playFail)();
+        render();
+      }
+      break;
+    case "lesson-pick-place":
+      // a defense found in a cutscene's room: pick it, then a square on the board
+      if (battleAnimation?.b?.toPlace?.includes(el.dataset.id)) {
+        battleAnimation.placing = el.dataset.id;
+        render();
+      }
+      break;
+    case "lesson-place":
+      if (battleAnimation?.placing && G.lessonPlace(state, battleAnimation.b, battleAnimation.placing, Number(el.dataset.row), Number(el.dataset.col))) {
+        battleAnimation.placing = null;
+        playHit();
+        render();
+      }
+      break;
+    case "lesson-cancel-place":
+      if (battleAnimation) battleAnimation.placing = null;
+      render();
+      break;
+    case "boss-prompt": {
+      // the night action it explained: aim it, fire it — or not now
+      const anim = battleAnimation;
+      if (!anim?.live || !anim.b.prompt) break;
+      const what = el.dataset.do;
+      anim.b.prompt = null;
+      if (what === "molotov" || what === "fire" || what === "patch") {
+        anim.target = what === "patch" ? "patch" : "molotov";
+        render();
+      } else if (what === "rally") {
+        G.battleAction(state, anim.b, "rally");
+        anim.resumeSoon();
+      } else anim.resume();
+      break;
+    }
+    case "lesson-reinforce":
+      // mid-fight in a cutscene's room: whoever waited at the door runs in
+      if (battleAnimation?.live && G.lessonReinforce(state, battleAnimation.b)) battleAnimation.resume();
       break;
     case "close-clear-room":
       clearRoom = null;
@@ -2179,8 +2364,9 @@ root.addEventListener("click", (e) => {
       // 1× → 2× → 3× → 1×; the next turn comes at the new pace
       const anim = battleAnimation;
       if (!anim?.live) break;
-      battleSpeed = BATTLE_SPEEDS[(BATTLE_SPEEDS.indexOf(battleSpeed) + 1) % BATTLE_SPEEDS.length];
-      anim.speed = battleSpeed;
+      anim.speed = BATTLE_SPEEDS[(BATTLE_SPEEDS.indexOf(anim.speed) + 1) % BATTLE_SPEEDS.length];
+      if (isLesson(anim.b)) lessonSpeed = anim.speed;
+      else battleSpeed = anim.speed;
       if (anim.phase === "battle" && !anim.paused && !anim.target) {
         clearTimeout(battleTimer);
         render();
@@ -2243,6 +2429,7 @@ root.addEventListener("click", (e) => {
       break;
     case "buy-tech":
       if (!G.buyTech(state, el.dataset.id)) flash("Can't buy that yet.");
+      else delete state.techTip; // (the tutorial's first research, spent)
       render();
       break;
     case "radio-upgrade":
@@ -2413,7 +2600,7 @@ document.addEventListener("keydown", (e) => {
     battleAnimation.resume();
     return;
   }
-  if (e.key === "Escape" && (openCardId || openNpc || npcReveal || openMissionLocationId || openUpgrade || openMenu || openQuarantine || openEnemyGuide || openDefenseGuide || openRaid || openNest || scoutReport || clearRoom)) {
+  if (e.key === "Escape" && !npcReveal && (openCardId || openNpc || openMissionLocationId || openUpgrade || openMenu || openQuarantine || openEnemyGuide || openDefenseGuide || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
     openNpc = null;
     npcReveal = null;
@@ -2550,6 +2737,24 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       render();
       return "intro";
     },
+    // schoolDev.tutorial("classroom:1"): jump the tutorial to that room — the parts before it handed
+    // in, the rooms before it on its floor cleared.
+    tutorial(roomKey = "classroom:1") {
+      state.intro = false;
+      delete state.pickDifficulty;
+      state.tutorial = true;
+      state.quests ||= {};
+      for (const part of Q.SCHOOL_PARTS) {
+        const at = part.rooms.indexOf(roomKey);
+        const cleared = at < 0 ? part.rooms : part.rooms.slice(0, at);
+        state.boardedRooms = state.boardedRooms.filter((k) => !cleared.includes(k));
+        state.quests[part.id] = at < 0 ? "done" : "active";
+        if (at >= 0) break;
+      }
+      activeTab = tutorialTab(state);
+      render();
+      return `tutorial at ${roomKey}`;
+    },
     max() {
       if (!beforeMax) beforeMax = JSON.stringify(state);
       const summary = maxOutSchool(state);
@@ -2683,6 +2888,13 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       return summary;
     },
   };
+  // (any of them makes this session a test: autosave stops, so a real save is never overwritten)
+  for (const [name, fn] of Object.entries(window.schoolDev)) {
+    window.schoolDev[name] = (...args) => {
+      devTouched = true;
+      return fn(...args);
+    };
+  }
 }
 
 render();

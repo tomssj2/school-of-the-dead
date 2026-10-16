@@ -288,11 +288,35 @@ export const ZOMBIE_TYPES = {
   brute: { name: "Brute", badge: "💪", hpMult: 2, dmgMult: 1.5, wallMult: 2, rangedMult: 0.6, heavy: true, from: 7, desc: "Armoured: ranged hits do 40% less — get up close. Winds up heavy smashes and breaks walls fast." },
   spitter: { name: "Spitter", badge: "🤮", hpMult: 0.8, dmgMult: 0.7, spitRange: 3, rangedMult: 1.5, from: 10, desc: "Spits acid up to 3 squares away as it comes, but ranged hits do 50% more." },
   screamer: { name: "Screamer", badge: "📢", hpMult: 0.7, dmgMult: 0.5, howl: { range: 2, mult: 1.3 }, from: 13, desc: "Its howl makes every zombie within 2 squares hit 30% harder — take it down first." },
+  // the tutorial's last fight, in the Headmaster's Office (HEADMASTER_BOSS) — never in a night's horde
+  warlock: { name: "Gellert Grimwald", badge: "🧙", hpMult: 1, dmgMult: 1, heavy: true, unsnaggable: true, speed: 2, unique: true, from: 999, desc: "The Dark Headmaster. Hexes a lane for a bolt, raises the dead, hides behind a ward — and at the end, comes down for you himself." },
   boss: { name: "Boss", badge: "👑", hpMult: 5, dmgMult: 2, wallMult: 3, unsnaggable: true, rangedMult: 0.8, heavy: true, enrages: true, from: 5, desc: "Leads the horde every 5th night. Winds up smashes; at half health goes berserk and calls for help." },
 };
 // A heavy zombie next to a defender may wind up (`chance` a turn): the square is marked, and next
 // turn it smashes for `mult`× — unless an ability, a crit, a knockback or fire breaks it first.
 // The boss at half health: `enrageDmg`× damage, and `summons` walkers at the back.
+// The tutorial's last fight: Gellert Grimwald, headmaster before Doubledoor, locked in the Office
+// when he turned. A raid on a board of its own — 3 lanes; `studentRows` rows for the squad (all of
+// them, up to 9), two for the `defenses` they bring, and his dais at the back. He has `hp`, hits
+// for `damage` and fights in three phases:
+//   1 "The Lecture": on his dais, casting in turn (`spells`, by phase): a hex on the lane with the
+//     most students — next turn a bolt strikes the first thing in it (`boltMult`× his damage to a
+//     student, `boltWall`× to a wall in front of them) — walkers (`zStats`) raised beside him, and a
+//     blink: gone, and back in another lane. (null: no spell — down off the dais, he fights.)
+//   2 at `ward` of his HP, "The Dark Ward": he takes `wardTaken` of all damage until his `wardens`
+//     (screamers, `wardenToughness`× HP) are down (or `wardTurns` turns have gone); then it shatters — stunned `stunTurns` turns,
+//     taking `stunTaken`× — and the students cheer (+`cheer` morale).
+//   3 at `rage`, "Expelled!": he comes down off the dais, walking and winding up smashes, `rageDmg`×.
+// Morale starts at `morale`; when he falls, everything he raised falls with him. All of it's for a
+// squad of 9 — fewer (Hard: 6) face less of him (game.js startBossBattle).
+export const HEADMASTER_BOSS = {
+  id: "grimwald", name: "Gellert Grimwald", title: "The Dark Headmaster",
+  hp: 700, damage: 30, zStats: { hp: 48, damage: 13 },
+  spells: { 1: ["hex", "summon", "hex", "blink"], 2: ["hex", "summon"], 3: [null, null, "hex"] }, boltMult: 2.2, boltWall: 2,
+  ward: 0.6, wardTaken: 0.1, wardens: 2, wardenToughness: 2.2, wardTurns: 12, stunTurns: 3, stunTaken: 1.5, cheer: 25,
+  rage: 0.3, rageDmg: 1.3,
+  morale: 50, rows: 6, studentRows: 3, defenses: ["sandbag_wall", "sandbag_wall", "razor_wire", "razor_wire"],
+};
 export const ZOMBIE_SMASH = { chance: 0.5, mult: 2.5, enrageDmg: 1.5, summons: 2 };
 
 // ===== The Night Watch, fought live =====
