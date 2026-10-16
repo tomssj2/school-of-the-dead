@@ -5,7 +5,7 @@ import {
   TECH_TREE, CLASSROOM_SUBJECT, ROOM_LEVELS, ROOM_TEACHER_LEVELS, CAFETERIA_RATIONS_BY_LEVEL,
   ACCESSORIES, ACCESSORY_RANGES, RARITIES, RARITY_ORDER, ITEM_DROP_ODDS, MYTHIC_SETS, WEAPON_TEMPLATES, ARMOR_TEMPLATES, ARMOR_TYPES, WEAPON_TYPES, DEFENSE_STRUCTURES, zombieCountForDay, zombieStatsForDay,
   ZOMBIE_TYPES, hordeComposition, isBossNight, bossNameForDay, FIST_WEAPON,
-  HEADMASTER_BOSS, NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_CLASSES, NIGHT_MORALE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD,
+  HEADMASTER_BOSS, HAPPINESS_GAIN_WIN, HAPPINESS_GAIN_RECRUIT, HAPPINESS_LOSS_MISSION_FAIL, HAPPINESS_LOSS_DEATH, NIGHT_ACTIONS, NIGHT_CONDITIONS, NIGHT_CLASSES, NIGHT_MORALE, ENTRANCE_ZONES, ENTRANCE_ROWS, DEFENSE_ROW0, STREET_ROW0, NIGHT_STAR_REWARD,
   DISHES, INGREDIENTS, PRODUCERS, WORK_SITES, GYM_SIDES, INFIRMARY_MEDICINE_PER_PATIENT, INFIRMARY_BED_REST, INFIRMARY_NURSE_HP_PER_RANK,
   RESEARCH_ROOM_INT_PER_POINT, RESEARCH_BONUS_BY_LEVEL, HELPER_SLOTS_BY_LEVEL, MEDICINE_PER_STABILIZE, TECH_PATHS, STAT_EFFECTS, SKILL_EFFECTS,
   MAP_DROPS, RESCUE_DELAY_DAYS, RADIO_UPGRADES, RESCUE_ARRIVAL_DAYS, RADIO_CHA_PER_PERCENT, LANDMARKS, MAP_MILESTONES, BOARDED_ROOMS, ROOM_FIGHT_SQUAD, ROOM_FIGHT_STAMINA, RAID_MAX_TEAM, RAID_MAX_ROUNDS, ROOM_FIGHT_MAX_ROUNDS, NEST_CLEAR_STAMINA, NEST_CLEAR_MAX,
@@ -18,7 +18,7 @@ import {
   stripHonorific, setsWorn, weaponCategory, studentClass, armorType,
 } from "./characters.js";
 import {
-  getChar, aliveChars, cutsceneCheckOdds, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
+  getChar, aliveChars, cutsceneCheckOdds, tourTaskDone, stabilizeCost, nightClass, nightAbility2, nightAbility3, nightHpMult, nightOpening, nightStartMorale, nightPosting, favoriteSubject, canBuildAt, roomMaxLevel, assaultLeader, assaultCandidates, assaultEstimate, ASSAULT_LOOT, facilityRaidChance, buildableDefenses, nightCondition, nightActionCost, battleBench, nightWaveCount, teacherCount, workerYield, hasTurnOneJob, crafterGain, craftHelpGain, researchCrew, radioRecruitChance, radioStage, satelliteReady, radioCrew, radioCrewBonus, trainingGain, healAmount, treatedPatientIds, infectedChars, infectionDaysLeft, infirmaryBedsUsed, roomState, roomLevel, roomLevelStats, roomUpgradeCostFor, roomRepairCost, infirmaryNurseBonus, staysInRoom,
   isHexExplored, canScoutHex, dropAt, nearHorde, meetsItemRequirement, canCookDish, researchRoomYield,
   techPerk, fortifyMult, infirmaryHeal, nurseHpBonus, cafeteriaRest, dishCapacity, exploreStaminaCost, roleScores, autoRole, exploreRole, postRoomKey, encounterOption, teamCount, nextTeamCost, teamPower, memberPower, teamMembers, teamRoleSlots, expeditionNeed, expeditionBlocks, expeditionOdds, expeditionLootScale, expeditionHaul, expeditionPlace, expeditionForecast, expeditionRooms, expeditionRoomZombies, battleNoise, expeditionSneakOdds, runShare, roomEventOdds, expeditionGearChance, poiTier, scoutOdds, siteWorkerSlots, siteCrew, canWorkSite, stockLabel, fightPower, squadFight, packFight, bossFight, bossFightOdds, roomFightZombies, nestZombies, facilityRaiders,
   gymLesson, craftingCrew, tutorialTarget, tutorialOn, clearCost, APPRENTICE_POSTS, canApprentice, apprenticeOf, roomName, recruitSlots, classroomLesson, classGain, gymRoom, isBoarded, clearOdds, canFightForRoom, roomLabel, isNest, nextToNest, nestClearChance, scoutCost, scoutEncounterChance, raidCooldownLeft, raidBoss, raidEstimate, raidUnlocked, mapProgress, RAID_TEAM, siteDay, siteFocus, unlockedCrops, herdSize, herdKinds, roomStaff, } from "./game.js";
@@ -696,8 +696,7 @@ function renderBoardedRoom(state, roomKey, scene, cls = "") {
         <div class="boards"></div>
         <div class="scene-plaque">🔒 ${b.name}</div>
       </div>
-      <p class="room-tagline">Overrun — ${b.zombies.length} zombies inside.${next ? " Doubledoor wants this one taken back next." : target ? ` Doubledoor wants ${esc(BOARDED_ROOMS[target].name)} cleared first.` : " Report to Doubledoor in the basement first."}</p>
-      ${next ? `<div class="boarded-actions"><button class="btn btn-sm btn-primary" data-action="open-clear-room" data-room="${roomKey}">❗ Clear it out</button><span class="muted">free · nobody gets hurt for good</span></div>` : ""}
+      <p class="room-tagline">Overrun — ${b.zombies.length} zombies inside.${next ? " Doubledoor wants this one taken back next — the gold button up top." : target ? ` Doubledoor wants ${esc(BOARDED_ROOMS[target].name)} cleared first.` : " Talk to Doubledoor first — the gold button up top."}</p>
     </div>`;
   }
   const afford = state.resources.materials >= b.cost;
@@ -894,8 +893,8 @@ const HUD_TILE = {
 
 // One HUD counter: an icon tile, the number, and a small label (hidden on narrow screens).
 // `extra` goes after the number (today's meal buffs ride on the Food counter).
-function hudStat(floaties, key, iconHtml, tile, value, label, tipSpec, { sub = "", cls = "", extra = "", tab = "" } = {}) {
-  return `<span class="${key ? tbItemClass(floaties, key) : "tb-item"} hud-stat ${tab ? "hud-link" : ""} ${cls}" ${tab ? `data-action="set-tab" data-tab="${tab}"` : ""} ${tipAttr(tipSpec)}>
+function hudStat(floaties, key, iconHtml, tile, value, label, tipSpec, { sub = "", cls = "", extra = "", tab = "", action = "" } = {}) {
+  return `<span class="${key ? tbItemClass(floaties, key) : "tb-item"} hud-stat ${tab || action ? "hud-link" : ""} ${cls}" ${tab ? `data-action="set-tab" data-tab="${tab}"` : action ? `data-action="${action}"` : ""} ${tipAttr(tipSpec)}>
     <span class="hud-icon" style="--tile:${tile}">${iconHtml}</span>
     <span class="hud-val"><span class="hud-num"><b>${value}</b>${sub}</span><small>${label}</small></span>
     ${extra}
@@ -976,17 +975,17 @@ export function renderTopbar(state, floaties = [], activeTab = "") {
       </details>
       <div class="hud-group">
         ${hudStat(floaties, "population", pixelIcon("population", 32), HUD_TILE.population, pop, "Population", tips.population, { tab: "roster" })}
-        ${hudStat(floaties, "happiness", moodIcon(state.happiness, 32), HUD_TILE.mood, state.happiness, "Morale", tips.happiness)}
+        ${hudStat(floaties, "happiness", moodIcon(state.happiness, 32), HUD_TILE.mood, state.happiness, "Morale", tips.happiness, { action: "open-morale" })}
+        ${hudStat(floaties, "research", pixelIcon("research", 32), HUD_TILE.research, r.research, "Research", tips.research, { tab: "research", cls: techReady(state) ? "hud-ready" : "" })}
       </div>
     </div>
     <div class="hud-center">${questLog}${rescue}</div>
     <div class="hud-right">
       <div class="hud-group">
-        ${hudStat(floaties, "food", pixelIcon("food", 32), HUD_TILE.food, r.food, "Food", tips.food,
-          { sub: `<span class="tb-sub">−${pop}</span>`, cls: r.food < pop ? "tb-warn" : "", extra: meals })}
-        ${hudStat(floaties, "materials", pixelIcon("scrap", 32), HUD_TILE.scrap, r.materials, "Scrap", tips.materials)}
-        ${hudStat(floaties, "medicine", pixelIcon("medicine", 32), HUD_TILE.medicine, r.medicine, "Meds", tips.medicine)}
-        ${hudStat(floaties, "research", pixelIcon("research", 32), HUD_TILE.research, r.research, "Research", tips.research, { tab: "research", cls: techReady(state) ? "hud-ready" : "" })}
+        <button class="hud-stat hud-supplies ${r.food < pop ? "tb-warn" : ""}" data-action="open-supplies" ${tipAttr({ title: "📦 Supplies", rows: [[`${ri("food")} Food`, `${r.food} (−${pop} tonight)`], [`${ri("materials")} Scrap`, `${r.materials}`], [`${ri("medicine")} Medicine`, `${r.medicine}`]], notes: ["Click for where each comes from and what it's spent on"] })}>
+          ${[["food", "food", r.food, `<span class="tb-sub">−${pop}</span>`], ["materials", "scrap", r.materials, ""], ["medicine", "medicine", r.medicine, ""]].map(([key, icon, v, sub]) => `<span class="${tbItemClass(floaties, key)} hud-sup"><span class="hud-sup-icon">${pixelIcon(icon, 32)}</span><b>${v}</b>${sub}${floatyFor(floaties, key)}</span>`).join("")}
+          ${meals}
+        </button>
         ${infected ? hudStat(floaties, null, pixelIcon("virus", 32), HUD_TILE.virus, infected, "Infected", tips.infected, { cls: "tb-infected hud-compact" }) : ""}
         ${r.serum ? hudStat(floaties, "serum", pixelIcon("serum", 32), HUD_TILE.serum, r.serum, "Serum", tips.serum, { cls: "hud-compact" }) : ""}
       </div>
@@ -1060,13 +1059,22 @@ export function tutorialTabs(state) {
 }
 // Where the tutorial wants you: the next room's tab — or the basement, to report to Doubledoor.
 export const tutorialTab = (state) => (tutorialTarget(state) ? ROOM_TAB(tutorialTarget(state)) : "basement");
-// Where the turn button goes in the tutorial: down to the basement, or back up to the school.
+// The turn button in the tutorial: always the objective's next step, so the player learns where the
+// way forward is — report a finished part, spend the first research, clear the next room (from any
+// floor: it takes you there), or hear the next part from Doubledoor.
+function tutorialForward(state, activeTab) {
+  const part = SCHOOL_PARTS.find((p) => questStatus(state, p.id) === "ready");
+  if (part) return { attrs: 'data-action="open-npc" data-npc="doubledoor"', icon: "antenna", label: "Report in", sub: `${part.title} — done!`, mark: markIcon("doubledoor") };
+  if (state.techTip && activeTab !== "research") return { attrs: 'data-action="set-tab" data-tab="research"', icon: "research", label: "Research tree", sub: `${state.resources.research} research to spend` };
+  const target = tutorialTarget(state);
+  if (target === "headmaster") return { attrs: 'data-action="open-clear-room" data-room="headmaster" data-tab="floor3"', icon: "assault", label: "Face him", sub: "The Headmaster's Office", mark: '<i class="q-mark q-available nav-mark">❗</i>' };
+  if (target) return { attrs: `data-action="open-clear-room" data-room="${target}" data-tab="${ROOM_TAB(target)}"`, icon: "school", label: "Clear it out", sub: BOARDED_ROOMS[target]?.name || target, mark: '<i class="q-mark q-available nav-mark">❗</i>' };
+  return { attrs: 'data-action="open-npc" data-npc="doubledoor"', icon: "lantern", label: "Talk to Doubledoor", sub: "for what's next", mark: markIcon("doubledoor") };
+}
 function basementButton(state, activeTab) {
-  const down = activeTab !== "basement";
-  const mark = down ? markIcon("doubledoor") : tutorialTarget(state) ? `<i class="q-mark q-available nav-mark">❗</i>` : "";
-  return `<button class="nav-btn nav-turn nav-basement ${down ? "" : "active"}" data-action="set-tab" data-tab="${down ? "basement" : tutorialTab(state) === "basement" ? "floor1" : tutorialTab(state)}"
-    title="${down ? "Go down to the basement — report to Doubledoor" : "Go up into the school"}">
-    <span class="turn-label">${pixelIcon(down ? "lantern" : "school", 16)}<span>${down ? "To the Basement" : "To the School"}</span></span>${mark}
+  const F = tutorialForward(state, activeTab);
+  return `<button class="nav-btn nav-turn nav-basement nav-forward" ${F.attrs} title="${esc(F.label)}: ${esc(F.sub)}">
+    <span class="turn-label">${pixelIcon(F.icon, 16)}<span>${esc(F.label)}<small>${esc(F.sub)}</small></span></span>${F.mark || ""}
   </button>`;
 }
 
@@ -4316,8 +4324,7 @@ export function renderFloor3(state) {
   };
   const office = tutorialOn(state) ? `<div class="room room-office room-boarded">
       <div class="room-scene room-scene-boarded" style="background-image:${sceneBackground("headmaster")}"><div class="boards"></div><div class="scene-plaque">🔒 Headmaster's Office</div></div>
-      <p class="room-tagline">${tutorialTarget(state) === "headmaster" ? "Doubledoor has given you the key. Everyone goes in — together." : "Locked tight. Doubledoor has the only key — and something big is pacing around in there."}</p>
-      ${tutorialTarget(state) === "headmaster" ? '<div class="boarded-actions"><button class="btn btn-sm btn-primary btn-boss" data-action="open-clear-room" data-room="headmaster">❗ Face him</button><span class="muted">the last fight · everyone goes in</span></div>' : ""}
+      <p class="room-tagline">${tutorialTarget(state) === "headmaster" ? "Doubledoor has given you the key. Everyone goes in — together: the gold button up top." : "Locked tight. Doubledoor has the only key — and something big is pacing around in there."}</p>
     </div>` : `<div class="room room-office">
     ${roomScene("headmaster", [...ready.filter((c) => !c.apprentice), ...pool], "Headmaster's Office", officeHow, "",
       `<button class="hm-missions-btn" data-action="open-npc" data-npc="doubledoor" title="Talk to Albus Doubledoor">${markIcon("doubledoor") || "📜"} Quests</button>`, "headmaster")}
@@ -5435,7 +5442,7 @@ function recruitConfirm(c) {
   </div>`;
 }
 
-export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
+export function renderCharacterCard(state, c, cardTab = "stats", confirm = "", focus = null) {
   const points = availableSkillPoints(c);
   const level = overallLevel(c);
   const maxed = level >= STUDENT_MAX_LEVEL;
@@ -5461,7 +5468,7 @@ export function renderCharacterCard(state, c, cardTab = "stats", confirm = "") {
 
   return `
   <div class="modal-overlay" data-action="close-card">
-    <div class="cc2 ${c.alive ? "" : "cc2-dead"} ${c.legendary ? "cc2-legendary" : ""}" data-action="noop">
+    <div class="cc2 ${c.alive ? "" : "cc2-dead"} ${c.legendary ? "cc2-legendary" : ""} ${focus !== null ? `cc2-tour cc2-focus-${focus}` : ""}" data-action="noop">
       <div class="cc2-banner" style="background-image:linear-gradient(90deg, rgba(10, 12, 18, 0) 22%, rgba(10, 12, 18, 0.6) 38%, rgba(10, 12, 18, 0.85) 70%), ${sceneBackground(cardScene(state, c))}">
         <div class="cc2-left">
           <div class="cc2-actions">
@@ -5893,24 +5900,6 @@ function renderReinforcement(state, b, C) {
   </div>`;
 }
 
-// A part of the tutorial done: report to Doubledoor from wherever you are (no walk to the basement).
-export function renderReportTip(state) {
-  const part = SCHOOL_PARTS.find((p) => questStatus(state, p.id) === "ready");
-  if (!part) return "";
-  return `<div class="tech-tip report-tip">${markIcon("doubledoor")}<span><b>${esc(part.title)}</b> — done! Doubledoor wants to hear about it.</span>
-    <button class="btn btn-primary btn-sm" data-action="open-npc" data-npc="doubledoor">📻 Report in</button></div>`;
-}
-
-// …and when the next room to take back is on another tab (the courtyard's each have their own):
-// where it is, and the way there.
-export function renderNextTip(state, activeTab) {
-  const target = tutorialTarget(state);
-  if (!target || ROOM_TAB(target) === activeTab) return "";
-  const name = target === "headmaster" ? "the Headmaster's Office" : BOARDED_ROOMS[target]?.name || target;
-  return `<div class="tech-tip next-tip"><i class="q-mark q-available">❗</i><span>Next: <b>${esc(name)}</b></span>
-    <button class="btn btn-primary btn-sm" data-action="set-tab" data-tab="${ROOM_TAB(target)}">▸ Go there</button></div>`;
-}
-
 // The tutorial's first research (state.techTip): where to spend it — over the game, until it's spent.
 export function renderTechTip(state) {
   return `<div class="tech-tip">${ri("research")} <span>You have <b>${state.resources.research}</b> research! Spend it on the <b>research tree</b>.</span>
@@ -5919,51 +5908,170 @@ export function renderTechTip(state) {
 
 // ---------- the end of Act 1 ----------
 // Handing in the Headmaster's Office ends the tutorial with an ending of its own, in the intro's
-// style: the school at sunrise, Doubledoor home in his office, everyone who made it — then a title
-// card, and Day 1.
+// style: a feast in the Cafeteria, the lights going out, the "Act I — complete" title card, the next
+// morning, and Doubledoor meeting everyone in his office — who asks to see their student cards
+// (main.js then opens one, and his tour of it: renderCardTour).
 const ACT_ONE_END = [
-  { title: "The School Is Ours", art: "dawn", text: ["The sun comes up over the city, and one by one the lights come back on — every room, every floor.", "For the first time since it all began, the Academy belongs to the living again."] },
-  { title: "Back Where He Belongs", office: true, text: ["Albus Doubledoor walks back into his office and sets his old friend's hat on the shelf."],
-    speech: ["It's good to be home.", "Rest tonight, all of you. Tomorrow, we begin again."] },
-  { title: "Everyone Who Made It", art: "yard", text: ["A handful of tired friends came through that cellar door. Look at them now."], cast: true },
+  { title: "A Feast", art: "cafeteria", feast: true, text: ["That night the whole school celebrates in the Cafeteria. Chef Grillsay cooks a feast, Quinzwheel juggles the plates, and Bulldog spins records over the radio."] },
+  { title: "Lights Out", art: "dawn", night: true, text: ["One by one the lights go out. For the first time in weeks, nobody sleeps on the basement floor — and nobody keeps watch on the stairs."] },
+  null, // the title card
+  { title: "The Next Morning", art: "dawn", text: ["The sun comes up over the school. A note is pinned to every door: “The Headmaster's Office. Everyone. — A. D.”"] },
+  { title: "The Headmaster's Office", office: true, text: ["Doubledoor is waiting behind his desk, the kettle already on."],
+    speech: ["Good morning, all of you. I trust you slept — I certainly did.", "Now that the school is ours, I should like to know who I am running it with.", "Let me see your student cards, so I can get to know you better."] },
 ];
+export const ACT_ONE_STEPS = ACT_ONE_END.length;
 export function renderActEnding(state, step, sayKey = "") {
+  const screen = ACT_ONE_END[step];
+  const students = aliveChars(state).filter((c) => c.role === "student");
   // the title card: Act 1 done, Act 2 ahead
-  if (step >= ACT_ONE_END.length) {
+  if (!screen) {
     return `<div class="modal-overlay intro-overlay act-overlay">
       <div class="act-card" data-action="noop">
         <div class="act-kicker">Act I</div>
         <h1 class="act-title">Take Back the School</h1>
         <div class="act-done">— complete —</div>
         <div class="act-next"><b>Act II · Survive</b><p>The school is ours. Now we have to keep it — the dead come back to its doors every night, and somewhere out in the city, people are still waiting to be found.</p></div>
-        <button class="btn btn-primary act-go" data-action="ending-next">☀ Begin Day 1</button>
+        <button class="btn btn-primary act-go" data-action="ending-next">☀ The next morning ▸</button>
       </div>
     </div>`;
   }
-  const screen = ACT_ONE_END[step];
-  const art = screen.office ? sceneBackground("headmaster") : introBackdrop(screen.art);
-  const students = aliveChars(state).filter((c) => c.role === "student");
+  const art = screen.office ? sceneBackground("headmaster") : screen.art === "cafeteria" ? sceneBackground("cafeteria@3") : introBackdrop(screen.art);
   let people = "";
-  if (screen.office) {
+  if (screen.feast) {
+    const guests = ["grillsay", "quinzwheel", "bulldog"];
+    people = `<div class="ae-confetti">${Array.from({ length: 28 }, (_, i) => `<i style="--x:${(i * 37) % 100}%;--d:${(i % 7) * 0.35}s;--c:${["#f4c542", "#d64545", "#3a7ac8", "#3a8a4a", "#a855c8"][i % 5]}"></i>`).join("")}</div>
+      <div class="ae-party">${guests.map((id) => `<span class="ae-npc">${npcSprite(id, 1.4)}</span>`).join("")}${students.slice(0, 10).map((c, i) => `<span class="ae-dance" style="--d:${(i % 4) * 0.15}s">${characterSprite(c, 52)}</span>`).join("")}</div>`;
+  } else if (screen.office) {
     people = `<div class="ae-dd">${npcSprite("doubledoor", 2.5)}</div>
+      <div class="ae-kids ae-kids-office">${students.slice(0, 10).map((c, i) => `<span style="--d:${0.2 + i * 0.08}s">${characterSprite(c, 48)}</span>`).join("")}</div>
       <div class="bs-speech ae-speech" data-say-solo data-say-delay="900">${screen.speech.map((line, i) => sayBubble("doubledoor", line, `${sayKey}:${i}`, "bs-bubble")).join("")}</div>`;
-  } else if (screen.cast) {
-    const staff = Object.values(ROOM_KEY_NPC);
-    people = `<div class="ae-staff">${staff.map((id, i) => `<span style="--d:${0.2 + i * 0.12}s" title="${esc(NPCS[id].name)}">${npcSprite(id, 1)}</span>`).join("")}</div>
-      <div class="ae-kids">${students.slice(0, 12).map((c, i) => `<span style="--d:${1.6 + i * 0.08}s">${characterSprite(c, 44)}</span>`).join("")}</div>`;
   }
-  const stats = screen.cast
-    ? `<div class="ae-stats"><span>🏫 <b>15</b> rooms taken back</span><span>🎓 <b>${Object.keys(ROOM_KEY_NPC).length}</b> teachers found</span><span>🎒 <b>${students.length}</b> students, every one still standing</span><span>🧙 <b>1</b> Dark Headmaster put to rest</span></div>`
-    : "";
   const lines = screen.text.map((t, i) => `<p style="animation-delay:${0.3 + i * 0.9}s">${esc(t)}</p>`).join("");
   return `<div class="modal-overlay intro-overlay act-overlay">
     <div class="intro-card" data-action="noop">
-      <div class="intro-art act-art act-art-${step}" style="background-image:${art}">${people}</div>
-      <div class="intro-text"><h2>${esc(screen.title)}</h2>${lines}${stats}</div>
+      <div class="intro-art act-art act-art-${step} ${screen.night ? "act-night" : ""}" style="background-image:${art}">${people}</div>
+      <div class="intro-text"><h2>${esc(screen.title)}</h2>${lines}</div>
       <div class="intro-actions">
         <span></span>
-        <span class="intro-dots">${[...ACT_ONE_END, 0].map((_, i) => `<i class="${i === step ? "on" : ""}"></i>`).join("")}</span>
-        <button class="btn btn-primary" data-action="ending-next">Next ▸</button>
+        <span class="intro-dots">${ACT_ONE_END.map((_, i) => `<i class="${i === step ? "on" : ""}"></i>`).join("")}</span>
+        <button class="btn btn-primary" data-action="ending-next">${screen.office ? "📇 Hand over your card ▸" : "Next ▸"}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Doubledoor's look at a student card (after the end of Act 1): what's on it, a part at a time —
+// who they are, their grades, what they carry, their talent tree. `step` picks the tab too
+// (main.js CARD_TOUR_TABS); the card shows the part he's talking about lit up.
+export const CARD_TOUR = [
+  { tab: "stats", focus: "who", title: "Who they are", text: ["Name, level, and their ★ favourite subject.", "The favourite decides their class — and it's the one grade that can go all the way to S."] },
+  { tab: "stats", focus: "body", title: "Grades", text: ["A grade for every subject: STR, DEX, CON, INT, WIS and CHA.", "Classes and the Gym raise them every day. Hover any of them to see exactly what it does."] },
+  { tab: "inventory", focus: "body", title: "What they carry", text: ["A weapon for their class, armour and accessories.", "Better gear turns up on the City Map and in raids — swap it here, or in the Armory."] },
+  { tab: "skills", focus: "body", title: "The talent tree", text: ["A skill point every time they level up.", "Spend them along the subjects — down their ★ favourite's path, their class learns its special moves."] },
+  { tab: "stats", focus: "", title: "That's the card", text: ["Every student has one. Click anyone, anywhere, to see theirs.", "Now — let us get to work."], last: true },
+];
+export function renderCardTour(step) {
+  const T = CARD_TOUR[step];
+  if (!T) return "";
+  return `<div class="card-tour">
+    <span class="card-tour-dd">${npcSprite("doubledoor", 1.2)}</span>
+    <div class="card-tour-box">
+      <b>${esc(T.title)}</b>${T.text.map((t) => `<p>${esc(t)}</p>`).join("")}
+      <div class="card-tour-foot"><span class="intro-dots">${CARD_TOUR.map((_, i) => `<i class="${i === step ? "on" : ""}"></i>`).join("")}</span>
+        <button class="btn btn-primary btn-sm" data-action="card-tour-next">${T.last ? "Got it" : "Next ▸"}</button></div>
+    </div>
+  </div>`;
+}
+
+// The school tour: Doubledoor showing everyone round after the end of Act 1, a floor at a time — what
+// each room's for, and a go at the rooms you run every morning (`task`: what to do before going on).
+// `spot`: what lights up; `setup`: what game.js tourSetup gets ready first.
+export const SCHOOL_TOUR = [
+  { tab: "floor1", spot: "", title: "A quick tour", text: () => ["Now — let me show you round the school. It works rather differently now that it's ours.", "One floor at a time. Follow me."] },
+  { tab: "floor1", spot: ".room-gym, .room-acrobatics", title: "The Gymnasium & Acrobatics", task: "gym", taskText: "Put a student in either room",
+    text: () => ["Train STR in the Gymnasium and DEX in Acrobatics — everyone in there gets a little better every day.", "Click an empty slot to pick someone — or drag a student from the list on the right straight into the room.", "📌 Stay brings them back every day. Anyone left with nothing to do shows up as 😴 lazy at the top."] },
+  { tab: "floor1", spot: ".room-cafeteria", setup: "gift", title: "The Cafeteria", task: "cook", taskText: "Click 🍲 Cook a dish… and cook the Shepherd's Stew",
+    text: () => ["Tired students rest here and get their stamina back.", "Chef Grillsay cooks a dish a day, and it helps the whole school until nightfall. I've put aside what you need for your first: a Shepherd's Stew."] },
+  { tab: "floor1", spot: ".room-infirmary", setup: "hurt", title: "The Nurse's Office", task: "nurse", taskText: (state) => `Put ${shortName(getChar(state, state.tour?.hurt) || {})} in a bed`,
+    text: (state) => [`${shortName(getChar(state, state.tour?.hurt) || {})} twisted an ankle dancing at the feast. Hurt students heal here — faster with medicine.`, "And if anyone's ever bitten, they may be infected: they're quarantined here, and only antiviral serum cures them before they turn."] },
+  { tab: "floor2", spot: ".room-classroom", title: "The Classrooms", task: "class", taskText: "Seat a student — try the sorting",
+    text: () => ["They work just like the Gym and Acrobatics — one subject each: CON, INT, WIS and CHA.", "Click a seat: you can sort everyone by their grade, and the best picks are marked for you.", "Max out a student who's already strong, or bring a weaker one up? That's yours to decide."] },
+  { tab: "floor3", spot: ".floor3-grid", title: "The Top Floor",
+    text: () => ["My Office: newcomers wait here to join, and level-10 students become apprentices.", "The Research Room turns INT into research, the Crafting Room turns scrap into defenses, and the Radio brings survivors — and, one day, a rescue."] },
+  { tab: "farm", spot: ".room-site", title: "The Courtyard",
+    text: () => ["Out here, the Farm grows food, the Barn gives eggs, milk and mutton, and the Scrapyard turns up scrap — every day, on their own.", "Students working there make them work harder. And mind the food: everyone eats one every night — the 📦 supplies up top tell you how long it lasts."] },
+  { tab: null, spot: ".hud-quests", title: "Quests",
+    text: () => ["Everyone you've rescued will want something from you. A ❗ means someone has a quest, a ❓ that one's ready to hand in.", "Quests earn renown with each of them — and they're how your rooms get upgraded. The Quest Log keeps track."] },
+  { tab: "overview", spot: ".nav-turn, [data-action=resolve-turn]", title: "A day at the school",
+    text: () => ["Every day has three turns: classes in the morning, expeditions into the city in the afternoon, and the Night Watch after dark.", "This button in the middle always brings you back here. Once everyone's busy, hold classes and move on. That's the school. Shall we begin?"], last: true },
+];
+export function renderSchoolTour(state, activeTab) {
+  const T = SCHOOL_TOUR[state.tour?.step];
+  if (!T) return "";
+  const done = !T.task || tourTaskDone(state, T.task);
+  const task = T.task ? (typeof T.taskText === "function" ? T.taskText(state) : T.taskText) : "";
+  return `<div class="card-tour school-tour">
+    <span class="card-tour-dd">${npcSprite("doubledoor", 1.2)}</span>
+    <div class="card-tour-box">
+      <b>${esc(T.title)}</b>${T.text(state).map((t) => `<p>${esc(t)}</p>`).join("")}
+      ${task ? `<div class="tour-task ${done ? "tour-task-done" : ""}">${done ? "✅" : "☐"} ${esc(task)}</div>` : ""}
+      <div class="card-tour-foot">
+        <span class="intro-dots">${SCHOOL_TOUR.map((_, i) => `<i class="${i === state.tour.step ? "on" : ""}"></i>`).join("")}</span>
+        <span>${T.tab && activeTab !== T.tab ? `<button class="btn btn-sm" data-action="set-tab" data-tab="${T.tab}">Show me</button>` : ""}
+          ${T.last ? "" : '<button class="btn btn-sm" data-action="tour-skip" title="Skip the rest of the tour">Skip</button>'}
+          <button class="btn btn-primary btn-sm" data-action="tour-next" ${done ? "" : "disabled"}>${T.last ? "Let's begin" : "Next ▸"}</button></span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---------- the top bar's windows: Morale, and the supplies ----------
+// (rows: [label, amount] — a + gain or a − loss — then a short note)
+const flowRows = (rows) => rows.map(([label, v, note = ""]) => `<div class="hw-row"><span>${label}${note ? `<small>${note}</small>` : ""}</span><b class="${String(v).startsWith("−") ? "hw-down" : String(v).startsWith("+") ? "hw-up" : ""}">${v}</b></div>`).join("");
+export function renderMoraleModal(state) {
+  const m = state.happiness;
+  const best = aliveChars(state).filter((c) => c.role === "student").sort((a, c) => c.grades.SocialStudies - a.grades.SocialStudies)[0];
+  const cha = best ? best.grades.SocialStudies : 0;
+  const daily = Math.floor(cha / STAT_TUNING.moralePerCha);
+  const halved = state.techUnlocked.includes("school_spirit");
+  return `<div class="modal-overlay" data-action="close-hud-window">
+    <div class="char-card hud-window" data-action="noop">
+      <button class="cc-close" data-action="close-hud-window" title="Close">✕</button>
+      <h3>${moodIcon(m, 32)} Morale <b class="hw-big">${m}</b><small>/ 100</small></h3>
+      <div class="hw-bar"><i style="width:${m}%"></i></div>
+      <div class="hw-cols">
+        <div><div class="mini-label">What it does</div>${flowRows([["Tonight's fight starts with this much morale", `${m}`, "for night actions and posting defenders"], ["Chance a random event is a good one", `${Math.round(Math.max(0, Math.min(1, 0.5 + (m - 50) / 100)) * 100)}%`]])}</div>
+        <div><div class="mini-label">Raises it</div>${flowRows([["A night won", `+${HAPPINESS_GAIN_WIN}`], ["Each ★ earned on a night", `+${NIGHT_MORALE.perStar}`], ["A raid won", `+${HAPPINESS_GAIN_WIN * 2}`], ["A new recruit", `+${HAPPINESS_GAIN_RECRUIT}`], ["Your most charming student, every morning", daily ? `+${daily}` : "+0", best ? `${esc(shortName(best))}, CHA ${cha} — +1 per ${STAT_TUNING.moralePerCha} CHA` : ""], ["Good news on the radio", "+12"]])}</div>
+        <div><div class="mini-label">Lowers it</div>${flowRows([["Someone dies", `−${HAPPINESS_LOSS_DEATH}`], ["A failed expedition", `−${HAPPINESS_LOSS_MISSION_FAIL}`], ["A failed raid", `−${HAPPINESS_LOSS_MISSION_FAIL * 2}`], ["Each zombie that breaks in at night", "−2"], ["Bad news on the radio", "−12"]])}
+          <p class="muted hw-note">${halved ? "✓ School Spirit: every loss is halved" : "🧠 The School Spirit research halves every loss"}</p></div>
+      </div>
+      <p class="muted hw-note">More is coming for Morale — this is just the start.</p>
+    </div>
+  </div>`;
+}
+export function renderSuppliesModal(state) {
+  const r = state.resources;
+  const pop = aliveChars(state).length;
+  const days = pop ? Math.floor(r.food / pop) : 0;
+  const box = (icon, name, have, extra, from, spent) => `<div class="hw-supply">
+    <div class="hw-supply-head">${pixelIcon(icon, 32)}<span>${name}<b>${have}</b></span>${extra}</div>
+    <div class="mini-label">Comes from</div>${flowRows(from)}
+    <div class="mini-label">Spent on</div>${flowRows(spent)}
+  </div>`;
+  return `<div class="modal-overlay" data-action="close-hud-window">
+    <div class="char-card hud-window hud-window-wide" data-action="noop">
+      <button class="cc-close" data-action="close-hud-window" title="Close">✕</button>
+      <h3>📦 Supplies</h3>
+      <div class="hw-cols hw-cols-3">
+        ${box("food", "Food", r.food, `<small class="${days < 2 ? "hw-down" : ""}">lasts ${days} night${days === 1 ? "" : "s"}</small>`,
+          [["The Farm", "+", "every day — more with students working it"], ["Expeditions", "+", "what the teams carry home"]],
+          [["Everyone eats, every night", `−${pop}`, "1 each — students and staff"], ["Cooking a dish", "−", "the day's meal in the Cafeteria"], ["Zombies breaking in", "−", "they spoil what they reach"], ["Running out", "⚠", "every student loses 20 HP"]])}
+        ${box("scrap", "Scrap", r.materials, "",
+          [["The Scrapyard", "+", "every day — more with students working it"], ["Expeditions", "+", ""], ["A perfect night (★★★)", `+${NIGHT_STAR_REWARD.materials}`]],
+          [["Room upgrades and repairs", "−"], ["Defenses on the lawn", "−", "for the Night Watch"], ["The Radio Station's upgrades", "−"], ["The Crafting Room", "−", "turned into fortification"]])}
+        ${box("medicine", "Medicine", r.medicine, "",
+          [["Expeditions", "+", "pharmacies and clinics most of all"], ["The Greenhouse", "+", "once the Farm grows it"]],
+          [["Each patient in the Nurse's Office", `−${INFIRMARY_MEDICINE_PER_PATIENT}`, "heals them much faster"], ["Saving someone who went down", `−${stabilizeCost(state)}`, "after a fight — they pull through for sure"]])}
       </div>
     </div>
   </div>`;

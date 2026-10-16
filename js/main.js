@@ -4,7 +4,7 @@ import { WORLD_W, WORLD_H } from "./citymap.js";
 import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict, tutorialTabs, tutorialTab } from "./ui.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderNpcModal, renderNpcReveal, renderIntro, renderDialog, renderRoomCutscene, renderActEnding, renderClassLesson, renderTechTip, renderReportTip, renderNextTip, renderBossPrompt, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
+  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderNpcModal, renderNpcReveal, renderIntro, renderDialog, renderRoomCutscene, renderActEnding, ACT_ONE_STEPS, CARD_TOUR, renderCardTour, SCHOOL_TOUR, renderSchoolTour, renderClassLesson, renderTechTip, renderBossPrompt, renderEvacuationModal, renderMenuModal, renderMoraleModal, renderSuppliesModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionBattle,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
@@ -72,12 +72,26 @@ function ask(text, then, { input = null, yes = "OK", danger = false } = {}) {
   render();
 }
 let introStep = 0;
-let endingStep = 0; // the end of Act 1's screen, while state.actEnding is set (ui.js renderActEnding) // the intro's screen, while state.intro is set (a new game)
+let endingStep = 0;
+let cardTour = null;
+// The school tour (ui.js SCHOOL_TOUR), kept in the save as state.tour: a step's tab, and what it sets up.
+function enterTourStep() {
+  const T = SCHOOL_TOUR[state.tour?.step];
+  if (!T) return;
+  if (T.setup) G.tourSetup(state, T.setup);
+  if (T.tab) activeTab = T.tab;
+}
+function startSchoolTour() {
+  if (state.tour) return;
+  state.tour = { step: 0 };
+  enterTourStep();
+} // Doubledoor's look at a student card (ui.js CARD_TOUR): its step, or null // the end of Act 1's screen, while state.actEnding is set (ui.js renderActEnding) // the intro's screen, while state.intro is set (a new game)
 const INTRO_DIFFICULTY_STEP = 2; // "Still Alive": a new game picks its difficulty there
 let introSettled = false; // the survivors have walked in on that screen (a new pick doesn't replay it)
 let roomCutscene = null; // the tutorial's first floor: before / after a room's 1v1 (ui.js renderRoomCutscene)
 let npcReveal = null; // the NPC of a room just cleared, for the "Who's that NPC?!" reveal
 let revealHeard = null; // (its jingle plays once, as it shows)
+let hudWindow = null; // the top bar's windows: "morale" or "supplies"
 let openMenu = false; // the Cafeteria's menu pop-up
 let openQuarantine = false; // the Nurse's Office quarantine pop-up
 let openEnemyGuide = false; // the Night Watch's "Know your enemy" pop-up
@@ -825,7 +839,7 @@ function render() {
     : state.rescue?.landed && !state.gameOver
     ? renderEvacuationModal(state)
     : card
-    ? renderCharacterCard(state, card, cardTab, cardAsk)
+    ? renderCharacterCard(state, card, cardTab, cardAsk, cardTour !== null ? CARD_TOUR[cardTour].focus : null) + (cardTour !== null ? renderCardTour(cardTour) : "")
     : clearRoom
     ? renderClearRoomModal(state, clearRoom)
     : scoutReport
@@ -842,6 +856,10 @@ function render() {
     ? renderPickerModal(state, openPicker, pickerSortKey, pickerSortDir, pickerRecMode)
     : openDefenseBuild
     ? renderDefenseBuildModal(state, openDefenseBuild)
+    : hudWindow === "morale"
+    ? renderMoraleModal(state)
+    : hudWindow === "supplies"
+    ? renderSuppliesModal(state)
     : openMenu
     ? renderMenuModal(state)
     : openQuarantine
@@ -867,8 +885,10 @@ function render() {
   if (state.gameOver || state.victory) recordRun(state, G.aliveChars(state).length);
   setNightBattle(battleAnimation?.kind === "grid" ? battleAnimation : null);
   root.innerHTML = renderApp(state, activeTab, rosterFilter, floaties, rosterSortKey, rosterSortDir) + modalHtml + (dialog ? renderDialog(dialog) : "")
-    + (state.techTip && !modalHtml && activeTab !== "research" ? renderTechTip(state) : "")
-    + (G.tutorialOn(state) && !modalHtml && !state.techTip ? renderReportTip(state) || renderNextTip(state, activeTab) : "");
+    + (state.techTip && !G.tutorialOn(state) && !modalHtml && activeTab !== "research" ? renderTechTip(state) : "") // (in the tutorial: the turn button)
+    + (state.tour && !state.tour.done && !modalHtml ? renderSchoolTour(state, activeTab) : "");
+  const tourStep = state.tour && !state.tour.done && !modalHtml && SCHOOL_TOUR[state.tour.step];
+  if (tourStep?.spot && (!tourStep.tab || activeTab === tourStep.tab)) for (const el of root.querySelectorAll(tourStep.spot)) el.classList.add("tour-spot");
   if (barsBefore) slideBars(barsBefore);
   if (reachShown) {
     const { battle, studentId, row, col } = reachShown;
@@ -1760,13 +1780,44 @@ root.addEventListener("click", (e) => {
       render();
       break;
     case "ending-next":
-      if (endingStep < 3) endingStep++;
+      if (endingStep < ACT_ONE_STEPS - 1) endingStep++;
       else {
-        // the title card's "Begin Day 1": into the game, at his office
+        // "Hand over your card": into the game at his office, a student's card open, his tour of it
         delete state.actEnding;
         activeTab = "floor3";
+        const first = G.aliveChars(state).filter((c) => c.role === "student").sort((a, b) => (b.level || 0) - (a.level || 0))[0];
+        if (first) {
+          openCardId = first.id;
+          cardTour = 0;
+          cardTab = CARD_TOUR[0].tab;
+        }
         playChime();
       }
+      render();
+      break;
+    case "tour-next":
+      if (!state.tour) break;
+      if (state.tour.step >= SCHOOL_TOUR.length - 1) {
+        state.tour = { done: true };
+        playChime();
+      } else {
+        state.tour.step++;
+        enterTourStep();
+      }
+      render();
+      break;
+    case "tour-skip":
+      state.tour = { done: true };
+      render();
+      break;
+    case "card-tour-next":
+      if (cardTour === null) break;
+      cardTour++;
+      if (cardTour >= CARD_TOUR.length) {
+        cardTour = null;
+        openCardId = null;
+        startSchoolTour();
+      } else cardTab = CARD_TOUR[cardTour].tab;
       render();
       break;
     case "toggle-warn-menu":
@@ -1842,6 +1893,15 @@ root.addEventListener("click", (e) => {
       break;
     case "remove-infirmary":
       G.setInfirmaryToday(state, el.dataset.id, false);
+      render();
+      break;
+    case "open-morale":
+    case "open-supplies":
+      hudWindow = action === "open-morale" ? "morale" : "supplies";
+      render();
+      break;
+    case "close-hud-window":
+      hudWindow = null;
       render();
       break;
     case "cook-dish":
@@ -2018,6 +2078,10 @@ root.addEventListener("click", (e) => {
       break;
     case "close-card":
       openCardId = null;
+      if (cardTour !== null) {
+        cardTour = null; // (closing it ends his look at the card — on to the school)
+        startSchoolTour();
+      }
       render();
       break;
     case "open-mission": {
@@ -2065,6 +2129,7 @@ root.addEventListener("click", (e) => {
     }
     case "open-clear-room": {
       openCardId = null;
+      if (el.dataset.tab) activeTab = el.dataset.tab; // (the tutorial's top button: from any floor)
       // the tutorial's first floor: a cutscene and a 1v1 instead of picking a squad
       const roomKey = el.dataset.room;
       const heroes = G.tutorialOn(state) && Q.ROOM_CUTSCENES[roomKey] ? G.cutsceneHeroes(state, roomKey) : [];
@@ -2626,6 +2691,11 @@ document.addEventListener("keydown", (e) => {
     battleAnimation.resume();
     return;
   }
+  if (e.key === "Escape" && hudWindow) {
+    hudWindow = null;
+    render();
+    return;
+  }
   if (e.key === "Escape" && !npcReveal && (openCardId || openNpc || openMissionLocationId || openUpgrade || openMenu || openQuarantine || openEnemyGuide || openDefenseGuide || openRaid || openNest || scoutReport || clearRoom)) {
     openCardId = null;
     openNpc = null;
@@ -2771,6 +2841,13 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       openNpc = null;
       render();
       return "the end of Act 1";
+    },
+    // schoolDev.tour(step): Doubledoor's school tour, from that step.
+    tour(step = 0) {
+      state.tour = { step };
+      enterTourStep();
+      render();
+      return SCHOOL_TOUR[step]?.title;
     },
     // schoolDev.tutorial("classroom:1"): jump the tutorial to that room — the parts before it handed
     // in, the rooms before it on its floor cleared.

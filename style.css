@@ -4659,21 +4659,20 @@ body.tut-lock .room:not(.room-boarded) .person-tiles::after { content: "🔒 Ope
 body.tut-lock .room:not(.room-boarded) .scene-upgrade, body.tut-lock .room:not(.room-boarded) .stay-toggle { opacity: 0.35; filter: grayscale(1); cursor: not-allowed; }
 .cs-skip { opacity: 0.75; }
 .cs-skip:hover { opacity: 1; }
-.report-tip { border-color: #f4c542; }
-.report-tip .q-mark { position: static; margin: 0; }
-.next-tip { border-color: #e8b820; }
-.next-tip .q-mark, .report-tip .q-mark { position: static; margin: 0; }
+/* the tutorial's turn button when it's the way forward: gold, and breathing */
+.nav-btn.nav-turn.nav-forward { --b-face: #f4c542; --b-hi: #ffe58f; --b-lo: #9a7012; --b-edge: #2a1c00; --b-ink: #2a1c00; padding: 5px 18px; animation: nav-forward 1.4s ease-in-out infinite alternate; }
+.nav-forward .turn-label > span { display: grid; line-height: 1.1; text-align: left; }
+.nav-forward small { font-size: 11px; font-weight: 700; opacity: 0.8; }
+@keyframes nav-forward { from { filter: brightness(1); } to { filter: brightness(1.18) drop-shadow(0 0 10px rgba(244, 197, 66, 0.7)); } }
 
 /* ===== the end of Act 1: the intro's frame, then a title card ===== */
 .act-art { animation: intro-pan 6s ease-out forwards; }
-.act-art-0 { background-position: 50% 35%; }
-.act-art-0::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 15% 70%, rgba(255, 220, 150, 0.35), transparent 55%); animation: ae-sun 4s ease-out forwards; pointer-events: none; }
+
+
 @keyframes ae-sun { from { opacity: 0; } to { opacity: 1; } }
-.act-art-1 { background-size: cover; background-position: 50% 60%; animation: intro-fade 1.2s ease-out forwards; }
 .ae-dd { position: absolute; right: 190px; bottom: 10px; filter: drop-shadow(0 0 12px rgba(255, 200, 120, 0.5)); }
 .ae-dd svg { display: block; }
 .ae-speech { right: 330px; bottom: 170px; width: 380px; }
-.act-art-2 { animation: intro-fade 1.2s ease-out forwards; }
 .ae-staff { position: absolute; left: 0; right: 0; bottom: 34px; display: flex; justify-content: center; align-items: flex-end; gap: 2px; }
 .ae-staff span, .ae-kids span { opacity: 0; animation: intro-line 0.6s ease-out var(--d) forwards; }
 .ae-staff svg, .ae-kids svg { display: block; }
@@ -4703,3 +4702,65 @@ body.tut-lock .room:not(.room-boarded) .scene-upgrade, body.tut-lock .room:not(.
 .nw-pop-pan { color: #ffd27a; }
 .nw-banner-assist { display: grid; justify-items: center; gap: 2px; color: #ffd27a; font-size: 26px; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(255, 170, 60, 0.8); animation-duration: 2.2s; }
 .nw-banner-assist small { font-size: 12px; letter-spacing: 0.2em; color: #cfc6b0; }
+
+/* the end of Act 1, remade: a feast, lights out, the next morning, his office */
+.act-art-0 { background-size: cover; background-position: 50% 60%; animation: intro-fade 1.2s ease-out forwards; }
+.ae-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.ae-confetti i { position: absolute; top: -10px; left: var(--x); width: 6px; height: 9px; background: var(--c); animation: ae-confetti 3.2s linear var(--d) infinite; }
+@keyframes ae-confetti { from { transform: translateY(0) rotate(0); } to { transform: translateY(380px) rotate(540deg); } }
+.ae-party { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; align-items: flex-end; gap: 6px; }
+.ae-party svg { display: block; }
+.ae-dance { animation: ae-dance 0.45s ease-in-out var(--d) infinite alternate; }
+@keyframes ae-dance { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+.ae-npc { margin: 0 6px; }
+.act-night { animation: act-lights-out 4s ease-in forwards !important; background-position: 50% 35%; }
+@keyframes act-lights-out { from { filter: brightness(0.75) saturate(0.8) hue-rotate(190deg); } to { filter: brightness(0.22) saturate(0.4) hue-rotate(210deg); } }
+.act-art-3 { background-position: 50% 35%; }
+.act-art-4 { background-size: cover; background-position: 50% 60%; animation: intro-fade 1.2s ease-out forwards; }
+.ae-kids-office { left: 40px; right: auto; justify-content: flex-start; }
+/* his tour of a student card: him at the side, the part he's on lit up */
+.card-tour { position: fixed; z-index: 1200; left: 24px; bottom: 24px; display: flex; align-items: flex-end; gap: 8px; width: 420px; }
+.card-tour-dd svg { display: block; filter: drop-shadow(0 0 10px rgba(255, 200, 120, 0.4)); }
+.card-tour-box { flex: 1; padding: 12px 14px; background: #fffbe8; color: #2a1d06; box-shadow: 0 -3px 0 #2a1d06, 0 3px 0 #2a1d06, -3px 0 0 #2a1d06, 3px 0 0 #2a1d06, 0 8px 20px rgba(0, 0, 0, 0.5); }
+.card-tour-box b { display: block; margin-bottom: 4px; font-size: 15px; color: #8a5a10; }
+.card-tour-box p { margin: 0 0 6px; font-size: 13px; line-height: 1.45; }
+.card-tour-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.card-tour-foot .intro-dots i { background: #d8cfb0; }
+.card-tour-foot .intro-dots i.on { background: #c9a43a; }
+.cc2-focus-who .cc2-info, .cc2-focus-who .cc2-who, .cc2-focus-body .cc2-body { outline: 3px solid #f4c542; outline-offset: 2px; box-shadow: 0 0 18px rgba(244, 197, 66, 0.55); animation: tour-glow 1.2s ease-in-out infinite alternate; }
+@keyframes tour-glow { from { outline-color: rgba(244, 197, 66, 0.55); } to { outline-color: #f4c542; } }
+
+/* the school tour: Doubledoor's box, the task, the room he's on lit up */
+.school-tour { z-index: 950; width: 460px; }
+.tour-task { margin-top: 6px; padding: 5px 8px; font-size: 13px; font-weight: 700; background: rgba(201, 164, 58, 0.18); border: 1px dashed #c9a43a; }
+.tour-task-done { background: rgba(92, 207, 110, 0.2); border-color: #3a8a4a; border-style: solid; }
+.card-tour-foot > span:last-child { display: flex; gap: 6px; }
+.tour-spot { position: relative; outline: 3px solid #f4c542; outline-offset: 3px; box-shadow: 0 0 22px rgba(244, 197, 66, 0.5); animation: tour-glow 1.2s ease-in-out infinite alternate; z-index: 2; }
+
+/* the top bar: food, scrap and medicine as one button */
+.hud-supplies { display: flex; align-items: center; gap: 10px; cursor: pointer; font: inherit; color: inherit; }
+.hud-sup { position: relative; display: inline-flex; align-items: center; gap: 4px; }
+.hud-sup-icon svg { display: block; }
+.hud-sup b { font-size: 15px; }
+.hud-supplies:hover, .hud-link:hover { background: rgba(255, 255, 255, 0.06); }
+/* its windows: Morale, the supplies */
+.hud-window { display: block; width: 760px; max-width: calc(100vw - 32px); }
+.hud-window-wide { width: 980px; }
+.hud-window h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; }
+.hud-window h3 small { color: var(--muted); font-weight: 400; }
+.hw-big { font-size: 22px; color: #f4c542; }
+.hw-bar { height: 8px; margin-bottom: 12px; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border); }
+.hw-bar i { display: block; height: 100%; background: var(--bar-other); }
+.hw-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.hw-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.hw-row small { display: block; color: var(--muted); font-size: 11px; }
+.hw-row b { white-space: nowrap; }
+.hw-up { color: #5ccf6e; }
+.hw-down { color: #ff7a6a; }
+.hw-note { margin: 8px 0 0; font-size: 12px; }
+.hw-supply { padding: 10px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--border); }
+.hw-supply-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.hw-supply-head svg { display: block; }
+.hw-supply-head span { display: grid; font-size: 13px; color: var(--muted); }
+.hw-supply-head b { font-size: 20px; color: var(--text); }
+.hw-supply-head small { margin-left: auto; color: var(--muted); }

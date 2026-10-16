@@ -597,6 +597,35 @@ export function lessonReinforce(state, b) {
   b.frames.push(battleSnapshot(b, events));
   return true;
 }
+// ---------- the school tour (after the end of Act 1: ui.js SCHOOL_TOUR) ----------
+// What a step needs ready: the first dish's ingredients (`gift`), a student hurt at the feast (`hurt`).
+export function tourSetup(state, what) {
+  const T = (state.tour ||= { step: 0 });
+  if (what === "gift" && !T.gifted) {
+    T.gifted = true;
+    state.pantry.mutton = (state.pantry.mutton || 0) + 1;
+    state.pantry.potatoes = (state.pantry.potatoes || 0) + 2;
+    state.resources.food = Math.max(state.resources.food, 20);
+  }
+  if (what === "hurt" && !T.hurt) {
+    const c = state.characters.filter((x) => x.alive && x.role === "student" && !x.infection && !x.gymToday).sort((a, b) => b.maxHp - a.maxHp)[0];
+    if (c) {
+      c.hp = Math.max(1, Math.round(c.maxHp * 0.45));
+      c.injured = true;
+      T.hurt = c.id;
+    }
+  }
+}
+// A step's task, done?
+export function tourTaskDone(state, task) {
+  const kids = state.characters.filter((c) => c.alive && c.role === "student");
+  if (task === "gym") return kids.some((c) => c.gymToday);
+  if (task === "cook") return state.dishesToday.length > 0;
+  if (task === "nurse") return kids.some((c) => c.id === state.tour?.hurt && c.infirmaryToday);
+  if (task === "class") return kids.some((c) => c.seat);
+  return true;
+}
+
 // ---------- the tutorial's last fight: Gellert Grimwald (HEADMASTER_BOSS) ----------
 export const bossDown = (state) => !!state.questFacts?.bosses?.[HEADMASTER_BOSS.id];
 // Everyone (the best 9) on his board — the Tanks and Brawlers in the front row, the Medics and
