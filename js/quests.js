@@ -320,7 +320,10 @@ export const ROOM_GUIDE = {
 // `check`: before any fight, one hero (`who`) tries something — a `lock` (INT) or a `sneak` (DEX), at
 // the expeditions' odds (EXPEDITION_NOISE); done, there's no fight and `afterQuiet` plays; failed, the
 // fight's on (`alarm`: every zombie in it howled); `lurker`: the zombie in there, `asleep` or not. `reward`: resources for clearing it either way.
-// `defenses`: found in there and placed on the board before the fight.
+// `defenses`: found in there and placed on the board before the fight. `drag`: the lane the zombie's
+// coming down — the player drags the hero into it before the fight can start. `assist`: the room's
+// NPC (not met yet) joins in once a zombie's within `near` rows of the hero — a hit for `dmg` of its HP
+// that holds it a turn, and a `shout`.
 export const ROOM_CUTSCENES = {
   gym: {
     cls: "brawler", where: "Outside the Gymnasium", sound: ["*CLANG*", "*thud*", "grrrh…"],
@@ -329,16 +332,16 @@ export const ROOM_CUTSCENES = {
     after: [["hero", "It's clear! Come on in."], ["a", "Wait — listen… Someone is still alive in here!"]],
   },
   acrobatics: {
-    cls: "shooter", where: "Outside the Acrobatics Hall", sound: ["*creak*", "*rattle*", "hhhhh…"],
+    cls: "shooter", lanes: [0], drag: 0, where: "Outside the Acrobatics Hall", sound: ["*creak*", "*rattle*", "hhhhh…"],
     before: [["a", "Something dead is swinging on the trapeze…"], ["hero", "I know where to stand in that hall for a clean shot."],
       ["hero", "Wait by the door. I'll take it from a distance."]],
     after: [["hero", "Got it! It's clear — come in."], ["a", "Did anyone else hear giggling? Someone is still alive in here!"]],
   },
   cafeteria: {
-    cls: "tank", where: "Outside the Cafeteria", sound: ["*CRASH*", "*clatter*", "uuurgh…"],
+    cls: "tank", assist: { near: 1, dmg: 0.6, shout: "OI! NOT IN MY KITCHEN!" }, where: "Outside the Cafeteria", sound: ["*CRASH*", "*clatter*", "uuurgh…"],
     before: [["a", "Something's smashing up the kitchen…"], ["hero", "I worked the lunch line. Nothing hits harder than the lunch rush."],
       ["hero", "I'll go in first and take the hits."]],
-    after: [["hero", "Clear! Barely a scratch on me."], ["a", "Who's that shouting about the soup? Someone is still alive in here!"]],
+    after: [["hero", "Clear! Barely a scratch on me."], ["a", "Who threw that pan?! Someone is still alive in here!"]],
   },
   infirmary: {
     cls: "medic", where: "Outside the Infirmary", sound: ["*crash*", "mmmrrh…", "*clink*"],

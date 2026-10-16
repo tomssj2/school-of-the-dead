@@ -4663,3 +4663,43 @@ body.tut-lock .room:not(.room-boarded) .scene-upgrade, body.tut-lock .room:not(.
 .report-tip .q-mark { position: static; margin: 0; }
 .next-tip { border-color: #e8b820; }
 .next-tip .q-mark, .report-tip .q-mark { position: static; margin: 0; }
+
+/* ===== the end of Act 1: the intro's frame, then a title card ===== */
+.act-art { animation: intro-pan 6s ease-out forwards; }
+.act-art-0 { background-position: 50% 35%; }
+.act-art-0::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 15% 70%, rgba(255, 220, 150, 0.35), transparent 55%); animation: ae-sun 4s ease-out forwards; pointer-events: none; }
+@keyframes ae-sun { from { opacity: 0; } to { opacity: 1; } }
+.act-art-1 { background-size: cover; background-position: 50% 60%; animation: intro-fade 1.2s ease-out forwards; }
+.ae-dd { position: absolute; right: 190px; bottom: 10px; filter: drop-shadow(0 0 12px rgba(255, 200, 120, 0.5)); }
+.ae-dd svg { display: block; }
+.ae-speech { right: 330px; bottom: 170px; width: 380px; }
+.act-art-2 { animation: intro-fade 1.2s ease-out forwards; }
+.ae-staff { position: absolute; left: 0; right: 0; bottom: 34px; display: flex; justify-content: center; align-items: flex-end; gap: 2px; }
+.ae-staff span, .ae-kids span { opacity: 0; animation: intro-line 0.6s ease-out var(--d) forwards; }
+.ae-staff svg, .ae-kids svg { display: block; }
+.ae-kids { position: absolute; z-index: 1; left: 0; right: 0; bottom: 4px; display: flex; justify-content: center; align-items: flex-end; gap: 4px; }
+.ae-stats { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; font-size: 14px; opacity: 0; animation: intro-line 0.8s ease-out 1.8s forwards; }
+.ae-stats b { color: #f4c542; }
+/* the title card */
+.act-card { width: 960px; max-width: calc(100vw - 32px); padding: 48px 40px 36px; text-align: center; }
+.act-kicker { font-size: 18px; font-weight: 900; letter-spacing: 0.5em; text-transform: uppercase; color: #c9a43a; opacity: 0; animation: intro-line 0.8s ease-out 0.3s forwards; }
+.act-title { margin: 10px 0 6px; font-size: 48px; white-space: nowrap; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; color: #f4e3b0; text-shadow: 0 4px 0 #2a1d06, 0 0 30px rgba(244, 197, 66, 0.45); opacity: 0; animation: act-title 1.4s ease-out 0.8s forwards; }
+@keyframes act-title { from { opacity: 0; transform: scale(1.12); letter-spacing: 0.3em; } to { opacity: 1; transform: none; letter-spacing: 0.06em; } }
+.act-done { font-size: 16px; letter-spacing: 0.3em; text-transform: uppercase; color: #9ff0a9; opacity: 0; animation: intro-line 0.8s ease-out 2.2s forwards; }
+.act-next { margin: 34px auto 26px; max-width: 560px; opacity: 0; animation: intro-line 1s ease-out 3.2s forwards; }
+.act-next b { display: block; margin-bottom: 8px; font-size: 15px; letter-spacing: 0.25em; text-transform: uppercase; color: #ff8a7a; }
+.act-next p { margin: 0; font-size: 15px; line-height: 1.55; color: #d8d2c0; }
+.act-go { opacity: 0; animation: intro-line 0.8s ease-out 4s forwards; font-size: 16px; padding: 10px 26px; }
+
+/* the drag lesson: the lane to move into, and the zombie's shape at its end */
+.nw-droplane { z-index: 1; pointer-events: none; background: rgba(244, 197, 66, 0.14); border-left: 2px solid rgba(244, 197, 66, 0.7); border-right: 2px solid rgba(244, 197, 66, 0.7); animation: nw-telegraph 0.7s ease-in-out infinite alternate; }
+.nw-ghostz { opacity: 0.45; filter: grayscale(0.5); pointer-events: none; animation: none; }
+.cs-place-done { border-color: #5ccf6e; }
+.cs-lesson-drag { margin: 0 0 10px; font-size: 13px; color: #f4d35e; }
+
+/* an NPC (not met yet) joining a cutscene's fight: a pan flung in from the side */
+.nw-pan { position: absolute; z-index: 27; pointer-events: none; font-size: 30px; left: calc((var(--c1) + 0.5) * 32px * var(--px)); top: calc((var(--r1) + 0.3) * 20px * var(--px)); animation: nw-pan 0.55s cubic-bezier(0.3, 0.6, 0.5, 1) both; }
+@keyframes nw-pan { from { transform: translate(-260px, -120px) rotate(-720deg) scale(0.6); opacity: 0.4; } to { transform: translate(-50%, -50%) rotate(0) scale(1); opacity: 1; } }
+.nw-pop-pan { color: #ffd27a; }
+.nw-banner-assist { display: grid; justify-items: center; gap: 2px; color: #ffd27a; font-size: 26px; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(255, 170, 60, 0.8); animation-duration: 2.2s; }
+.nw-banner-assist small { font-size: 12px; letter-spacing: 0.2em; color: #cfc6b0; }

@@ -655,6 +655,82 @@ function academy() {
   return toUrl(p, L, [0.34, 0.36, 0.58]);
 }
 
+// The end of Act 1: the same school at sunrise — the sun coming up behind the city (the fires out,
+// only smoke now), the boards torn off and every window lit, the doors thrown open, a new flag on
+// the tower, and the students out in the yard where the dead used to press against the fence.
+function academyDawn() {
+  const p = buffer(IW, IH);
+  const L = [];
+  // the sky going from night to gold, the sun just over the rooftops
+  for (let y = 0; y < 62; y++) p.r(0, y, IW - 1, y, mix(mix("#1e2a5a", "#c86a5a", (y / 61) ** 1.4), "#f4b070", (y / 61) ** 3), 1);
+  p.oval(38, 50, 11, 11, "#ffe6a0", 1);
+  p.oval(38, 50, 8, 8, "#fff4d0", 1);
+  L.push({ x: 38, y: 50, r: 90, sy: 0.8, k: 0.55, c: [1.0, 0.82, 0.55] });
+  for (let i = 0; i < 4; i++) p.r(8 + i * 52, 14 + i * 5, 40 + i * 52 + Math.floor(hash(i, 90) * 20), 15 + i * 5, "#e8a088", 1); // thin clouds
+  // the city far off: quiet now, smoke rising where the fires were
+  for (let x = 0, i = 0; x < IW; i++) {
+    const w = 4 + Math.floor(hash(i, 96) * 8);
+    const top = 46 + Math.floor(hash(i, 97) * 10);
+    p.r(x, top, x + w - 1, 62, "#4a3040");
+    if (hash(i, 98) < 0.2) for (let k = 0; k < 6; k++) p.set(x + w / 2 + Math.round(Math.sin(k + i) * 1.5), top - 2 - k * 2, "#8a7080");
+    x += w;
+  }
+  // the school, the same brick front under the clock tower
+  const BR = "#8a4a3a";
+  p.r(52, 32, 200, 72, BR);
+  for (let y = 34; y < 72; y += 3) for (let x = 52 + ((y / 3) % 2) * 3; x < 200; x += 6) p.set(x, y, "#7a3e32");
+  p.r(48, 28, 204, 31, "#3e2e34");
+  p.r(48, 28, 204, 28, "#6a5258");
+  p.r(114, 8, 138, 31, BR);
+  for (let i = 0; i < 7; i++) p.r(112 + i, 7 - i, 140 - i, 7 - i, "#3e2e34");
+  p.oval(126, 17, 5, 5, "#f4eed8", 1);
+  p.line(126, 17, 126, 13, "#2a2228", 1);
+  p.line(126, 17, 129, 15, "#2a2228", 1);
+  // a new flag on the tower, flying straight
+  p.r(142, 0, 142, 9, "#2a2a2e");
+  p.r(143, 1, 151, 5, "#3a8a4a");
+  p.r(143, 3, 151, 3, "#f4d35e");
+  // every window lit, the boards gone (a few left leaning against the wall)
+  for (const wy of [38, 52]) for (let wx = 60; wx < 196; wx += 12) {
+    if (wx > 104 && wx < 142) continue;
+    p.r(wx - 1, wy - 1, wx + 6, wy + 7, "#4a2a24");
+    p.r(wx, wy, wx + 5, wy + 6, "#ffd88a", 1);
+    p.r(wx + 2, wy, wx + 3, wy + 6, "#d8a050", 1);
+    L.push({ x: wx + 3, y: wy + 3, r: 12, k: 0.35, c: WARM });
+  }
+  for (const x of [58, 170, 192]) p.line(x, 71, x + 3, 62, "#8a6040");
+  // a banner where the SOS sheet was
+  p.r(82, 37, 94, 47, "#e8e2d4");
+  p.r(84, 40, 92, 41, "#3a8a4a");
+  p.r(84, 43, 90, 44, "#3a8a4a");
+  // the front doors thrown open, warm light inside
+  p.r(116, 50, 136, 72, "#ffd27a", 1);
+  p.r(112, 50, 115, 72, "#5a3a24");
+  p.r(137, 50, 140, 72, "#5a3a24");
+  L.push({ x: 126, y: 70, r: 26, k: 0.7, c: WARM });
+  // the yard, the fence mended, the barrel only smoking
+  p.r(0, 72, IW - 1, IH - 1, "#5a5048");
+  speckle(p, 0, 73, IW - 1, IH - 1, ["#6a6058", "#4a4038"], 140, 99);
+  const fenced = (x) => x < 104 || x > 150;
+  for (let x = 2; x < IW; x += 9) if (fenced(x)) p.r(x, 66, x, 78, "#5a5a62");
+  for (const y of [67, 71, 75]) for (let x = 0; x < IW; x++) if (fenced(x) && (x + y) % 3) p.set(x, y, "#7a7a82");
+  p.r(96, 76, 102, 84, "#4a4a52");
+  p.r(96, 76, 102, 76, "#6a6a72");
+  for (let k = 0; k < 8; k++) p.set(99 + Math.round(Math.sin(k) * 1.5), 74 - k * 2, "#a8a0a8");
+  // the students out in the yard, arms up
+  const KIDS = ["#d64545", "#3a7ac8", "#f4d35e", "#3a8a4a", "#a855c8", "#e88a3a", "#4ac8c8", "#e8e2d4"];
+  for (const [i, x] of [92, 106, 112, 118, 134, 140, 148, 160].entries()) {
+    const y = 86 - (i % 2);
+    p.r(x, y - 9, x + 1, y - 8, "#e8c8a0"); // the head
+    p.r(x, y - 7, x + 1, y - 3, KIDS[i]);
+    p.set(x - 1, y - 9 - (i % 2), "#e8c8a0"); // an arm in the air
+    p.set(x + 2, y - 8, "#e8c8a0");
+    p.r(x, y - 2, x, y, "#2a2a3a");
+    p.r(x + 1, y - 2, x + 1, y, "#2a2a3a");
+  }
+  return toUrl(p, L, [0.95, 0.8, 0.74]);
+}
+
 // The school's basement, where the survivors hide: concrete and damp, pipes along the ceiling, the
 // stairs coming down from a door with cold light behind it, one bulb, the boiler glowing, shelves of
 // tins, and "SAFE" chalked on the wall.
@@ -834,5 +910,5 @@ function yard() {
 const RAIDS = { mall, hospital, military_base: militaryBase, institute };
 export const raidBackdrop = (landmarkId) => cached(`raid:${landmarkId}`, () => (RAIDS[landmarkId] || street)());
 export const streetBackdrop = (w = AW, h = AH, depth = AH) => cached(`street:${w}x${h}x${depth}`, () => street(w, h, depth));
-export const introBackdrop = (which) => cached(`intro:${which}`, () => ({ city: cityBurning, academy, yard, basement }[which] || academy)());
+export const introBackdrop = (which) => cached(`intro:${which}`, () => ({ city: cityBurning, academy, dawn: academyDawn, yard, basement }[which] || academy)());
 export const duskBackdrop = (placeId = "") => cached(`dusk:${placeId}`, () => duskStreet([...placeId].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 9973, 7)));

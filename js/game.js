@@ -2625,6 +2625,17 @@ export function battleTick(state, b) {
 
   if (b.rally > 0) b.rally--;
 
+  // a cutscene's NPC joining in (`assist`): once, when a zombie gets close to the hero
+  const A = b.lesson && !b.assisted && ROOM_CUTSCENES[b.lesson]?.assist;
+  const near = A && b.students[0] && b.zombies.find((z) => z.alive && z.col === b.students[0].col && z.row - b.students[0].row <= A.near);
+  if (near) {
+    b.assisted = true;
+    const dmg = Math.round(near.maxHp * A.dmg);
+    near.hp -= dmg;
+    near.snagged = true;
+    events.push({ type: "assist", at: [near.row, near.col], dmg, shout: A.shout });
+    if (near.hp <= 0) killZombie(b, near, events);
+  }
   // a cutscene's reinforcement: called once the first zombies are down (main.js shows it)
   const R = b.lesson && b.waiting?.length && !b.called && ROOM_CUTSCENES[b.lesson]?.reinforce;
   if (R && (R.morale ? b.morale >= R.morale : b.killed >= R.after)) b.called = "now";

@@ -7,6 +7,9 @@
 //   night      Turn 3   tense: a dark pad, a pulsing bass, a heartbeat kick, a music box
 //   fight               driving: rock drums, an eighth-note bass, a string ostinato, a lead
 //   boss                epic: taiko, a choir, galloping low strings and a brass theme
+//   tutorial            taking the school back: hopeful but on edge — an electric piano theme,
+//                       plucked arpeggios, light drums, strings swelling in, in A minor
+//   hideout             the basement: the same theme, slow and quiet — a pad, a low hum, a music box
 //   raid                the Dark Headmaster (the tutorial's last fight): a pipe organ, a choir, taiko,
 //                       a harpsichord's arpeggios and the brass theme, in D minor
 //   raidRage            the same theme, faster and frantic, once he comes down off his dais
@@ -115,6 +118,12 @@ const CH = {
   bEb: { root: 39, choir: [55, 58, 63, 67], stab: [51, 55, 58, 63] },
   bBb: { root: 34, choir: [53, 58, 62, 65], stab: [46, 53, 58, 62] },
   bG: { root: 31, choir: [55, 59, 62, 67], stab: [43, 50, 55, 59] },
+  // taking the school back, in A minor (the E major pulling home)
+  tAm: { root: 33, notes: [57, 60, 64, 67] },
+  tF: { root: 29, notes: [57, 60, 65, 69] },
+  tC: { root: 36, notes: [55, 60, 64, 67] },
+  tG: { root: 31, notes: [55, 59, 62, 67] },
+  tE: { root: 28, notes: [56, 59, 64, 68] },
   // the Dark Headmaster, in D minor (the A major's C# for the dread): the organ's voicing, the choir above
   rDm: { root: 38, notes: [62, 65, 69], choir: [65, 69, 74] },
   rBb: { root: 34, notes: [62, 65, 70], choir: [65, 70, 74] },
@@ -690,6 +699,18 @@ const RAID_THEME = [
   [[0, 79, 4], [4, 77, 4], [8, 76, 4], [12, 73, 4]],
   [[0, 74, 12], [12, 69, 4]],
 ];
+// The tutorial's theme: falling from the E, climbing back up to the G, and home through the E chord.
+const TUTORIAL_THEME = [
+  [[0, 76, 6], [6, 74, 2], [8, 72, 4], [12, 71, 4]],
+  [[0, 72, 8], [8, 69, 8]],
+  [[0, 67, 4], [4, 72, 4], [8, 76, 6], [14, 74, 2]],
+  [[0, 74, 12], [12, 71, 4]],
+  [[0, 76, 6], [6, 77, 2], [8, 79, 4], [12, 76, 4]],
+  [[0, 77, 8], [8, 76, 4], [12, 74, 4]],
+  [[0, 74, 6], [6, 72, 2], [8, 71, 8]],
+  [[0, 68, 8], [8, 71, 8]],
+];
+const TUTORIAL_PROG = [CH.tAm, CH.tF, CH.tC, CH.tG, CH.tAm, CH.tF, CH.tG, CH.tE];
 const RAID_PROG = [CH.rDm, CH.rBb, CH.rGm, CH.rA, CH.rDm, CH.rBb, CH.rA, CH.rDm];
 
 const INTRO_THEME = [
@@ -933,6 +954,55 @@ const MOODS = {
         if (at !== p) continue;
         brass(T, t, note + 12, len * T.stepDur * 0.9, { gain: 0.05 });
         brass(T, t, note, len * T.stepDur * 0.9, { gain: 0.045 });
+      }
+    },
+  },
+  // Taking the school back: light drums, a walking bass, plucked arpeggios, the theme on the electric
+  // piano (a bell doubling it on every other phrase), and strings swelling in once it's going.
+  tutorial: {
+    bpm: 96, swing: 0.52, cutoff: 6500, echo: 0.75, humanize: 0.005,
+    play(T, s, t) {
+      const bar = s >> 4;
+      const p = s & 15;
+      const ch = TUTORIAL_PROG[bar % 8];
+      if (bar >= 1) {
+        if (p === 0 || p === 8 || (p === 10 && bar % 2)) kick(T, t, p === 0 ? 1 : 0.75, { hi: 120, lo: 46, decay: 0.3, gain: 0.6 });
+        if (p === 4 || p === 12) snare(T, t, 0.6, { tone: 1700, decay: 0.12, gain: 0.15 });
+        if (p % 2 === 0) hat(T, t, p % 4 === 0 ? 0.5 : 0.28, false, 0.045);
+      }
+      if (p === 0) bass(T, t, ch.root, 0.9 * T.beat, { gain: 0.28 });
+      if (p === 8) bass(T, t, ch.root + 7, 0.7 * T.beat, { gain: 0.22 });
+      if (p === 14) bass(T, t, TUTORIAL_PROG[(bar + 1) % 8].root - 2, 0.3 * T.beat, { gain: 0.18 });
+      if (p % 2 === 0) {
+        const tones = [...ch.notes, ch.notes[0] + 12];
+        pluck(T, t, tones[[0, 2, 1, 3, 4, 3, 1, 2][(p >> 1) % 8]] + 12, { vel: p % 8 === 0 ? 0.8 : 0.5, gain: 0.026, decay: 0.28, echo: 0.25 });
+      }
+      if (p === 0 && bar >= 8) pad(T, t, ch.notes, 3.8 * T.beat, { cutoff: 1400, gain: 0.022, attack: 1.2 });
+      if (bar >= 2) {
+        for (const [at, note, len] of TUTORIAL_THEME[bar % 8]) {
+          if (at !== p) continue;
+          epiano(T, t, note, len * T.stepDur * 0.95, 0.75, { rev: 0.3, echo: 0.2 });
+          if (((bar >> 3) & 1) === 1) bell(T, t, note + 12, { gain: 0.025, echo: 0.3 });
+        }
+      }
+    },
+  },
+  // The basement: the theme slowed right down — a soft pad, the boiler's low hum, the electric piano
+  // every other phrase, and a music box now and then.
+  hideout: {
+    bpm: 70, swing: 0.5, cutoff: 3800, echo: 0.75, humanize: 0.006,
+    play(T, s, t) {
+      const bar = s >> 4;
+      const p = s & 15;
+      const ch = TUTORIAL_PROG[bar % 8];
+      if (p === 0) {
+        pad(T, t, ch.notes, 3.9 * T.beat, { cutoff: 900, gain: 0.03, attack: 1.4, release: 1.8 });
+        bass(T, t, ch.root, 3.6 * T.beat, { type: "sine", cutoff: 200, gain: 0.2 }); // the boiler's hum
+      }
+      if (((bar >> 3) & 1) === 1) {
+        for (const [at, note, len] of TUTORIAL_THEME[bar % 8]) if (at === p) epiano(T, t, note - 12, len * T.stepDur * 0.95, 0.55, { rev: 0.45, echo: 0.3 });
+      } else if (p % 4 === 0 && hash(bar * 16 + p, T.seed) < 0.35) {
+        bell(T, t, ch.notes[(p >> 2) % ch.notes.length] + 24, { gain: 0.03, echo: 0.5 });
       }
     },
   },

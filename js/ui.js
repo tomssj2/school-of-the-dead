@@ -32,7 +32,7 @@ import { raidBackdrop, streetBackdrop, duskBackdrop, introBackdrop } from "./bac
 import { characterSprite } from "./sprite.js";
 import { NPCS, npcSprite, BANTER } from "./npcs.js";
 import { QUESTS, questStatus, stepDone, npcQuests, npcMark, activeQuests, questTargets, upgradeItemFound, upgradeQuest, placeName,
-  RENOWN_RANKS, RENOWN_MAX, LEGEND_BUFF, questRenown, renownPoints, renownRank, apprenticeOpen, NPC_PLACE, banterFor, NPC_INTRO, ROOM_GUIDE, SCHOOL_PARTS, ROOM_CUTSCENES, CLASS_LESSON } from "./quests.js";
+  RENOWN_RANKS, RENOWN_MAX, LEGEND_BUFF, questRenown, renownPoints, renownRank, apprenticeOpen, NPC_PLACE, banterFor, NPC_INTRO, ROOM_GUIDE, SCHOOL_PARTS, ROOM_CUTSCENES, CLASS_LESSON, ROOM_KEY_NPC } from "./quests.js";
 import { getBest, isBestRun } from "./score.js";
 import { getGraphics, GFX_LEVELS, getUiSize, UI_SIZE } from "./graphics.js";
 import { areaOfTab } from "./frames.js";
@@ -2438,6 +2438,13 @@ function gridBattle(state, anim) {
     } else if (e.type === "summon") {
       fx += `<span class="nw-puff nw-puff-green" ${at(e.at[0], e.at[1])}></span>`;
       fx += pop(e.at[0], e.at[1], "nw-pop-bad", e.ztype === "screamer" ? "+📢" : "+🧟");
+    } else if (e.type === "assist") {
+      // someone out of sight joins in: a frying pan, spinning across the board
+      fx += `<span class="nw-pan" style="--r1:${e.at[0]};--c1:${e.at[1]}">🍳</span>`;
+      fx += pop(e.at[0], e.at[1], "nw-pop-heavy nw-pop-pan", `🍳-${e.dmg}`);
+      hurt.add(`${e.at[0]},${e.at[1]}`);
+      banner = `<div class="nw-banner nw-banner-assist"><small>??? from the kitchen</small>“${esc(e.shout)}”</div>`;
+      shake = 2;
     } else if (e.type === "hexMark") {
       fx += pop(e.at[0], e.at[1], "nw-pop-warn", "⚡ hex!");
     } else if (e.type === "bolt") {
@@ -2574,6 +2581,11 @@ function gridBattle(state, anim) {
     </div>`;
     // the square it's about to smash
     if (z.windup) units += `<div class="nw-cell nw-telegraph" ${at(z.windup.row, z.windup.col)}><span>⚠ Smash</span></div>`;
+  }
+  const dragLane = breakTime && b?.lesson ? ROOM_CUTSCENES[b.lesson]?.drag : undefined;
+  if (dragLane !== undefined) {
+    for (let row = 0; row < summary.rows; row++) units += `<div class="nw-cell nw-droplane" ${at(row, dragLane)}></div>`;
+    units += `<div class="nw-unit nw-zombie nw-ghostz" ${at(summary.rows - 1, dragLane)}>${hordeSprite("walker", 36)}</div>`;
   }
   if (wl && wl.hex !== null && wl.hex !== undefined) {
     for (let row = 0; row < wl.row; row++) units += `<div class="nw-cell nw-hexlane" ${at(row, wl.hex)}><span>⚡</span></div>`;
@@ -5819,6 +5831,14 @@ function cutsceneCheckText(state, cs, C, lines) {
 // team). "Fight!" sends the zombie in.
 export function renderClassLesson(state, b, anim = {}) {
   const C = ROOM_CUTSCENES[b.lesson];
+  if (anim.dragging && C?.drag !== undefined) {
+    const s0 = b.students[0];
+    const c = getChar(state, s0.id);
+    const there = s0.col === C.drag;
+    return `<div class="cs-place-hint ${there ? "cs-place-done" : ""}">${there
+      ? `✅ ${esc(shortName(c))}'s in its lane — now it walks straight into ${c.gender === "M" ? "his" : "her"} shots <button class="btn btn-sm btn-primary" data-action="start-wave">⚔ Fight!</button>`
+      : `👆 Drag <b>${esc(shortName(c))}</b> into the glowing lane — the zombie's coming down it`}</div>`;
+  }
   if (anim.placing) {
     const d = DEFENSE_STRUCTURES.find((x) => x.id === anim.placing);
     return `<div class="cs-place-hint">${d.icon} Pick a square on the board for the <b>${esc(d.name)}</b> <button class="btn btn-sm" data-action="lesson-cancel-place">Cancel</button></div>`;
@@ -5842,7 +5862,8 @@ export function renderClassLesson(state, b, anim = {}) {
       </div>
       <ul class="cs-lesson-list">${points.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
       <p class="muted cs-lesson-note">Every student's class comes from their ★ favourite subject. Just watch — ${team.length > 1 ? "they do" : `${esc(shortName(team[0]))} does`} the rest.</p>
-      <div class="row-actions">${b.toPlace?.length
+      ${C.drag !== undefined ? `<p class="cs-lesson-drag">👆 But ${esc(shortName(team[0]))}'s in the wrong lane! Students can be dragged to any square before a fight starts.</p>` : ""}
+      <div class="row-actions">${C.drag !== undefined ? `<button class="btn btn-primary" data-action="lesson-drag">👆 Move ${esc(shortName(team[0]))}</button>` : b.toPlace?.length
         ? b.toPlace.map((id) => { const d = DEFENSE_STRUCTURES.find((x) => x.id === id); return `<button class="btn btn-primary" data-action="lesson-pick-place" data-id="${id}">${d.icon} Place the ${esc(d.name)}</button>`; }).join("")
         : '<button class="btn btn-primary" data-action="start-wave">⚔ Fight!</button>'}</div>
     </div>
@@ -5894,6 +5915,58 @@ export function renderNextTip(state, activeTab) {
 export function renderTechTip(state) {
   return `<div class="tech-tip">${ri("research")} <span>You have <b>${state.resources.research}</b> research! Spend it on the <b>research tree</b>.</span>
     <button class="btn btn-primary btn-sm" data-action="set-tab" data-tab="research">🧠 Open the research tree</button></div>`;
+}
+
+// ---------- the end of Act 1 ----------
+// Handing in the Headmaster's Office ends the tutorial with an ending of its own, in the intro's
+// style: the school at sunrise, Doubledoor home in his office, everyone who made it — then a title
+// card, and Day 1.
+const ACT_ONE_END = [
+  { title: "The School Is Ours", art: "dawn", text: ["The sun comes up over the city, and one by one the lights come back on — every room, every floor.", "For the first time since it all began, the Academy belongs to the living again."] },
+  { title: "Back Where He Belongs", office: true, text: ["Albus Doubledoor walks back into his office and sets his old friend's hat on the shelf."],
+    speech: ["It's good to be home.", "Rest tonight, all of you. Tomorrow, we begin again."] },
+  { title: "Everyone Who Made It", art: "yard", text: ["A handful of tired friends came through that cellar door. Look at them now."], cast: true },
+];
+export function renderActEnding(state, step, sayKey = "") {
+  // the title card: Act 1 done, Act 2 ahead
+  if (step >= ACT_ONE_END.length) {
+    return `<div class="modal-overlay intro-overlay act-overlay">
+      <div class="act-card" data-action="noop">
+        <div class="act-kicker">Act I</div>
+        <h1 class="act-title">Take Back the School</h1>
+        <div class="act-done">— complete —</div>
+        <div class="act-next"><b>Act II · Survive</b><p>The school is ours. Now we have to keep it — the dead come back to its doors every night, and somewhere out in the city, people are still waiting to be found.</p></div>
+        <button class="btn btn-primary act-go" data-action="ending-next">☀ Begin Day 1</button>
+      </div>
+    </div>`;
+  }
+  const screen = ACT_ONE_END[step];
+  const art = screen.office ? sceneBackground("headmaster") : introBackdrop(screen.art);
+  const students = aliveChars(state).filter((c) => c.role === "student");
+  let people = "";
+  if (screen.office) {
+    people = `<div class="ae-dd">${npcSprite("doubledoor", 2.5)}</div>
+      <div class="bs-speech ae-speech" data-say-solo data-say-delay="900">${screen.speech.map((line, i) => sayBubble("doubledoor", line, `${sayKey}:${i}`, "bs-bubble")).join("")}</div>`;
+  } else if (screen.cast) {
+    const staff = Object.values(ROOM_KEY_NPC);
+    people = `<div class="ae-staff">${staff.map((id, i) => `<span style="--d:${0.2 + i * 0.12}s" title="${esc(NPCS[id].name)}">${npcSprite(id, 1)}</span>`).join("")}</div>
+      <div class="ae-kids">${students.slice(0, 12).map((c, i) => `<span style="--d:${1.6 + i * 0.08}s">${characterSprite(c, 44)}</span>`).join("")}</div>`;
+  }
+  const stats = screen.cast
+    ? `<div class="ae-stats"><span>🏫 <b>15</b> rooms taken back</span><span>🎓 <b>${Object.keys(ROOM_KEY_NPC).length}</b> teachers found</span><span>🎒 <b>${students.length}</b> students, every one still standing</span><span>🧙 <b>1</b> Dark Headmaster put to rest</span></div>`
+    : "";
+  const lines = screen.text.map((t, i) => `<p style="animation-delay:${0.3 + i * 0.9}s">${esc(t)}</p>`).join("");
+  return `<div class="modal-overlay intro-overlay act-overlay">
+    <div class="intro-card" data-action="noop">
+      <div class="intro-art act-art act-art-${step}" style="background-image:${art}">${people}</div>
+      <div class="intro-text"><h2>${esc(screen.title)}</h2>${lines}${stats}</div>
+      <div class="intro-actions">
+        <span></span>
+        <span class="intro-dots">${[...ACT_ONE_END, 0].map((_, i) => `<i class="${i === step ? "on" : ""}"></i>`).join("")}</span>
+        <button class="btn btn-primary" data-action="ending-next">Next ▸</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 // ---------- the basement ----------

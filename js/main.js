@@ -4,7 +4,7 @@ import { WORLD_W, WORLD_H } from "./citymap.js";
 import { rosterDefaultDir, setRosterDensity, TURN_ONE_PICKERS, pickerVerdict, tutorialTabs, tutorialTab } from "./ui.js";
 import { renderApp, renderCharacterCard, renderMissionModal, renderAssaultModal, renderScoutModal, renderFightAnimation, renderPickerModal, renderDefenseGuideModal, renderBattleAnimation, setNightBattle, renderDefenseBuildModal,
   renderScoutReport, renderNestModal, renderRaidModal, renderRaidFight, renderExpeditionReport,
-  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderNpcModal, renderNpcReveal, renderIntro, renderDialog, renderRoomCutscene, renderClassLesson, renderTechTip, renderReportTip, renderNextTip, renderBossPrompt, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
+  renderClearRoomModal, setInvSlot, renderRoomUpgradeModal, renderNpcModal, renderNpcReveal, renderIntro, renderDialog, renderRoomCutscene, renderActEnding, renderClassLesson, renderTechTip, renderReportTip, renderNextTip, renderBossPrompt, renderEvacuationModal, renderMenuModal, renderQuarantineModal, renderEnemyGuideModal, tipFromText, setRoleTab,
   renderEncounterModal, renderExpeditionBattle,
   warnMenuIsOpen, toggleWarnMenu, toggleWarningKind, showAllWarnings, pixelizeText, pixelizeDom } from "./ui.js";
 import { recordRun } from "./score.js";
@@ -71,7 +71,8 @@ function ask(text, then, { input = null, yes = "OK", danger = false } = {}) {
   dialog = { text, then, input, yes, danger };
   render();
 }
-let introStep = 0; // the intro's screen, while state.intro is set (a new game)
+let introStep = 0;
+let endingStep = 0; // the end of Act 1's screen, while state.actEnding is set (ui.js renderActEnding) // the intro's screen, while state.intro is set (a new game)
 const INTRO_DIFFICULTY_STEP = 2; // "Still Alive": a new game picks its difficulty there
 let introSettled = false; // the survivors have walked in on that screen (a new pick doesn't replay it)
 let roomCutscene = null; // the tutorial's first floor: before / after a room's 1v1 (ui.js renderRoomCutscene)
@@ -791,7 +792,7 @@ function render() {
   if (tutTabs && !tutTabs.includes(activeTab) && !["quests", "log", "roster", "research", "armory", "itemlist"].includes(activeTab)) activeTab = tutorialTab(state);
   if (!tutTabs && activeTab === "basement") activeTab = "floor3"; // (the school's ours: Doubledoor's back in his office)
   // the page behind the game: black through the intro, the basement through the tutorial
-  document.body.classList.toggle("blackout", !!state.intro);
+  document.body.classList.toggle("blackout", !!state.intro || !!state.actEnding);
   document.body.classList.toggle("basement-bg", !state.intro && G.tutorialOn(state));
   document.body.classList.toggle("tut-lock", !state.intro && G.tutorialOn(state));
   // the reveal's jingle, as it first shows
@@ -799,7 +800,9 @@ function render() {
     revealHeard = npcReveal;
     if (npcReveal) playReveal();
   }
-  const modalHtml = state.intro
+  const modalHtml = state.actEnding
+    ? renderActEnding(state, endingStep, `ending:${talkSeq}:${endingStep}`)
+    : state.intro
     ? renderIntro(state, introStep, `intro:${talkSeq}:${introStep}`, introSettled && introStep === INTRO_DIFFICULTY_STEP) + (card ? renderCharacterCard(state, card, cardTab, cardAsk) : "")
     : npcReveal
     ? renderNpcReveal(npcReveal)
@@ -967,12 +970,13 @@ root.addEventListener("click", (e) => {
 // the afternoon, tense at night — or a fight's, or something epic for a raid boss (or a boss night),
 // back to the turn's once a fight is over and its result is up; silence when the school has fallen.
 function musicMood() {
-  if (state.intro) return "intro";
+  if (state.intro || state.actEnding) return "intro";
   if (state.gameOver) return null;
   if (raidFight?.phase === "battle") return raidFight.report.kind === "chase" ? "fight" : "boss";
   if (battleAnimation?.kind === "grid" && battleAnimation.phase === "battle") return battleAnimation.b?.bossName ? "boss" : "fight";
   if (battleAnimation?.b?.bossFight && battleAnimation.phase === "battle") return battleAnimation.b.zombies.some((z) => z.type === "warlock" && z.phase === 3) ? "raidRage" : "raid";
   if (battleAnimation?.kind === "expedition" && battleAnimation.phase === "battle") return battleAnimation.b.bossName ? "boss" : "fight";
+  if (G.tutorialOn(state)) return activeTab === "basement" ? "hideout" : "tutorial"; // (taking the school back)
   if (state.victory) return "morning";
   return ["morning", "afternoon", "night"][state.turn - 1] || "morning";
 }
@@ -1746,6 +1750,23 @@ root.addEventListener("click", (e) => {
     case "hand-in-quest":
       Q.handInQuest(state, el.dataset.quest);
       renownNews();
+      // the last part of the tutorial: the end of Act 1 plays
+      if (el.dataset.quest === "main:office") {
+        state.actEnding = true;
+        endingStep = 0;
+        talkSeq++;
+        openNpc = null;
+      }
+      render();
+      break;
+    case "ending-next":
+      if (endingStep < 3) endingStep++;
+      else {
+        // the title card's "Begin Day 1": into the game, at his office
+        delete state.actEnding;
+        activeTab = "floor3";
+        playChime();
+      }
       render();
       break;
     case "toggle-warn-menu":
@@ -2145,6 +2166,11 @@ root.addEventListener("click", (e) => {
         playHit();
         render();
       }
+      break;
+    case "lesson-drag":
+      // the Acrobatics lesson: the popup steps aside so the student can be dragged
+      if (battleAnimation?.live) battleAnimation.dragging = true;
+      render();
       break;
     case "lesson-cancel-place":
       if (battleAnimation) battleAnimation.placing = null;
@@ -2736,6 +2762,15 @@ if (["localhost", "127.0.0.1"].includes(location.hostname)) {
       talkSeq++;
       render();
       return "intro";
+    },
+    // schoolDev.ending(): play the end of Act 1 (the tutorial's ending) again.
+    ending() {
+      state.actEnding = true;
+      endingStep = 0;
+      talkSeq++;
+      openNpc = null;
+      render();
+      return "the end of Act 1";
     },
     // schoolDev.tutorial("classroom:1"): jump the tutorial to that room — the parts before it handed
     // in, the rooms before it on its floor cleared.
