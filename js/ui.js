@@ -25,7 +25,7 @@ import {
 import {
   hexTileKey, tileBackground, tileDataUri, hexTerrain, TERRAIN_NAMES, locationAt, MAP_RADIUS, isSchoolHex,
 } from "./map.js";
-import { hexToWorld, viewBox, cityBaseUrl, fogUrl, WORLD_W, WORLD_H } from "./citymap.js";
+import { hexToWorld, viewBox, cityBaseUrl, fogUrl, WORLD_W, WORLD_H, placeBox, raidBox } from "./citymap.js";
 import { zombieSprite, hordeSprite } from "./zombies.js";
 import { courtyardBackground, roomBackground, officeArena, structureSprite } from "./nightwatch.js";
 import { raidBackdrop, streetBackdrop, duskBackdrop, introBackdrop } from "./backdrops.js";
@@ -46,7 +46,6 @@ const TURN_NAMES = { 1: "Classes (Morning)", 2: "Exploration (Afternoon)", 3: "D
 
 // A place's pin on the City Map: its big icon (scenes.js POI_ICONS, 32x32) in a badge over the
 // building, so what's where reads at a glance.
-const poiPin = (id) => `<span class="cm-pin">${pixelIcon(`poi_${id}`, 32)}</span>`;
 // Every map place's pixel icon (scenes.js ICONS, named after the place) — filled in below,
 // once pxe() exists.
 const LOCATION_ICON = {};
@@ -106,6 +105,10 @@ const SYMBOL_NAMES = {
   "🛏": "bed", "🧠": "research", "❄": "snow", "🚧": "barricade", "🔺": "spikes", "🔗": "wire", "📶": "signal",
   "🛰": "satellite", "🐐": "goat", "💊": "medicine", "💉": "serum", "🤓": "face_nerd", "😎": "face_cool", "🏋": "barbell", "😊": "mood_happy", "🪤": "yard_traps",
   "🏫": "school", "🗺": "map", "🗣": "word_of_mouth", "👣": "horde", "🎉": "school_spirit", "🔌": "yard_appliances",
+  "🎁": "gift", "🌈": "rainbow", "🧙": "warlock", "🔦": "flashlight", "👆": "pointer", "⏳": "hourglass", "📇": "card", "📋": "clipboard",
+  "🪨": "rock", "⛽": "gas", "🐀": "rat", "🧼": "soap", "🎺": "trumpet", "🏅": "medal", "🧣": "scarf", "🌑": "dark", "😡": "face_angry", "🤫": "face_hush",
+  "💫": "face_dizzy", "🕸": "net", "🧥": "it_winter_coat", "🩺": "it_stethoscope", "📯": "it_whistle", "🥼": "it_lab_coat", "🐔": "chicken", "🐑": "sheep",
+  "🕯": "candle", "☀": "sun", "🧍": "survivor",
   "⚙": "scrap", "🌀": "ab_cleave", "💢": "ab_headshot", "💚": "ab_rally", "👁": "dr_spotter", "📣": "dr_rallier",
 };
 for (const [emoji, name] of Object.entries(SYMBOL_NAMES)) if (!EMOJI_PIXEL.has(emoji)) EMOJI_PIXEL.set(emoji, pxe(name));
@@ -873,7 +876,7 @@ function hudTips(state) {
     materials: { title: `${ri("materials")} Scrap`, rows: [["On hand", `${r.materials}`]], notes: ["From expeditions and the Scrapyard", "Spent on upgrades, defenses, the Radio Station and crafting"] },
     medicine: { title: `${ri("medicine")} Medicine`, rows: [["On hand", `${r.medicine}`]], notes: [`Treating a patient costs ${INFIRMARY_MEDICINE_PER_PATIENT}`, "Saving a defender who goes down costs 5 (automatic)", "Grown in the Greenhouse, found on expeditions"] },
     research: { title: `${ri("research")} Research`, rows: [["On hand", `${r.research}`], ["Made a day", `+${researchRoomYield(state)}`]], notes: ["Made in the Research Room", "Spent on the tech tree and the Radio Station", ...(techReady(state) ? ["Gold: enough for a new tech"] : []), "Click to open the Research tree"] },
-    serum: { title: `${ri("serum")} Antiviral Serum`, rows: [["On hand", `${r.serum}`]], notes: ["The only cure for an infection — one per person", "Pharmacy, Urgent Care and Fire Station now and then", "The General Hospital and Research Institute raids pay out the most"] },
+    serum: { title: `${ri("serum")} Antiviral Serum`, rows: [["On hand", `${r.serum}`]], notes: ["The only cure for an infection — one per person", "Pharmacy, Urgent Care and Fire Station now and then", "The Hospital and Institute raids pay out the most"] },
     infected: { title: "🦠 Infected", rows: [["In quarantine", `${infectedChars(state).length}`]], notes: ["Each needs a serum by the end of their fifth day, or they die", "Cure them from the Nurse's Office"] },
   };
 }
@@ -1819,6 +1822,8 @@ function renderExplorationMap(state) {
     const { x, y } = hexToWorld(q, r);
     return `--x:${x.toFixed(1)};--y:${y.toFixed(1)};`;
   };
+  // a place's or raid's whole block on the map (citymap.js placeBox / raidBox), framed by corner brackets
+  const boxAt = (b) => `--bx:${b.x0};--by:${b.y0};--bw:${b.x1 - b.x0 + 1};--bh:${b.y1 - b.y0 + 1};`;
 
   for (const { q, r } of hexesInRadius(HEX_RADIUS)) {
     if (!isHexExplored(state, q, r)) {
@@ -1854,11 +1859,11 @@ function renderExplorationMap(state) {
 
     if (loc) {
       const rewards = lootLine(loc);
-      cells += `<div class="cm-cell cm-place ${team !== undefined ? "cm-assigned" : ""}" data-action="open-mission" data-location="${loc.id}" style="${at(q, r)}${teamStyle}" ${tipAttr({
+      cells += `<div class="cm-block cm-place ${team !== undefined ? "cm-assigned" : ""}" data-action="open-mission" data-location="${loc.id}" style="${boxAt(placeBox(loc.id))}${teamStyle}" ${tipAttr({
         title: `${LOCATION_ICON[loc.id]} ${esc(loc.name)}`,
         rows: [["🚪 Rooms", `${expeditionRooms(loc)} · ${expeditionRoomZombies(state, loc, 0)}–${expeditionRoomZombies(state, loc, expeditionRooms(loc) - 1)} 🧟 each`], ["📍 Distance", `${expeditionBlocks(loc)} blocks`], ["Danger", `${loc.danger}/5`], ["Loot (about)", rewards], ["Gear chance", `${Math.round(expeditionGearChance(loc) * 100)}%`], ...(loc.serumChance ? [["Rare", `${ri("serum")} serum`]] : [])],
         notes: [esc(loc.desc), ...dangerNotes(state, q, r)],
-      })}>${squad}${poiPin(loc.id)}<span class="cm-label"><span class="cm-name">${esc(loc.name)}</span></span></div>`;
+      })}>${squad}<span class="cm-label cm-tag">${LOCATION_ICON[loc.id]}<span class="cm-name"> ${esc(loc.name)}</span></span></div>`;
     } else if (isNest(state, q, r)) {
       cells += `<div class="cm-cell cm-nest" data-action="open-nest" data-q="${q}" data-r="${r}" style="${at(q, r)}" ${tipAttr({
         title: `${pxe("nest")} Zombie Nest`,
@@ -1913,12 +1918,12 @@ function renderExplorationMap(state) {
       squad = `<span class="cm-squad">${members.slice(0, 3).map((c) => characterSprite(c, 16)).join("")}${members.length > 3 ? `<b>+${members.length - 3}</b>` : members.length ? "" : "<b>0</b>"}</span>`;
     }
     const mark = cooldown ? `💤 ${cooldown}d` : BOSS_ICON;
-    cells += `<div class="cm-lair ${cooldown ? "cm-cleared" : ""} ${team !== undefined ? "cm-assigned" : ""}" data-action="open-raid" data-landmark="${lm.id}"
-      style="--x:${lm.at.x};--y:${lm.at.y};${team !== undefined ? `--team:${TEAM_COLORS[team]};` : ""}" ${tipAttr({
+    cells += `<div class="cm-block cm-lair ${cooldown ? "cm-cleared" : ""} ${team !== undefined ? "cm-assigned" : ""}" data-action="open-raid" data-landmark="${lm.id}"
+      style="${boxAt(raidBox(lm))}${team !== undefined ? `--team:${TEAM_COLORS[team]};` : ""}" ${tipAttr({
         title: `${LOCATION_ICON[lm.id]} ${esc(lm.name)} · tier ${lm.tier}`,
         rows: [["Best for", lm.focus], ["Boss", `${esc(boss.name)} · ${boss.hp} HP`], ["Squad", `${lm.minTeam}+ students, Lv ${lm.minLevel}+`]],
         notes: [cooldown ? `Cleared — back in ${cooldown} day${cooldown === 1 ? "" : "s"}` : "Click to plan a raid"],
-      })}>${squad}${poiPin(lm.id)}<span class="cm-label cm-label-raid">${mark}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
+      })}>${squad}<span class="cm-label cm-tag cm-label-raid">${mark}<span class="cm-name"> ${esc(lm.name)}</span></span></div>`;
   }
 
   const [vx, vy, vw, vh] = viewBox(shown);
@@ -3071,7 +3076,7 @@ export function renderMissionModal(state, locationId) {
         <span>Danger ${loc.danger}/5</span>
         <span class="ms-loot" ${tipAttr(lootTip(loc))}>🎒 ${lootLine(loc)}</span>
         ${loc.recruitBonus ? `<span>🙋 Good recruit odds</span>` : ""}
-        ${loc.serumChance ? `<span ${tipAttr({ title: `${ri("serum")} Antiviral Serum`, notes: ["The only cure for an infection — one per person", "Rare: found here, at the Pharmacy, Urgent Care and Fire Station", "Most of it comes from the General Hospital and Research Institute raids"] })}>${ri("serum")} Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
+        ${loc.serumChance ? `<span ${tipAttr({ title: `${ri("serum")} Antiviral Serum`, notes: ["The only cure for an infection — one per person", "Rare: found here, at the Pharmacy, Urgent Care and Fire Station", "Most of it comes from the Hospital and the Institute raids"] })}>${ri("serum")} Rare: antiviral serum (${Math.round(loc.serumChance * 100)}%)</span>` : ""}
       </div>
       ${nextToNest(state, loc.hex.q, loc.hex.r) ? `<div class="mission-success mission-bad">${dangerNotes(state, loc.hex.q, loc.hex.r).join(" · ")}: more zombies in every room.</div>` : ""}
       <div class="mini-label ms-label">${sentIndex !== -1 ? "Heading here today" : "Send a team"} ${infoDot({ title: "🧭 Sending a team", notes: ["Build teams in the side panel — 2 fighters, a scout and 2 supports", "Odds: their chance to clear the first room, from the fight itself", "Each team goes to one place a day"] })}</div>
@@ -5703,7 +5708,7 @@ const INTRO = [
   {
     title: "The End of the World",
     art: "city",
-    text: ["It began at the Research Institute on the edge of town. A leak, a fever, a rumour nobody believed.",
+    text: ["It began at the Institute on the edge of town. A leak, a fever, a rumour nobody believed.",
       "Within a week the hospitals were overrun and the army had pulled out. The dead walked the streets, and the city burned."],
   },
   {

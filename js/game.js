@@ -4203,7 +4203,7 @@ export function checkMapMilestones(state) {
     state.armory.push(item);
     reached.push({ pct: m, item });
     addLog(state, `🗺 ${m}% of the town mapped — the scouts turned up ${itemLabel(item)} on the way. It's in the armory.`);
-    if (m === 100) addLog(state, `🗺 Every block is mapped. Out past the edge of town the four raids are open: the City Mall, the General Hospital, the Military Base and the Research Institute.`);
+    if (m === 100) addLog(state, `🗺 Every block is mapped. Out past the edge of town the four raids are open: the City Mall, the Hospital, the Military Base and the Institute.`);
   }
   return reached;
 }

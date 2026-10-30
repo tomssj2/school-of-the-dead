@@ -138,7 +138,8 @@ const TAB_AREA = { floor1: "lobby", floor2: "classrooms", floor3: "facilities", 
 export const areaOfTab = (tab) => TAB_AREA[tab] || "school";
 
 // ---------- the page behind it all: the view at the turn's time of day ----------
-// Three 960x540 pixel-art scenes drawn in code — morning (classes): the school from the front;
+// Three 960x540 pixel-art scenes — morning (classes): the school held through the outbreak, from the
+// front (a PNG drawn with pxl, art/morning.px.js; the others are drawn here in code);
 // dusk (the city): the ruined city at sunset; night (the watch): the view from the school's front
 // steps, out over the courtyard and the broken gate to the street and the city under the moon.
 // Each is set as --sky-morning / --sky-dusk / --sky-night and style.css shows the one for the
@@ -322,207 +323,6 @@ function walker({ rect }, x, y, f, c, s = 1) {
 // striped lawn and the beige fence — in muted colours, at twice the other skies' resolution. The
 // game's windows cover the middle of the screen (about x 205-755 here), so the school's features sit
 // in the strips down each side.
-function drawMorning() {
-  const W = 960, H = 540, GY = 404; // the lawn's edge
-  const cv = document.createElement("canvas");
-  cv.width = W;
-  cv.height = H;
-  const g = cv.getContext("2d");
-  const rect = (x, y, w, h, c) => {
-    g.fillStyle = c;
-    g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
-  };
-  const disc = (cx, cy, r, c) => {
-    for (let y = -r; y <= r; y++) {
-      const w = Math.round(Math.sqrt(r * r - y * y));
-      rect(cx - w, cy + y, w * 2 + 1, 1, c);
-    }
-  };
-  const ellipse = (cx, cy, rx, ry, c) => {
-    for (let y = -ry; y <= ry; y++) {
-      const w = Math.round(rx * Math.sqrt(1 - (y * y) / (ry * ry)));
-      rect(cx - w, cy + y, w * 2 + 1, 1, c);
-    }
-  };
-
-  // the palette: the campus's colours, muted
-  const CREAM = "#d9d2c2", CREAM_LIT = "#e6e0d2", CREAM_SH = "#b9b1a1";
-  const ROOF = "#3d6687", ROOF_LIT = "#5582a6", ROOF_SH = "#2c4c66";
-  const GLASS = "#8fb4cc", GLINT = "#c2d8e6";
-  const LAWN = "#6f9a66", LAWN_STRIPE = "#678f5f", LAWN_SH = "#557a4f";
-
-  // the sky: a soft morning blue in fine stepped bands, dithered where one meets the next
-  const bands = ["#355d88", "#3d6893", "#46739d", "#5180a7", "#5d8cb0", "#6a99b9", "#79a6c2", "#89b2ca", "#9abdd0", "#abc8d5", "#bad0d8"];
-  const bandH = GY / bands.length;
-  for (let y = 0; y < GY; y++) {
-    const b = Math.min(bands.length - 1, Math.floor(y / bandH));
-    const into = y / bandH - b;
-    for (let x = 0; x < W; ) {
-      const pick = (xx) => (b < bands.length - 1 && ((into > 0.7 && (xx + y) % 2 === 0) || into > 0.9) ? bands[b + 1] : bands[b]);
-      const c = pick(x);
-      let w = 1;
-      while (x + w < W && pick(x + w) === c) w++;
-      rect(x, y, w, 1, c);
-      x += w;
-    }
-  }
-  // the sun, up on the right, with a soft halo
-  for (const [r, c] of [[78, "rgba(255,240,200,0.06)"], [58, "rgba(255,240,200,0.07)"], [42, "rgba(255,240,200,0.08)"]]) disc(842, 92, r, c);
-  disc(842, 92, 30, "#f2e2a8");
-  disc(842, 92, 26, "#fbf0cc");
-  // clouds: soft blobs, lit on top
-  const cloud = (cx, cy, w) => {
-    const blobs = [[0, 0, 1], [-0.34, 0.14, 0.72], [0.36, 0.12, 0.76], [-0.62, 0.24, 0.46], [0.64, 0.24, 0.5], [0.12, -0.14, 0.62]];
-    const r0 = w / 4;
-    for (const [dx, dy, k] of blobs) disc(Math.round(cx + dx * w), Math.round(cy + dy * w * 0.5 + 4), Math.round(r0 * k), "#a9bac7");
-    for (const [dx, dy, k] of blobs) disc(Math.round(cx + dx * w), Math.round(cy + dy * w * 0.5), Math.round(r0 * k), "#d6dee4");
-    for (const [dx, dy, k] of blobs) disc(Math.round(cx + dx * w), Math.round(cy + dy * w * 0.5 - 4), Math.max(2, Math.round(r0 * k) - 6), "#eef1f3");
-    rect(cx - w * 0.78, cy + r0 * 0.55, w * 1.56, Math.ceil(r0 * 0.55), "#a9bac7");
-  };
-  for (const [x, y, w] of [[110, 92, 92], [300, 58, 64], [560, 110, 78], [700, 52, 56], [905, 196, 70], [40, 214, 54]]) cloud(x, y, w);
-  // a few birds
-  for (const [x, y] of [[236, 120], [258, 108], [276, 122], [640, 150], [662, 140]]) {
-    rect(x, y, 3, 2, "#4a5866");
-    rect(x - 4, y - 2, 4, 2, "#4a5866");
-    rect(x + 3, y - 2, 4, 2, "#4a5866");
-  }
-
-  // the town's trees on the horizon, behind the school
-  for (let x = 0; x < W; x++) {
-    const far = Math.round(GY - 44 - 9 * Math.sin(x / 61) - 5 * Math.sin(x / 23 + 2));
-    rect(x, far, 1, GY - far, "#7f97a0");
-    const near = Math.round(GY - 22 - 6 * Math.sin(x / 37 + 1) - 3 * Math.sin(x / 15));
-    rect(x, near, 1, GY - near, "#64806a");
-  }
-
-  // ----- the main building, on the left: a cream wing under a blue roof, the clock tower -----
-  const top = 254;
-  rect(-10, top, 230, GY - top, CREAM);
-  rect(-10, top, 4, GY - top, CREAM_LIT);
-  rect(-10, top + 4, 230, 4, CREAM_SH); // the roof's shadow on the wall
-  rect(-14, top - 16, 240, 16, ROOF);
-  rect(-14, top - 16, 240, 3, ROOF_LIT);
-  rect(-14, top - 2, 240, 2, ROOF_SH);
-  const pane = (x, y) => {
-    rect(x - 2, y - 2, 18, 26, CREAM_SH);
-    rect(x, y, 14, 22, GLASS);
-    rect(x + 2, y + 2, 3, 9, GLINT);
-    rect(x + 6, y, 2, 22, CREAM_LIT);
-    rect(x, y + 9, 14, 2, CREAM_LIT);
-  };
-  for (const x of [10, 44, 78, 186]) for (const y of [278, 332]) pane(x, y);
-  rect(-10, GY - 10, 230, 10, CREAM_SH); // the plinth
-
-  // the clock tower: cream, a blue cap, the blue-rimmed clock and the red banner below it
-  const tx = 118, tw = 56;
-  rect(tx, 150, tw, GY - 150, CREAM);
-  rect(tx, 150, 4, GY - 150, CREAM_LIT);
-  rect(tx + tw - 4, 150, 4, GY - 150, CREAM_SH);
-  rect(tx - 6, 136, tw + 12, 14, ROOF);
-  rect(tx - 6, 136, tw + 12, 3, ROOF_LIT);
-  rect(tx + 8, 124, tw - 16, 12, ROOF);
-  rect(tx + 8, 124, tw - 16, 2, ROOF_LIT);
-  rect(tx + tw / 2 - 2, 108, 4, 16, "#b7a46a"); // the spire
-  const cx = tx + tw / 2, cy = 184;
-  disc(cx, cy, 19, ROOF);
-  disc(cx, cy, 15, "#f3f1ea");
-  for (const [dx, dy] of [[0, -12], [12, 0], [0, 12], [-12, 0]]) rect(cx + dx - 1, cy + dy - 1, 2, 2, "#8a8a90");
-  rect(cx - 1, cy - 11, 2, 11, "#2a2a30"); // its hands at ten to eight
-  for (let k = 0; k < 8; k++) rect(cx - k - 1, cy - Math.round(k * 0.45) - 1, 2, 2, "#2a2a30");
-  rect(cx - 12, 216, 24, 52, "#b0524c"); // the red banner and its gold crest
-  rect(cx - 12, 216, 24, 3, "#c4675f");
-  rect(cx - 12, 268, 10, 6, "#b0524c");
-  rect(cx + 2, 268, 10, 6, "#b0524c");
-  disc(cx, 238, 6, "#d9be6a");
-  for (const y of [290, 344]) {
-    rect(tx + 14, y, 28, 22, CREAM_SH);
-    rect(tx + 16, y + 2, 24, 18, GLASS);
-    rect(tx + 18, y + 4, 3, 8, GLINT);
-  }
-  rect(cx - 16, GY - 44, 32, 4, ROOF); // the front door: blue-grey double doors under a blue lintel
-  rect(cx - 13, GY - 40, 26, 40, "#5a7a96");
-  rect(cx - 1, GY - 40, 2, 40, "#405a72");
-  rect(cx - 24, GY - 4, 48, 4, "#c9c2b2"); // its step
-
-  // ----- on the right: the gym's blue curved roof, the flagpole -----
-  const gx = 776;
-  rect(gx, 300, W - gx + 10, GY - 300, "#cdc6b4");
-  rect(gx, 300, 4, GY - 300, CREAM_LIT);
-  for (let x = gx - 6; x < W + 4; x++) {
-    const y = 300 - Math.round(30 * Math.sin((Math.PI * (x - gx + 6)) / 420));
-    rect(x, y, 1, 302 - y, ROOF);
-    rect(x, y, 1, 3, ROOF_LIT);
-  }
-  rect(gx, 300, W - gx, 3, ROOF_SH);
-  for (const x of [796, 836, 916]) {
-    rect(x - 2, 326, 26, 22, CREAM_SH);
-    rect(x, 328, 22, 18, GLASS);
-    rect(x + 2, 330, 3, 8, GLINT);
-  }
-  rect(866, GY - 46, 32, 46, "#6b4a2f"); // the gym's wooden doors
-  rect(866, GY - 46, 32, 3, "#8a5f33");
-  rect(881, GY - 43, 2, 43, "#5a3b24");
-  rect(780, 170, 3, GY - 170, "#c9ccd2"); // the flagpole and its green flag
-  disc(781, 168, 3, "#d9c27a");
-  for (let x = 0; x < 40; x++) {
-    const wave = Math.round(Math.sin(x / 6) * 3);
-    rect(783 + x, 176 + wave, 1, 22, "#4f8a5e");
-    rect(783 + x, 176 + wave, 1, 3, "#63a072");
-  }
-
-  // ----- the grounds: the lawn's mowing stripes, the running track, the tennis court -----
-  rect(0, GY, W, H - GY, LAWN);
-  for (let x = 0; x < W; x += 16) rect(x, GY, 8, H - GY, LAWN_STRIPE);
-  rect(0, GY, W, 3, LAWN_SH);
-  // the running track's curve in the front left, a green pitch inside it
-  ellipse(80, H + 40, 250, 106, "#a8644e");
-  ellipse(80, H + 40, 232, 92, "#b87358");
-  ellipse(80, H + 40, 214, 78, "#5f9a5e");
-  for (let k = 0; k < 4; k++) ellipse(80, H + 40, 240 - k * 6, 99 - k * 2.5, k % 2 ? "#b87358" : "#c3826a");
-  ellipse(80, H + 40, 214, 78, "#5f9a5e");
-  for (let k = 0; k < 6; k++) ellipse(80, H + 40, 214 - k * 30, 78 - k * 11, k % 2 ? "#5f9a5e" : "#5a945a"); // the pitch, mown in rings
-  // the tennis court in the front right, in perspective, behind its fence
-  for (let y = 452; y < H; y++) {
-    const t = (y - 452) / (H - 452);
-    const x0 = Math.round(812 - t * 70);
-    rect(x0, y, W - x0, 1, "#4f8070");
-    rect(x0, y, 3, 1, "#ebe9e2");
-  }
-  rect(812, 452, W - 812, 3, "#ebe9e2");
-  for (let y = 452; y < H; y++) {
-    const t = (y - 452) / (H - 452);
-    rect(Math.round(880 - t * 40), y, 2, 1, "#ebe9e2");
-  }
-  rect(790, 492, W - 790, 2, "#ebe9e2");
-  rect(790, 470, W, 2, "#d9d7cf"); // the net
-  for (let x = 800; x < W; x += 6) rect(x, 462, 1, 8, "#3a4a44");
-  // the beige fence along the front of the grounds
-  for (let x = 0; x < W; x += 24) {
-    rect(x, 420, 4, 22, "#a8946a");
-    rect(x, 420, 4, 3, "#c9b58c");
-  }
-  rect(0, 426, W, 3, "#c9b58c");
-  rect(0, 436, W, 3, "#c9b58c");
-  rect(0, 439, W, 1, "#a8946a");
-
-  // trees: a few plain ones and the campus's cherry trees in blossom
-  const tree = (x, base, s, leaf, lit) => {
-    rect(x - 3 * s, base - 30 * s, 6 * s, 30 * s, "#5a4232");
-    disc(x, base - 46 * s, Math.round(20 * s), leaf);
-    disc(x + 12 * s, base - 36 * s, Math.round(14 * s), leaf);
-    disc(x - 12 * s, base - 38 * s, Math.round(14 * s), leaf);
-    disc(x - 6 * s, base - 54 * s, Math.round(9 * s), lit);
-  };
-  tree(22, 410, 1.1, "#5a7a52", "#6a8a5e");
-  tree(232, 412, 1, "#c99aab", "#e2c2cf"); // cherry
-  tree(752, 412, 1, "#c99aab", "#e2c2cf");
-  tree(948, 412, 1.15, "#5a7a52", "#6a8a5e");
-  tree(60, 470, 0.8, "#c99aab", "#e2c2cf");
-  for (const [x, y] of [[50, 474], [64, 478], [74, 470], [44, 466]]) rect(x, y, 3, 2, "#e2c2cf"); // fallen petals
-
-  return cv.toDataURL("image/png");
-}
-
 // The dusk's view (the City Map turn): the ruined city against a purple-to-orange sky with the sun
 // going down behind it — three rows of broken towers catching its light on their edges, the near
 // ones with a few lit windows; the sheared-off tower, the snapped crane and a water tower; wrecks
@@ -912,7 +712,7 @@ function drawBasement() {
 
 export function installBackdrop(root = document.documentElement) {
   root.style.setProperty("--sky-basement", `url("${drawBasement()}")`);
-  root.style.setProperty("--sky-morning", `url("${drawMorning()}")`);
+  root.style.setProperty("--sky-morning", 'url("img/morning.png")'); // (drawn with pxl: art/morning.px.js)
   root.style.setProperty("--sky-dusk", `url("${drawDusk()}")`);
   root.style.setProperty("--sky-night", `url("${drawNight()}")`);
 }

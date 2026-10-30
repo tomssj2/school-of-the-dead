@@ -154,6 +154,13 @@ function striped(k, x0, x1, y0, y1, a, b) {
   for (let x = x0; x <= x1; x++) k.r(x, y0, x, y1, Math.floor((x - x0) / 2) % 2 ? b : a);
 }
 
+// The school's colours, from the Turn 1 backdrop (img/morning.png).
+const SC = {
+  brick: "#9a4a3a", brickLit: "#b45e48", mortar: "#86402f", stone: "#dcd3be", slate: "#40607f", slateLit: "#5a7ca0",
+  glass: "#8fb4cc", glint: "#cfe2ec", plank: "#a07a4c", oak: "#6e5232", gold: "#d9be6a", face: "#f3efe2",
+  banner: "#b0423c", cream: "#d3cbb6", flag: "#4f8a5e", sandbag: "#c2b083", bus: "#e2a72e",
+};
+
 const TILES = {
   street(k, v) {
     k.r(0, 0, 31, 27, "#6b6f78");
@@ -294,131 +301,144 @@ const TILES = {
   },
 
   school(k) {
-    k.r(0, 0, 31, 27, "#5f9e5a");
-    k.speckle("#6fae6a", 30);
+    k.r(0, 0, 31, 27, "#719c60");
+    k.speckle("#658f56", 30);
     k.r(2, 21, 29, 27, "#8a8e96");
-    k.r(4, 9, 27, 21, "#c9b18a");
-    k.r(4, 9, 4, 21, lightOf("#c9b18a"));
-    k.r(27, 9, 27, 21, shadowOf("#c9b18a"));
-    k.r(3, 7, 28, 9, "#7a3a2a");
-    k.r(13, 2, 18, 9, "#b8a07a");
-    k.r(14, 1, 17, 1, "#7a3a2a");
-    k.disc(15.5, 5, 1.6, "#f4f4f4");
+    k.r(4, 9, 27, 21, SC.brick);
+    for (let y = 11; y <= 21; y += 3) k.r(4, y, 27, y, SC.mortar);
+    k.r(4, 9, 4, 21, SC.brickLit);
+    k.r(4, 15, 27, 15, SC.stone);
+    k.r(3, 7, 28, 8, SC.slate);
+    k.r(3, 7, 28, 7, SC.slateLit);
+    k.r(13, 3, 18, 9, SC.brick);
+    k.r(13, 3, 13, 9, SC.stone);
+    k.r(14, 1, 17, 2, SC.slate);
+    k.px(15, 0, SC.gold);
+    k.disc(15.5, 5, 1.6, SC.face);
     k.px(15, 5, "#222");
     for (let x = 6; x <= 25; x += 4) {
-      k.r(x, 11, x + 1, 13, "#9fc7e8");
-      if (x < 13 || x > 17) k.r(x, 16, x + 1, 18, "#9fc7e8");
+      k.r(x, 11, x + 1, 13, SC.glass);
+      if (x < 13 || x > 17) k.r(x, 17, x + 1, 19, x < 9 ? SC.plank : SC.glass);
     }
-    k.r(14, 16, 17, 21, "#5a3b24");
-    k.r(29, 1, 29, 9, "#d0d4da");
-    k.r(30, 1, 31, 3, "#4caf7d");
+    k.r(14, 17, 17, 21, SC.oak);
+    k.r(13, 16, 18, 16, SC.stone);
+    k.r(29, 1, 29, 9, "#ccd2da");
+    k.r(30, 1, 31, 3, SC.flag);
   },
 
-  // The school grounds, spanning its seven hexes (a CAMPUS_W x CAMPUS_H canvas). Each outer hex
-  // gets one feature — sports pitch, gym, pool, tennis court, trees, the front plaza — around the
-  // main building in the middle. Hex centres on this canvas: middle (25,26), top (25,9),
-  // bottom (25,43), upper-left (10,17), lower-left (10,35), upper-right (40,17), lower-right (40,35).
+  // The school grounds, spanning its seven hexes (a CAMPUS_W x CAMPUS_H canvas), drawn like the
+  // Turn 1 backdrop (img/morning.png): red brick and stone under slate, the clock tower and its banner,
+  // the cream gym, the water tower, the bus across the gate, the vegetable beds. Hex centres on this
+  // canvas: middle (25,26), top (25,9), bottom (25,43), upper-left (10,17), lower-left (10,35),
+  // upper-right (40,17), lower-right (40,35).
   campus(k) {
     // lawn with mowing stripes
-    k.r(0, 0, 49, 51, "#6aa85f");
-    for (let x = 0; x < 50; x += 4) k.r(x, 0, x + 1, 51, "#63a158");
+    k.r(0, 0, 49, 51, "#719c60");
+    for (let x = 0; x < 50; x += 4) k.r(x, 0, x + 1, 51, "#658f56");
 
-    // upper-left: soccer pitch inside a running track
-    k.ellipse(10, 17, 8.5, 6.5, "#c0583a");
-    k.ellipse(10, 17, 7.2, 5.2, "#d0694a");
-    k.ellipse(10, 17, 6.2, 4.3, "#4caf50");
-    for (let x = 5; x <= 15; x += 2) k.r(x, 13, x, 21, "#56bb5a");
-    k.r(10, 13, 10, 21, "#f4f4f4");
-    k.r(4, 16, 4, 18, "#f4f4f4");
-    k.r(16, 16, 16, 18, "#f4f4f4");
+    // upper-left: a pitch inside the running track
+    k.ellipse(10, 17, 8.5, 6.5, "#a2604a");
+    k.ellipse(10, 17, 7.6, 5.6, "#bf7652");
+    k.ellipse(10, 17, 6.2, 4.3, "#658f56");
+    for (let x = 5; x <= 15; x += 2) k.r(x, 13, x, 21, "#719c60");
+    k.r(10, 13, 10, 21, "#ece6da");
 
-    // upper-right: the gym, with a curved roof
-    k.r(33, 13, 46, 22, "#d9d2c0");
-    k.r(33, 13, 33, 22, lightOf("#d9d2c0"));
-    k.r(46, 13, 46, 22, shadowOf("#d9d2c0"));
-    k.r(34, 12, 45, 13, "#3f7fa8");
-    k.r(35, 11, 44, 11, "#3f7fa8");
-    k.r(37, 10, 42, 10, lightOf("#3f7fa8"));
-    for (const x of [35, 43]) k.r(x, 15, x + 1, 17, "#7fc0ea");
-    k.r(38, 17, 41, 22, "#6b4a2f");
-    k.r(39, 17, 40, 22, "#8a5f33");
+    // upper-right: the gym, cream under a curved slate roof
+    k.r(33, 13, 46, 22, SC.cream);
+    k.r(33, 13, 33, 22, lightOf(SC.cream));
+    k.r(46, 13, 46, 22, shadowOf(SC.cream));
+    k.r(34, 12, 45, 13, SC.slate);
+    k.r(35, 11, 44, 11, SC.slate);
+    k.r(37, 10, 42, 10, SC.slateLit);
+    for (let x = 35; x <= 44; x += 3) k.r(x, 15, x + 1, 16, SC.glass);
+    k.r(38, 18, 41, 22, SC.oak);
+    k.r(39, 18, 40, 22, lightOf(SC.oak));
 
-    // lower-left: swimming pool
-    k.r(2, 29, 17, 40, "#e2dccb");
-    k.r(3, 30, 16, 39, "#4fb3e0");
-    k.r(3, 30, 16, 30, "#3a8fbf");
-    for (const y of [33, 36]) k.r(4, y, 15, y, "#8fd4f4");
-    k.r(6, 32, 7, 32, "#d6f0fb");
-    k.r(12, 38, 13, 38, "#d6f0fb");
-    k.r(16, 31, 16, 33, "#d0d4da");
+    // lower-left: the vegetable beds and their scarecrow
+    for (let y = 29; y <= 39; y += 3) {
+      k.r(2, y, 17, y + 1, "#6e4c33");
+      for (let x = 3; x <= 16; x += 2) k.px(x, y - 1, x % 4 ? "#4f8a3e" : "#7cba4c");
+    }
+    k.r(5, 24, 5, 28, SC.oak);
+    k.r(3, 25, 7, 25, SC.oak);
+    k.px(5, 23, "#c2b083");
+    k.r(4, 26, 6, 27, SC.banner);
 
-    // lower-right: tennis court
-    k.r(33, 29, 47, 40, "#3f8f6a");
-    k.r(33, 29, 47, 29, "#f4f4f4");
-    k.r(33, 40, 47, 40, "#f4f4f4");
-    k.r(33, 29, 33, 40, "#f4f4f4");
-    k.r(47, 29, 47, 40, "#f4f4f4");
-    k.r(35, 34, 45, 34, "#f4f4f4");
-    for (let y = 29; y <= 40; y += 2) k.px(40, y, "#e9e9e9");
+    // lower-right: the water tower, and the school bus across the gate
+    for (let y = 31; y <= 40; y++) { k.px(36 + Math.round((y - 31) / 9), y, "#5c636e"); k.px(44 - Math.round((y - 31) / 9), y, "#5c636e"); }
+    for (let i = 0; i <= 6; i++) { k.px(37 + i, 33 + i, "#5c636e"); k.px(43 - i, 33 + i, "#5c636e"); }
+    k.r(35, 26, 45, 31, "#9aa2ac");
+    k.r(35, 26, 35, 31, "#ccd2da");
+    k.r(36, 25, 44, 25, "#5c636e");
+    k.r(38, 28, 42, 28, SC.banner);
 
     // top: trees behind the tower
     for (const [x, y] of [[17, 6], [33, 6], [20, 2], [30, 2]]) tree(k, x, y);
 
-    // middle: the main building — two wings, a taller entrance block and a clock tower
-    k.r(12, 33, 38, 34, "#4f8a4a"); // shadow on the lawn
-    k.r(12, 19, 38, 32, "#ece4d0");
-    k.r(12, 19, 12, 32, lightOf("#ece4d0"));
-    k.r(38, 19, 38, 32, shadowOf("#ece4d0"));
-    k.r(11, 17, 39, 19, "#2f6f9f");
-    k.r(11, 17, 39, 17, lightOf("#2f6f9f"));
-    for (const y of [21, 26]) {
+    // middle: the main building — two brick wings, a taller entrance block and the clock tower
+    k.r(12, 33, 38, 34, "#557a4a"); // shadow on the lawn
+    k.r(12, 19, 38, 32, SC.brick);
+    for (let y = 21; y <= 32; y += 2) k.r(12, y, 38, y, SC.mortar);
+    k.r(12, 19, 12, 32, SC.brickLit);
+    k.r(38, 19, 38, 32, shadowOf(SC.brick));
+    k.r(12, 25, 38, 25, SC.stone); // the string course
+    k.r(11, 17, 39, 19, SC.slate);
+    k.r(11, 17, 39, 17, SC.slateLit);
+    for (const y of [21, 27]) {
       for (let x = 14; x <= 36; x += 3) {
         if (x > 19 && x < 30) continue;
-        k.r(x, y, x + 1, y + 2, "#7fc0ea");
-        k.px(x, y, "#b8def5");
+        const boarded = y === 27 && (x < 17 || x > 33);
+        k.r(x, y, x + 1, y + 2, boarded ? SC.plank : SC.glass);
+        k.px(x, y, boarded ? shadowOf(SC.plank) : SC.glint);
+        k.r(x, y - 1, x + 1, y - 1, SC.stone);
       }
     }
-    k.r(20, 12, 30, 32, "#f4efe2");
-    k.r(20, 12, 20, 32, "#fbf8f0");
-    k.r(30, 12, 30, 32, shadowOf("#f4efe2"));
-    k.r(19, 10, 31, 12, "#2f6f9f");
-    k.r(19, 10, 31, 10, lightOf("#2f6f9f"));
-    k.r(22, 3, 28, 10, "#f4efe2");
-    k.r(28, 3, 28, 10, shadowOf("#f4efe2"));
-    k.r(22, 1, 28, 2, "#2f6f9f");
-    k.r(24, 0, 26, 0, "#2f6f9f");
-    k.disc(25, 6, 2.2, "#2f6f9f");
-    k.disc(25, 6, 1.6, "#fdfdfd");
+    k.r(20, 12, 30, 32, SC.brick);
+    for (let y = 14; y <= 32; y += 2) k.r(20, y, 30, y, SC.mortar);
+    for (let y = 12; y <= 31; y += 4) { k.r(20, y, 20, y + 1, SC.stone); k.r(30, y + 2, 30, y + 3, shadowOf(SC.stone)); } // quoins
+    k.r(19, 10, 31, 12, SC.slate);
+    k.r(19, 10, 31, 10, SC.slateLit);
+    k.r(22, 3, 28, 10, SC.brick);
+    k.r(22, 3, 22, 10, SC.stone);
+    k.r(28, 3, 28, 10, shadowOf(SC.brick));
+    k.r(22, 2, 28, 2, SC.slate); // the tower's pyramid cap and spire
+    k.r(23, 1, 27, 1, SC.slate);
+    k.r(24, 0, 26, 0, SC.slateLit);
+    k.px(25, 0, SC.gold);
+    k.disc(25, 6, 2.2, SC.stone);
+    k.disc(25, 6, 1.6, SC.face);
     k.r(25, 5, 25, 6, "#222222");
     k.px(26, 6, "#222222");
-    for (let x = 22; x <= 28; x += 3) k.r(x, 14, x + 1, 16, "#7fc0ea");
-    k.r(24, 17, 26, 22, "#d64545");
-    k.px(25, 23, "#d64545");
-    k.px(25, 19, "#f4d35e");
-    k.r(22, 25, 28, 25, "#2f6f9f");
-    k.r(23, 26, 27, 32, "#5a7fa0");
-    k.r(25, 26, 25, 32, "#3f5f7f");
-    k.r(22, 33, 28, 34, "#d9d2c0");
+    for (let x = 22; x <= 28; x += 3) k.r(x, 14, x + 1, 16, SC.glass);
+    k.r(24, 17, 26, 22, SC.banner);
+    k.px(25, 23, SC.banner);
+    k.px(25, 19, SC.gold);
+    k.r(22, 25, 28, 25, SC.stone); // the arched oak door, sandbagged
+    k.r(23, 26, 27, 32, SC.oak);
+    k.r(25, 26, 25, 32, shadowOf(SC.oak));
+    for (const [x, y] of [[20, 32], [22, 33], [28, 33], [30, 32], [21, 31], [29, 31]]) k.r(x, y, x + 1, y, SC.sandbag);
+    k.r(22, 33, 28, 34, SC.stone);
 
-    // bottom: front plaza, the path out, cherry trees and a barricaded gate
+    // bottom: the front plaza, the path out, cherry trees, the gate barricaded with the school bus
     k.r(18, 35, 32, 41, "#d9d2c0");
     for (let x = 19; x < 32; x += 3) k.r(x, 38, x + 1, 38, "#c9c2b2");
     k.r(23, 41, 27, 51, "#d9d2c0");
     for (const x of [17, 33]) {
-      k.r(x, 41, x, 44, "#6b4a2f");
-      k.disc(x + 0.5, 39.5, 3, "#e98fb0");
-      k.disc(x - 0.5, 38.5, 1.5, "#fbd0de");
+      k.r(x, 41, x, 44, "#6e5232");
+      k.disc(x + 0.5, 39.5, 3, "#d8a6b8");
+      k.disc(x - 0.5, 38.5, 1.5, "#efd0dc");
     }
-    for (const [x, y, c] of [[20, 43, "#f4d35e"], [29, 43, "#d64545"], [21, 45, "#8a5ad6"], [28, 46, "#f4d35e"]]) k.px(x, y, c);
-    k.r(21, 47, 21, 51, "#8a8e96");
-    k.r(29, 47, 29, 51, "#8a8e96");
-    striped(k, 22, 28, 48, 48, "#d64545", "#f4f4f4");
-    for (let x = 12; x <= 38; x += 3) {
-      if (x > 18 && x < 31) continue;
-      k.r(x, 49, x + 2, 50, "#c9b58c");
-      k.r(x, 50, x + 2, 50, "#a8946a");
+    k.r(17, 45, 32, 48, SC.bus); // the bus, across the gate
+    k.r(17, 48, 32, 48, shadowOf(SC.bus));
+    for (let x = 18; x <= 31; x += 3) k.r(x, 46, x + 1, 46, SC.glass);
+    for (const x of [19, 29]) k.px(x, 49, "#1d1a20");
+    for (let x = 0; x <= 49; x += 2) k.px(x, 50, x % 4 ? "#3c3c44" : "#9aa2ac"); // barbed wire on the fence
+    for (let x = 0; x <= 49; x += 3) {
+      if (x > 21 && x < 29) continue;
+      k.r(x, 51, x + 1, 51, "#c8b48a");
     }
   },
+
 
   // --- locations (front-on buildings on a street) ---
   corner_store(k) {

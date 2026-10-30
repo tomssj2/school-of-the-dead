@@ -290,56 +290,65 @@ export const NPCS = {
     room: "headmaster", name: "Albus Doubledoor", nickname: "The Magician", ref: "Dumbledore, with a stage magician's tricks",
     lines: ["Pick a card. Any card. …Is it the three of zombies?", "It is our choices, not our barricades, that show what we truly are. …Still, build the barricades.", "A magician never reveals his secrets. Or his escape route."],
     lore: ["The Headmaster. Nobody remembers him being hired — he was just always here.", "Pulls a coin from behind your ear in the middle of a zombie attack.", "Insists it's real magic. It's not real magic."],
-    look: { skin: "#f0d0b6", hair: "#e4e5ec", eye: "#5a86c0", main: "#2a2734", sleeve: "#2a2734", shirt: "#efeaf2", accent: "#6b3fa0", pants: "#2e2b38", shoes: "#1a1820", glasses: "#d4a83a" },
-    extra: { 1: ["#8a5ac8", "body"], 2: ["#f6f6f8", "prop", true], 3: ["#d23838"] },
+    look: { skin: "#f0d0b6", hair: "#e2e4ec", eye: "#4f86d0", main: "#26232e", sleeve: "#26232e", shirt: "#efeaf2", accent: "#7a2234", pants: "#3a3d46", shoes: "#1a1820", glasses: "#d4a83a" },
+    extra: { 1: ["#6b3fa0", "body"], 4: ["#3d5a3a", "prop", true], 5: ["#4a4d58", "body", true], 6: ["#e8e0c8"] },
     draw(g) {
       person(g, {
         sex: "M", armL: "hold", eye: "normal", brow: "flat", thickBrows: true, mouthStyle: "flat",
         layers: {
           back(g) {
-            for (let y = 8; y <= 41; y++) sym(g, y, y < 36 ? 14 : 14 - (y - 35) * 2, "h"); // long silver hair
-            for (const x of [11, 14, 33, 36]) g.rect(x, 26, x, 38, "H");
+            for (let y = 8; y <= 24; y++) sym(g, y, 13, "h"); // silver hair, swept back to the collar
           },
           lower(g) {
-            for (let y = 40; y <= 56; y++) { // the academic gown, open over the trousers
-              const flare = Math.floor((y - 40) / 6);
-              g.rect(13 - flare, y, 19, y, "u");
-              g.rect(28, y, 34 + flare, y, "u");
+            for (let y = 40; y <= 55; y++) { // the academic gown, open over the suit trousers
+              const flare = Math.floor((y - 40) / 5);
+              g.rect(13 - flare, y, 18, y, "u");
+              g.rect(29, y, 34 + flare, y, "u");
             }
           },
           torso(g) {
-            g.rect(19, 31, 28, 45, "a"); // the purple waistcoat
-            g.rect(18, 31, 18, 56, "1"); // the gown's lining
-            g.rect(29, 31, 29, 56, "1");
+            g.rect(4, 34, 9, 42, "4"); // the school register, tucked under his arm
+            g.rect(4, 43, 9, 43, "6");
+            g.rect(4, 37, 9, 37, "y");
+            g.rect(19, 31, 28, 45, "5"); // the grey waistcoat
+            shape(g, [[31, 3], [32, 3], [33, 2], [34, 2], [35, 1]], "c"); // the shirt at the collar
+            g.rect(23, 31, 24, 37, "a"); // the tie
+            g.points([[23, 39], [23, 41], [23, 43]], "y"); // buttons
+            g.points([[19, 40], [20, 41], [21, 41], [22, 40]], "y"); // a pocket-watch chain
+            g.rect(18, 31, 18, 55, "1"); // the gown's purple facings
+            g.rect(29, 31, 29, 55, "1");
           },
           collar(g) {
             sym(g, 29, 4, "c");
             sym(g, 30, 5, "c");
+            g.rect(23, 30, 24, 30, "a");
           },
           head(g) {
-            shape(g, [[3, 5], [4, 8], [5, 10], [6, 11]], "h"); // receding, silver
-            g.rect(12, 7, 17, 9, "h");
-            g.rect(30, 7, 35, 9, "h");
-            g.rect(9, 7, 13, 27, "h");
-            g.rect(34, 7, 38, 27, "h");
-            g.points([[21, 4], [22, 3], [26, 4]], "j");
-            // the beard
-            g.rect(17, 21, 30, 22, "h");
-            shape(g, [[23, 11], [24, 11], [25, 10], [26, 10], [27, 10], [28, 9], [29, 9], [30, 9], [31, 8], [32, 8], [33, 7], [34, 7], [35, 6], [36, 6], [37, 5], [38, 5], [39, 4], [40, 3], [41, 2], [42, 1]], "h");
+            shape(g, [[3, 5], [4, 8], [5, 10], [6, 11]], "h"); // swept back, receding at the temples
+            g.rect(12, 7, 16, 9, "h");
+            g.rect(31, 7, 35, 9, "h");
+            g.rect(10, 7, 12, 23, "h");
+            g.rect(35, 7, 37, 23, "h");
+            g.rect(11, 10, 11, 22, "H");
+            g.rect(36, 10, 36, 22, "H");
+            g.points([[20, 4], [23, 3], [27, 4], [17, 6], [30, 6]], "j");
+            g.set(25, 20, "S"); // a long nose
+            // a neat beard, trimmed to the collar
+            shape(g, [[21, 11], [22, 11], [23, 11], [24, 11], [25, 10], [26, 10], [27, 9], [28, 8], [29, 7], [30, 6], [31, 5], [32, 3]], "h");
+            g.rect(13, 19, 14, 20, "h");
+            g.rect(33, 19, 34, 20, "h");
+            for (const x of [17, 20, 27, 30]) g.rect(x, 25, x, Math.round(31 - Math.abs(x - 23.5) * 0.6), "H");
+            g.points([[19, 26], [28, 26]], "j");
+            // the moustache, and a kind smile under it
+            g.rect(18, 22, 29, 22, "h");
+            g.rect(19, 23, 21, 23, "H");
+            g.rect(26, 23, 28, 23, "H");
             g.rect(22, 23, 25, 23, "m");
-            for (const x of [17, 20, 27, 30]) g.rect(x, 26, x, Math.round(37 - Math.abs(x - 23.5) * 1.2), "H");
-            g.points([[19, 24], [28, 24], [16, 25]], "j");
+            g.points([[21, 24], [26, 24]], "h");
             // half-moon spectacles
             g.rect(15, 19, 20, 19, "g");
             g.rect(27, 19, 32, 19, "g");
-            g.points([[15, 18], [20, 18], [27, 18], [32, 18], [21, 17], [22, 17], [25, 17], [26, 17]], "g");
-          },
-          front(g, hands) {
-            const [hx, hy] = hands.L; // a fan of cards
-            g.rect(hx - 5, hy - 8, hx - 2, hy - 2, "2");
-            g.rect(hx - 3, hy - 9, hx, hy - 3, "2");
-            g.rect(hx - 1, hy - 8, hx + 2, hy - 2, "2");
-            g.points([[hx - 4, hy - 6], [hx - 2, hy - 7], [hx + 1, hy - 6], [hx - 3, hy - 4], [hx + 1, hy - 3]], "3");
+            g.points([[15, 18], [20, 18], [27, 18], [32, 18], [21, 18], [22, 17], [23, 17], [24, 17], [25, 17], [26, 18]], "g");
           },
         },
       });

@@ -23,15 +23,15 @@ const PLACE_ASK = {
   grillsay: "That Diner stole my customers AND my ladle. Clear it out. Every. Single. Room.",
   whiteboard: "The Pharmacy has what I need. Clear it, and nobody gets hurt. Well. Fewer people.",
   seen: "There are families hiding in the houses down the street. Let's make it safe for them, sweetheart.",
-  mopovich: "Sporting Goods Store… is very dirty. Many zombies. Can you clean, please?",
+  mopovich: "Sports Shop… is very dirty. Many zombies. Can you clean, please?",
   gyber: "Everything I need is at the Hardware Store. And everything I don't, between me and it.",
   plowson: "The Garden Center. Seeds, compost, glory. How hard can it be?",
   scrapperson: "The Gas Station's got a garage full of junk. Clear it and I'll take a look. Best I can do.",
-  quarkwell: "The Electronics Store. Clear it methodically. Left to right. I'll know if you don't.",
+  quarkwell: "The Tech Store. Clear it methodically. Left to right. I'll know if you don't.",
   cowper: "The old Farmstead's got animals left out there. Jezza would get it wrong. You won't.",
   bickus: "St. Mary's crypt holds relics of Rome. Probably. Secure it. 'Tis but a short walk.",
   frankenstitch: "The Vet Clinic! Specimens! Steve needs friends. Clear it — gently, if you can.",
-  quinzwheel: "The Police Station's got my stuff in an evidence locker, puddin'. Let's go get it back!",
+  quinzwheel: "The Police HQ's got my stuff in an evidence locker, puddin'. Let's go get it back!",
   bulldog: "My tour speakers are stuck in the Warehouse. Clear it out — DALE!",
   brockbride: "There's a paramedic at the Fire Station who looks just like me. Isn't that lovely? Please clear it!",
 };
@@ -68,9 +68,9 @@ export const SCHOOL_PARTS = [
 const MAIN_LINE = [
   ...SCHOOL_PARTS,
   { id: "main:t1", tier: 1, title: "The Neighbourhood", say: "Some of our staff have errands close to home. Speak to them — then the City Mall awaits.", reward: { food: 30, materials: 30 } },
-  { id: "main:t2", tier: 2, title: "Across Town", say: "Further out, then. Our friends need you across town — and the General Hospital needs emptying.", reward: { food: 40, materials: 40, medicine: 10 } },
+  { id: "main:t2", tier: 2, title: "Across Town", say: "Further out, then. Our friends need you across town — and the Hospital needs emptying.", reward: { food: 40, materials: 40, medicine: 10 } },
   { id: "main:t3", tier: 3, title: "The Far Side", say: "The far side of the city. Help them there, and the Military Base will be within reach.", reward: { materials: 60, research: 20 } },
-  { id: "main:t4", tier: 4, title: "The Edge of the City", say: "The edge of the city — and the Research Institute, where all of this began. Pick a card… any card.", reward: { materials: 80, research: 40 } },
+  { id: "main:t4", tier: 4, title: "The Edge of the City", say: "The edge of the city — and the Institute, where all of this began. Pick a card… any card.", reward: { materials: 80, research: 40 } },
 ];
 
 export const placeName = (id) => (LOCATIONS.find((l) => l.id === id) || LANDMARKS.find((l) => l.id === id))?.name || id;

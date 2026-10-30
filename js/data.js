@@ -1165,11 +1165,11 @@ export const LEGACY_POI_HEXES = {
   hardware_store: ["-3,1"],
   gas_station: ["-2,4"],
   supermarket: ["0,3"],
-  apartments: ["1,4"],
+  apartments: ["1,4", "-3,4"],
   electronics_store: ["4,-1"],
-  urgent_care: ["-2,-3"],
+  urgent_care: ["-2,-3", "2,3"],
   vet_clinic: ["-5,2"],
-  farmstead: ["-3,3"],
+  farmstead: ["-3,3", "2,-6"],
   petting_zoo: ["-2,6"],
   church: ["-5,5"],
   library: ["-5,-1"],
@@ -1217,7 +1217,7 @@ export const LOCATIONS = [
   },
   {
     id: "hardware_store",
-    name: "Hardware Store",
+    name: "Hardware",
     desc: "Tools and lumber for fortifying the school.",
     difficulty: 2,
     danger: 2,
@@ -1229,19 +1229,19 @@ export const LOCATIONS = [
   },
   {
     id: "urgent_care",
-    name: "Urgent Care Clinic",
-    desc: "A walk-in clinic with its ambulance still in the bay. A taste of what the General Hospital holds.",
+    name: "Urgent Care",
+    desc: "A walk-in clinic with its ambulance still in the bay. A taste of what the Hospital holds.",
     difficulty: 4,
     danger: 3,
     rewards: { food: 2, materials: 6, medicine: 20, research: 14 },
     serumChance: 0.12,
     lootBias: "armor",
     ground: "street",
-    hex: { q: 2, r: 3 }, // distance 5
+    hex: { q: 3, r: 3 }, // distance 6
   },
   {
     id: "police_station",
-    name: "Police Station",
+    name: "Police HQ",
     desc: "Weapons and armor behind a wall of undead officers.",
     difficulty: 5,
     danger: 5,
@@ -1252,7 +1252,7 @@ export const LOCATIONS = [
   },
   {
     id: "electronics_store",
-    name: "Electronics Store",
+    name: "Tech Store",
     desc: "Smashed screens up front, but the stockroom is full of parts, gadgets and manuals.",
     difficulty: 3,
     danger: 3,
@@ -1263,7 +1263,7 @@ export const LOCATIONS = [
   },
   {
     id: "neighborhood",
-    name: "Suburban Neighborhood",
+    name: "The Suburbs",
     desc: "House to house searching. Slow, but people sometimes hide here.",
     difficulty: 1,
     danger: 3,
@@ -1278,7 +1278,7 @@ export const LOCATIONS = [
   },
   {
     id: "farmstead",
-    name: "Abandoned Farmstead",
+    name: "Old Farm",
     desc: "Fields gone to seed on the edge of town, and livestock left to fend for itself.",
     difficulty: 3,
     danger: 3,
@@ -1287,7 +1287,7 @@ export const LOCATIONS = [
     animals: ["chicken", "sheep", "cow"],
     animalChance: 0.5,
     ground: "field",
-    hex: { q: 2, r: -6 }, // distance 3
+    hex: { q: 3, r: -6 }, // distance 6
   },
   // --- further out: rings 4-6 ---
   {
@@ -1326,18 +1326,18 @@ export const LOCATIONS = [
   },
   {
     id: "church",
-    name: "St. Mary's Church",
+    name: "St. Mary's",
     desc: "The bells stopped ringing weeks ago, but people still hide in the crypt. Mind the congregation upstairs.",
     difficulty: 3,
     danger: 4,
     rewards: { food: 12, materials: 4, medicine: 10 },
     recruitBonus: 2,
     ground: "park",
-    hex: { q: -5, r: 5 }, // distance 5
+    hex: { q: -6, r: 5 }, // distance 6
   },
   {
     id: "marina",
-    name: "Riverside Marina",
+    name: "The Marina",
     desc: "Boats bobbing at the docks, a bait shop and a lot of fish nobody's been catching.",
     difficulty: 4,
     danger: 4,
@@ -1348,7 +1348,7 @@ export const LOCATIONS = [
   },
   {
     id: "warehouse",
-    name: "Distribution Warehouse",
+    name: "Warehouse",
     desc: "Aisle after aisle of pallets for the whole city's stores. Big, dark and very, very crowded.",
     difficulty: 5,
     danger: 5,
@@ -1359,7 +1359,7 @@ export const LOCATIONS = [
   },
   {
     id: "library",
-    name: "Public Library",
+    name: "Library",
     desc: "Quiet stacks of textbooks, journals and technical manuals — everything a research team could want. Keep your voice down.",
     difficulty: 4,
     danger: 3,
@@ -1382,7 +1382,7 @@ export const LOCATIONS = [
   },
   {
     id: "army_surplus",
-    name: "Army Surplus Store",
+    name: "Army Surplus",
     desc: "Racks of real gear behind a steel shutter someone already tried to pry open.",
     difficulty: 5,
     danger: 5,
@@ -1406,7 +1406,7 @@ export const LOCATIONS = [
   },
   {
     id: "sporting_goods",
-    name: "Sporting Goods Store",
+    name: "Sports Shop",
     desc: "Bats, hockey sticks and pads in every size — the closest thing to an armory this side of town.",
     difficulty: 2,
     danger: 2,
@@ -1420,7 +1420,7 @@ export const LOCATIONS = [
   },
   {
     id: "apartments",
-    name: "Apartment Block",
+    name: "Tower Block",
     desc: "Twelve floors of locked doors. Most hide something hungry — a few hide people.",
     difficulty: 2,
     danger: 3,
@@ -1429,11 +1429,11 @@ export const LOCATIONS = [
     ingredientBonus: 0.05,
     seedBonus: 0,
     ground: "apartments",
-    hex: { q: -3, r: 4 },
+    hex: { q: -4, r: 4 },
   },
   {
     id: "vet_clinic",
-    name: "Veterinary Clinic",
+    name: "Vet Clinic",
     desc: "An animal hospital with a well-stocked pharmacy — and a fridge of vaccines someone hoped might work on people.",
     difficulty: 4,
     danger: 3,
@@ -1510,7 +1510,7 @@ export const LANDMARKS = [
     rewards: { food: 60, materials: 25, medicine: 5 }, respawnDays: 4,
   },
   {
-    id: "hospital", name: "General Hospital", tier: 2, corner: "se", at: { x: 344, y: 402 },
+    id: "hospital", name: "Hospital", tier: 2, corner: "se", at: { x: 344, y: 402 },
     focus: "Medicine and serum",
     desc: "The mother lode of medicine — and of the infected. The head surgeon is still on call.",
     boss: { name: "The Head Surgeon", look: "surgeon", hp: 760, damage: 22, attacks: 2 },
@@ -1526,7 +1526,7 @@ export const LANDMARKS = [
     rewards: { food: 15, materials: 70, medicine: 10 }, respawnDays: 5,
   },
   {
-    id: "institute", name: "Research Institute", tier: 4, corner: "nw", at: { x: 72, y: 62 },
+    id: "institute", name: "The Institute", tier: 4, corner: "nw", at: { x: 72, y: 62 },
     focus: "Research and serum",
     desc: "Where the outbreak started. Patient zero never left the building.",
     boss: { name: "Subject Zero", look: "labcoat", hp: 1520, damage: 28, attacks: 3 },

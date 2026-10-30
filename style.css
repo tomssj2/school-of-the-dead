@@ -4764,3 +4764,41 @@ body.tut-lock .room:not(.room-boarded) .scene-upgrade, body.tut-lock .room:not(.
 .hw-supply-head span { display: grid; font-size: 13px; color: var(--muted); }
 .hw-supply-head b { font-size: 20px; color: var(--text); }
 .hw-supply-head small { margin-left: auto; color: var(--muted); }
+
+/* A place or raid on the City Map: its whole block, framed by corner brackets so it stands out of the
+   town without covering its art (gold; red for a raid; the team's colour when one is heading there).
+   The name and details are in its tooltip. */
+.cm-block {
+  position: absolute; z-index: 2; cursor: pointer;
+  left: calc(var(--ox) + var(--bx) * var(--s) * 1px);
+  top: calc(var(--oy) + var(--by) * var(--s) * 1px);
+  width: calc(var(--bw) * var(--s) * 1px);
+  height: calc(var(--bh) * var(--s) * 1px);
+  --bc: rgba(244, 211, 94, 0.9);
+  --bl: clamp(6px, calc(var(--bw) * var(--s) * 0.22px), 22px);
+}
+.cm-block.cm-lair { --bc: rgba(255, 80, 70, 0.95); }
+.cm-block.cm-assigned { --bc: var(--team); }
+.cm-block.cm-cleared { --bc: rgba(150, 156, 168, 0.8); }
+.cm-block::before {
+  content: ""; position: absolute; inset: -2px; pointer-events: none;
+  background:
+    linear-gradient(var(--bc), var(--bc)) left top / var(--bl) 2px,
+    linear-gradient(var(--bc), var(--bc)) left top / 2px var(--bl),
+    linear-gradient(var(--bc), var(--bc)) right top / var(--bl) 2px,
+    linear-gradient(var(--bc), var(--bc)) right top / 2px var(--bl),
+    linear-gradient(var(--bc), var(--bc)) left bottom / var(--bl) 2px,
+    linear-gradient(var(--bc), var(--bc)) left bottom / 2px var(--bl),
+    linear-gradient(var(--bc), var(--bc)) right bottom / var(--bl) 2px,
+    linear-gradient(var(--bc), var(--bc)) right bottom / 2px var(--bl);
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
+}
+.cm-block:hover { z-index: 6; background: rgba(255, 246, 200, 0.12); }
+.cm-block:hover::before { inset: -4px; }
+.cm-block.cm-lair:not(.cm-cleared):not(.cm-assigned)::before { animation: cm-raid-pulse 1.8s ease-in-out infinite; }
+@keyframes cm-raid-pulse { 50% { filter: drop-shadow(0 0 5px rgba(255, 60, 50, 0.9)); } }
+.cm-block .cm-squad { left: 50%; top: 0; transform: translate(-50%, -90%); }
+/* its name tag, sitting on the block's top edge like the school's (the team's faces above it) */
+.cm-label.cm-tag { top: 0; bottom: auto; transform: translate(-50%, -55%); max-width: none; border-color: var(--bc); z-index: 1; }
+.cm-block .cm-squad { transform: translate(-50%, calc(-90% - 12px)); }
